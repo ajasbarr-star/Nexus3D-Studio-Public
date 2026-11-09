@@ -1,0 +1,174 @@
+[
+  {
+    "name": "Alphabet state creation and independent ruler visibility",
+    "sanity": true,
+    "viewport": "mobile",
+    "covers": [
+      "animation mode entry",
+      "default panel contains only + State",
+      "alphabetic state creation",
+      "tap letter toggles its 75px ruler timeline",
+      "80px glassmorphic panel",
+      "75px ruler anchor"
+    ],
+    "description": "Verifies the compact alphabet-state flow and that timelines remain hidden until their letter is tapped.",
+    "steps": [
+      "Enter ANIM mode",
+      "Verify only + State is visible",
+      "Tap + State and verify A appears with no ruler",
+      "Tap A to show its ruler",
+      "Tap A again to hide its ruler"
+    ],
+    "expected": "The sequence begins with only + State, creates A on demand, and toggles a 75px ruler inside the 80px glass panel."
+  },
+  {
+    "name": "Transform gizmo snapping and precision modifiers",
+    "viewport": "mobile",
+    "covers": [
+      "translation snapping",
+      "rotation snapping",
+      "scale snapping",
+      "Ctrl temporary snap modifier",
+      "Shift fine-snap modifier",
+      "snap toggle remains respected after key release"
+    ],
+    "description": "Verifies the transform gizmo supports normal snapping and reduced snap increments while Shift is held.",
+    "steps": [
+      "Create and select a mesh",
+      "Enable snapping and drag the move gizmo",
+      "Hold Shift while dragging the move gizmo",
+      "Release Shift and disable snapping",
+      "Hold Ctrl while dragging a gizmo and release Ctrl"
+    ],
+    "expected": "Translation uses 0.5 units, rotation 15 degrees and scale 0.1 normally; Shift reduces the increments to one tenth, one third and one half respectively, while Ctrl temporarily enables snapping."
+  },
+  {
+    "name": "Alphabet handle resizes the preceding timeline",
+    "viewport": "mobile",
+    "covers": [
+      "alphabet button direct pointer drag",
+      "preceding timeline width resize",
+      "unbounded rightward timeline expansion",
+      "horizontal scrolling",
+      "frame-number ruler and keyframe markers"
+    ],
+    "description": "Verifies the alphabet letter acts as the drag handle for the preceding timeline and ruler markings remain visible.",
+    "steps": [
+      "Enter ANIM mode and add A",
+      "Show A's timeline",
+      "Add B and drag B to the right",
+      "Verify A's timeline expands and ruler labels include frame numbers",
+      "Drag B left and verify A's timeline stops at its minimum width"
+    ],
+    "expected": "Dragging B resizes A's track without a separate handle or configured maximum; ruler ticks, keyframe diamonds and playhead remain visible."
+  },
+  {
+    "name": "Playback controls stay hidden until Anim trigger",
+    "viewport": "mobile",
+    "covers": [
+      "right-center Anim trigger",
+      "bottom-left BACK PLAY/PAUSE FORWARD controls hidden by default",
+      "playback controls toggle",
+      "exit animation restores editor"
+    ],
+    "description": "Verifies playback controls are opt-in and the editor can be exited without affecting the scene workspace.",
+    "steps": [
+      "Enter ANIM mode",
+      "Verify playback controls are hidden",
+      "Tap Anim",
+      "Verify BACK, PLAY/PAUSE and FORWARD appear at bottom-left",
+      "Hide controls and exit Animation Mode"
+    ],
+    "expected": "Playback controls remain hidden by default, toggle from the right-center Anim trigger, and exiting animation returns to the normal editor."
+  },
+  {
+    "name": "Connected mesh edits and previously successful editor systems remain intact",
+    "viewport": "desktop",
+    "covers": [
+      "topology-aware vertex movement",
+      "coincident render vertices remain synchronized",
+      "edge endpoints and adjacent faces move together",
+      "Face Mode selects an entire coplanar surface with perimeter-only highlight and a centered gizmo pivot",
+      "Extrude moves the selected face region",      "one-tap Subdivide reconstructs the original BoxGeometry corner order into square quads",
+      "every subdivided face remains a non-degenerate square quad across repeated taps",
+      "visible topology draws square perimeters only and never diagonal triangle cuts",
+      "quad-grid metadata survives Undo, Redo, and .nexus save/load",
+      "whole-mesh Smooth changes vertex positions after subdivision", 
+      "subdivision wireframe and cut-loop overlays remain depth-tested, visible on exterior surfaces, and hidden behind opaque mesh surfaces",
+      "mobile-safe smoothing updates geometry without excessive synchronous work or freezing,",
+      "Loop Cut activates from the bottom icon, previews a pink drag line over the mesh, commits a black cut outline on release, and keeps the cut attached",
+      "UV seams and hard-edge attributes remain un-welded",
+      "recursive GLTF scene tree traversal",
+      "two-way transform inspector sync",
+      "Top Toolbar World Axis, Move, Rotate, Scale work during Vertex, Edge, and Face editing without Scene Tree reselection",
+      "loop-cut position slider regenerates a real cut from the original mesh and permits loop sliding",
+      "CAM and USER view toggle",
+      ".nexus save/load",
+      "HDRI environment presets",
+      "collapsible Manual Bones",
+      "Auto-IK controls"
+    ],
+    "description": "Guards the geometry integrity fix and previously successful Nexus3D editor systems against regression.",
+    "steps": [
+      "Create and select a cube, then open Mesh Editing",
+      "Choose Vertex mode, select a corner, and drag it; inspect all adjacent faces for gaps",
+      "Choose Edge mode, drag an edge, and inspect both endpoints and neighboring faces",
+      "Switch between Vertex, Edge, and Face modes and confirm the mesh remains connected",
+      "While Face Mode is active, verify the highlight has no internal triangulation diagonals and the gizmo sits at the face center, then drag Move, Rotate, and Scale without Scene Tree reselection",
+      "Tap Subdivide once on a fresh Cube and inspect all six surfaces for complete square faces with no diagonal cuts or missing faces",
+      "Tap Subdivide two more times and verify every resulting face remains non-degenerate and square, then Undo and Redo the latest pass",
+      "Save the subdivided Cube as Project.nexus, reload it, and verify the square-grid overlay and face boundaries are restored",
+      "Tap Loop Cutting once on a cube and verify a centered cut appears, then move Loop Position toward each side and confirm the cut remains attached",
+      "Select a face, tap Loop Cut in the bottom toolbar, drag across the face while observing the pink preview, then release to commit the black topology cut",
+      "Select a face adjacent to the cut and drag it upward and downward with the Top Toolbar Move gizmo",
+      "Import a GLTF/GLB mesh and repeat a vertex or edge drag near a shared seam",
+      "Change object transforms, save Project.nexus, and reload the project",
+      "Toggle CAM then USER and open Skybox, Manual Bones, and Auto-IK"
+    ],
+    "expected":      "Subdivide reconstructs the original BoxGeometry faces into valid square quads, repeated taps subdivide the current canonical quad layout without degenerate faces or visible diagonal cuts, the square perimeter overlay stays attached, and Undo/Redo plus .nexus save/load restore the correct quad-grid state; Loop Cut, Smooth, and the other existing editor systems remain available."
+  },
+  {
+    "name": "Loop Cut drag preview and controlled Subdivide cuts",
+    "viewport": "mobile",
+    "covers": [
+      "bottom Loop Cut tool activation",
+      "pink drag preview follows pointer across selected face",
+      "black committed cut outline after pointer release",
+      "repeated Subdivide taps create only valid square quad faces with no diagonal triangle cuts",
+      "all six cube surfaces remain complete with no invisible or missing faces",
+      "topology overlay remains attached to transformed mesh"
+    ],
+    "description": "Verifies the touch-first cut workflow and guards repeated subdivision against geometry explosion.",
+    "steps": [
+      "Create and select a cube",
+      "Enter Face mode and tap a face",
+      "Tap Loop Cut in the bottom toolbar",
+      "Drag across the face and verify a pink preview follows the finger",
+      "Release and verify the cut becomes a black outline in the mesh",
+      "Tap Subdivide repeatedly and verify each tap adds a cut without freezing or crashing",
+      "Move the mesh and verify the cut lines stay attached"
+    ],
+    "expected": "The pink preview tracks the drag, pointer release commits a real black mesh cut, repeated Subdivide taps produce only valid square quad faces with no visible diagonal cuts or missing surfaces, and the editor remains responsive."
+  },
+  {
+    "name": "Face region selection, local extrusion, gizmo, and history",
+    "viewport": "mobile",
+    "covers": [
+      "independent selection of each subdivided square quad cell",
+      "extrusion affects only the tapped square cell with no neighboring face movement",
+      "extruded cap keeps gizmo attached",
+      "repeated face extrusion",
+      "Undo and Redo restore face geometry"
+    ],
+    "description": "Verifies that a subdivided planar face is edited by region rather than moving every coplanar triangle.",
+    "steps": [
+      "Create a cube and enter Face editing mode",
+      "Subdivide the cube into square quad cells",
+      "Tap one square cell and verify only that exact cell highlights",
+      "Extrude the selected square and verify all neighboring cells and cube sides remain in place",
+      "Verify the transform gizmo is attached to the raised cap",
+      "Extrude the same cap again, then Undo and Redo"
+    ],
+    "expected": "Only the tapped square cell moves, its four perimeter side walls close cleanly, neighboring cells remain unchanged, the gizmo stays on the raised cap, and Undo/Redo restore the before and after geometry."
+  }
+]
