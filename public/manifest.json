@@ -1,0 +1,11 @@
+{
+  "name": "Nexus3D",
+  "short_name": "Nexus3D",
+  "description": "Mobile-first fullscreen 3D scene editor",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#090d16",
+  "theme_color": "#090d16"
+}
