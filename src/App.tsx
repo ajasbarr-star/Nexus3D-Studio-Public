@@ -1903,9 +1903,11 @@ export default function App() {
     }
     const afterCutLoops = Array.isArray(target.userData.cutLoops) ? (target.userData.cutLoops as number[][][]).map(loop => loop.map(point => [...point])) : [];
     const after = geometry.clone();
-    const afterQuadGridState = tool === 'Subdivide'
+    const afterQuadGridState = tool === 'Subdivide' && target.userData.nexusQuadGrid === true
       ? { enabled: true, layout: 'canonical-v1', bounds: null, divisions: 0 }
-      : tool === 'LoopCut'
+      : tool === 'Subdivide'
+        ? { enabled: false, layout: null, bounds: null, divisions: 0 }
+        : tool === 'LoopCut'
         ? { enabled: false, layout: null, bounds: null, divisions: 0 }
         : captureQuadGridState();
     target.geometry.dispose(); target.geometry = geometry;
