@@ -2842,19 +2842,22 @@ export default function App() {
       const fileName = safeName.toLowerCase().endsWith('.nexus') || safeName.toLowerCase().endsWith('.json') ? safeName : safeName + '.nexus';
 
       if (Capacitor.isNativePlatform()) {
-        // Save inside Nexus3D's private app storage. This is available offline
-        // and does not trigger Android's Share sheet or require Documents access.
-        const nativePath = 'Nexus3D/' + fileName;
+        // Save a user-accessible .nexus file in Documents so Android's file
+        // picker can find it later. Do not open the Share sheet automatically.
+        const folderPath = 'Nexus3D';
+        await Filesystem.mkdir({
+          path: folderPath,
+          directory: Directory.Documents,
+          recursive: true,
+        }).catch(() => undefined);
         await Filesystem.writeFile({
-          path: nativePath,
+          path: folderPath + '/' + fileName,
           data: serialized,
-          directory: Directory.Data,
+          directory: Directory.Documents,
           encoding: Encoding.UTF8,
           recursive: true,
         });
-        localStorage.setItem('nexus3d-last-project-path', nativePath);
-        try { localStorage.setItem('nexus3d-project-v1', serialized); } catch { /* Native file remains the primary copy. */ }
-        setStatus('Project Saved Successfully! ' + fileName);
+        setStatus('Project Saved Successfully! Documents/Nexus3D/' + fileName);
         return;
       }
 
@@ -2871,32 +2874,11 @@ export default function App() {
       setStatus('Unable to save project on this device');
     }
   };
-  const loadProject = async () => {
-    if (Capacitor.isNativePlatform()) {
-      try {
-        const nativePath = localStorage.getItem('nexus3d-last-project-path');
-        if (nativePath) {
-          const saved = await Filesystem.readFile({
-            path: nativePath,
-            directory: Directory.Data,
-            encoding: Encoding.UTF8,
-          });
-          const raw = typeof saved.data === 'string' ? saved.data : '';
-          if (raw) {
-            handleProjectFile(new File([raw], nativePath.split('/').pop() || 'Project.nexus', { type: 'application/json' }));
-            return;
-          }
-        }
-        // No in-app save exists yet: let the user import an existing .nexus file.
-        projectFileRef.current?.click();
-      } catch (error) {
-        console.error('Nexus3D offline project load failed:', error);
-        setStatus('Unable to load the saved project. Choose a .nexus file instead.');
-        projectFileRef.current?.click();
-      }
-      return;
-    }
-    if (projectFileRef.current) projectFileRef.current.click();
+  const loadProject = () => {
+    // Keep this synchronous inside the tap handler: Android WebView requires
+    // the file input to open directly from the user's gesture.
+    setStatus('Choose a .nexus project from Internal Storage');
+    projectFileRef.current?.click();
   };
   const handleProjectFile = (file?: File) => {
     if (!file) return;
