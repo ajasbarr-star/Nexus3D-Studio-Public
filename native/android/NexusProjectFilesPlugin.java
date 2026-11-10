@@ -203,6 +203,39 @@ public class NexusProjectFilesPlugin extends Plugin {
         }
     }
 
+    @PluginMethod
+    public void loadProjectArchive(PluginCall call) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/zip", "application/octet-stream"});
+        startActivityForResult(call, intent, "handleArchiveLoadResult");
+    }
+
+    @ActivityCallback
+    private void handleArchiveLoadResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) {
+            call.reject("ZIP load cancelled");
+            return;
+        }
+        Uri uri = result.getData().getData();
+        try (InputStream input = getContext().getContentResolver().openInputStream(uri);
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            if (input == null) throw new IllegalStateException("Unable to read selected ZIP archive");
+            byte[] buffer = new byte[16384];
+            int count;
+            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+            String base64 = android.util.Base64.encodeToString(output.toByteArray(), android.util.Base64.NO_WRAP);
+            JSObject response = new JSObject();
+            response.put("base64", base64);
+            response.put("name", fileNameFromUri(uri));
+            call.resolve(response);
+        } catch (Exception error) {
+            call.reject("Unable to load project ZIP: " + error.getMessage(), error);
+        }
+    }
+
     private String fileNameFromUri(Uri uri) {
         String segment = uri.getLastPathSegment();
         if (segment == null || segment.trim().isEmpty()) return "Project.nexus";
