@@ -269,6 +269,7 @@ export default function App() {
   const [ikEnabled, setIkEnabled] = useState(false);
   const [ikChainLength, setIkChainLength] = useState(3);
   const [jointLimitDegrees, setJointLimitDegrees] = useState(120);
+  const [ikSolver, setIkSolver] = useState<'CCD' | 'FABRIK'>('CCD');
   const [rigTab, setRigTab] = useState<'manual' | 'auto'>('manual');
   const [mirrorEnabled, setMirrorEnabled] = useState(true);
   const mirrorEnabledRef = useRef(true);
@@ -1020,25 +1021,55 @@ export default function App() {
       const bones = path.reverse().slice(-Math.max(1,Math.min(chainLength+1,path.length)));
       if (bones.length < 2) { setStatus('Select a limb bone before creating its IK target'); return; }
       const targetPosition = chain.target.getWorldPosition(new THREE.Vector3());
-      for (let iteration=0;iteration<16;iteration++) {
-        for (let i=bones.length-2;i>=0;i--) {
-          scene.updateMatrixWorld(true);
-          const bone=bones[i];
+      const clampJoint = (bone: THREE.Bone) => {
+        const limit = THREE.MathUtils.degToRad(Number(bone.userData.jointLimitDegrees ?? jointLimitDegrees));
+        const euler = new THREE.Euler().setFromQuaternion(bone.quaternion,'XYZ');
+        euler.x = THREE.MathUtils.clamp(euler.x,-limit,limit);
+        euler.y = THREE.MathUtils.clamp(euler.y,-limit,limit);
+        euler.z = THREE.MathUtils.clamp(euler.z,-limit,limit);
+        bone.quaternion.setFromEuler(euler); bone.updateMatrixWorld(true);
+      };
+      if (ikSolver === 'CCD') {
+        for (let iteration=0;iteration<16;iteration++) {
+          for (let i=bones.length-2;i>=0;i--) {
+            scene.updateMatrixWorld(true); const bone=bones[i];
+            const origin=bone.getWorldPosition(new THREE.Vector3());
+            const end=endBone.getWorldPosition(new THREE.Vector3());
+            const from=end.sub(origin); const to=targetPosition.clone().sub(origin);
+            if (from.lengthSq()<1e-8 || to.lengthSq()<1e-8) continue;
+            const delta=new THREE.Quaternion().setFromUnitVectors(from.normalize(),to.normalize());
+            const desiredWorld=bone.getWorldQuaternion(new THREE.Quaternion()); desiredWorld.premultiply(delta);
+            if (bone.parent) bone.quaternion.copy(bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(desiredWorld)); else bone.quaternion.copy(desiredWorld);
+            clampJoint(bone);
+          }
+        }
+      } else {
+        scene.updateMatrixWorld(true);
+        const positions=bones.map(bone=>bone.getWorldPosition(new THREE.Vector3()));
+        const lengths=positions.slice(0,-1).map((point,index)=>point.distanceTo(positions[index+1]));
+        const rootPosition=positions[0].clone();
+        const totalLength=lengths.reduce((sum,value)=>sum+value,0);
+        if (rootPosition.distanceTo(targetPosition)>=totalLength) {
+          const direction=targetPosition.clone().sub(rootPosition).normalize();
+          for (let i=1;i<positions.length;i++) positions[i]=positions[i-1].clone().addScaledVector(direction,lengths[i-1]);
+        } else {
+          for (let iteration=0;iteration<20;iteration++) {
+            positions[positions.length-1]=targetPosition.clone();
+            for (let i=positions.length-2;i>=0;i--) { const direction=positions[i].clone().sub(positions[i+1]).normalize(); positions[i]=positions[i+1].clone().addScaledVector(direction,lengths[i]); }
+            positions[0]=rootPosition.clone();
+            for (let i=0;i<positions.length-1;i++) { const direction=positions[i+1].clone().sub(positions[i]).normalize(); positions[i+1]=positions[i].clone().addScaledVector(direction,lengths[i]); }
+          }
+        }
+        for (let i=0;i<bones.length-1;i++) {
+          scene.updateMatrixWorld(true); const bone=bones[i];
           const origin=bone.getWorldPosition(new THREE.Vector3());
-          const end=endBone.getWorldPosition(new THREE.Vector3());
-          const from=end.sub(origin); const to=targetPosition.clone().sub(origin);
-          if (from.lengthSq()<1e-8 || to.lengthSq()<1e-8) continue;
-          const delta=new THREE.Quaternion().setFromUnitVectors(from.normalize(),to.normalize());
+          const currentChild=bones[i+1].getWorldPosition(new THREE.Vector3());
+          const currentDirection=currentChild.sub(origin); const desiredDirection=positions[i+1].clone().sub(positions[i]);
+          if (currentDirection.lengthSq()<1e-8 || desiredDirection.lengthSq()<1e-8) continue;
+          const delta=new THREE.Quaternion().setFromUnitVectors(currentDirection.normalize(),desiredDirection.normalize());
           const desiredWorld=bone.getWorldQuaternion(new THREE.Quaternion()); desiredWorld.premultiply(delta);
-          if (bone.parent) bone.quaternion.copy(bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(desiredWorld));
-          else bone.quaternion.copy(desiredWorld);
-          const limit = THREE.MathUtils.degToRad(Number(bone.userData.jointLimitDegrees ?? jointLimitDegrees));
-          const localEuler = new THREE.Euler().setFromQuaternion(bone.quaternion,'XYZ');
-          localEuler.x = THREE.MathUtils.clamp(localEuler.x,-limit,limit);
-          localEuler.y = THREE.MathUtils.clamp(localEuler.y,-limit,limit);
-          localEuler.z = THREE.MathUtils.clamp(localEuler.z,-limit,limit);
-          bone.quaternion.setFromEuler(localEuler);
-          bone.updateMatrixWorld(true);
+          if (bone.parent) bone.quaternion.copy(bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(desiredWorld)); else bone.quaternion.copy(desiredWorld);
+          clampJoint(bone);
         }
       }
       if (chain.pole && bones.length >= 3) {
@@ -1057,7 +1088,7 @@ export default function App() {
           else rootBone.quaternion.copy(desired);
         }
       }
-      chain.helper.update(); syncItems(); setStatus('CCD IK + pole constraint solved · ' + bones.length + ' joints');
+      chain.helper.update(); syncItems(); setStatus(ikSolver + ' IK + pole constraint solved · ' + bones.length + ' joints');
     };
     const removeObject = (obj: THREE.Object3D, preserveForUndo = false) => {
       if (obj === camBody) {
@@ -3037,6 +3068,7 @@ export default function App() {
           <button type="button" className="rigging-action secondary" onClick={() => { const bone = items.find(item => item.id === selected)?.object; if (!(bone instanceof THREE.Bone)) { setStatus('Select a bone to rename'); return; } const name = window.prompt('Bone name',bone.name); if (name?.trim()) { bone.name = name.trim(); runtime.current?.syncItems?.(); setStatus('Bone renamed'); } }}>✎ Rename Selected Bone</button>
           <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.deleteSelectedBone()}>− Delete Selected Bone</button>
           <button type="button" className="rigging-action secondary" onClick={() => { const target = items.find(item => item.id === selected)?.object; if (target instanceof THREE.Bone) { const child = new THREE.Bone(); child.name = 'Manual Bone'; child.position.set(0,0.35,0); child.userData.editorId = uid(); child.userData.kind = 'Bone'; target.add(child); runtime.current?.selectable.push(child); runtime.current?.syncItems?.(); runtime.current?.selectObject(child); setStatus('Child bone added'); } else setStatus('Select a bone in Scene Tree first'); }}>＋ Add Child Bone</button>
+          <label className="rigging-field"><span>Solver</span><select aria-label="IK solver" value={ikSolver} onChange={e => setIkSolver(e.target.value as 'CCD' | 'FABRIK')}><option value="CCD">CCD</option><option value="FABRIK">FABRIK</option></select></label>
           <label className="rigging-field"><span>Chain length</span><select aria-label="IK chain length" value={ikChainLength} onChange={e => setIkChainLength(Number(e.target.value))}><option value={1}>1 joint</option><option value={2}>2 joints</option><option value={3}>3 joints</option><option value={4}>4 joints</option><option value={6}>6 joints</option></select></label>
           <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.createIKTarget()}>＋ Create IK Target for Selected Rig</button>
           <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.createPoleTarget()}>＋ Create Pole Target</button>
