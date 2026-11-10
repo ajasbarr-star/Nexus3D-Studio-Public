@@ -2458,9 +2458,9 @@ export default function App() {
       r.transform.enabled = true;
       r.transform.getHelper().visible = Boolean(selectedRef.current);
       setRiggingView(true);
-      setRigPanelOpen(true);
+      setRigPanelOpen(false);
       setPanel(true);
-      setInspectorOpen(true);
+      setInspectorOpen(false);
       setMenuOpen(false);
       setQuickPanel(null);
       setShapeLibraryOpen(false);
@@ -3380,91 +3380,6 @@ export default function App() {
         <button className={'rail-btn animation-rail-btn ' + (animationMode ? 'active' : '')} onClick={() => { if (animationMode) { setPlaybackControlsOpen(v => !v); } else { if (!cameraView) toggleCamera(); setPlaying(false); setAnimationMode(true); setAnimationObjectsOpen(true); setAnimOpen(false); setPlaybackControlsOpen(false); setTimelineOptionsOpen(false); } }} title={animationMode ? (playbackControlsOpen ? 'Hide playback controls' : 'Show playback controls') : 'Open Animation System Viewport'} aria-label="Toggle Animation Mode"><Film size={17} /><span>ANIM</span></button>
         <button className={'rail-btn rig-rail-btn ' + (riggingView ? 'active' : '')} onClick={toggleRiggingWorkspace} title={riggingView ? 'Return to User Workspace' : 'Switch to IK Rigging Workspace · Front Perspective'} aria-label="Rigging workspace"><GitBranch size={17}/><span>{riggingView ? 'USER' : 'RIG'}</span></button>
       </div>
-
-      {rigPanelOpen && riggingView && !cameraView && !animationMode && <aside className="rigging-panel" aria-label="Rigging controls">
-        <div className="quick-panel-heading rig-workspace-heading"><div><strong>IK RIGGING</strong><small>CHARACTER WORKSPACE</small></div><button type="button" onClick={toggleRiggingWorkspace} aria-label="Return to user workspace"><X size={14}/></button></div>
-        <div className="rigging-tabs" role="tablist" aria-label="Rigging mode">
-          <button type="button" role="tab" aria-selected={rigTab === 'manual'} className={rigTab === 'manual' ? 'active' : ''} onClick={() => setRigTab('manual')}>MANUAL IK</button>
-          <button type="button" role="tab" aria-selected={rigTab === 'auto'} className={rigTab === 'auto' ? 'active' : ''} onClick={() => setRigTab('auto')}>AUTO IK</button>
-        </div>
-        {rigTab === 'manual' && <div className="rigging-section-body manual-rig-workflow">
-          <p className="rigging-intro">Follow the steps in order. Select the character or bones in Scene Tree before each action.</p>
-          {([
-            { id: 'setup', number: '01', title: 'CHARACTER SETUP' },
-            { id: 'skeleton', number: '02', title: 'BUILD SKELETON' },
-            { id: 'position', number: '03', title: 'POSITION BONES' },
-            { id: 'attach', number: '04', title: 'ATTACH MESH' },
-            { id: 'controls', number: '05', title: 'IK CONTROLS' },
-            { id: 'test', number: '06', title: 'TEST RIG' },
-          ] as const).map(step => <section className={'manual-rig-step ' + (manualRigStage === step.id ? 'current' : '')} key={step.id}>
-            <button type="button" className="manual-rig-step-heading" aria-expanded={Boolean(manualRigSections[step.id])} onClick={() => { setManualRigStage(step.id); setManualRigSections(prev => ({ ...prev, [step.id]: !prev[step.id] })); }}>
-              <span className="manual-rig-step-number">{step.number}</span><strong>{step.title}</strong><ChevronDown size={13} className={manualRigSections[step.id] ? 'expanded' : ''}/>
-            </button>
-            {manualRigSections[step.id] && <div className="manual-rig-step-content">
-              {step.id === 'setup' && <>
-                <p>Select the character mesh in Scene Tree before creating a rig.</p>
-                <button type="button" className="rigging-action" onClick={() => { const obj = items.find(item => item.id === selected)?.object; setStatus(obj ? 'Selected for rigging: ' + obj.name : 'Select a character mesh or shape in Scene Tree first'); }}>Confirm Selected Character</button>
-              </>}
-              {step.id === 'skeleton' && <>
-                <p>Create a starter humanoid skeleton or build a chain one bone at a time.</p>
-                <button type="button" className="rigging-action" onClick={() => runtime.current?.createManualRig()}>＋ Create Humanoid Skeleton</button>
-                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.addUniversalBone()}>＋ Add Root / Connected Bone</button>
-                <button type="button" className="rigging-action secondary" onClick={() => { if (!(items.find(item => item.id === selected)?.object instanceof THREE.Bone)) { setStatus('Select a parent bone in Scene Tree first'); return; } runtime.current?.addUniversalBone(); }}>＋ Add Child Bone</button>
-                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.copySelectedBone()}>⧉ Copy Selected Bone</button>
-                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.mirrorSelectedBone()}>⇄ Mirror Selected Bone</button>
-              </>}
-              {step.id === 'position' && <>
-                <p>Select a bone in Scene Tree, then position it with the viewport Move / Rotate / Scale gizmo.</p>
-                <label className="rigging-check"><input type="checkbox" checked={mirrorEnabled} onChange={e => setMirrorEnabled(e.target.checked)}/><span>Mirror X · live transform sync</span></label>
-                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.toggleSelectedBoneLock()}>🔒 Lock / Unlock Selected Bone</button>
-                <button type="button" className="rigging-action secondary" onClick={() => { const bone = items.find(item => item.id === selected)?.object; if (!(bone instanceof THREE.Bone)) { setStatus('Select a bone to rename'); return; } const name = window.prompt('Bone name', bone.name); if (name?.trim()) { bone.name = name.trim(); runtime.current?.syncItems?.(); setStatus('Bone renamed'); } }}>✎ Rename Selected Bone</button>
-                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.setRigParentTarget()}>◎ Set Parent Target</button>
-                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.attachSelectedToRigParent()}>↳ Attach to Parent Target</button>
-                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.detachSelectedRigObject()}>↗ Detach Selected</button>
-                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.deleteSelectedBone()}>− Delete Selected Bone</button>
-              </>}
-              {step.id === 'attach' && <>
-                <p>Attach the selected mesh to the latest skeleton using normalized nearest-bone weights. Check deformation before production use.</p>
-                <button type="button" className="rigging-action" onClick={() => runtime.current?.bindSelectedMeshToRig()}>＋ Attach Selected Mesh to Skeleton</button>
-              </>}
-              {step.id === 'controls' && <>
-                <p>Select a bone to set a controller, then create an IK target for its chain.</p>
-                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.toggleSelectedBoneControlHandle()}>◉ Set / Remove Control Handle</button>
-                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.toggleSelectedControlLock()}>🔒 Lock / Unlock Control Handle</button>
-                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.createIKTarget()}>＋ Create IK Target</button>
-                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.createPoleTarget()}>＋ Create Pole Target</button>
-                <label className="rigging-field"><span>Solver</span><select aria-label="IK solver" value={ikSolver} onChange={e => setIkSolver(e.target.value as 'CCD' | 'FABRIK')}><option value="CCD">CCD</option><option value="FABRIK">FABRIK</option></select></label>
-                <label className="rigging-field"><span>Chain length</span><select aria-label="IK chain length" value={ikChainLength} onChange={e => setIkChainLength(Number(e.target.value))}><option value={1}>1 joint</option><option value={2}>2 joints</option><option value={3}>3 joints</option><option value={4}>4 joints</option><option value={6}>6 joints</option></select></label>
-                <label className="rigging-field"><span>Joint limit · ±{jointLimitDegrees}°</span><input aria-label="Joint angle limit" type="range" min="15" max="180" step="5" value={jointLimitDegrees} onChange={e => { const value=Number(e.target.value); setJointLimitDegrees(value); const bone=items.find(item=>item.id===selected)?.object; if (bone instanceof THREE.Bone) bone.userData.jointLimitDegrees=value; }}/></label>
-              </>}
-              {step.id === 'test' && <>
-                <p>Move the IK target, solve the chain, and inspect the character deformation before saving.</p>
-                <button type="button" className="rigging-action" onClick={() => runtime.current?.solveIK(ikChainLength)}>Solve IK</button>
-                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.refreshRigVisuals?.()}>Refresh Skeleton Display</button>
-              </>}
-              <button type="button" className="manual-rig-next" onClick={() => { const order = ['setup','skeleton','position','attach','controls','test']; const next = order[Math.min(order.length - 1, order.indexOf(step.id) + 1)]; setManualRigStage(next); setManualRigSections(prev => ({ ...prev, [step.id]: false, [next]: true })); }}>{step.id === 'test' ? 'FINISH WORKFLOW' : 'NEXT STEP →'}</button>
-            </div>}
-          </section>)}
-        </div>}
-        {rigTab === 'auto' && <div className="rigging-section-body">
-          <p>Detect existing GLB/GLTF SkinnedMesh armatures and expose their bones in Scene Tree.</p>
-          <button type="button" className="rigging-action" onClick={() => runtime.current?.detectRiggedMeshes()}>⌕ Detect Character Skeletons</button>
-          <button type="button" className="rigging-action" onClick={() => runtime.current?.autoRigSelectedMesh()}>✧ Auto-Rig Selected Mesh</button>
-          <label className="rigging-check"><input type="checkbox" checked={ikEnabled} onChange={e => setIkEnabled(e.target.checked)}/><span>Enable Auto-IK solve</span></label>
-          <button type="button" className="rigging-action secondary" disabled={!ikEnabled} onClick={() => runtime.current?.solveIK(ikChainLength)}>Solve Selected Rig</button>
-          <p className="rigging-warning">Unrigged arbitrary meshes are not automatically weighted in this build. Use a humanoid GLB with an existing skin/skeleton.</p>
-        </div>}
-      </aside>}
-      {riggingView && !cameraView && !animationMode && <div className="rig-workspace-dock" aria-label="IK rigging actions">
-        <div className="rig-dock-group"><button type="button" title="Undo rigging or scene action" onClick={undo} disabled={!actionUndoStack.length && !undoStack.length}><Undo2 size={16}/></button><button type="button" title="Redo rigging or scene action" onClick={redo} disabled={!actionRedoStack.length && !redoStack.length}><Redo2 size={16}/></button></div>
-        <div className="rig-dock-divider"/>
-        <label>IK SOLVER<select aria-label="IK solver" value={ikSolver} onChange={e => setIkSolver(e.target.value as 'CCD' | 'FABRIK')}><option value="FABRIK">FABRIK</option><option value="CCD">CCD</option></select></label>
-        <label>CHAIN<select aria-label="IK chain length" value={ikChainLength} onChange={e => setIkChainLength(Number(e.target.value))}>{[1,2,3,4,6].map(n => <option key={n} value={n}>{n} joints</option>)}</select></label>
-        <div className="rig-dock-divider"/>
-        <button type="button" className="rig-dock-primary" onClick={() => runtime.current?.solveIK(ikChainLength)}><Play size={15}/> SOLVE IK</button>
-        <button type="button" onClick={() => runtime.current?.refreshRigVisuals?.()}><GitBranch size={15}/> REFRESH RIG</button>
-        <button type="button" className="rig-dock-save" onClick={saveProject}><Save size={15}/> SAVE PROJECT</button>
-      </div>}
 
       {animationMode && animationObjectsOpen && <aside className="animation-objects-panel" aria-label="Animation Objects hierarchy">
         <div className="animation-objects-heading"><div><Layers size={13}/><strong>ANIMATION OBJECTS</strong></div><button type="button" aria-label="Close animation objects" onClick={() => setAnimationObjectsOpen(false)}><X size={13}/></button></div>
