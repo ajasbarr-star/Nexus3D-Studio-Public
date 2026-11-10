@@ -864,7 +864,10 @@ export default function App() {
       target.userData.kind = 'IK Target';
       scene.add(target);
       selectable.push(target);
-      rigChains.forEach(chain => { chain.target = target; });
+      const selectedBone = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
+      const activeChain = [...rigChains].reverse().find(chain => selectedBone instanceof THREE.Bone && chain.bones.includes(selectedBone)) || rigChains[rigChains.length - 1];
+      if (!activeChain) { scene.remove(target); selectable.splice(selectable.indexOf(target), 1); setStatus('Create or detect a rig before adding an IK target'); return null; }
+      activeChain.target = target;
       syncItems();
       selectObject(target);
       setStatus('IK target handle created. Move it with the viewport gizmo, then Solve IK.');
@@ -2833,16 +2836,28 @@ export default function App() {
 
       {rigPanelOpen && !cameraView && !animationMode && <aside className="rigging-panel" aria-label="Rigging controls">
         <div className="quick-panel-heading"><strong>CHARACTER RIGGING</strong><button type="button" onClick={() => setRigPanelOpen(false)} aria-label="Close rigging panel"><X size={14}/></button></div>
-        <section className="rigging-section">
-          <button className="rigging-section-toggle" type="button" onClick={() => setManualRigOpen(v => !v)}><span>MANUAL BONES &amp; HIERARCHY</span>{manualRigOpen ? <ChevronDown size={13}/> : <ChevronRight size={13}/>}</button>
-          {manualRigOpen && <div className="rigging-section-body"><p>Create an editable bone chain, then select bones in Scene Tree to pose them.</p><button type="button" className="rigging-action" onClick={() => runtime.current?.createManualRig()}>＋ Create Bone Chain</button><button type="button" className="rigging-action secondary" onClick={() => { const target = items.find(item => item.id === selected)?.object; if (target && target.userData.kind === 'Bone') { const child = new THREE.Bone(); child.name = 'Manual Bone'; child.position.set(0, 0.7, 0); child.userData.editorId = uid(); child.userData.kind = 'Bone'; target.add(child); runtime.current?.selectable.push(child); setItems(prev => [...prev, { id: child.userData.editorId, name: child.name, object: child, kind: 'Bone' }]); setStatus('Child bone added to selected bone'); } else setStatus('Select a bone in Scene Tree before adding a child bone'); }}>＋ Add Child Bone</button></div>}
-        </section>
-        <section className="rigging-section">
-          <button className="rigging-section-toggle" type="button" onClick={() => setAutoIKOpen(v => !v)}><span>AUTO-IK SOLVER</span>{autoIKOpen ? <ChevronDown size={13}/> : <ChevronRight size={13}/>}</button>
-          {autoIKOpen && <div className="rigging-section-body"><label className="rigging-check"><input type="checkbox" checked={ikEnabled} onChange={e => { setIkEnabled(e.target.checked); if (e.target.checked) runtime.current?.solveIK(ikChainLength); }}/><span>Enable Auto-IK solver</span></label><label className="rigging-field"><span>Chain length</span><select aria-label="IK chain length" value={ikChainLength} onChange={e => setIkChainLength(Number(e.target.value))}><option value={1}>1 joint</option><option value={2}>2 joints</option><option value={3}>3 joints</option><option value={4}>4 joints</option></select></label><button type="button" className="rigging-action secondary" onClick={() => runtime.current?.createIKTarget()}>＋ Create / Reset Target Handle</button><button type="button" className="rigging-action" disabled={!ikEnabled} onClick={() => runtime.current?.solveIK(ikChainLength)}>Solve IK</button><p>Move the target handle with the viewport gizmo, then solve the selected bone chain.</p></div>}
-        </section>
+        <div className="rigging-tabs" role="tablist" aria-label="Rigging mode">
+          <button type="button" role="tab" aria-selected={rigTab === 'manual'} className={rigTab === 'manual' ? 'active' : ''} onClick={() => setRigTab('manual')}>MANUAL IK</button>
+          <button type="button" role="tab" aria-selected={rigTab === 'auto'} className={rigTab === 'auto' ? 'active' : ''} onClick={() => setRigTab('auto')}>AUTO IK</button>
+        </div>
+        {rigTab === 'manual' && <div className="rigging-section-body">
+          <p>Create a humanoid hierarchy, select bones in Scene Tree, then pose with the viewport gizmo.</p>
+          <button type="button" className="rigging-action" onClick={() => runtime.current?.createManualRig()}>＋ Create Humanoid Skeleton</button>
+          <label className="rigging-check"><input type="checkbox" checked={mirrorEnabled} onChange={e => setMirrorEnabled(e.target.checked)}/><span>Mirror X · paired bones</span></label>
+          <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.mirrorSelectedBone()}>⇄ Mirror Selected Bone</button>
+          <button type="button" className="rigging-action secondary" onClick={() => { const target = items.find(item => item.id === selected)?.object; if (target instanceof THREE.Bone) { const child = new THREE.Bone(); child.name = 'Manual Bone'; child.position.set(0,0.35,0); child.userData.editorId = uid(); child.userData.kind = 'Bone'; target.add(child); runtime.current?.selectable.push(child); runtime.current?.syncItems?.(); runtime.current?.selectObject(child); setStatus('Child bone added'); } else setStatus('Select a bone in Scene Tree first'); }}>＋ Add Child Bone</button>
+          <label className="rigging-field"><span>Chain length</span><select aria-label="IK chain length" value={ikChainLength} onChange={e => setIkChainLength(Number(e.target.value))}><option value={1}>1 joint</option><option value={2}>2 joints</option><option value={3}>3 joints</option><option value={4}>4 joints</option><option value={6}>6 joints</option></select></label>
+          <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.createIKTarget()}>＋ Create IK Target for Selected Rig</button>
+          <button type="button" className="rigging-action" onClick={() => runtime.current?.solveIK(ikChainLength)}>Solve IK</button>
+        </div>}
+        {rigTab === 'auto' && <div className="rigging-section-body">
+          <p>Detect existing GLB/GLTF SkinnedMesh armatures and expose their bones in Scene Tree.</p>
+          <button type="button" className="rigging-action" onClick={() => runtime.current?.detectRiggedMeshes()}>⌕ Detect Character Skeletons</button>
+          <label className="rigging-check"><input type="checkbox" checked={ikEnabled} onChange={e => setIkEnabled(e.target.checked)}/><span>Enable Auto-IK solve</span></label>
+          <button type="button" className="rigging-action secondary" disabled={!ikEnabled} onClick={() => runtime.current?.solveIK(ikChainLength)}>Solve Selected Rig</button>
+          <p className="rigging-warning">Unrigged arbitrary meshes are not automatically weighted in this build. Use a humanoid GLB with an existing skin/skeleton.</p>
+        </div>}
       </aside>}
-
       {animationMode && animationObjectsOpen && <aside className="animation-objects-panel" aria-label="Animation Objects hierarchy">
         <div className="animation-objects-heading"><div><Layers size={13}/><strong>ANIMATION OBJECTS</strong></div><button type="button" aria-label="Close animation objects" onClick={() => setAnimationObjectsOpen(false)}><X size={13}/></button></div>
         <button type="button" className="animation-object-row animation-root-row" onClick={() => setSelected('')}><span className="animation-target-diamond">◆</span><span>Root</span></button>
