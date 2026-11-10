@@ -40,6 +40,11 @@ jobs:
       - name: Generate native Android project
         run: npx cap add android
 
+      - name: Apply Nexus3D immersive Android activity
+        run: |
+          mkdir -p android/app/src/main/java/com/nexus3d/studio
+          cp native/android/MainActivity.java android/app/src/main/java/com/nexus3d/studio/MainActivity.java
+
       - name: Sync bundled editor and native plugins
         run: npx cap sync android
 
