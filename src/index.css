@@ -1488,8 +1488,8 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   width: 280px !important;
   min-width: 250px !important;
   max-width: min(300px, calc(100vw - 16px)) !important;
-  height: 400px !important;
-  max-height: calc(100dvh - 72px) !important;
+  height: 300px !important;
+  max-height: calc(100dvh - 144px) !important;
   box-sizing: border-box !important;
   z-index: 50 !important;
 }
@@ -1508,6 +1508,6 @@ button:active { box-shadow:0 0 11px #22cfff44; }
     width: min(280px, calc(100vw - 16px)) !important;
     min-width: 0 !important;
     max-width: calc(100vw - 16px) !important;
-    height: 400px !important;
+    height: 300px !important;
   }
 }
