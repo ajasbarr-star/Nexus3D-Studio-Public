@@ -1476,3 +1476,38 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 @media (max-width: 700px) {
   .rigging-mode .rigging-panel { left: 184px; top: 54px; width: min(280px, calc(100vw - 194px)); height: 400px; max-height: calc(100vh - 72px); }
 }
+
+
+/* Rigging workspace occupies the former left Menu panel slot below the top toolbar. */
+.rigging-mode .rigging-panel {
+  position: fixed !important;
+  left: 8px !important;
+  right: auto !important;
+  top: 56px !important;
+  bottom: auto !important;
+  width: 280px !important;
+  min-width: 250px !important;
+  max-width: min(300px, calc(100vw - 16px)) !important;
+  height: 400px !important;
+  max-height: calc(100dvh - 72px) !important;
+  box-sizing: border-box !important;
+  z-index: 50 !important;
+}
+.rigging-mode .rigging-panel .rigging-section-body {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+.rigging-mode .floating-menu-toggle,
+.rigging-mode .menu-panel { display: none !important; }
+@media (max-width: 520px) {
+  .rigging-mode .rigging-panel {
+    left: 8px !important;
+    top: 54px !important;
+    width: min(280px, calc(100vw - 16px)) !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 16px) !important;
+    height: 400px !important;
+  }
+}
