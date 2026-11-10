@@ -2293,6 +2293,55 @@ export default function App() {
     if (obj && !cameraView) r.addObject(obj.userData.kind || obj.name.split(' ')[0], obj.name + ' copy', obj);
     else setStatus('Select an object to duplicate');
   };
+  const toggleRiggingWorkspace = () => {
+    const r = runtime.current;
+    if (!r) return;
+    const opening = !riggingView;
+    if (opening) {
+      if (cameraView) {
+        setStatus('Exit CAM view before opening IK Rigging');
+        return;
+      }
+      r.riggingPreviousCamera = {
+        position: r.camera.position.toArray(),
+        target: r.orbit.target.toArray(),
+      };
+      // Dedicated front-facing perspective for rig work; MainCamera/UserCamera stays untouched.
+      r.camera.position.set(0, 1.55, 9);
+      r.orbit.target.set(0, 1.45, 0);
+      r.orbit.enabled = true;
+      r.activeOrbit.enabled = false;
+      r.orbit.update();
+      r.transform.camera = r.camera;
+      r.transform.enabled = true;
+      r.transform.getHelper().visible = Boolean(selectedRef.current);
+      setRiggingView(true);
+      setRigPanelOpen(true);
+      setPanel(true);
+      setInspectorOpen(true);
+      setMenuOpen(false);
+      setQuickPanel(null);
+      setShapeLibraryOpen(false);
+      setMeshToolsOpen(false);
+      setSkyboxOpen(false);
+      setRenderVideoOpen(false);
+      setStatus('IK Rigging workspace · Front Perspective');
+    } else {
+      const previous = r.riggingPreviousCamera;
+      if (previous?.position && previous?.target) {
+        r.camera.position.fromArray(previous.position);
+        r.orbit.target.fromArray(previous.target);
+        r.orbit.update();
+      }
+      r.riggingPreviousCamera = null;
+      setRiggingView(false);
+      setRigPanelOpen(false);
+      setInspectorOpen(false);
+      setPanel(true);
+      setStatus('User Perspective View restored');
+    }
+  };
+
   const toggleCamera = () => {
     const r = runtime.current;
     if (!r) return;
@@ -3003,7 +3052,7 @@ export default function App() {
   return (
     <main className={'editor-shell ' + (animationMode ? 'animation-mode' : '') + (riggingView ? ' rigging-mode' : '')}>
       <div className={'viewport ' + (pathTool ? 'path-tool-active' : '')} ref={hostRef} onPointerDown={e => { if (!pathTool || animationMode) return; const rect = e.currentTarget.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width - .5) * 20; const z = ((e.clientY - rect.top) / rect.height - .5) * -20; setMotionPathPoints(prev => [...prev, {x, y:0.05, z}]); }} onDragOver={e => { if (e.dataTransfer.types.includes('text/nexus3d-object')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }} onDrop={e => { const childId = e.dataTransfer.getData('text/nexus3d-object'); if (!childId) return; e.preventDefault(); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }} />
-      <div className={'camera-mode-hud ' + (cameraView ? 'cine-active' : '')} aria-live="polite"><span className="camera-mode-dot" />{cameraView ? 'CINE CAMERA VIEW' : riggingView ? 'IK RIGGING WORKSPACE' : 'PERSPECTIVE MODE'}</div>
+      <div className={'camera-mode-hud ' + (cameraView ? 'cine-active' : '')} aria-live="polite"><span className="camera-mode-dot" />{cameraView ? 'CINE CAMERA VIEW' : riggingView ? 'IK RIGGING · FRONT PERSPECTIVE' : 'PERSPECTIVE MODE'}</div>
       {!animationMode && !cameraView && <div className="quick-access-rail" aria-label="Quick access controls">
         <button type="button" className={quickPanel === 'lights' ? 'active' : ''} onClick={() => { setQuickPanel(quickPanel === 'lights' ? null : 'lights'); setInspectorOpen(false); setPanel(false); setMenuOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); }} title="Quick Light Controls"><Sun size={14}/><span>LIGHTS</span></button>
         <button type="button" className={quickPanel === 'materials' ? 'active' : ''} onClick={() => { setQuickPanel(quickPanel === 'materials' ? null : 'materials'); setInspectorOpen(false); setPanel(false); setMenuOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); }} title="Quick Material and Color Controls"><Palette size={14}/><span>MATERIAL</span></button>
@@ -3187,11 +3236,11 @@ export default function App() {
       <div className="right-rail">
         <button className={'rail-btn ' + (cameraView ? 'active' : '')} onClick={toggleCamera} title={cameraView ? 'Return to User View' : 'Directly view through MainCamera'}><Camera size={17} /><span>{cameraView ? 'USER' : 'CAM'}</span></button>
         <button className={'rail-btn animation-rail-btn ' + (animationMode ? 'active' : '')} onClick={() => { if (animationMode) { setPlaybackControlsOpen(v => !v); } else { if (!cameraView) toggleCamera(); setPlaying(false); setAnimationMode(true); setAnimationObjectsOpen(true); setAnimOpen(false); setPlaybackControlsOpen(false); setTimelineOptionsOpen(false); } }} title={animationMode ? (playbackControlsOpen ? 'Hide playback controls' : 'Show playback controls') : 'Open Animation System Viewport'} aria-label="Toggle Animation Mode"><Film size={17} /><span>ANIM</span></button>
-        <button className={'rail-btn rig-rail-btn ' + (riggingView ? 'active' : '')} onClick={() => { const opening = !riggingView; setRiggingView(opening); setRigPanelOpen(opening); setPanel(false); setMenuOpen(false); setQuickPanel(null); setInspectorOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); setSkyboxOpen(false); setRenderVideoOpen(false); }} title={riggingView ? 'Return to User Workspace' : 'Switch to IK Rigging Workspace'} aria-label="Rigging workspace"><GitBranch size={17}/><span>{riggingView ? 'USER' : 'RIG'}</span></button>
+        <button className={'rail-btn rig-rail-btn ' + (riggingView ? 'active' : '')} onClick={toggleRiggingWorkspace} title={riggingView ? 'Return to User Workspace' : 'Switch to IK Rigging Workspace · Front Perspective'} aria-label="Rigging workspace"><GitBranch size={17}/><span>{riggingView ? 'USER' : 'RIG'}</span></button>
       </div>
 
       {rigPanelOpen && riggingView && !cameraView && !animationMode && <aside className="rigging-panel" aria-label="Rigging controls">
-        <div className="quick-panel-heading"><strong>UNIVERSAL IK RIGGING</strong><button type="button" onClick={() => { setRigPanelOpen(false); setRiggingView(false); }} aria-label="Return to user workspace"><X size={14}/></button></div>
+        <div className="quick-panel-heading rig-workspace-heading"><div><strong>IK RIGGING</strong><small>CHARACTER WORKSPACE</small></div><button type="button" onClick={toggleRiggingWorkspace} aria-label="Return to user workspace"><X size={14}/></button></div>
         <div className="rigging-tabs" role="tablist" aria-label="Rigging mode">
           <button type="button" role="tab" aria-selected={rigTab === 'manual'} className={rigTab === 'manual' ? 'active' : ''} onClick={() => setRigTab('manual')}>MANUAL IK</button>
           <button type="button" role="tab" aria-selected={rigTab === 'auto'} className={rigTab === 'auto' ? 'active' : ''} onClick={() => setRigTab('auto')}>AUTO IK</button>
@@ -3259,6 +3308,17 @@ export default function App() {
           <p className="rigging-warning">Unrigged arbitrary meshes are not automatically weighted in this build. Use a humanoid GLB with an existing skin/skeleton.</p>
         </div>}
       </aside>}
+      {riggingView && !cameraView && !animationMode && <div className="rig-workspace-dock" aria-label="IK rigging actions">
+        <div className="rig-dock-group"><button type="button" title="Undo rigging or scene action" onClick={undo} disabled={!actionUndoStack.length && !undoStack.length}><Undo2 size={16}/></button><button type="button" title="Redo rigging or scene action" onClick={redo} disabled={!actionRedoStack.length && !redoStack.length}><Redo2 size={16}/></button></div>
+        <div className="rig-dock-divider"/>
+        <label>IK SOLVER<select aria-label="IK solver" value={ikSolver} onChange={e => setIkSolver(e.target.value as 'CCD' | 'FABRIK')}><option value="FABRIK">FABRIK</option><option value="CCD">CCD</option></select></label>
+        <label>CHAIN<select aria-label="IK chain length" value={ikChainLength} onChange={e => setIkChainLength(Number(e.target.value))}>{[1,2,3,4,6].map(n => <option key={n} value={n}>{n} joints</option>)}</select></label>
+        <div className="rig-dock-divider"/>
+        <button type="button" className="rig-dock-primary" onClick={() => runtime.current?.solveIK(ikChainLength)}><Play size={15}/> SOLVE IK</button>
+        <button type="button" onClick={() => runtime.current?.refreshRigVisuals?.()}><GitBranch size={15}/> REFRESH RIG</button>
+        <button type="button" className="rig-dock-save" onClick={saveProject}><Save size={15}/> SAVE PROJECT</button>
+      </div>}
+
       {animationMode && animationObjectsOpen && <aside className="animation-objects-panel" aria-label="Animation Objects hierarchy">
         <div className="animation-objects-heading"><div><Layers size={13}/><strong>ANIMATION OBJECTS</strong></div><button type="button" aria-label="Close animation objects" onClick={() => setAnimationObjectsOpen(false)}><X size={13}/></button></div>
         <button type="button" className="animation-object-row animation-root-row" onClick={() => setSelected('')}><span className="animation-target-diamond">◆</span><span>Root</span></button>
