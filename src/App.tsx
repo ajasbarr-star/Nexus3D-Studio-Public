@@ -1847,7 +1847,7 @@ export default function App() {
         topologyOverlay.matrix.copy(topologyTarget.matrixWorld);
         topologyOverlay.matrixWorldNeedsUpdate = true;
       }
-      camBody.visible = !Boolean(runtime.current?.riggingView);
+      camBody.visible = !inCam && !Boolean(runtime.current?.riggingView);
       transform.getHelper().visible = Boolean(selectedRef.current);
       Object.entries(particleSystems).forEach(([type, points]) => {
         if (!points.visible) return;
