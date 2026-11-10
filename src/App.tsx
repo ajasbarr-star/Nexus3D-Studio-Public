@@ -3192,21 +3192,37 @@ export default function App() {
       setStatus('Preparing portable project ZIP…');
       const data = getProjectData();
       const exporter = new GLTFExporter();
-      const glb = await new Promise<ArrayBuffer>((resolve, reject) => {
-        exporter.parse(
-          r.scene,
-          result => {
-            if (result instanceof ArrayBuffer) resolve(result);
-            else reject(new Error('GLB exporter did not return a binary scene'));
-          },
-          error => reject(error instanceof Error ? error : new Error(String(error))),
-          { binary: true, onlyVisible: true }
-        );
+      const userDataSnapshots: Array<{ target: any; userData: any }> = [];
+      r.scene.traverse((node: any) => {
+        userDataSnapshots.push({ target: node, userData: node.userData });
+        node.userData = {};
+        const materials = Array.isArray(node.material) ? node.material : node.material ? [node.material] : [];
+        materials.forEach((material: any) => {
+          userDataSnapshots.push({ target: material, userData: material.userData });
+          material.userData = {};
+        });
       });
+      let glb: ArrayBuffer;
+      try {
+        glb = await new Promise<ArrayBuffer>((resolve, reject) => {
+          exporter.parse(
+            r.scene,
+            result => {
+              if (result instanceof ArrayBuffer) resolve(result);
+              else reject(new Error('GLB exporter did not return a binary scene'));
+            },
+            error => reject(error instanceof Error ? error : new Error(String(error))),
+            { binary: true, onlyVisible: true }
+          );
+        });
+      } finally {
+        userDataSnapshots.forEach(snapshot => { snapshot.target.userData = snapshot.userData; });
+      }
       const zip = new JSZip();
       const safeBase = (projectName.trim() || 'Nexus3D_Project').replace(/\\.(nexus|zip)$/i, '').replace(/[^a-z0-9._-]/gi, '_');
       zip.file('Project.nexus', JSON.stringify({
         ...data,
+        settings: { ...settings },
         projectName: safeBase + '.nexus',
         savedObjectCount: data.objects.length,
         savedMeshCount: data.objects.filter((item: any) => item?.geometry?.attributes?.position?.array?.length).length
