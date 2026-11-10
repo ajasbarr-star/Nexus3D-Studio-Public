@@ -2933,6 +2933,7 @@ export default function App() {
         {rigTab === 'auto' && <div className="rigging-section-body">
           <p>Detect existing GLB/GLTF SkinnedMesh armatures and expose their bones in Scene Tree.</p>
           <button type="button" className="rigging-action" onClick={() => runtime.current?.detectRiggedMeshes()}>⌕ Detect Character Skeletons</button>
+          <button type="button" className="rigging-action" onClick={() => runtime.current?.autoRigSelectedMesh()}>✧ Auto-Rig Selected Mesh</button>
           <label className="rigging-check"><input type="checkbox" checked={ikEnabled} onChange={e => setIkEnabled(e.target.checked)}/><span>Enable Auto-IK solve</span></label>
           <button type="button" className="rigging-action secondary" disabled={!ikEnabled} onClick={() => runtime.current?.solveIK(ikChainLength)}>Solve Selected Rig</button>
           <p className="rigging-warning">Unrigged arbitrary meshes are not automatically weighted in this build. Use a humanoid GLB with an existing skin/skeleton.</p>
