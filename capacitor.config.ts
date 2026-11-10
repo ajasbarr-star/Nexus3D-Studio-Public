@@ -4,7 +4,6 @@ const config: CapacitorConfig = {
   appId: 'com.nexus3d.studio',
   appName: 'Nexus3D',
   webDir: 'dist',
-  bundledWebRuntime: false,
   android: {
     allowMixedContent: false,
     backgroundColor: '#090d16',
