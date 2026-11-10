@@ -968,6 +968,7 @@ export default function App() {
       scene.add(target);
       selectable.push(target);
       const selectedBone = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
+      if (selectedBone instanceof THREE.Bone) target.position.copy(selectedBone.getWorldPosition(new THREE.Vector3()));
       const activeChain = [...rigChains].reverse().find(chain => selectedBone instanceof THREE.Bone && chain.bones.includes(selectedBone)) || rigChains[rigChains.length - 1];
       if (!activeChain) { scene.remove(target); selectable.splice(selectable.indexOf(target), 1); setStatus('Create or detect a rig before adding an IK target'); return null; }
       activeChain.target = target;
@@ -978,7 +979,8 @@ export default function App() {
       return target;
     };
     const solveIK = (chainLength = 3) => {
-      const chain = [...rigChains].reverse().find(entry => entry.target);
+      const selectedTarget = selectable.find(o => String(o.userData.editorId) === selectedRef.current && o.userData.kind === 'IK Target');
+      const chain = selectedTarget ? rigChains.find(entry => entry.target === selectedTarget) : [...rigChains].reverse().find(entry => entry.target);
       if (!chain || !chain.target) { setStatus('Create a rig and an IK target first'); return; }
       const endBone = chain.bones.find(bone => String(bone.userData.editorId) === String(chain.target?.userData.ikEndBoneId)) || chain.bones[chain.bones.length-1];
       const path: THREE.Bone[] = [];
