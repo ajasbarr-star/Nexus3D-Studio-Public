@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -2848,7 +2848,7 @@ export default function App() {
           path: 'Nexus3D/' + fileName,
           data: serialized,
           directory: Directory.Documents,
-          encoding: 'utf8' as any,
+          encoding: Encoding.UTF8,
           recursive: true,
         });
         // Keep a lightweight last-project recovery copy when WebView storage has room.
