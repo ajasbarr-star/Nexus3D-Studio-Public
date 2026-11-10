@@ -534,6 +534,15 @@ export default function App() {
       joint.name = bone.name + ' Joint'; joint.userData.nexusJointVisual = true; joint.renderOrder = 18; joint.raycast = () => {};
       bone.add(joint);
     };
+    const refreshJointColors = (active?: THREE.Object3D) => {
+      selectable.forEach(object => {
+        if (!(object instanceof THREE.Bone)) return;
+        const joint = object.children.find(child => child.userData.nexusJointVisual) as THREE.Mesh | undefined;
+        if (!joint) return;
+        const color = object.userData.locked ? '#778391' : object === active ? '#ff9f43' : object.userData.detached ? '#b56bdb' : object.parent instanceof THREE.Bone ? '#39c98a' : '#38a9e8';
+        ((joint.material as THREE.MeshBasicMaterial)).color.set(color);
+      });
+    };
     const styleSkeletonHelper = (helper: THREE.SkeletonHelper, bones: THREE.Bone[]) => {
       const colors: number[] = [];
       bones.forEach(bone => {
@@ -542,7 +551,8 @@ export default function App() {
             : bone.name.endsWith('.L') ? new THREE.Color('#36d9ff')
               : bone.name.endsWith('.R') ? new THREE.Color('#b28cff')
                 : new THREE.Color('#d7f4ff');
-        colors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+        const lineColor = bone.userData.locked ? new THREE.Color('#778391') : new THREE.Color('#00d9ff');
+        colors.push(lineColor.r, lineColor.g, lineColor.b, lineColor.r, lineColor.g, lineColor.b);
       });
       helper.geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
       const material = helper.material as THREE.LineBasicMaterial;
@@ -780,6 +790,7 @@ export default function App() {
       }
       setSelected(String(obj.userData.editorId || ''));
       selectedRef.current = String(obj.userData.editorId || '');
+      refreshJointColors(obj instanceof THREE.Bone ? obj : undefined);
       if (obj instanceof THREE.Mesh && editModeRef.current !== 'Object') refreshTopologyOverlay(obj);
       setStatus('Selected · ' + obj.name);
     };
@@ -835,6 +846,7 @@ export default function App() {
         root.userData.editorId = uid(); root.userData.kind = 'Rig';
         if (selectedObject) { selectedObject.updateWorldMatrix(true, false); root.position.copy(selectedObject.getWorldPosition(new THREE.Vector3())); }
         scene.add(root);
+        if (selectedObject) { scene.updateMatrixWorld(true); selectedObject.attach(root); }
       }
       const bone = new THREE.Bone();
       bone.name = 'Bone_' + String(selectable.filter(o => o instanceof THREE.Bone).length + 1).padStart(2, '0');
