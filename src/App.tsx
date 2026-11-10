@@ -2433,7 +2433,8 @@ export default function App() {
         return;
       }
       r.riggingView = true;
-      r.camBody.visible = false;
+      // UserCamera visibility is managed independently by the render loop;
+      // IK Rigging never changes the original CAM/UserCamera switching logic.
       r.riggingPreviousCamera = {
         position: r.camera.position.toArray(),
         target: r.orbit.target.toArray(),
