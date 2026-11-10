@@ -1606,19 +1606,36 @@ export default function App() {
         material: materialForTriangle(triangle),
       }));
       const used = new Set<number>();
-      const quadPairs: Array<{ a: Record<string, number[]>; b: Record<string, number[]>; c: Record<string, number[]>; d: Record<string, number[]> }> = [];
-      // Pair triangles only when they share exactly one full edge and use the same material.
+      const quadPairs: Array<{ a: Record<string, number[]>; b: Record<string, number[]>; c: Record<string, number[]>; d: Record<string, number[]>; material: number }> = [];
+      const edgeTriangles = new Map<string, number[]>();
+      const edgeKey = (a: string, b: string) => a < b ? a + '|' + b : b + '|' + a;
+      triangles.forEach((entry, index) => {
+        const keys = entry.corners.map(pointKey);
+        for (let edge = 0; edge < 3; edge++) {
+          const key = edgeKey(keys[edge], keys[(edge + 1) % 3]);
+          const list = edgeTriangles.get(key) || [];
+          list.push(index);
+          edgeTriangles.set(key, list);
+        }
+      });
+      // Edge lookup keeps pairing linear-time on mobile-sized meshes.
       for (let i = 0; i < triangles.length; i++) {
         if (used.has(i)) continue;
         const first = triangles[i];
+        const keysA = first.corners.map(pointKey);
         let match = -1;
         let shared: string[] = [];
-        for (let j = i + 1; j < triangles.length; j++) {
-          if (used.has(j) || triangles[j].material !== first.material) continue;
-          const keysA = first.corners.map(pointKey);
-          const keysB = triangles[j].corners.map(pointKey);
+        const candidates = new Set<number>();
+        for (let edge = 0; edge < 3; edge++) {
+          (edgeTriangles.get(edgeKey(keysA[edge], keysA[(edge + 1) % 3])) || []).forEach(candidate => {
+            if (candidate > i && !used.has(candidate)) candidates.add(candidate);
+          });
+        }
+        for (const candidate of candidates) {
+          if (triangles[candidate].material !== first.material) continue;
+          const keysB = triangles[candidate].corners.map(pointKey);
           const common = keysA.filter(key => keysB.includes(key));
-          if (common.length === 2) { match = j; shared = common; break; }
+          if (common.length === 2) { match = candidate; shared = common; break; }
         }
         if (match < 0) continue;
         const second = triangles[match];
@@ -1627,9 +1644,7 @@ export default function App() {
         const sharedA = first.corners.find(corner => pointKey(corner) === shared[0]);
         const sharedB = first.corners.find(corner => pointKey(corner) === shared[1]);
         if (!firstOpposite || !secondOpposite || !sharedA || !sharedB) continue;
-        // The shared diagonal becomes the internal quad triangulation diagonal,
-        // not a visible subdivision edge.
-        quadPairs.push({ a: firstOpposite, b: sharedA, c: secondOpposite, d: sharedB });
+        quadPairs.push({ a: firstOpposite, b: sharedA, c: secondOpposite, d: sharedB, material: first.material });
         used.add(i);
         used.add(match);
       }
@@ -1654,7 +1669,7 @@ export default function App() {
         const { a, b, c, d } = quad;
         const ab = midpoint(a, b), bc = midpoint(b, c), cd = midpoint(c, d), da = midpoint(d, a);
         const center = Object.fromEntries(attributeNames.map(name => [name, a[name].map((value, component) => (value + b[name][component] + c[name][component] + d[name][component]) * 0.25)])) as Record<string, number[]>;
-        const material = triangles.find(entry => entry.corners.some(corner => pointKey(corner) === pointKey(a)))?.material ?? 0;
+        const material = quad.material;
         appendWithMaterial([a, ab, center, da], material);
         appendWithMaterial([ab, b, bc, center], material);
         appendWithMaterial([center, bc, c, cd], material);
