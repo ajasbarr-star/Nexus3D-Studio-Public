@@ -860,6 +860,7 @@ export default function App() {
       const middle = chain.bones[Math.floor(chain.bones.length/2)];
       const target = new THREE.Mesh(new THREE.SphereGeometry(0.11,14,10),new THREE.MeshBasicMaterial({color:0xc58cff,wireframe:true}));
       target.name = 'IK Pole Target'; target.userData.editorId = uid(); target.userData.kind = 'IK Pole';
+      target.userData.rigRootBoneId = chain.bones[0]?.userData.editorId || null;
       target.position.copy(middle.getWorldPosition(new THREE.Vector3())).add(new THREE.Vector3(0.8,0,0.8));
       scene.add(target); selectable.push(target); chain.pole = target; syncItems(); selectObject(target);
       setStatus('Pole target created · drag it to guide the limb bend plane'); return target;
@@ -998,14 +999,15 @@ export default function App() {
       if (!activeChain) { scene.remove(target); selectable.splice(selectable.indexOf(target), 1); setStatus('Create or detect a rig before adding an IK target'); return null; }
       activeChain.target = target;
       if (selectedBone instanceof THREE.Bone) target.userData.ikEndBoneId = selectedBone.userData.editorId;
+      target.userData.rigRootBoneId = activeChain.bones[0]?.userData.editorId || null;
       syncItems();
       selectObject(target);
       setStatus('IK target handle created. Move it with the viewport gizmo, then Solve IK.');
       return target;
     };
     const solveIK = (chainLength = 3) => {
-      const selectedTarget = selectable.find(o => String(o.userData.editorId) === selectedRef.current && o.userData.kind === 'IK Target');
-      const chain = selectedTarget ? rigChains.find(entry => entry.target === selectedTarget) : [...rigChains].reverse().find(entry => entry.target);
+      const selectedHandle = selectable.find(o => String(o.userData.editorId) === selectedRef.current && (o.userData.kind === 'IK Target' || o.userData.kind === 'IK Pole'));
+      const chain = selectedHandle ? rigChains.find(entry => entry.target === selectedHandle || entry.pole === selectedHandle) : [...rigChains].reverse().find(entry => entry.target);
       if (!chain || !chain.target) { setStatus('Create a rig and an IK target first'); return; }
       const endBone = chain.bones.find(bone => String(bone.userData.editorId) === String(chain.target?.userData.ikEndBoneId)) || chain.bones[chain.bones.length-1];
       const path: THREE.Bone[] = [];
