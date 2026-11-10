@@ -22,6 +22,7 @@ import './index.css';
 type NexusProjectFilesPlugin = {
   saveProject(options: { fileName: string; content: string }): Promise<{ uri: string; name: string }>;
   loadProject(): Promise<{ content: string; name: string }>;
+  loadProjectArchive(): Promise<{ base64: string; name: string }>;
   saveProjectArchive(options: { fileName: string; base64: string }): Promise<{ uri: string; name: string }>;
 };
 const NexusProjectFiles = registerPlugin<NexusProjectFilesPlugin>('NexusProjectFiles');
@@ -219,6 +220,7 @@ export default function App() {
   const [projectName, setProjectName] = useState('Project.nexus');
   const [saveAccordionOpen, setSaveAccordionOpen] = useState(false);
   const projectFileRef = useRef<HTMLInputElement>(null);
+  const projectZipFileRef = useRef<HTMLInputElement>(null);
   const modelFileRef = useRef<HTMLInputElement>(null);
   const [lightLocks, setLightLocks] = useState<Record<string, boolean>>({});
   const [lightPanelOpen, setLightPanelOpen] = useState<Record<string, boolean>>({ Directional: true, Point: true, Spot: true, Ambient: true, Hemisphere: true });
@@ -3260,6 +3262,101 @@ export default function App() {
       setStatus('ZIP EXPORT FAILED: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
+  const importProjectZip = async (file?: File) => {
+    const r = runtime.current;
+    if (!r?.scene) return;
+    try {
+      setStatus('Reading Nexus3D project ZIP…');
+      const zip = await JSZip.loadAsync(file || new Blob());
+      const projectEntry = zip.file('Project.nexus');
+      const sceneEntry = zip.file('Scene/Scene.glb');
+      if (!projectEntry || !sceneEntry) throw new Error('ZIP is missing Project.nexus or Scene/Scene.glb');
+      const projectData = JSON.parse(await projectEntry.async('string'));
+      if (!Array.isArray(projectData.objects)) throw new Error('Project metadata is invalid');
+      const sceneBuffer = await sceneEntry.async('arraybuffer');
+      const loader = new GLTFLoader();
+      const gltf = await new Promise<any>((resolve, reject) => loader.parse(sceneBuffer, '', resolve, reject));
+      const importedScene: THREE.Object3D = gltf.scene;
+      importedScene.name = (projectData.projectName || file?.name || 'Nexus3D Imported Project').replace(/\\.(nexus|zip)$/i, '');
+      const savedByName = new Map<string, any[]>();
+      projectData.objects.forEach((saved: any) => {
+        if (!saved || typeof saved.name !== 'string') return;
+        const key = saved.name + '::' + (saved.kind || '');
+        const list = savedByName.get(key) || [];
+        list.push(saved);
+        savedByName.set(key, list);
+      });
+      const restoredById = new Map<string, THREE.Object3D>();
+      const importedNodes: THREE.Object3D[] = [];
+      importedScene.traverse((node: any) => {
+        const kind = node.isBone ? 'Bone' : node.isSkinnedMesh ? 'Mesh' : node.isMesh ? 'Mesh' : node.userData?.kind || node.type;
+        const candidates = savedByName.get(node.name + '::' + kind) || savedByName.get(node.name + '::') || [];
+        const saved = candidates.shift();
+        if (saved) {
+          if (saved.editorId) {
+            node.userData.editorId = saved.editorId;
+            restoredById.set(saved.editorId, node);
+          }
+          if (saved.editorData && typeof saved.editorData === 'object') {
+            Object.entries(saved.editorData).forEach(([key, value]) => {
+              if (key !== 'editorId') node.userData[key] = value;
+            });
+          }
+          node.userData.kind = saved.kind || kind;
+        } else {
+          node.userData.editorId = node.userData.editorId || uid();
+          node.userData.kind = kind;
+        }
+        importedNodes.push(node);
+        if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; }
+      });
+      r.scene.add(importedScene);
+      importedNodes.forEach(node => { if (!r.selectable.includes(node)) r.selectable.push(node); });
+      projectData.objects.forEach((saved: any) => {
+        if (saved?.kind !== 'Rig') return;
+        const rig = saved.editorId ? restoredById.get(saved.editorId) : undefined;
+        if (rig) r.restoreRigGroup?.(rig);
+      });
+      projectData.objects.forEach((saved: any) => {
+        if (saved?.kind !== 'IK Target' && saved?.kind !== 'IK Pole') return;
+        const handle = saved.editorId ? restoredById.get(saved.editorId) : undefined;
+        const rootId = saved.editorData?.rigRootBoneId;
+        if (handle && rootId) r.attachRigHandle?.(handle, rootId, saved.kind);
+      });
+      if (projectData.keyframes && typeof projectData.keyframes === 'object') {
+        keysRef.current = projectData.keyframes as Keyframes;
+        setKeyframes(keysRef.current);
+        setUndoStack([]); setRedoStack([]);
+        setActionUndoStack([]); setActionRedoStack([]);
+      }
+      if (projectData.settings && typeof projectData.settings === 'object') setSettings(prev => ({ ...prev, ...projectData.settings }));
+      r.detectRiggedMeshes?.(importedScene);
+      r.scene.updateMatrixWorld(true);
+      r.syncItems?.();
+      r.selectObject?.(importedScene);
+      setStatus('PROJECT ZIP IMPORTED · ' + importedNodes.filter((node: any) => node.isMesh).length + ' mesh(es), textures/materials and embedded GLB skeleton data loaded');
+    } catch (error) {
+      console.error('Nexus3D ZIP import failed:', error);
+      setStatus('ZIP IMPORT FAILED: ' + (error instanceof Error ? error.message : String(error)));
+    }
+  };
+  const chooseProjectZip = async (file?: File) => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const picked = await NexusProjectFiles.loadProjectArchive();
+        const binary = atob(picked.base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        await importProjectZip(new File([bytes], picked.name || 'Nexus3D_Project.zip', { type: 'application/zip' }));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!/cancel/i.test(message)) setStatus('ZIP LOAD FAILED: ' + message);
+      }
+      return;
+    }
+    if (file) await importProjectZip(file);
+    else projectZipFileRef.current?.click();
+  };
   const exportProject = () => {
     const blob = new Blob([JSON.stringify(getProjectData(), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -3401,6 +3498,8 @@ export default function App() {
               <button className="menu-option" onClick={() => modelFileRef.current?.click()}><Upload size={13} /><span>Import 3D Model</span></button>
               <button className="menu-option" onClick={exportProject}><Download size={13} /><span>Export Scene JSON</span></button>
               <button className="menu-option" onClick={() => { void exportProjectZip(); }}><Download size={13} /><span>Export Project ZIP</span></button>
+              <button className="menu-option" onClick={() => { void chooseProjectZip(); }}><FolderOpen size={13} /><span>Import Project ZIP</span></button>
+              <input ref={projectZipFileRef} type="file" accept=".zip,application/zip" hidden onChange={e => { void chooseProjectZip(e.target.files?.[0]); e.currentTarget.value = ''; }} />
               <input ref={projectFileRef} type="file" accept=".nexus,.json,application/json" hidden onChange={e => { handleProjectFile(e.target.files?.[0]); e.currentTarget.value = ''; }} />
               <input ref={modelFileRef} type="file" accept=".gltf,.glb,.obj,.fbx,model/gltf+json,model/gltf-binary,text/plain" hidden onChange={e => { void importModel(e.target.files?.[0]); e.currentTarget.value = ''; }} />
             </>}
