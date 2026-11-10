@@ -6,6 +6,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import JSZip from 'jszip';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -3149,16 +3150,36 @@ export default function App() {
     setStatus('New project created');
     setMenuOpen(false);
   };
-  const importModel = async (file?: File) => {
+  const importModel = async (file?: File, companionFiles: File[] = []) => {
     if (!file || !runtime.current?.scene) return;
     const r = runtime.current;
+    const objectUrls: string[] = [];
     try {
       let object: THREE.Object3D;
+      const allFiles = [file, ...companionFiles];
+      const fileMap = new Map<string, File>();
+      allFiles.forEach(asset => { fileMap.set(asset.name.toLowerCase(), asset); fileMap.set(asset.name.split('/').pop()!.toLowerCase(), asset); });
+      const manager = new THREE.LoadingManager();
+      manager.setURLModifier((url: string) => {
+        const clean = decodeURIComponent(url.split(/[?#]/)[0]).replace(/\\\\/g, '/').toLowerCase();
+        const match = fileMap.get(clean) || fileMap.get(clean.split('/').pop() || '');
+        if (!match) return url;
+        const blobUrl = URL.createObjectURL(match);
+        objectUrls.push(blobUrl);
+        return blobUrl;
+      });
       if (file.name.toLowerCase().endsWith('.obj')) {
-        object = new OBJLoader().parse(await file.text());
+        const materialFile = companionFiles.find(asset => asset.name.toLowerCase().endsWith('.mtl'));
+        const objLoader = new OBJLoader(manager);
+        if (materialFile) {
+          const materials = new MTLLoader(manager).parse(await materialFile.text(), '');
+          materials.preload();
+          objLoader.setMaterials(materials);
+        }
+        object = objLoader.parse(await file.text());
       } else if (file.name.toLowerCase().endsWith('.gltf') || file.name.toLowerCase().endsWith('.glb')) {
         const buffer = await file.arrayBuffer();
-        object = await new Promise<THREE.Object3D>((resolve, reject) => new GLTFLoader().parse(buffer, '', gltf => resolve(gltf.scene), reject));
+        object = await new Promise<THREE.Object3D>((resolve, reject) => new GLTFLoader(manager).parse(buffer, '', gltf => resolve(gltf.scene), reject));
       } else {
         setStatus('This browser build supports OBJ, GLTF and GLB import. FBX is not enabled yet.');
         return;
@@ -3183,8 +3204,11 @@ export default function App() {
       r.detectRiggedMeshes?.(object);
       r.syncItems?.();
       setStatus('Imported ' + file.name);
-    } catch {
-      setStatus('Model import failed. Check that the selected file is a valid OBJ, GLTF or GLB.');
+    } catch (error) {
+      console.error('Nexus3D model import failed:', error);
+      setStatus('Model import failed. Check the model and its companion BIN/MTL/texture files.');
+    } finally {
+      objectUrls.forEach(url => URL.revokeObjectURL(url));
     }
   };
   const exportProjectZip = async () => {
@@ -3501,7 +3525,7 @@ export default function App() {
               <button className="menu-option" onClick={() => { void chooseProjectZip(); }}><FolderOpen size={13} /><span>Import Project ZIP</span></button>
               <input ref={projectZipFileRef} type="file" accept=".zip,application/zip" hidden onChange={e => { void chooseProjectZip(e.target.files?.[0]); e.currentTarget.value = ''; }} />
               <input ref={projectFileRef} type="file" accept=".nexus,.json,application/json" hidden onChange={e => { handleProjectFile(e.target.files?.[0]); e.currentTarget.value = ''; }} />
-              <input ref={modelFileRef} type="file" accept=".gltf,.glb,.obj,.fbx,model/gltf+json,model/gltf-binary,text/plain" hidden onChange={e => { void importModel(e.target.files?.[0]); e.currentTarget.value = ''; }} />
+              <input ref={modelFileRef} type="file" multiple accept=".gltf,.glb,.obj,.mtl,.bin,.png,.jpg,.jpeg,.webp,.ktx2,.fbx,model/gltf+json,model/gltf-binary,text/plain,image/*" hidden onChange={e => { const files = Array.from(e.target.files || []); const primary = files.find(file => /\\.(gltf|glb|obj|fbx)$/i.test(file.name)); if (primary) void importModel(primary, files.filter(file => file !== primary)); else setStatus('Select one GLB, GLTF or OBJ model together with its companion files.'); e.currentTarget.value = ''; }} />
             </>}
             {category.title === 'Editor Settings & Preferences' && <>
               <button className="menu-option" onClick={setAxisSpace}><Globe size={13} /><span>Toggle World / Local</span></button>
