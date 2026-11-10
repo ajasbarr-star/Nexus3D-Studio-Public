@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
@@ -2832,17 +2835,41 @@ export default function App() {
       }))
     };
   };
-  const saveProject = () => {
+  const saveProject = async () => {
     try {
       const data = getProjectData();
       const serialized = JSON.stringify({ ...data, projectName: projectName.trim() || 'Project.nexus' }, null, 2);
+      const safeName = (projectName.trim() || 'Project.nexus').replace(/[^a-z0-9._-]/gi, '_');
+      const fileName = safeName.toLowerCase().endsWith('.nexus') || safeName.toLowerCase().endsWith('.json') ? safeName : safeName + '.nexus';
+
+      if (Capacitor.isNativePlatform()) {
+        // Keep the native project copy in shared Documents so it remains available offline.
+        const savedFile = await Filesystem.writeFile({
+          path: 'Nexus3D/' + fileName,
+          data: serialized,
+          directory: Directory.Documents,
+          encoding: 'utf8' as any,
+          recursive: true,
+        });
+        // Keep a lightweight last-project recovery copy when WebView storage has room.
+        try { localStorage.setItem('nexus3d-project-v1', serialized); } catch { /* File copy is the primary native save. */ }
+        setStatus('Project saved locally: Documents/Nexus3D/' + fileName);
+        // Sharing is optional; the local file is already saved if the user dismisses the share sheet.
+        await Share.share({
+          title: 'Nexus3D Project',
+          text: 'Export Nexus3D project file',
+          url: savedFile.uri,
+          dialogTitle: 'Share Nexus3D Project',
+        }).catch(() => undefined);
+        return;
+      }
+
       localStorage.setItem('nexus3d-project-v1', serialized);
       const blob = new Blob([serialized], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      const safeName = (projectName.trim() || 'Project.nexus').replace(/[^a-z0-9._-]/gi, '_');
-      link.download = safeName.toLowerCase().endsWith('.nexus') || safeName.toLowerCase().endsWith('.json') ? safeName : safeName + '.nexus';
+      link.download = fileName;
       link.click();
       URL.revokeObjectURL(url);
       setStatus('Project saved and downloaded as ' + link.download);
