@@ -2842,22 +2842,23 @@ export default function App() {
       const fileName = safeName.toLowerCase().endsWith('.nexus') || safeName.toLowerCase().endsWith('.json') ? safeName : safeName + '.nexus';
 
       if (Capacitor.isNativePlatform()) {
-        // Save a user-accessible .nexus file in Documents so Android's file
-        // picker can find it later. Do not open the Share sheet automatically.
-        const folderPath = 'Nexus3D';
-        await Filesystem.mkdir({
-          path: folderPath,
-          directory: Directory.Documents,
-          recursive: true,
-        }).catch(() => undefined);
+        // Use the app-private data directory: it is writable offline on Android
+        // without shared-storage permissions or Android-version-specific access.
+        const nativePath = 'projects/' + fileName;
         await Filesystem.writeFile({
-          path: folderPath + '/' + fileName,
+          path: nativePath,
           data: serialized,
-          directory: Directory.Documents,
+          directory: Directory.Data,
           encoding: Encoding.UTF8,
           recursive: true,
         });
-        setStatus('Project Saved Successfully! Documents/Nexus3D/' + fileName);
+        try {
+          localStorage.setItem('nexus3d-last-project-path', nativePath);
+          localStorage.setItem('nexus3d-project-v1', serialized);
+        } catch (storageError) {
+          console.warn('Nexus3D local backup metadata unavailable:', storageError);
+        }
+        setStatus('PROJECT SAVED SUCCESSFULLY — ' + fileName);
         return;
       }
 
@@ -2870,8 +2871,10 @@ export default function App() {
       link.click();
       URL.revokeObjectURL(url);
       setStatus('Project saved and downloaded as ' + link.download);
-    } catch {
-      setStatus('Unable to save project on this device');
+    } catch (error) {
+      console.error('Nexus3D save failed:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus('SAVE FAILED: ' + message);
     }
   };
   const loadProject = () => {
@@ -3224,6 +3227,8 @@ export default function App() {
 
   return (
     <main className={'editor-shell ' + (animationMode ? 'animation-mode' : '') + (riggingView ? ' rigging-mode' : '')}>
+      {status !== 'Nothing selected' && <div role="status" aria-live="polite" style={{ position: 'fixed', top: 'calc(env(safe-area-inset-top, 0px) + 54px)', left: '50%', transform: 'translateX(-50%)', zIndex: 100000, maxWidth: 'min(90vw, 520px)', padding: '10px 16px', border: '1px solid rgba(88,220,255,.55)', borderRadius: 10, background: 'rgba(7,14,25,.96)', color: '#e8f8ff', fontSize: 13, fontWeight: 700, textAlign: 'center', boxShadow: '0 8px 28px rgba(0,0,0,.4)', pointerEvents: 'none' }}>{status}</div>}
+
       <div className={'viewport ' + (pathTool ? 'path-tool-active' : '')} ref={hostRef} onPointerDown={e => { if (!pathTool || animationMode) return; const rect = e.currentTarget.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width - .5) * 20; const z = ((e.clientY - rect.top) / rect.height - .5) * -20; setMotionPathPoints(prev => [...prev, {x, y:0.05, z}]); }} onDragOver={e => { if (e.dataTransfer.types.includes('text/nexus3d-object')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }} onDrop={e => { const childId = e.dataTransfer.getData('text/nexus3d-object'); if (!childId) return; e.preventDefault(); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }} />
       <div className={'camera-mode-hud ' + (cameraView ? 'cine-active' : '')} aria-live="polite"><span className="camera-mode-dot" />{cameraView ? 'CINE CAMERA VIEW' : riggingView ? 'IK RIGGING · FRONT PERSPECTIVE' : 'PERSPECTIVE MODE'}</div>
       {!animationMode && !cameraView && <div className="quick-access-rail" aria-label="Quick access controls">
