@@ -2189,25 +2189,45 @@ export default function App() {
     const r = runtime.current;
     return {
       app: 'Nexus3D',
-      version: 1,
+      version: 2,
       savedAt: new Date().toISOString(),
       objects: (r?.selectable || []).map((obj: THREE.Object3D) => ({
+        editorId: obj.userData.editorId || null,
         name: obj.name,
         kind: obj.userData.kind || obj.type,
-        geometry: obj instanceof THREE.Mesh ? { attributes: Object.fromEntries(Object.entries(obj.geometry.attributes).map(([key, attribute]: [string, any]) => [key, { itemSize: attribute.itemSize, normalized: attribute.normalized, array: Array.from(attribute.array as ArrayLike<number>) }])), index: obj.geometry.index ? Array.from(obj.geometry.index.array as ArrayLike<number>) : null, groups: obj.geometry.groups.map(group => ({ ...group })) } : undefined,
+        objectType: obj.type,
+        lightType: obj.userData.lightType || null,
+        geometry: obj instanceof THREE.Mesh ? {
+          attributes: Object.fromEntries(Object.entries(obj.geometry.attributes).map(([key, attribute]: [string, any]) => [key, { itemSize: attribute.itemSize, normalized: attribute.normalized, array: Array.from(attribute.array as ArrayLike<number>) }])),
+          index: obj.geometry.index ? Array.from(obj.geometry.index.array as ArrayLike<number>) : null,
+          groups: obj.geometry.groups.map(group => ({ ...group }))
+        } : undefined,
+        material: obj instanceof THREE.Mesh ? (Array.isArray(obj.material) ? obj.material : [obj.material]).map((mat: any) => ({
+          type: mat.type,
+          color: mat.color?.getHexString?.() || null,
+          roughness: Number.isFinite(mat.roughness) ? mat.roughness : null,
+          metalness: Number.isFinite(mat.metalness) ? mat.metalness : null,
+          opacity: Number.isFinite(mat.opacity) ? mat.opacity : 1,
+          transparent: Boolean(mat.transparent),
+          emissive: mat.emissive?.getHexString?.() || null,
+          emissiveIntensity: Number.isFinite(mat.emissiveIntensity) ? mat.emissiveIntensity : 0
+        })) : undefined,
         meshTopology: obj instanceof THREE.Mesh ? {
           cutLoops: Array.isArray(obj.userData.cutLoops) ? obj.userData.cutLoops.map((loop: number[][]) => loop.map(point => [...point])) : [],
           quadGrid: Boolean(obj.userData.nexusQuadGrid),
           quadGridLayout: obj.userData.nexusQuadGridLayout || null,
           cubeGridBounds: obj.userData.nexusCubeGridBounds ? JSON.parse(JSON.stringify(obj.userData.nexusCubeGridBounds)) : null,
-          cubeGridDivisions: Number(obj.userData.nexusCubeGridDivisions || 0),
+          cubeGridDivisions: Number(obj.userData.nexusCubeGridDivisions || 0)
         } : undefined,
         position: obj.position.toArray(),
         rotation: [obj.rotation.x, obj.rotation.y, obj.rotation.z],
         scale: obj.scale.toArray(),
         visible: obj.visible,
-        parentName: obj.parent?.userData?.editorId ? obj.parent.name : null,
-      })),
+        castShadow: Boolean((obj as any).castShadow),
+        receiveShadow: Boolean((obj as any).receiveShadow),
+        parentEditorId: obj.parent?.userData?.editorId || null,
+        parentName: obj.parent?.userData?.editorId ? obj.parent.name : null
+      }))
     };
   };
   const saveProject = () => {
@@ -2236,46 +2256,160 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-      const raw = String(reader.result || '');
-      const data = JSON.parse(raw);
-      if (data.projectName) setProjectName(String(data.projectName));
-      const r = runtime.current;
-      if (!r || !Array.isArray(data.objects)) return;
-      data.objects.forEach((saved: any) => {
-        const obj = r.selectable.find((candidate: THREE.Object3D) =>
-          candidate.name === saved.name && (candidate.userData.kind || candidate.type) === saved.kind
-        );
-        if (!obj) return;
-        if (obj instanceof THREE.Mesh && saved.geometry?.attributes?.position?.array) {
-          const restored = new THREE.BufferGeometry();
-          Object.entries(saved.geometry.attributes).forEach(([key, value]: [string, any]) => restored.setAttribute(key, new THREE.Float32BufferAttribute(value.array, value.itemSize, value.normalized)));
-          if (Array.isArray(saved.geometry.index)) restored.setIndex(saved.geometry.index);
-          if (Array.isArray(saved.geometry.groups)) saved.geometry.groups.forEach((group: any) => restored.addGroup(group.start, group.count, group.materialIndex));
-          restored.computeVertexNormals(); restored.computeBoundingBox(); restored.computeBoundingSphere();
-          obj.geometry.dispose(); obj.geometry = restored;
-          if (saved.meshTopology) {
-            obj.userData.cutLoops = Array.isArray(saved.meshTopology.cutLoops) ? saved.meshTopology.cutLoops.map((loop: number[][]) => loop.map(point => [...point])) : [];
-            if (saved.meshTopology.quadGrid === true) {
-              obj.userData.nexusQuadGrid = true;
-              obj.userData.nexusQuadGridLayout = saved.meshTopology.quadGridLayout || 'canonical-v1';
-            } else {
-              delete obj.userData.nexusQuadGrid;
-              delete obj.userData.nexusQuadGridLayout;
-            }
-            if (saved.meshTopology.cubeGridBounds) obj.userData.nexusCubeGridBounds = saved.meshTopology.cubeGridBounds;
-            else delete obj.userData.nexusCubeGridBounds;
-            if (Number(saved.meshTopology.cubeGridDivisions) > 0) obj.userData.nexusCubeGridDivisions = Number(saved.meshTopology.cubeGridDivisions);
-            else delete obj.userData.nexusCubeGridDivisions;
-            r.refreshTopologyOverlay?.(obj);
-          }
+        const raw = String(reader.result || '');
+        const data = JSON.parse(raw);
+        const r = runtime.current;
+        if (!r || !Array.isArray(data.objects)) {
+          setStatus('Project file is invalid or contains no scene objects');
+          return;
         }
-        if (Array.isArray(saved.position)) obj.position.fromArray(saved.position);
-        if (Array.isArray(saved.rotation)) obj.rotation.set(saved.rotation[0], saved.rotation[1], saved.rotation[2]);
-        if (Array.isArray(saved.scale)) obj.scale.fromArray(saved.scale);
-        if (typeof saved.visible === 'boolean') obj.visible = saved.visible;
-      });
-      setStatus('Project file loaded: saved transforms restored where matching objects exist');
-      } catch {
+        if (data.projectName) setProjectName(String(data.projectName));
+        const restoredById = new Map<string, THREE.Object3D>();
+        const restoredByName = new Map<string, THREE.Object3D>();
+
+        // First pass: resolve existing editor objects, or create missing scene objects.
+        // This is the key difference from the old loader, which only updated objects
+        // already present in the current scene.
+        data.objects.forEach((saved: any) => {
+          if (!saved || typeof saved.name !== 'string') return;
+          let obj = saved.editorId
+            ? r.selectable.find((candidate: THREE.Object3D) => candidate.userData.editorId === saved.editorId)
+            : undefined;
+          if (!obj) {
+            obj = r.selectable.find((candidate: THREE.Object3D) =>
+              candidate.name === saved.name &&
+              (candidate.userData.kind || candidate.type) === saved.kind
+            );
+          }
+
+          if (!obj && saved.kind === 'Light' && saved.lightType && typeof r.addSceneLight === 'function') {
+            obj = r.addSceneLight(saved.lightType);
+          } else if (!obj && saved.geometry?.attributes?.position?.array) {
+            const geometry = new THREE.BufferGeometry();
+            Object.entries(saved.geometry.attributes).forEach(([key, value]: [string, any]) => {
+              if (!Array.isArray(value?.array) || !Number.isInteger(value.itemSize) || value.itemSize < 1) return;
+              geometry.setAttribute(key, new THREE.Float32BufferAttribute(value.array, value.itemSize, Boolean(value.normalized)));
+            });
+            if (Array.isArray(saved.geometry.index)) geometry.setIndex(saved.geometry.index);
+            if (Array.isArray(saved.geometry.groups)) saved.geometry.groups.forEach((group: any) => {
+              if (Number.isFinite(group.start) && Number.isFinite(group.count)) geometry.addGroup(group.start, group.count, Number(group.materialIndex) || 0);
+            });
+            geometry.computeVertexNormals();
+            geometry.computeBoundingBox();
+            geometry.computeBoundingSphere();
+            const materialData = Array.isArray(saved.material) ? saved.material[0] : null;
+            const material = new THREE.MeshPhysicalMaterial({
+              color: materialData?.color ? '#' + materialData.color : '#b6d8ff',
+              roughness: Number.isFinite(materialData?.roughness) ? materialData.roughness : 0.35,
+              metalness: Number.isFinite(materialData?.metalness) ? materialData.metalness : 0.18,
+              opacity: Number.isFinite(materialData?.opacity) ? materialData.opacity : 1,
+              transparent: Boolean(materialData?.transparent),
+              emissive: materialData?.emissive ? '#' + materialData.emissive : '#000000',
+              emissiveIntensity: Number.isFinite(materialData?.emissiveIntensity) ? materialData.emissiveIntensity : 0
+            });
+            obj = new THREE.Mesh(geometry, material);
+            obj.name = saved.name;
+            obj.userData.kind = saved.kind || 'Mesh';
+            obj.userData.editorId = saved.editorId || uid();
+            obj.castShadow = saved.castShadow !== false;
+            obj.receiveShadow = saved.receiveShadow !== false;
+            r.scene.add(obj);
+            r.selectable.push(obj);
+          } else if (!obj && saved.kind === 'Bone') {
+            obj = new THREE.Bone();
+            obj.name = saved.name;
+            obj.userData.kind = 'Bone';
+            obj.userData.editorId = saved.editorId || uid();
+            r.scene.add(obj);
+            r.selectable.push(obj);
+          } else if (!obj) {
+            obj = new THREE.Group();
+            obj.name = saved.name;
+            obj.userData.kind = saved.kind || 'Group';
+            obj.userData.editorId = saved.editorId || uid();
+            r.scene.add(obj);
+            r.selectable.push(obj);
+          }
+
+          if (!obj) return;
+          obj.name = saved.name;
+          obj.userData.kind = saved.kind || obj.userData.kind || obj.type;
+          if (saved.editorId) obj.userData.editorId = saved.editorId;
+          if (obj instanceof THREE.Mesh && saved.geometry?.attributes?.position?.array) {
+            const restored = new THREE.BufferGeometry();
+            Object.entries(saved.geometry.attributes).forEach(([key, value]: [string, any]) => {
+              if (Array.isArray(value?.array) && Number.isInteger(value.itemSize) && value.itemSize > 0) {
+                restored.setAttribute(key, new THREE.Float32BufferAttribute(value.array, value.itemSize, Boolean(value.normalized)));
+              }
+            });
+            if (Array.isArray(saved.geometry.index)) restored.setIndex(saved.geometry.index);
+            if (Array.isArray(saved.geometry.groups)) saved.geometry.groups.forEach((group: any) => {
+              if (Number.isFinite(group.start) && Number.isFinite(group.count)) restored.addGroup(group.start, group.count, Number(group.materialIndex) || 0);
+            });
+            restored.computeVertexNormals();
+            restored.computeBoundingBox();
+            restored.computeBoundingSphere();
+            obj.geometry.dispose();
+            obj.geometry = restored;
+            if (Array.isArray(saved.material) && saved.material.length) {
+              const materials = saved.material.map((mat: any) => new THREE.MeshPhysicalMaterial({
+                color: mat.color ? '#' + mat.color : '#b6d8ff',
+                roughness: Number.isFinite(mat.roughness) ? mat.roughness : 0.35,
+                metalness: Number.isFinite(mat.metalness) ? mat.metalness : 0.18,
+                opacity: Number.isFinite(mat.opacity) ? mat.opacity : 1,
+                transparent: Boolean(mat.transparent),
+                emissive: mat.emissive ? '#' + mat.emissive : '#000000',
+                emissiveIntensity: Number.isFinite(mat.emissiveIntensity) ? mat.emissiveIntensity : 0
+              }));
+              obj.material = materials.length === 1 ? materials[0] : materials;
+            }
+            if (saved.meshTopology) {
+              obj.userData.cutLoops = Array.isArray(saved.meshTopology.cutLoops) ? saved.meshTopology.cutLoops.map((loop: number[][]) => loop.map(point => [...point])) : [];
+              if (saved.meshTopology.quadGrid === true) {
+                obj.userData.nexusQuadGrid = true;
+                obj.userData.nexusQuadGridLayout = saved.meshTopology.quadGridLayout || 'canonical-v1';
+              } else {
+                delete obj.userData.nexusQuadGrid;
+                delete obj.userData.nexusQuadGridLayout;
+              }
+              if (saved.meshTopology.cubeGridBounds) obj.userData.nexusCubeGridBounds = saved.meshTopology.cubeGridBounds;
+              else delete obj.userData.nexusCubeGridBounds;
+              if (Number(saved.meshTopology.cubeGridDivisions) > 0) obj.userData.nexusCubeGridDivisions = Number(saved.meshTopology.cubeGridDivisions);
+              else delete obj.userData.nexusCubeGridDivisions;
+            }
+          }
+          if (Array.isArray(saved.position) && saved.position.length === 3) obj.position.fromArray(saved.position);
+          if (Array.isArray(saved.rotation) && saved.rotation.length === 3) obj.rotation.set(saved.rotation[0], saved.rotation[1], saved.rotation[2]);
+          if (Array.isArray(saved.scale) && saved.scale.length === 3) obj.scale.fromArray(saved.scale);
+          if (typeof saved.visible === 'boolean') obj.visible = saved.visible;
+          if (obj instanceof THREE.Mesh) {
+            obj.castShadow = saved.castShadow !== false;
+            obj.receiveShadow = saved.receiveShadow !== false;
+          }
+          if (saved.editorId) restoredById.set(saved.editorId, obj);
+          restoredByName.set(saved.name, obj);
+        });
+
+        // Second pass: restore parent-child links after every saved object exists.
+        data.objects.forEach((saved: any) => {
+          const obj = saved?.editorId ? restoredById.get(saved.editorId) : restoredByName.get(saved?.name);
+          if (!obj || obj === r.camBody) return;
+          const parent = saved.parentEditorId
+            ? restoredById.get(saved.parentEditorId)
+            : saved.parentName ? restoredByName.get(saved.parentName) : null;
+          const targetParent = parent && parent !== obj && !obj.getObjectById(parent.id) ? parent : r.scene;
+          if (obj.parent !== targetParent) targetParent.add(obj);
+        });
+
+        r.scene.updateMatrixWorld(true);
+        r.selectObject?.();
+        r.syncItems?.();
+        const restoredCount = data.objects.filter((saved: any) => saved && typeof saved.name === 'string').length;
+        setSelected('');
+        selectedRef.current = '';
+        setStatus('Project loaded · ' + restoredCount + ' saved scene objects restored');
+      } catch (error) {
+        console.error('Nexus3D project load failed:', error);
         setStatus('Project file could not be loaded: invalid JSON or unsupported project data');
       }
     };
