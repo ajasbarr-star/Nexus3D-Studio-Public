@@ -270,6 +270,10 @@ export default function App() {
   const [ikChainLength, setIkChainLength] = useState(3);
   const [jointLimitDegrees, setJointLimitDegrees] = useState(120);
   const [ikSolver, setIkSolver] = useState<'CCD' | 'FABRIK'>('CCD');
+  const ikSolverRef = useRef<'CCD' | 'FABRIK'>('CCD');
+  const jointLimitDegreesRef = useRef(120);
+  useEffect(() => { ikSolverRef.current = ikSolver; }, [ikSolver]);
+  useEffect(() => { jointLimitDegreesRef.current = jointLimitDegrees; }, [jointLimitDegrees]);
   const [rigTab, setRigTab] = useState<'manual' | 'auto'>('manual');
   const [mirrorEnabled, setMirrorEnabled] = useState(true);
   const mirrorEnabledRef = useRef(true);
@@ -1022,14 +1026,14 @@ export default function App() {
       if (bones.length < 2) { setStatus('Select a limb bone before creating its IK target'); return; }
       const targetPosition = chain.target.getWorldPosition(new THREE.Vector3());
       const clampJoint = (bone: THREE.Bone) => {
-        const limit = THREE.MathUtils.degToRad(Number(bone.userData.jointLimitDegrees ?? jointLimitDegrees));
+        const limit = THREE.MathUtils.degToRad(Number(bone.userData.jointLimitDegrees ?? jointLimitDegreesRef.current));
         const euler = new THREE.Euler().setFromQuaternion(bone.quaternion,'XYZ');
         euler.x = THREE.MathUtils.clamp(euler.x,-limit,limit);
         euler.y = THREE.MathUtils.clamp(euler.y,-limit,limit);
         euler.z = THREE.MathUtils.clamp(euler.z,-limit,limit);
         bone.quaternion.setFromEuler(euler); bone.updateMatrixWorld(true);
       };
-      if (ikSolver === 'CCD') {
+      if (ikSolverRef.current === 'CCD') {
         for (let iteration=0;iteration<16;iteration++) {
           for (let i=bones.length-2;i>=0;i--) {
             scene.updateMatrixWorld(true); const bone=bones[i];
@@ -1088,7 +1092,7 @@ export default function App() {
           else rootBone.quaternion.copy(desired);
         }
       }
-      chain.helper.update(); syncItems(); setStatus(ikSolver + ' IK + pole constraint solved · ' + bones.length + ' joints');
+      chain.helper.update(); syncItems(); setStatus(ikSolverRef.current + ' IK + pole constraint solved · ' + bones.length + ' joints');
     };
     const removeObject = (obj: THREE.Object3D, preserveForUndo = false) => {
       if (obj === camBody) {
