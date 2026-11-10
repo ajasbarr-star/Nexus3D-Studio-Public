@@ -1422,15 +1422,15 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 }
 
 
-/* Nexus3D IK Rigging layout — right dock, leaving the landscape viewport open. */
+/* Nexus3D IK Rigging layout — left dock beside Scene Tree; Rig button remains on right. */
 .rigging-panel {
   position: absolute;
   z-index: 19;
   top: 58px;
-  right: 12px;
-  left: auto;
+  left: 194px;
+  right: auto;
   bottom: 72px;
-  width: min(306px, calc(100vw - 220px));
+  width: min(306px, calc(100vw - 214px));
   max-width: 306px;
   max-height: none;
   overflow-x: hidden;
@@ -1449,7 +1449,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .rigging-panel .rigging-action { min-height: 36px; border-radius: 6px; }
 .rigging-panel .rigging-check, .rigging-panel .rigging-field { min-height: 30px; }
 @media (max-width: 760px) {
-  .rigging-panel { right: 8px; left: auto; top: 54px; bottom: 68px; width: min(276px, calc(100vw - 202px)); padding: 7px; }
+  .rigging-panel { left: 184px; right: auto; top: 54px; bottom: 68px; width: min(276px, calc(100vw - 194px)); padding: 7px; }
   .rigging-panel .rigging-section-body { gap: 5px; }
   .rigging-panel .rigging-action { min-height: 33px; font-size: 10px; }
 }
