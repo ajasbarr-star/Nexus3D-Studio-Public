@@ -549,14 +549,12 @@ export default function App() {
         ((joint.material as THREE.MeshBasicMaterial)).color.set(color);
       });
     };
-    const styleSkeletonHelper = (helper: THREE.SkeletonHelper, bones: THREE.Bone[]) => {
+    const styleSkeletonHelper = (helper: THREE.SkeletonHelper, _bones: THREE.Bone[]) => {
+      // SkeletonHelper keeps a fixed bone list from construction time. Color exactly
+      // the segments in that list so the color attribute always matches its geometry.
+      const helperBones = ((helper as any).bones || []) as THREE.Bone[];
       const colors: number[] = [];
-      bones.forEach(bone => {
-        const color = bone.userData.controlHandle ? new THREE.Color('#ffb347')
-          : bone.userData.locked ? new THREE.Color('#657487')
-            : bone.name.endsWith('.L') ? new THREE.Color('#36d9ff')
-              : bone.name.endsWith('.R') ? new THREE.Color('#b28cff')
-                : new THREE.Color('#d7f4ff');
+      helperBones.forEach(bone => {
         const lineColor = bone.userData.locked ? new THREE.Color('#778391') : new THREE.Color('#00d9ff');
         colors.push(lineColor.r, lineColor.g, lineColor.b, lineColor.r, lineColor.g, lineColor.b);
       });
@@ -568,6 +566,25 @@ export default function App() {
       material.opacity = 0.96;
       material.linewidth = 2;
       helper.frustumCulled = false;
+    };
+    const rebuildRigHelper = (chain: { bones: THREE.Bone[]; helper: THREE.SkeletonHelper; target: THREE.Object3D | null; pole?: THREE.Object3D | null }) => {
+      // Recreate SkeletonHelper after hierarchy edits; update() alone cannot discover
+      // bones added after the helper was constructed.
+      const root = chain.bones.find(bone => !chain.bones.some(other => other !== bone && other.getObjectById(bone.id))) || chain.bones[0];
+      if (!root) return;
+      const oldHelper = chain.helper;
+      if (oldHelper) {
+        scene.remove(oldHelper);
+        oldHelper.geometry?.dispose();
+        const oldMaterial = oldHelper.material;
+        if (Array.isArray(oldMaterial)) oldMaterial.forEach(material => material.dispose());
+        else oldMaterial?.dispose();
+      }
+      const helper = new THREE.SkeletonHelper(root);
+      helper.name = root.name + ' Skeleton';
+      styleSkeletonHelper(helper, chain.bones);
+      scene.add(helper);
+      chain.helper = helper;
     };
     const lightSources: Array<{ type: string; object: THREE.Light; helper?: THREE.Mesh }> = [];
     const lightCounts: Record<string, number> = {};
@@ -867,7 +884,7 @@ export default function App() {
         const helper = new THREE.SkeletonHelper(root);
         helper.name = 'Universal Rig Skeleton'; styleSkeletonHelper(helper, bones); scene.add(helper);
         chain = { bones, helper, target: null }; rigChains.push(chain);
-      } else { chain.bones.push(bone); chain.helper.update(); }
+      } else { chain.bones.push(bone); rebuildRigHelper(chain); }
       selectable.push(...(!parentBone ? [root] : []), bone);
       syncItems(); selectObject(bone); setStatus('Universal bone added and connected to selected rig');
       return bone;
@@ -880,14 +897,18 @@ export default function App() {
         const clone = new THREE.Bone();
         clone.name = nextManualBoneName();
         clone.position.copy(original.position); clone.quaternion.copy(original.quaternion); clone.scale.copy(original.scale);
+        if (rootCopy) {
+          // A copied bone continues the selected chain instead of becoming a
+          // disconnected sibling. Its local offset creates a visible bone segment.
+          clone.position.set(0, 0.35, 0);
+        }
         clone.userData = { ...original.userData, editorId: uid(), kind: 'Bone', locked: false, detached: false, controlHandle: false, copiedFrom: original.userData.editorId };
         parent.add(clone); ensureBoneJoint(clone); selectable.push(clone);
         original.children.filter(child => child instanceof THREE.Bone).forEach(child => cloneBranch(child as THREE.Bone, clone));
-        if (rootCopy) clone.position.x += 0.25;
         return clone;
       };
-      const clone = cloneBranch(source, source.parent || scene, true);
-      if (chain) { clone.traverse(node => { if ((node as THREE.Bone).isBone && !chain.bones.includes(node as THREE.Bone)) chain.bones.push(node as THREE.Bone); }); chain.helper.update(); }
+      const clone = cloneBranch(source, source, true);
+      if (chain) { clone.traverse(node => { if ((node as THREE.Bone).isBone && !chain.bones.includes(node as THREE.Bone)) chain.bones.push(node as THREE.Bone); }); rebuildRigHelper(chain); }
       refreshRigVisuals(); syncItems(); selectObject(clone);
       setStatus(source.name + ' copied as ' + clone.name + ' with connected child hierarchy'); return true;
     };
@@ -904,7 +925,9 @@ export default function App() {
       scene.updateMatrixWorld(true); parent.attach(child); scene.updateMatrixWorld(true);
       if (child instanceof THREE.Bone) child.userData.detached = false;
       syncItems(); selectObject(child); refreshRigVisuals();
-      recordSceneAction({ label: 'Attach ' + child.name, undo: () => { scene.updateMatrixWorld(true); previous.attach(child); syncItems(); selectObject(child); refreshRigVisuals(); }, redo: () => { scene.updateMatrixWorld(true); parent.attach(child); syncItems(); selectObject(child); refreshRigVisuals(); } });
+      const affectedChain = child instanceof THREE.Bone ? rigChains.find(entry => entry.bones.includes(child)) : null;
+      if (affectedChain) rebuildRigHelper(affectedChain);
+      recordSceneAction({ label: 'Attach ' + child.name, undo: () => { scene.updateMatrixWorld(true); previous.attach(child); syncItems(); selectObject(child); refreshRigVisuals(); if (affectedChain) rebuildRigHelper(affectedChain); }, redo: () => { scene.updateMatrixWorld(true); parent.attach(child); syncItems(); selectObject(child); refreshRigVisuals(); if (affectedChain) rebuildRigHelper(affectedChain); } });
       setStatus(child.name + ' attached under ' + parent.name + ' · world transform preserved'); return true;
     };
     const detachSelectedRigObject = () => {
@@ -915,7 +938,9 @@ export default function App() {
       scene.updateMatrixWorld(true); nextParent.attach(child); scene.updateMatrixWorld(true);
       if (child instanceof THREE.Bone) child.userData.detached = true;
       syncItems(); selectObject(child); refreshRigVisuals();
-      recordSceneAction({ label: 'Detach ' + child.name, undo: () => { scene.updateMatrixWorld(true); previous.attach(child); syncItems(); selectObject(child); refreshRigVisuals(); }, redo: () => { scene.updateMatrixWorld(true); nextParent.attach(child); syncItems(); selectObject(child); refreshRigVisuals(); } });
+      const affectedChain = child instanceof THREE.Bone ? rigChains.find(entry => entry.bones.includes(child)) : null;
+      if (affectedChain) rebuildRigHelper(affectedChain);
+      recordSceneAction({ label: 'Detach ' + child.name, undo: () => { scene.updateMatrixWorld(true); previous.attach(child); syncItems(); selectObject(child); refreshRigVisuals(); if (affectedChain) rebuildRigHelper(affectedChain); }, redo: () => { scene.updateMatrixWorld(true); nextParent.attach(child); syncItems(); selectObject(child); refreshRigVisuals(); if (affectedChain) rebuildRigHelper(affectedChain); } });
       setStatus(child.name + ' detached · world transform preserved'); return true;
     };
     const toggleSelectedControlLock = () => {
@@ -1024,7 +1049,7 @@ export default function App() {
       const targetParent = mirroredParent || source.parent;
       let mirrored = targetParent.children.find(child => child instanceof THREE.Bone && child.name === targetName) as THREE.Bone | undefined;
       if (mirrored) syncTree(source,mirrored); else mirrored = cloneTree(source,targetParent);
-      if (chain) { mirrored.traverse(node => { if ((node as THREE.Bone).isBone && !chain.bones.includes(node as THREE.Bone)) chain.bones.push(node as THREE.Bone); }); chain.helper.update(); }
+      if (chain) { mirrored.traverse(node => { if ((node as THREE.Bone).isBone && !chain.bones.includes(node as THREE.Bone)) chain.bones.push(node as THREE.Bone); }); rebuildRigHelper(chain); }
       syncItems(); selectObject(mirrored); setStatus('Mirror X synchronized · ' + source.name + ' ↔ ' + mirrored.name);
     };
     const createPoleTarget = () => {
@@ -1154,7 +1179,8 @@ export default function App() {
       else if (selectedObject) selectedObject.traverse((node: any) => { if (!source && node.isMesh && !node.isSkinnedMesh) source = node as THREE.Mesh; });
       if (!source || !source.geometry?.getAttribute('position')) { setStatus('Select an unrigged mesh in Scene Tree before attaching it to the skeleton'); return false; }
       const mesh = source as THREE.Mesh;
-      const chain = [...rigChains].reverse().find(entry => entry.bones.length > 1);
+      const chain = [...rigChains].reverse().find(entry => entry.bones.length > 1 && entry.bones.some(bone => bone === mesh || mesh.getObjectById(bone.id))) ||
+        [...rigChains].reverse().find(entry => entry.bones.length > 1);
       if (!chain) { setStatus('Build or detect a skeleton before attaching the mesh'); return false; }
       if (mesh.geometry.getAttribute('skinIndex')) { setStatus('This mesh already has skinning data. Use its existing skeleton instead of binding twice'); return false; }
       mesh.updateWorldMatrix(true, false); scene.updateMatrixWorld(true);
@@ -1175,18 +1201,42 @@ export default function App() {
       geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(skinIndices, 4));
       geometry.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skinWeights, 4));
       const skinned = new THREE.SkinnedMesh(geometry, mesh.material);
-      skinned.name = mesh.name; skinned.userData = { ...mesh.userData, kind: 'SkinnedMesh', manuallyRigged: true };
+      skinned.name = mesh.name;
+      skinned.userData = { ...mesh.userData, kind: 'SkinnedMesh', manuallyRigged: true, editorId: mesh.userData.editorId || uid() };
       skinned.castShadow = mesh.castShadow; skinned.receiveShadow = mesh.receiveShadow;
       skinned.position.copy(mesh.position); skinned.quaternion.copy(mesh.quaternion); skinned.scale.copy(mesh.scale);
-      const parent = mesh.parent || scene; parent.add(skinned); skinned.updateWorldMatrix(true, false);
-      const skeleton = new THREE.Skeleton(chain.bones); skeleton.calculateInverses();
+
+      // Put the deforming mesh and its complete bone hierarchy under one neutral
+      // rig container. This also rescues bones previously attached beneath the
+      // original mesh, which would otherwise be deleted with that mesh below.
+      const rigRoot = chain.bones.find(bone => !chain.bones.some(other => other !== bone && other.getObjectById(bone.id))) || chain.bones[0];
+      if (!rigRoot) { geometry.dispose(); setStatus('Skeleton root could not be found'); return false; }
+      const rigGroup = new THREE.Group();
+      rigGroup.name = 'Rig · ' + mesh.name;
+      rigGroup.userData.editorId = uid();
+      rigGroup.userData.kind = 'Rig';
+      scene.add(rigGroup);
+      scene.updateMatrixWorld(true);
+      rigGroup.attach(rigRoot);
+
+      const originalParent = mesh.parent || scene;
+      originalParent.add(skinned);
+      skinned.updateWorldMatrix(true, false);
+      rigGroup.attach(skinned);
+      scene.updateMatrixWorld(true);
+
+      const skeleton = new THREE.Skeleton(chain.bones);
+      skeleton.calculateInverses();
       skinned.bind(skeleton, skinned.matrixWorld.clone());
-      parent.remove(mesh);
+
+      originalParent.remove(mesh);
       const oldIndex = selectable.indexOf(mesh); if (oldIndex >= 0) selectable.splice(oldIndex, 1);
+      if (!selectable.includes(rigGroup)) selectable.push(rigGroup);
       if (!selectable.includes(skinned)) selectable.push(skinned);
-      skinned.userData.editorId = mesh.userData.editorId || uid();
+      chain.bones.forEach(bone => { if (!selectable.includes(bone)) selectable.push(bone); });
+      rebuildRigHelper(chain);
       syncItems(); selectObject(skinned);
-      setStatus('Mesh attached with normalized nearest-bone weights. Test deformation before production use.');
+      setStatus('Bound successfully · mesh and skeleton now share a rig container. Move a bone to test deformation.');
       return true;
     };
     const detectRiggedMeshes = (rootObject?: THREE.Object3D) => {
