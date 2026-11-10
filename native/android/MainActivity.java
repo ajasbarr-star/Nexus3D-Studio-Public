@@ -3,6 +3,8 @@ package com.nexus3d.studio;
 import android.os.Bundle;
 import android.view.View;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.Plugin;
+import com.nexus3d.studio.NexusProjectFilesPlugin;
 
 /**
  * Keep Nexus3D immersive on Android: hide both the status and navigation bars.
@@ -11,6 +13,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(NexusProjectFilesPlugin.class);
         super.onCreate(savedInstanceState);
         applyImmersiveMode();
     }
