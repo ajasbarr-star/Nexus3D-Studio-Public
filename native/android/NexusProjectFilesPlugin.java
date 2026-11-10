@@ -2,7 +2,9 @@ package com.nexus3d.studio;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
+import android.content.Context;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -17,9 +19,38 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 
 @CapacitorPlugin(name = "NexusProjectFiles")
 public class NexusProjectFilesPlugin extends Plugin {
+    private static final String PREFS = "nexus_project_file_destinations";
+
     @PluginMethod
     public void saveProject(PluginCall call) {
         String fileName = call.getString("fileName", "Project.nexus");
+        String content = call.getString("content", "");
+        if (content == null || content.trim().isEmpty()) {
+            call.reject("Project data is empty; nothing was saved");
+            return;
+        }
+
+        // Reuse the exact document URI selected on the first save. ACTION_CREATE_DOCUMENT
+        // creates a new "(1)" copy on many Android providers instead of replacing the old file.
+        // Writing to the persisted URI updates the same file and avoids opening the picker again.
+        SharedPreferences prefs = getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String savedUri = prefs.getString("uri:" + fileName, null);
+        if (savedUri != null) {
+            try {
+                Uri uri = Uri.parse(savedUri);
+                writeDocument(uri, content);
+                JSObject response = new JSObject();
+                response.put("uri", uri.toString());
+                response.put("name", fileName);
+                response.put("overwritten", true);
+                call.resolve(response);
+                return;
+            } catch (Exception error) {
+                // The user may have revoked access or removed the file. Ask for a new destination.
+                prefs.edit().remove("uri:" + fileName).apply();
+            }
+        }
+
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("application/octet-stream");
@@ -36,16 +67,33 @@ public class NexusProjectFilesPlugin extends Plugin {
         }
         Uri uri = result.getData().getData();
         String content = call.getString("content", "");
+        String requestedName = call.getString("fileName", "Project.nexus");
+        try {
+            int flags = result.getData().getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            try {
+                getContext().getContentResolver().takePersistableUriPermission(uri, flags);
+            } catch (Exception ignored) {
+                // Some document providers grant access only for the current app session.
+            }
+            writeDocument(uri, content);
+            getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().putString("uri:" + requestedName, uri.toString()).apply();
+
+            JSObject response = new JSObject();
+            response.put("uri", uri.toString());
+            response.put("name", fileNameFromUri(uri));
+            response.put("overwritten", false);
+            call.resolve(response);
+        } catch (Exception error) {
+            call.reject("Unable to save project: " + error.getMessage(), error);
+        }
+    }
+
+    private void writeDocument(Uri uri, String content) throws Exception {
         try (OutputStream output = getContext().getContentResolver().openOutputStream(uri, "wt")) {
             if (output == null) throw new IllegalStateException("Unable to open selected destination");
             output.write(content.getBytes(StandardCharsets.UTF_8));
             output.flush();
-            JSObject response = new JSObject();
-            response.put("uri", uri.toString());
-            response.put("name", fileNameFromUri(uri));
-            call.resolve(response);
-        } catch (Exception error) {
-            call.reject("Unable to save project: " + error.getMessage(), error);
         }
     }
 
