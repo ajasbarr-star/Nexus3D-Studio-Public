@@ -6,6 +6,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
+import JSZip from 'jszip';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   Box, Camera, Circle, Copy, Cuboid, Cylinder, Cone, Focus, Globe, Grid2X2,
@@ -20,6 +22,7 @@ import './index.css';
 type NexusProjectFilesPlugin = {
   saveProject(options: { fileName: string; content: string }): Promise<{ uri: string; name: string }>;
   loadProject(): Promise<{ content: string; name: string }>;
+  saveProjectArchive(options: { fileName: string; base64: string }): Promise<{ uri: string; name: string }>;
 };
 const NexusProjectFiles = registerPlugin<NexusProjectFilesPlugin>('NexusProjectFiles');
 
@@ -3182,6 +3185,65 @@ export default function App() {
       setStatus('Model import failed. Check that the selected file is a valid OBJ, GLTF or GLB.');
     }
   };
+  const exportProjectZip = async () => {
+    const r = runtime.current;
+    if (!r?.scene) { setStatus('ZIP EXPORT FAILED: 3D scene is not ready'); return; }
+    try {
+      setStatus('Preparing portable project ZIP…');
+      const data = getProjectData();
+      const exporter = new GLTFExporter();
+      const glb = await new Promise<ArrayBuffer>((resolve, reject) => {
+        exporter.parse(
+          r.scene,
+          result => {
+            if (result instanceof ArrayBuffer) resolve(result);
+            else reject(new Error('GLB exporter did not return a binary scene'));
+          },
+          error => reject(error instanceof Error ? error : new Error(String(error))),
+          { binary: true, onlyVisible: true }
+        );
+      });
+      const zip = new JSZip();
+      const safeBase = (projectName.trim() || 'Nexus3D_Project').replace(/\\.(nexus|zip)$/i, '').replace(/[^a-z0-9._-]/gi, '_');
+      zip.file('Project.nexus', JSON.stringify({
+        ...data,
+        projectName: safeBase + '.nexus',
+        savedObjectCount: data.objects.length,
+        savedMeshCount: data.objects.filter((item: any) => item?.geometry?.attributes?.position?.array?.length).length
+      }));
+      zip.file('Scene/Scene.glb', glb);
+      zip.file('Manifest.json', JSON.stringify({
+        format: 'Nexus3D Portable Project',
+        formatVersion: 1,
+        createdAt: new Date().toISOString(),
+        projectFile: 'Project.nexus',
+        sceneFile: 'Scene/Scene.glb',
+        sceneBinaryIncludes: ['mesh geometry', 'node hierarchy and transforms', 'supported materials and embedded textures', 'supported skinning and skeleton data', 'supported cameras and lights'],
+        editorDataFileIncludes: ['Nexus3D editor IDs and metadata', 'scene object snapshots', 'keyframes']
+      }, null, 2));
+      const base64 = await zip.generateAsync({ type: 'base64', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+      const fileName = safeBase.toLowerCase().endsWith('.zip') ? safeBase : safeBase + '.zip';
+      if (Capacitor.isNativePlatform()) {
+        const saved = await NexusProjectFiles.saveProjectArchive({ fileName, base64 });
+        setStatus('PROJECT ZIP EXPORTED SUCCESSFULLY — ' + (saved.name || fileName));
+      } else {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: 'application/zip' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+        setStatus('PROJECT ZIP EXPORTED SUCCESSFULLY — ' + fileName);
+      }
+    } catch (error) {
+      console.error('Nexus3D ZIP export failed:', error);
+      setStatus('ZIP EXPORT FAILED: ' + (error instanceof Error ? error.message : String(error)));
+    }
+  };
   const exportProject = () => {
     const blob = new Blob([JSON.stringify(getProjectData(), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -3322,6 +3384,7 @@ export default function App() {
               <button className="menu-option" onClick={loadProject}><FolderOpen size={13} /><span>Load Project File</span></button>
               <button className="menu-option" onClick={() => modelFileRef.current?.click()}><Upload size={13} /><span>Import 3D Model</span></button>
               <button className="menu-option" onClick={exportProject}><Download size={13} /><span>Export Scene JSON</span></button>
+              <button className="menu-option" onClick={() => { void exportProjectZip(); }}><Download size={13} /><span>Export Project ZIP</span></button>
               <input ref={projectFileRef} type="file" accept=".nexus,.json,application/json" hidden onChange={e => { handleProjectFile(e.target.files?.[0]); e.currentTarget.value = ''; }} />
               <input ref={modelFileRef} type="file" accept=".gltf,.glb,.obj,.fbx,model/gltf+json,model/gltf-binary,text/plain" hidden onChange={e => { void importModel(e.target.files?.[0]); e.currentTarget.value = ''; }} />
             </>}
