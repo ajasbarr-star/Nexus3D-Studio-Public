@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -16,6 +16,12 @@ import {
   Sparkles, Waves, Aperture, SlidersHorizontal, CloudFog, ScanEye, Lock, Unlock, Scissors, GitBranch,
 } from 'lucide-react';
 import './index.css';
+
+type NexusProjectFilesPlugin = {
+  saveProject(options: { fileName: string; content: string }): Promise<{ uri: string; name: string }>;
+  loadProject(): Promise<{ content: string; name: string }>;
+};
+const NexusProjectFiles = registerPlugin<NexusProjectFilesPlugin>('NexusProjectFiles');
 
 type BufferedNumberInputProps = {
   value: number;
@@ -2842,23 +2848,13 @@ export default function App() {
       const fileName = safeName.toLowerCase().endsWith('.nexus') || safeName.toLowerCase().endsWith('.json') ? safeName : safeName + '.nexus';
 
       if (Capacitor.isNativePlatform()) {
-        // Use the app-private data directory: it is writable offline on Android
-        // without shared-storage permissions or Android-version-specific access.
-        const nativePath = 'projects/' + fileName;
-        await Filesystem.writeFile({
-          path: nativePath,
-          data: serialized,
-          directory: Directory.Data,
-          encoding: Encoding.UTF8,
-          recursive: true,
-        });
-        try {
-          localStorage.setItem('nexus3d-last-project-path', nativePath);
-          localStorage.setItem('nexus3d-project-v1', serialized);
-        } catch (storageError) {
-          console.warn('Nexus3D local backup metadata unavailable:', storageError);
+        // Android Storage Access Framework: let the user choose a real .nexus
+        // destination. The document is written locally and works without internet.
+        const saved = await NexusProjectFiles.saveProject({ fileName, content: serialized });
+        try { localStorage.setItem('nexus3d-project-v1', serialized); } catch (storageError) {
+          console.warn('Nexus3D local backup unavailable:', storageError);
         }
-        setStatus('PROJECT SAVED SUCCESSFULLY — ' + fileName);
+        setStatus('PROJECT SAVED SUCCESSFULLY — ' + (saved.name || fileName));
         return;
       }
 
@@ -2877,10 +2873,19 @@ export default function App() {
       setStatus('SAVE FAILED: ' + message);
     }
   };
-  const loadProject = () => {
-    // Keep this synchronous inside the tap handler: Android WebView requires
-    // the file input to open directly from the user's gesture.
+  const loadProject = async () => {
     setStatus('Choose a .nexus project from Internal Storage');
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const selectedFile = await NexusProjectFiles.loadProject();
+        const file = new File([selectedFile.content], selectedFile.name || 'project.nexus', { type: 'application/json' });
+        handleProjectFile(file);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!/cancel/i.test(message)) setStatus('LOAD FAILED: ' + message);
+      }
+      return;
+    }
     projectFileRef.current?.click();
   };
   const handleProjectFile = (file?: File) => {
