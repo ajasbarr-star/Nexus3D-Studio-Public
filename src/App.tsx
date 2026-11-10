@@ -2191,8 +2191,17 @@ export default function App() {
       app: 'Nexus3D',
       version: 2,
       savedAt: new Date().toISOString(),
+      keyframes: JSON.parse(JSON.stringify(keysRef.current)),
       objects: (r?.selectable || []).map((obj: THREE.Object3D) => ({
         editorId: obj.userData.editorId || null,
+        // Preserve editor-specific metadata used by topology, modeling and other tools.
+        editorData: (() => {
+          try {
+            return JSON.parse(JSON.stringify(obj.userData, (key, value) =>
+              key === 'parent' || key === 'object' || key === 'mesh' || key === 'scene' ? undefined : value
+            ));
+          } catch { return {}; }
+        })(),
         name: obj.name,
         kind: obj.userData.kind || obj.type,
         objectType: obj.type,
@@ -2343,6 +2352,11 @@ export default function App() {
 
           if (!obj) return;
           obj.name = saved.name;
+          if (saved.editorData && typeof saved.editorData === 'object') {
+            Object.entries(saved.editorData).forEach(([key, value]) => {
+              if (key !== 'editorId') obj!.userData[key] = value;
+            });
+          }
           obj.userData.kind = saved.kind || obj.userData.kind || obj.type;
           if (saved.editorId) obj.userData.editorId = saved.editorId;
           if (obj instanceof THREE.Mesh && saved.geometry?.attributes?.position?.array) {
@@ -2421,6 +2435,15 @@ export default function App() {
           if (obj.parent !== targetParent) targetParent.add(obj);
         });
 
+        if (data.keyframes && typeof data.keyframes === 'object') {
+          const restoredKeys = data.keyframes as Keyframes;
+          keysRef.current = restoredKeys;
+          setKeyframes(restoredKeys);
+          setUndoStack([]);
+          setRedoStack([]);
+          setActionUndoStack([]);
+          setActionRedoStack([]);
+        }
         r.scene.updateMatrixWorld(true);
         // Refresh React's Scene Tree from the restored runtime objects before
         // selecting one, so every loaded object gets the same editor controls
