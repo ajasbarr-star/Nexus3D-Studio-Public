@@ -2698,12 +2698,6 @@ export default function App() {
           const rig = saved.editorId ? restoredById.get(saved.editorId) : restoredByName.get(saved.name);
           if (rig) r.restoreRigGroup?.(rig);
         });
-        data.objects.forEach((saved: any) => {
-          if (saved?.kind !== 'IK Target' && saved?.kind !== 'IK Pole') return;
-          const handle = saved.editorId ? restoredById.get(saved.editorId) : restoredByName.get(saved.name);
-          const rootId = saved.editorData?.rigRootBoneId;
-          if (handle && rootId) r.attachRigHandle?.(handle,rootId,saved.kind);
-        });
         // Restore skinned meshes only after every bone and parent transform exists.
         r.scene.updateMatrixWorld(true);
         data.objects.forEach((saved: any) => {
@@ -2714,6 +2708,13 @@ export default function App() {
           if (bones.length !== saved.skeleton.boneEditorIds.length || bones.length === 0) { console.warn('Nexus3D: skipped incomplete saved skeleton', saved.name); return; }
           r.restoreSkinnedMesh?.(mesh, bones, saved.skeleton);
         });
+        data.objects.forEach((saved: any) => {
+          if (saved?.kind !== 'IK Target' && saved?.kind !== 'IK Pole') return;
+          const handle = saved.editorId ? restoredById.get(saved.editorId) : restoredByName.get(saved.name);
+          const rootId = saved.editorData?.rigRootBoneId;
+          if (handle && rootId) r.attachRigHandle?.(handle,rootId,saved.kind);
+        });
+
 
         if (data.keyframes && typeof data.keyframes === 'object') {
           const restoredKeys = data.keyframes as Keyframes;
