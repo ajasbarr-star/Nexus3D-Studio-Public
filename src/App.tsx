@@ -1494,7 +1494,7 @@ export default function App() {
         }
       }
       renderer.render(scene, inCam ? activeCamera : camera);
-      runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, transform, selectable, syncItems, addObject, createManualRig, createIKTarget, solveIK, mirrorSelectedBone, detectRiggedMeshes, autoRigSelectedMesh, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
+      runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, transform, selectable, syncItems, addObject, createManualRig, createIKTarget, solveIK, mirrorSelectedBone, detectRiggedMeshes, autoRigSelectedMesh, restoreSkinnedMesh: (mesh: THREE.SkinnedMesh, bones: THREE.Bone[], savedSkeleton?: any) => { const inverses = Array.isArray(savedSkeleton?.boneInverses) && savedSkeleton.boneInverses.length === bones.length ? savedSkeleton.boneInverses.map((elements: number[]) => new THREE.Matrix4().fromArray(elements)) : undefined; const skeleton = new THREE.Skeleton(bones, inverses); skeleton.calculateInverses(); const bindMatrix = Array.isArray(savedSkeleton?.bindMatrix) && savedSkeleton.bindMatrix.length === 16 ? new THREE.Matrix4().fromArray(savedSkeleton.bindMatrix) : mesh.matrixWorld.clone(); mesh.bind(skeleton, bindMatrix); if (savedSkeleton?.bindMode) mesh.bindMode = savedSkeleton.bindMode; const helper = new THREE.SkeletonHelper(bones[0]); helper.name = mesh.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); if (!rigChains.some(entry => entry.bones[0] === bones[0])) rigChains.push({ bones, helper, target: null }); }, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
       raf = requestAnimationFrame(frameLoop);
     };
     let raf = requestAnimationFrame(frameLoop);
@@ -2341,6 +2341,12 @@ export default function App() {
         name: obj.name,
         kind: obj.userData.kind || obj.type,
         objectType: obj.type,
+        skeleton: obj instanceof THREE.SkinnedMesh ? {
+          boneEditorIds: obj.skeleton.bones.map(bone => bone.userData.editorId || null),
+          boneInverses: obj.skeleton.boneInverses.map(matrix => Array.from(matrix.elements)),
+          bindMatrix: Array.from(obj.bindMatrix.elements),
+          bindMode: obj.bindMode
+        } : undefined,
         lightType: obj.userData.lightType || null,
         light: obj instanceof THREE.Light ? {
           color: obj.color?.getHexString?.() || 'ffffff',
@@ -2462,7 +2468,7 @@ export default function App() {
               emissive: materialData?.emissive ? '#' + materialData.emissive : '#000000',
               emissiveIntensity: Number.isFinite(materialData?.emissiveIntensity) ? materialData.emissiveIntensity : 0
             });
-            obj = new THREE.Mesh(geometry, material);
+            obj = saved.objectType === 'SkinnedMesh' ? new THREE.SkinnedMesh(geometry, material) : new THREE.Mesh(geometry, material);
             obj.name = saved.name;
             obj.userData.kind = saved.kind || 'Mesh';
             obj.userData.editorId = saved.editorId || uid();
@@ -2569,6 +2575,17 @@ export default function App() {
             : saved.parentName ? restoredByName.get(saved.parentName) : null;
           const targetParent = parent && parent !== obj && !obj.getObjectById(parent.id) ? parent : r.scene;
           if (obj.parent !== targetParent) targetParent.add(obj);
+        });
+
+        // Restore skinned meshes only after every bone and parent transform exists.
+        r.scene.updateMatrixWorld(true);
+        data.objects.forEach((saved: any) => {
+          if (saved?.objectType !== 'SkinnedMesh' || !saved.skeleton || !Array.isArray(saved.skeleton.boneEditorIds)) return;
+          const mesh = saved.editorId ? restoredById.get(saved.editorId) : restoredByName.get(saved.name);
+          if (!(mesh instanceof THREE.SkinnedMesh)) return;
+          const bones = saved.skeleton.boneEditorIds.map((id: string) => restoredById.get(id)).filter((bone: any): bone is THREE.Bone => bone instanceof THREE.Bone);
+          if (bones.length !== saved.skeleton.boneEditorIds.length || bones.length === 0) { console.warn('Nexus3D: skipped incomplete saved skeleton', saved.name); return; }
+          r.restoreSkinnedMesh?.(mesh, bones, saved.skeleton);
         });
 
         if (data.keyframes && typeof data.keyframes === 'object') {
