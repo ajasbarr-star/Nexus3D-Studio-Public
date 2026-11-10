@@ -844,9 +844,11 @@ export default function App() {
           if (paired) syncTree(childBone,paired); else cloneTree(childBone,mirrored);
         });
       };
-      let mirrored = source.parent.children.find(child => child instanceof THREE.Bone && child.name === targetName) as THREE.Bone | undefined;
-      if (mirrored) syncTree(source,mirrored); else mirrored = cloneTree(source,source.parent);
       const chain = [...rigChains].reverse().find(entry => entry.bones.includes(source));
+      const mirroredParent = chain?.bones.find(bone => bone.name === mirrorBoneName(source.parent!.name));
+      const targetParent = mirroredParent || source.parent;
+      let mirrored = targetParent.children.find(child => child instanceof THREE.Bone && child.name === targetName) as THREE.Bone | undefined;
+      if (mirrored) syncTree(source,mirrored); else mirrored = cloneTree(source,targetParent);
       if (chain) { mirrored.traverse(node => { if ((node as THREE.Bone).isBone && !chain.bones.includes(node as THREE.Bone)) chain.bones.push(node as THREE.Bone); }); chain.helper.update(); }
       syncItems(); selectObject(mirrored); setStatus('Mirror X synchronized · ' + source.name + ' ↔ ' + mirrored.name);
     };
