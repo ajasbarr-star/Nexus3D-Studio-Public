@@ -268,6 +268,10 @@ export default function App() {
   const [autoIKOpen, setAutoIKOpen] = useState(true);
   const [ikEnabled, setIkEnabled] = useState(false);
   const [ikChainLength, setIkChainLength] = useState(3);
+  const [rigTab, setRigTab] = useState<'manual' | 'auto'>('manual');
+  const [mirrorEnabled, setMirrorEnabled] = useState(true);
+  const mirrorEnabledRef = useRef(true);
+  useEffect(() => { mirrorEnabledRef.current = mirrorEnabled; }, [mirrorEnabled]);
   const [fullscreen, setFullscreen] = useState(false);
   const [portrait, setPortrait] = useState(false);
   const [status, setStatus] = useState('Nothing selected');
@@ -774,34 +778,83 @@ export default function App() {
       setStatus(obj.name + ' added');
       return obj;
     };
+    const mirrorBoneName = (name: string) => {
+      if (/\.L$/i.test(name)) return name.replace(/\.L$/i, '.R');
+      if (/\.R$/i.test(name)) return name.replace(/\.R$/i, '.L');
+      if (/Left/i.test(name)) return name.replace(/Left/i, 'Right');
+      if (/Right/i.test(name)) return name.replace(/Right/i, 'Left');
+      return name + '.R';
+    };
     const createManualRig = () => {
       const rig = new THREE.Group();
-      rig.name = 'Manual Rig ' + (rigChains.length + 1);
+      rig.name = 'Humanoid Rig ' + (rigChains.length + 1);
       rig.userData.editorId = uid();
       rig.userData.kind = 'Rig';
       const selectedObject = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
       if (selectedObject) rig.position.copy(selectedObject.getWorldPosition(new THREE.Vector3()));
-      const bones: THREE.Bone[] = [];
-      for (let i = 0; i < 4; i++) {
-        const bone = new THREE.Bone();
-        bone.name = ['Root Bone', 'Spine Bone', 'Upper Bone', 'End Bone'][i];
-        bone.userData.editorId = uid();
-        bone.userData.kind = 'Bone';
-        if (i > 0) { bone.position.set(0, 0.72, 0); bones[i - 1].add(bone); }
-        bones.push(bone);
+      const makeBone = (name: string, parent: THREE.Bone | null, position: [number, number, number]) => {
+        const bone = new THREE.Bone(); bone.name = name; bone.position.set(...position);
+        bone.userData.editorId = uid(); bone.userData.kind = 'Bone';
+        if (parent) parent.add(bone); else rig.add(bone); return bone;
+      };
+      const root = makeBone('Root', null, [0,0,0]);
+      const hips = makeBone('Hips', root, [0,0.9,0]);
+      const spine = makeBone('Spine', hips, [0,0.28,0]);
+      const chest = makeBone('Chest', spine, [0,0.38,0]);
+      const neck = makeBone('Neck', chest, [0,0.34,0]);
+      makeBone('Head', neck, [0,0.22,0]);
+      for (const side of ['.L','.R']) {
+        const sign = side === '.L' ? -1 : 1;
+        const shoulder = makeBone('Shoulder'+side, chest, [sign*0.2,0.22,0]);
+        const upper = makeBone('UpperArm'+side, shoulder, [sign*0.38,-0.04,0]);
+        const forearm = makeBone('Forearm'+side, upper, [sign*0.42,-0.02,0]);
+        makeBone('Hand'+side, forearm, [sign*0.34,0,0]);
+        const thigh = makeBone('Thigh'+side, hips, [sign*0.14,-0.02,0]);
+        const shin = makeBone('Shin'+side, thigh, [0,-0.48,0]);
+        makeBone('Foot'+side, shin, [0,-0.46,0.12]);
       }
-      rig.add(bones[0]);
+      const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) bones.push(node as THREE.Bone); });
       scene.add(rig);
-      const helper = new THREE.SkeletonHelper(bones[0]);
-      helper.name = rig.name + ' Skeleton';
-      (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff);
-      scene.add(helper);
-      selectable.push(rig, ...bones);
-      rigChains.push({ bones, helper, target: null });
+      const helper = new THREE.SkeletonHelper(root); helper.name = rig.name + ' Skeleton';
+      (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper);
+      selectable.push(rig, ...bones); rigChains.push({ bones, helper, target: null });
+      syncItems(); selectObject(root); setStatus('Humanoid bone hierarchy created · Mirror X ready'); return rig;
+    };
+    const mirrorSelectedBone = () => {
+      if (!mirrorEnabledRef.current) { setStatus('Enable Mirror X before mirroring bones'); return; }
+      const source = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
+      if (!(source instanceof THREE.Bone) || !source.parent) { setStatus('Select a bone in Scene Tree first'); return; }
+      const targetName = mirrorBoneName(source.name);
+      if (source.parent.children.some(child => child instanceof THREE.Bone && child.name === targetName)) { setStatus(targetName + ' already exists'); return; }
+      const cloneTree = (original: THREE.Bone, parent: THREE.Object3D): THREE.Bone => {
+        const clone = new THREE.Bone(); clone.name = mirrorBoneName(original.name);
+        clone.position.set(-original.position.x, original.position.y, original.position.z);
+        const e = new THREE.Euler().setFromQuaternion(original.quaternion, 'XYZ'); clone.rotation.set(e.x,-e.y,-e.z,'XYZ');
+        clone.scale.copy(original.scale); clone.userData = { ...original.userData, editorId: uid(), kind: 'Bone', mirroredFrom: original.userData.editorId };
+        parent.add(clone); selectable.push(clone);
+        original.children.filter(child => child instanceof THREE.Bone).forEach(child => cloneTree(child as THREE.Bone, clone));
+        return clone;
+      };
+      const mirrored = cloneTree(source, source.parent);
+      const chain = [...rigChains].reverse().find(entry => entry.bones.includes(source));
+      if (chain) { mirrored.traverse(node => { if ((node as THREE.Bone).isBone && !chain.bones.includes(node as THREE.Bone)) chain.bones.push(node as THREE.Bone); }); chain.helper.update(); }
+      syncItems(); selectObject(mirrored); setStatus('Mirrored ' + source.name + ' → ' + mirrored.name);
+    };
+    const detectRiggedMeshes = (rootObject?: THREE.Object3D) => {
+      const root = rootObject || selectable.find(o => String(o.userData.editorId) === selectedRef.current) || scene;
+      let found = 0;
+      root.traverse((node: any) => {
+        if (!node.isSkinnedMesh || !node.skeleton) return;
+        const bones = node.skeleton.bones as THREE.Bone[];
+        if (rigChains.some(entry => entry.bones[0] && bones.includes(entry.bones[0]))) return;
+        const helper = new THREE.SkeletonHelper(bones[0]); helper.name = (node.name || 'Character') + ' Skeleton';
+        (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper);
+        bones.forEach(bone => { if (!bone.userData.editorId) bone.userData.editorId = uid(); bone.userData.kind = 'Bone'; if (!selectable.includes(bone)) selectable.push(bone); });
+        rigChains.push({ bones: [...bones], helper, target: null }); found += 1;
+      });
       syncItems();
-      selectObject(bones[0]);
-      setStatus('Manual bone chain created. Select bones in Scene Tree to pose them.');
-      return rig;
+      setStatus(found ? 'Detected ' + found + ' existing skinned rig(s)' : 'No existing SkinnedMesh skeleton found. Import a rigged humanoid GLB/GLTF for automatic skeleton detection.');
+      return found;
     };
     const createIKTarget = () => {
       const target = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffb45e, wireframe: true }));
@@ -1358,7 +1411,7 @@ export default function App() {
         }
       }
       renderer.render(scene, inCam ? activeCamera : camera);
-      runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, transform, selectable, syncItems, addObject, createManualRig, createIKTarget, solveIK, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
+      runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, transform, selectable, syncItems, addObject, createManualRig, createIKTarget, solveIK, mirrorSelectedBone, detectRiggedMeshes, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
       raf = requestAnimationFrame(frameLoop);
     };
     let raf = requestAnimationFrame(frameLoop);
@@ -2514,6 +2567,7 @@ export default function App() {
       });
       r.scene.add(object);
       importedNodes.forEach(node => { if (!r.selectable.includes(node)) r.selectable.push(node); });
+      r.detectRiggedMeshes?.(object);
       r.syncItems?.();
       setStatus('Imported ' + file.name);
     } catch {
