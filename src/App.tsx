@@ -1635,7 +1635,18 @@ export default function App() {
           if (triangles[candidate].material !== first.material) continue;
           const keysB = triangles[candidate].corners.map(pointKey);
           const common = keysA.filter(key => keysB.includes(key));
-          if (common.length === 2) { match = candidate; shared = common; break; }
+          if (common.length !== 2) continue;
+          const toVector = (corner: Record<string, number[]>) => new THREE.Vector3().fromArray(corner.position as [number, number, number]);
+          const [a0, a1, a2] = first.corners.map(toVector);
+          const [b0, b1, b2] = triangles[candidate].corners.map(toVector);
+          const normalA = a1.clone().sub(a0).cross(a2.clone().sub(a0)).normalize();
+          const normalB = b1.clone().sub(b0).cross(b2.clone().sub(b0)).normalize();
+          // Never pair triangles across a cube corner/edge: only coplanar
+          // triangles can be reconstructed as one editable quad face.
+          if (normalA.lengthSq() < 0.99 || normalB.lengthSq() < 0.99 || Math.abs(normalA.dot(normalB)) < 0.999) continue;
+          match = candidate;
+          shared = common;
+          break;
         }
         if (match < 0) continue;
         const second = triangles[match];
