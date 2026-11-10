@@ -855,6 +855,7 @@ export default function App() {
     const deleteSelectedBone = () => {
       const bone = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
       if (!(bone instanceof THREE.Bone) || !bone.parent) { setStatus('Select a bone to delete'); return false; }
+      if (!(bone.parent instanceof THREE.Bone)) { setStatus('Root bones are protected to preserve the rig hierarchy'); return false; }
       const parent = bone.parent;
       [...bone.children].filter(child => child instanceof THREE.Bone).forEach(child => parent.attach(child));
       parent.remove(bone);
