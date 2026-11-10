@@ -946,6 +946,7 @@ export default function App() {
       const activeChain = [...rigChains].reverse().find(chain => selectedBone instanceof THREE.Bone && chain.bones.includes(selectedBone)) || rigChains[rigChains.length - 1];
       if (!activeChain) { scene.remove(target); selectable.splice(selectable.indexOf(target), 1); setStatus('Create or detect a rig before adding an IK target'); return null; }
       activeChain.target = target;
+      if (selectedBone instanceof THREE.Bone) target.userData.ikEndBoneId = selectedBone.userData.editorId;
       syncItems();
       selectObject(target);
       setStatus('IK target handle created. Move it with the viewport gizmo, then Solve IK.');
@@ -953,29 +954,30 @@ export default function App() {
     };
     const solveIK = (chainLength = 3) => {
       const chain = [...rigChains].reverse().find(entry => entry.target);
-      if (!chain || !chain.target) { setStatus('Create a manual bone chain and an IK target first'); return; }
-      const bones = chain.bones.slice(Math.max(0, chain.bones.length - Math.max(1, Math.min(chainLength, chain.bones.length))));
+      if (!chain || !chain.target) { setStatus('Create a rig and an IK target first'); return; }
+      const endBone = chain.bones.find(bone => String(bone.userData.editorId) === String(chain.target?.userData.ikEndBoneId)) || chain.bones[chain.bones.length-1];
+      const path: THREE.Bone[] = [];
+      let cursor: THREE.Object3D | null = endBone;
+      while (cursor && path.length < 32) { if (cursor instanceof THREE.Bone && chain.bones.includes(cursor)) path.push(cursor); cursor = cursor.parent; }
+      const bones = path.reverse().slice(-Math.max(1,Math.min(chainLength+1,path.length)));
+      if (bones.length < 2) { setStatus('Select a limb bone before creating its IK target'); return; }
       const targetPosition = chain.target.getWorldPosition(new THREE.Vector3());
-      for (let iteration = 0; iteration < 12; iteration++) {
-        for (let i = bones.length - 1; i >= 0; i--) {
+      for (let iteration=0;iteration<16;iteration++) {
+        for (let i=bones.length-2;i>=0;i--) {
           scene.updateMatrixWorld(true);
-          const bone = bones[i];
-          const origin = bone.getWorldPosition(new THREE.Vector3());
-          const end = chain.bones[chain.bones.length - 1].getWorldPosition(new THREE.Vector3());
-          const from = end.sub(origin);
-          const to = targetPosition.clone().sub(origin);
-          if (from.lengthSq() < 1e-8 || to.lengthSq() < 1e-8) continue;
-          const delta = new THREE.Quaternion().setFromUnitVectors(from.normalize(), to.normalize());
-          const desiredWorld = bone.getWorldQuaternion(new THREE.Quaternion());
-          desiredWorld.premultiply(delta);
+          const bone=bones[i];
+          const origin=bone.getWorldPosition(new THREE.Vector3());
+          const end=endBone.getWorldPosition(new THREE.Vector3());
+          const from=end.sub(origin); const to=targetPosition.clone().sub(origin);
+          if (from.lengthSq()<1e-8 || to.lengthSq()<1e-8) continue;
+          const delta=new THREE.Quaternion().setFromUnitVectors(from.normalize(),to.normalize());
+          const desiredWorld=bone.getWorldQuaternion(new THREE.Quaternion()); desiredWorld.premultiply(delta);
           if (bone.parent) bone.quaternion.copy(bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(desiredWorld));
           else bone.quaternion.copy(desiredWorld);
           bone.updateMatrixWorld(true);
         }
       }
-      chain.helper.update();
-      syncItems();
-      setStatus('Auto-IK solved using ' + bones.length + ' bone joints');
+      chain.helper.update(); syncItems(); setStatus('CCD IK solved · ' + bones.length + ' joints');
     };
     const removeObject = (obj: THREE.Object3D, preserveForUndo = false) => {
       if (obj === camBody) {
