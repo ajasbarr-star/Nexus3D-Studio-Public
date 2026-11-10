@@ -1563,9 +1563,9 @@ export default function App() {
       geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
       geometry.computeVertexNormals();
     } else if (tool === 'Subdivide') {
-      // Generic 1-to-4 triangle subdivision for the CURRENT live mesh. This path
-      // handles extruded caps and side walls, non-cube meshes, and meshes whose
-      // original quad-grid metadata no longer describes their topology.
+      // Rebuild the CURRENT live mesh as quad patches wherever two adjacent
+      // triangles describe one face. Subdivide those patches into four quads;
+      // never create visible diagonal triangle cuts inside a square face.
       const sourceGeometry = geometry.index ? geometry.toNonIndexed() : geometry;
       if (sourceGeometry !== geometry) geometry.dispose();
       geometry = sourceGeometry;
@@ -1580,38 +1580,96 @@ export default function App() {
       }
       const attributeNames = Object.keys(geometry.attributes);
       const sourceAttributes = Object.fromEntries(attributeNames.map(name => [name, geometry.getAttribute(name)])) as Record<string, THREE.BufferAttribute>;
-      const outputValues: Record<string, number[]> = Object.fromEntries(attributeNames.map(name => [name, []]));
       const sourceGroups = [...geometry.groups];
-      const outputGroups: Array<{ start: number; count: number; materialIndex: number }> = [];
       const getCorner = (vertex: number) => Object.fromEntries(attributeNames.map(name => {
         const attribute = sourceAttributes[name];
         return [name, Array.from({ length: attribute.itemSize }, (_v, component) => attribute.getComponent(vertex, component))];
       })) as Record<string, number[]>;
+      const pointKey = (corner: Record<string, number[]>) => corner.position.map(value => Math.round(value * 1e5)).join(',');
       const midpoint = (a: Record<string, number[]>, b: Record<string, number[]>) =>
         Object.fromEntries(attributeNames.map(name => [name, a[name].map((value, component) => (value + b[name][component]) * 0.5)])) as Record<string, number[]>;
-      const appendTriangle = (corners: Array<Record<string, number[]>>, materialIndex: number) => {
-        const start = outputValues.position.length / sourceAttributes.position.itemSize;
-        corners.forEach(corner => attributeNames.forEach(name => outputValues[name].push(...corner[name])));
-        const count = corners.length;
-        const previous = outputGroups[outputGroups.length - 1];
-        if (previous && previous.materialIndex === materialIndex && previous.start + previous.count === start) previous.count += count;
-        else outputGroups.push({ start, count, materialIndex });
+      const outputValues: Record<string, number[]> = Object.fromEntries(attributeNames.map(name => [name, []]));
+      const appendQuad = (corners: Array<Record<string, number[]>>) => {
+        // Quad perimeter [A,B,C,D], rendered as [A,B,C,A,C,D].
+        [0, 1, 2, 0, 2, 3].forEach(index => {
+          const corner = corners[index];
+          attributeNames.forEach(name => outputValues[name].push(...corner[name]));
+        });
+      };
+      const materialForTriangle = (triangle: number) => {
+        const offset = triangle * 3;
+        return sourceGroups.find(group => offset >= group.start && offset < group.start + group.count)?.materialIndex ?? 0;
+      };
+      const triangles = Array.from({ length: triangleCount }, (_, triangle) => ({
+        triangle,
+        corners: [getCorner(triangle * 3), getCorner(triangle * 3 + 1), getCorner(triangle * 3 + 2)],
+        material: materialForTriangle(triangle),
+      }));
+      const used = new Set<number>();
+      const quadPairs: Array<{ a: Record<string, number[]>; b: Record<string, number[]>; c: Record<string, number[]>; d: Record<string, number[]> }> = [];
+      // Pair triangles only when they share exactly one full edge and use the same material.
+      for (let i = 0; i < triangles.length; i++) {
+        if (used.has(i)) continue;
+        const first = triangles[i];
+        let match = -1;
+        let shared: string[] = [];
+        for (let j = i + 1; j < triangles.length; j++) {
+          if (used.has(j) || triangles[j].material !== first.material) continue;
+          const keysA = first.corners.map(pointKey);
+          const keysB = triangles[j].corners.map(pointKey);
+          const common = keysA.filter(key => keysB.includes(key));
+          if (common.length === 2) { match = j; shared = common; break; }
+        }
+        if (match < 0) continue;
+        const second = triangles[match];
+        const firstOpposite = first.corners.find(corner => !shared.includes(pointKey(corner)));
+        const secondOpposite = second.corners.find(corner => !shared.includes(pointKey(corner)));
+        const sharedA = first.corners.find(corner => pointKey(corner) === shared[0]);
+        const sharedB = first.corners.find(corner => pointKey(corner) === shared[1]);
+        if (!firstOpposite || !secondOpposite || !sharedA || !sharedB) continue;
+        // The shared diagonal becomes the internal quad triangulation diagonal,
+        // not a visible subdivision edge.
+        quadPairs.push({ a: firstOpposite, b: sharedA, c: secondOpposite, d: sharedB });
+        used.add(i);
+        used.add(match);
+      }
+      const unmatched = triangles.filter(entry => !used.has(entry.triangle));
+      const outputGroups: Array<{ start: number; count: number; materialIndex: number }> = [];
+      let currentMaterial = -1;
+      let groupStart = 0;
+      const finishGroup = () => {
+        const count = outputValues.position.length / sourceAttributes.position.itemSize - groupStart;
+        if (count > 0) outputGroups.push({ start: groupStart, count, materialIndex: currentMaterial });
+      };
+      const appendWithMaterial = (corners: Array<Record<string, number[]>>, material: number) => {
+        if (currentMaterial !== material) {
+          finishGroup();
+          currentMaterial = material;
+          groupStart = outputValues.position.length / sourceAttributes.position.itemSize;
+        }
+        appendQuad(corners);
       };
       generatedCutLoops = [];
-      for (let triangle = 0; triangle < triangleCount; triangle++) {
-        const offset = triangle * 3;
-        const a = getCorner(offset), b = getCorner(offset + 1), c = getCorner(offset + 2);
-        const ab = midpoint(a, b), bc = midpoint(b, c), ca = midpoint(c, a);
-        const materialIndex = sourceGroups.find(group => offset >= group.start && offset < group.start + group.count)?.materialIndex ?? 0;
-        appendTriangle([a, ab, ca], materialIndex);
-        appendTriangle([ab, b, bc], materialIndex);
-        appendTriangle([ca, bc, c], materialIndex);
-        appendTriangle([ab, bc, ca], materialIndex);
-        const pointOf = (corner: Record<string, number[]>) => new THREE.Vector3().fromArray(corner.position as [number, number, number]);
-        generatedCutLoops.push([pointOf(ab).toArray(), pointOf(bc).toArray()]);
-        generatedCutLoops.push([pointOf(bc).toArray(), pointOf(ca).toArray()]);
-        generatedCutLoops.push([pointOf(ca).toArray(), pointOf(ab).toArray()]);
-      }
+      quadPairs.forEach(quad => {
+        const { a, b, c, d } = quad;
+        const ab = midpoint(a, b), bc = midpoint(b, c), cd = midpoint(c, d), da = midpoint(d, a);
+        const center = Object.fromEntries(attributeNames.map(name => [name, a[name].map((value, component) => (value + b[name][component] + c[name][component] + d[name][component]) * 0.25)])) as Record<string, number[]>;
+        const material = triangles.find(entry => entry.corners.some(corner => pointKey(corner) === pointKey(a)))?.material ?? 0;
+        appendWithMaterial([a, ab, center, da], material);
+        appendWithMaterial([ab, b, bc, center], material);
+        appendWithMaterial([center, bc, c, cd], material);
+        appendWithMaterial([da, center, cd, d], material);
+      });
+      unmatched.forEach(entry => {
+        // Keep isolated triangles intact rather than drawing artificial diagonal cuts.
+        if (currentMaterial !== entry.material) {
+          finishGroup();
+          currentMaterial = entry.material;
+          groupStart = outputValues.position.length / sourceAttributes.position.itemSize;
+        }
+        entry.corners.forEach(corner => attributeNames.forEach(name => outputValues[name].push(...corner[name])));
+      });
+      finishGroup();
       const subdivided = new THREE.BufferGeometry();
       attributeNames.forEach(name => {
         const sourceAttribute = sourceAttributes[name];
@@ -1621,10 +1679,19 @@ export default function App() {
       geometry.dispose();
       geometry = subdivided;
       geometry.computeVertexNormals();
-      target.userData.nexusQuadGrid = false;
-      delete target.userData.nexusQuadGridLayout;
-      delete target.userData.nexusCubeGridBounds;
-      delete target.userData.nexusCubeGridDivisions;
+      geometry.computeBoundingBox();
+      geometry.computeBoundingSphere();
+      target.userData.nexusQuadGrid = quadPairs.length > 0 && unmatched.length === 0;
+      if (target.userData.nexusQuadGrid) {
+        target.userData.nexusQuadGridLayout = 'paired-quad-grid';
+        delete target.userData.nexusCubeGridBounds;
+        delete target.userData.nexusCubeGridDivisions;
+      } else {
+        delete target.userData.nexusQuadGrid;
+        delete target.userData.nexusQuadGridLayout;
+        delete target.userData.nexusCubeGridBounds;
+        delete target.userData.nexusCubeGridDivisions;
+      }
     } else if (tool === 'Smooth') {
       if (target.userData.nexusQuadGrid === true && smoothQuadGridGeometry(geometry)) {
         geometry.deleteAttribute('normal');
