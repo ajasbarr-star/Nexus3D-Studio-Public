@@ -1463,7 +1463,7 @@ export default function App() {
       else delete target.userData.nexusCubeGridDivisions;
     };
 
-    if (tool === 'Subdivide' && target.userData.kind === 'Cube') {
+    if (tool === 'Subdivide' && target.userData.kind === 'Cube' && (geometry.index || target.userData.nexusQuadGrid === true) && target.userData.nexusHasExtrusion !== true) {
       // Three.js BoxGeometry stores each original quad as [A,B,D] and [B,C,D].
       // Reconstruct the perimeter [A,B,C,D] on the first pass. Nexus3D-generated
       // quads use [A,B,C,A,C,D], so later passes read [0,1,2,5].
@@ -1563,9 +1563,68 @@ export default function App() {
       geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
       geometry.computeVertexNormals();
     } else if (tool === 'Subdivide') {
-      geometry.dispose(); before.dispose();
-      setStatus('Quad Subdivide is currently supported on Cube meshes only. No triangle cuts were added.');
-      return;
+      // Generic 1-to-4 triangle subdivision for the CURRENT live mesh. This path
+      // handles extruded caps and side walls, non-cube meshes, and meshes whose
+      // original quad-grid metadata no longer describes their topology.
+      const sourceGeometry = geometry.index ? geometry.toNonIndexed() : geometry;
+      if (sourceGeometry !== geometry) geometry.dispose();
+      geometry = sourceGeometry;
+      const sourcePosition = geometry.getAttribute('position');
+      const triangleCount = Math.floor((sourcePosition?.count || 0) / 3);
+      const deviceMemoryGb = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory || 4);
+      const safeTriangleBudget = Math.min(220000, Math.max(20000, Math.floor(deviceMemoryGb * 30000)));
+      if (!sourcePosition || triangleCount < 1 || triangleCount * 12 > safeTriangleBudget) {
+        geometry.dispose(); before.dispose();
+        setStatus('Subdivide paused: mesh is empty or exceeds the safe mobile topology budget. Existing mesh was preserved.');
+        return;
+      }
+      const attributeNames = Object.keys(geometry.attributes);
+      const sourceAttributes = Object.fromEntries(attributeNames.map(name => [name, geometry.getAttribute(name)])) as Record<string, THREE.BufferAttribute>;
+      const outputValues: Record<string, number[]> = Object.fromEntries(attributeNames.map(name => [name, []]));
+      const sourceGroups = [...geometry.groups];
+      const outputGroups: Array<{ start: number; count: number; materialIndex: number }> = [];
+      const getCorner = (vertex: number) => Object.fromEntries(attributeNames.map(name => {
+        const attribute = sourceAttributes[name];
+        return [name, Array.from({ length: attribute.itemSize }, (_v, component) => attribute.getComponent(vertex, component))];
+      })) as Record<string, number[]>;
+      const midpoint = (a: Record<string, number[]>, b: Record<string, number[]>) =>
+        Object.fromEntries(attributeNames.map(name => [name, a[name].map((value, component) => (value + b[name][component]) * 0.5)])) as Record<string, number[]>;
+      const appendTriangle = (corners: Array<Record<string, number[]>>, materialIndex: number) => {
+        const start = outputValues.position.length / sourceAttributes.position.itemSize;
+        corners.forEach(corner => attributeNames.forEach(name => outputValues[name].push(...corner[name])));
+        const count = corners.length;
+        const previous = outputGroups[outputGroups.length - 1];
+        if (previous && previous.materialIndex === materialIndex && previous.start + previous.count === start) previous.count += count;
+        else outputGroups.push({ start, count, materialIndex });
+      };
+      generatedCutLoops = [];
+      for (let triangle = 0; triangle < triangleCount; triangle++) {
+        const offset = triangle * 3;
+        const a = getCorner(offset), b = getCorner(offset + 1), c = getCorner(offset + 2);
+        const ab = midpoint(a, b), bc = midpoint(b, c), ca = midpoint(c, a);
+        const materialIndex = sourceGroups.find(group => offset >= group.start && offset < group.start + group.count)?.materialIndex ?? 0;
+        appendTriangle([a, ab, ca], materialIndex);
+        appendTriangle([ab, b, bc], materialIndex);
+        appendTriangle([ca, bc, c], materialIndex);
+        appendTriangle([ab, bc, ca], materialIndex);
+        const pointOf = (corner: Record<string, number[]>) => new THREE.Vector3().fromArray(corner.position as [number, number, number]);
+        generatedCutLoops.push([pointOf(ab).toArray(), pointOf(bc).toArray()]);
+        generatedCutLoops.push([pointOf(bc).toArray(), pointOf(ca).toArray()]);
+        generatedCutLoops.push([pointOf(ca).toArray(), pointOf(ab).toArray()]);
+      }
+      const subdivided = new THREE.BufferGeometry();
+      attributeNames.forEach(name => {
+        const sourceAttribute = sourceAttributes[name];
+        subdivided.setAttribute(name, new THREE.Float32BufferAttribute(outputValues[name], sourceAttribute.itemSize, sourceAttribute.normalized));
+      });
+      outputGroups.forEach(group => subdivided.addGroup(group.start, group.count, group.materialIndex));
+      geometry.dispose();
+      geometry = subdivided;
+      geometry.computeVertexNormals();
+      target.userData.nexusQuadGrid = false;
+      delete target.userData.nexusQuadGridLayout;
+      delete target.userData.nexusCubeGridBounds;
+      delete target.userData.nexusCubeGridDivisions;
     } else if (tool === 'Smooth') {
       if (target.userData.nexusQuadGrid === true && smoothQuadGridGeometry(geometry)) {
         geometry.deleteAttribute('normal');
@@ -1817,6 +1876,7 @@ export default function App() {
     // Re-weld coincident vertices after topology-changing operations so adjacent faces share indices.
     // UVs are regenerated safely if topology changes; normals and bounds are always rebuilt below.
     if (tool === 'Extrude') {
+      target.userData.nexusHasExtrusion = true;
       // Keep UV and material seams as authored; the new side walls receive interpolated
       // fallback UVs only when no usable UV attribute exists.
       geometry.computeVertexNormals();
