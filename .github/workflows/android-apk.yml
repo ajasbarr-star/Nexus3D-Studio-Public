@@ -47,6 +47,7 @@ jobs:
         run: |
           mkdir -p android/app/src/main/java/com/nexus3d/studio
           cp native/android/MainActivity.java android/app/src/main/java/com/nexus3d/studio/MainActivity.java
+          cp native/android/NexusProjectFilesPlugin.java android/app/src/main/java/com/nexus3d/studio/NexusProjectFilesPlugin.java
 
       - name: Sync bundled editor and native plugins
         run: npx cap sync android
