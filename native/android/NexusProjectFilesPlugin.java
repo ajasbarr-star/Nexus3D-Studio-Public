@@ -98,6 +98,79 @@ public class NexusProjectFilesPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void saveProjectArchive(PluginCall call) {
+        String fileName = call.getString("fileName", "Nexus3D_Project.zip");
+        String base64 = call.getString("base64", "");
+        if (base64 == null || base64.trim().isEmpty()) {
+            call.reject("Project archive is empty");
+            return;
+        }
+
+        SharedPreferences prefs = getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String savedUri = prefs.getString("zip:" + fileName, null);
+        if (savedUri != null) {
+            try {
+                Uri uri = Uri.parse(savedUri);
+                writeArchiveDocument(uri, base64);
+                JSObject response = new JSObject();
+                response.put("uri", uri.toString());
+                response.put("name", fileName);
+                response.put("overwritten", true);
+                call.resolve(response);
+                return;
+            } catch (Exception error) {
+                prefs.edit().remove("zip:" + fileName).apply();
+            }
+        }
+
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/zip");
+        intent.putExtra(Intent.EXTRA_TITLE, fileName);
+        startActivityForResult(call, intent, "handleArchiveSaveResult");
+    }
+
+    @ActivityCallback
+    private void handleArchiveSaveResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) {
+            call.reject("ZIP export cancelled");
+            return;
+        }
+        Uri uri = result.getData().getData();
+        String base64 = call.getString("base64", "");
+        String requestedName = call.getString("fileName", "Nexus3D_Project.zip");
+        try {
+            int flags = result.getData().getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            try {
+                getContext().getContentResolver().takePersistableUriPermission(uri, flags);
+            } catch (Exception ignored) {
+                // Some document providers grant access only for the current app session.
+            }
+            writeArchiveDocument(uri, base64);
+            getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().putString("zip:" + requestedName, uri.toString()).apply();
+
+            JSObject response = new JSObject();
+            response.put("uri", uri.toString());
+            response.put("name", fileNameFromUri(uri));
+            response.put("overwritten", false);
+            call.resolve(response);
+        } catch (Exception error) {
+            call.reject("Unable to export project ZIP: " + error.getMessage(), error);
+        }
+    }
+
+    private void writeArchiveDocument(Uri uri, String base64) throws Exception {
+        byte[] bytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT);
+        try (OutputStream output = getContext().getContentResolver().openOutputStream(uri, "wt")) {
+            if (output == null) throw new IllegalStateException("Unable to open selected ZIP destination");
+            output.write(bytes);
+            output.flush();
+        }
+    }
+
+    @PluginMethod
     public void loadProject(PluginCall call) {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
