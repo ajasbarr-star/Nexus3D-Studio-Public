@@ -2774,7 +2774,7 @@ export default function App() {
     const r = runtime.current;
     return {
       app: 'Nexus3D',
-      version: 2,
+      version: 3,
       savedAt: new Date().toISOString(),
       keyframes: JSON.parse(JSON.stringify(keysRef.current)),
       objects: (r?.selectable || []).map((obj: THREE.Object3D) => ({
@@ -2843,7 +2843,18 @@ export default function App() {
   const saveProject = async () => {
     try {
       const data = getProjectData();
-      const serialized = JSON.stringify({ ...data, projectName: projectName.trim() || 'Project.nexus' }, null, 2);
+      const sceneObjects = Array.isArray(data.objects) ? data.objects : [];
+      const meshCount = sceneObjects.filter((obj: any) => obj && obj.geometry?.attributes?.position?.array?.length).length;
+      if (meshCount === 0) {
+        setStatus('SAVE CANCELLED: walang 3D shape/mesh na nakuha sa current scene. Hindi gumawa ng empty project file.');
+        return;
+      }
+      const serialized = JSON.stringify({
+        ...data,
+        projectName: projectName.trim() || 'Project.nexus',
+        savedObjectCount: sceneObjects.length,
+        savedMeshCount: meshCount
+      });
       const safeName = (projectName.trim() || 'Project.nexus').replace(/[^a-z0-9._-]/gi, '_');
       const fileName = safeName.toLowerCase().endsWith('.nexus') || safeName.toLowerCase().endsWith('.json') ? safeName : safeName + '.nexus';
 
@@ -2854,7 +2865,7 @@ export default function App() {
         try { localStorage.setItem('nexus3d-project-v1', serialized); } catch (storageError) {
           console.warn('Nexus3D local backup unavailable:', storageError);
         }
-        setStatus('PROJECT SAVED SUCCESSFULLY — ' + (saved.name || fileName));
+        setStatus('PROJECT SAVED SUCCESSFULLY — ' + (saved.name || fileName) + ' · ' + meshCount + ' shape(s)');
         return;
       }
 
@@ -2898,6 +2909,14 @@ export default function App() {
         const r = runtime.current;
         if (!r || !Array.isArray(data.objects)) {
           setStatus('Project file is invalid or contains no scene objects');
+          return;
+        }
+        const savedMeshCount = data.objects.filter((saved: any) =>
+          saved && Array.isArray(saved.geometry?.attributes?.position?.array) &&
+          saved.geometry.attributes.position.array.length >= 9
+        ).length;
+        if (savedMeshCount === 0) {
+          setStatus('LOAD STOPPED: walang 3D shapes sa file na ito. Posibleng empty/duplicate save file ang napili.');
           return;
         }
         if (data.projectName) setProjectName(String(data.projectName));
@@ -3098,7 +3117,7 @@ export default function App() {
           : undefined;
         if (firstRestored) r.selectObject?.(firstRestored);
         else r.selectObject?.();
-        setStatus('Project loaded · ' + restoredCount + ' saved scene objects restored to Scene Tree');
+        setStatus('PROJECT LOADED SUCCESSFULLY · ' + savedMeshCount + ' shape(s), ' + restoredCount + ' scene objects restored');
       } catch (error) {
         console.error('Nexus3D project load failed:', error);
         setStatus('Project file could not be loaded: invalid JSON or unsupported project data');
