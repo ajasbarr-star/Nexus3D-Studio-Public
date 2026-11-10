@@ -857,7 +857,11 @@ export default function App() {
       const selectedBone = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
       const chain = [...rigChains].reverse().find(entry => selectedBone instanceof THREE.Bone && entry.bones.includes(selectedBone)) || [...rigChains].reverse().find(entry => entry.target);
       if (!chain || chain.bones.length < 3) { setStatus('Select a rig with at least three connected bones first'); return null; }
-      const middle = chain.bones[Math.floor(chain.bones.length/2)];
+      const endId = selectedBone instanceof THREE.Bone ? selectedBone.userData.editorId : chain.target?.userData.ikEndBoneId;
+      const endBone = chain.bones.find(bone => String(bone.userData.editorId) === String(endId)) || chain.bones[chain.bones.length-1];
+      const path: THREE.Bone[] = []; let cursor: THREE.Object3D | null = endBone;
+      while (cursor && path.length < 32) { if (cursor instanceof THREE.Bone && chain.bones.includes(cursor)) path.push(cursor); cursor = cursor.parent; }
+      const middle = path[Math.floor(path.length/2)] || endBone;
       const target = new THREE.Mesh(new THREE.SphereGeometry(0.11,14,10),new THREE.MeshBasicMaterial({color:0xc58cff,wireframe:true}));
       target.name = 'IK Pole Target'; target.userData.editorId = uid(); target.userData.kind = 'IK Pole';
       target.userData.rigRootBoneId = chain.bones[0]?.userData.editorId || null;
