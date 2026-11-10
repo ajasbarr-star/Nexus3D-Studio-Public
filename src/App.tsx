@@ -2197,6 +2197,16 @@ export default function App() {
         kind: obj.userData.kind || obj.type,
         objectType: obj.type,
         lightType: obj.userData.lightType || null,
+        light: obj instanceof THREE.Light ? {
+          color: obj.color?.getHexString?.() || 'ffffff',
+          intensity: obj.intensity,
+          distance: obj instanceof THREE.PointLight || obj instanceof THREE.SpotLight ? obj.distance : undefined,
+          decay: obj instanceof THREE.PointLight || obj instanceof THREE.SpotLight ? obj.decay : undefined,
+          angle: obj instanceof THREE.SpotLight ? obj.angle : undefined,
+          groundColor: obj instanceof THREE.HemisphereLight ? obj.groundColor.getHexString() : undefined,
+          shadowBias: (obj as any).shadow?.bias,
+          shadowRadius: (obj as any).shadow?.radius
+        } : undefined,
         geometry: obj instanceof THREE.Mesh ? {
           attributes: Object.fromEntries(Object.entries(obj.geometry.attributes).map(([key, attribute]: [string, any]) => [key, { itemSize: attribute.itemSize, normalized: attribute.normalized, array: Array.from(attribute.array as ArrayLike<number>) }])),
           index: obj.geometry.index ? Array.from(obj.geometry.index.array as ArrayLike<number>) : null,
@@ -2382,6 +2392,16 @@ export default function App() {
           if (Array.isArray(saved.rotation) && saved.rotation.length === 3) obj.rotation.set(saved.rotation[0], saved.rotation[1], saved.rotation[2]);
           if (Array.isArray(saved.scale) && saved.scale.length === 3) obj.scale.fromArray(saved.scale);
           if (typeof saved.visible === 'boolean') obj.visible = saved.visible;
+          if (obj instanceof THREE.Light && saved.light) {
+            if (saved.light.color) obj.color.set('#' + saved.light.color);
+            if (Number.isFinite(saved.light.intensity)) obj.intensity = saved.light.intensity;
+            if ((obj instanceof THREE.PointLight || obj instanceof THREE.SpotLight) && Number.isFinite(saved.light.distance)) obj.distance = saved.light.distance;
+            if ((obj instanceof THREE.PointLight || obj instanceof THREE.SpotLight) && Number.isFinite(saved.light.decay)) obj.decay = saved.light.decay;
+            if (obj instanceof THREE.SpotLight && Number.isFinite(saved.light.angle)) obj.angle = saved.light.angle;
+            if (obj instanceof THREE.HemisphereLight && saved.light.groundColor) obj.groundColor.set('#' + saved.light.groundColor);
+            if ((obj as any).shadow && Number.isFinite(saved.light.shadowBias)) (obj as any).shadow.bias = saved.light.shadowBias;
+            if ((obj as any).shadow && Number.isFinite(saved.light.shadowRadius)) (obj as any).shadow.radius = saved.light.shadowRadius;
+          }
           if (obj instanceof THREE.Mesh) {
             obj.castShadow = saved.castShadow !== false;
             obj.receiveShadow = saved.receiveShadow !== false;
