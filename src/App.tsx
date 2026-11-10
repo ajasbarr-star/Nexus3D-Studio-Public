@@ -2306,9 +2306,21 @@ export default function App() {
         position: r.camera.position.toArray(),
         target: r.orbit.target.toArray(),
       };
-      // Dedicated front-facing perspective for rig work; MainCamera/UserCamera stays untouched.
-      r.camera.position.set(0, 1.55, 9);
-      r.orbit.target.set(0, 1.45, 0);
+      // Fit the selected character or object in a true front-facing perspective.
+      const rigSubject = r.selectable.find((object: THREE.Object3D) => object.userData.editorId === selectedRef.current)
+        || r.selectable.find((object: THREE.Object3D) => object.userData.kind !== 'Light' && object.userData.kind !== 'Camera');
+      const rigBounds = rigSubject ? new THREE.Box3().setFromObject(rigSubject) : new THREE.Box3();
+      const rigSize = new THREE.Vector3();
+      const rigCenter = new THREE.Vector3(0, 1.45, 0);
+      let rigDistance = 9;
+      if (rigSubject && !rigBounds.isEmpty()) {
+        rigBounds.getSize(rigSize);
+        rigBounds.getCenter(rigCenter);
+        rigDistance = Math.max(3.5, Math.max(rigSize.x, rigSize.y, rigSize.z) * 2.35);
+      }
+      // MainCamera/UserCamera stays untouched; only the editor perspective camera moves.
+      r.camera.position.set(rigCenter.x, rigCenter.y, rigCenter.z + rigDistance);
+      r.orbit.target.copy(rigCenter);
       r.orbit.enabled = true;
       r.activeOrbit.enabled = false;
       r.orbit.update();
