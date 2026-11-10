@@ -1457,3 +1457,22 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   .rigging-panel { top: 52px; bottom: 64px; }
 }
 /* SkeletonHelper draws connected parent-child segments; side colors distinguish mirrored limbs. */
+
+
+/* Universal IK Rigging workspace: switchable viewport with a compact floating panel. */
+.rigging-mode .rigging-panel {
+  position: fixed; left: 194px; right: auto; top: 58px; bottom: auto;
+  width: 280px; height: 400px; max-height: calc(100vh - 76px);
+  overflow: hidden; display: flex; flex-direction: column; z-index: 35;
+  padding: 9px; border: 1px solid rgba(82, 215, 255, .32); border-radius: 10px;
+  background: rgba(8, 16, 28, .94);
+  box-shadow: 0 12px 36px rgba(0,0,0,.42), 0 0 18px rgba(45,190,255,.08);
+  backdrop-filter: blur(16px);
+}
+.rigging-mode .rigging-section-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 7px 3px 12px; }
+.rigging-mode .rigging-tabs { flex: 0 0 auto; }
+.rigging-mode .right-rail { z-index: 40; }
+.rigging-mode .camera-mode-hud { color: #9cecff; }
+@media (max-width: 700px) {
+  .rigging-mode .rigging-panel { left: 184px; top: 54px; width: min(280px, calc(100vw - 194px)); height: 400px; max-height: calc(100vh - 72px); }
+}
