@@ -18,6 +18,13 @@
   box-shadow: 0 14px 42px rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(18px);
 }
+.rigging-tabs { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin:9px 0 4px; padding:4px; border:1px solid rgba(121,157,202,.18); border-radius:8px; background:rgba(13,23,36,.8); }
+.rigging-tabs button { min-height:36px; border:1px solid transparent; border-radius:6px; background:transparent; color:#8fa5bf; font-size:10px; font-weight:800; letter-spacing:.04em; }
+.rigging-tabs button.active { color:#dff8ff; border-color:rgba(81,214,255,.42); background:rgba(34,151,192,.22); box-shadow:inset 0 0 14px rgba(81,214,255,.08); }
+.rigging-field input[type="range"] { width:112px; min-width:80px; accent-color:#59ddff; }
+.rigging-warning { padding:7px; border-left:2px solid #d69a52; background:rgba(214,154,82,.08); color:#d9bd96 !important; }
+.rigging-panel { width:min(292px,calc(100vw - 76px)); }
+.rigging-section-body { gap:7px; }
 .rigging-section { margin-top: 9px; border: 1px solid rgba(121, 157, 202, 0.18); border-radius: 8px; overflow: hidden; }
 .rigging-section-toggle { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px; background: rgba(29, 45, 65, 0.72); border: 0; font-size: 10px; letter-spacing: .04em; font-weight: 800; }
 .rigging-section-body { display: grid; gap: 8px; padding: 10px; }
@@ -1412,4 +1419,234 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   .right-actions { gap: 3px; }
   .ready-label { display: none; }
   .hierarchy-panel, .menu-panel, .quick-access-panel, .mesh-edit-panel, .floating-menu-toggle { width: 176px !important; max-width: 176px !important; }
+}
+
+
+/* Nexus3D IK Rigging layout — left dock beside Scene Tree; Rig button remains on right. */
+.rigging-panel {
+  position: absolute;
+  z-index: 19;
+  top: 58px;
+  left: 194px;
+  right: auto;
+  bottom: 72px;
+  width: min(306px, calc(100vw - 214px));
+  max-width: 306px;
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 9px;
+  border: 1px solid rgba(81, 214, 255, .38);
+  border-radius: 11px;
+  background: rgba(7, 15, 26, .94);
+  box-shadow: 0 12px 34px rgba(0,0,0,.42), 0 0 18px rgba(0,207,255,.08);
+  backdrop-filter: blur(16px);
+}
+.rigging-panel .quick-panel-heading { min-height: 34px; color: #a9efff; }
+.rigging-panel .rigging-tabs { position: sticky; top: 0; z-index: 2; margin: 7px 0; background: rgba(10,20,33,.96); }
+.rigging-panel .rigging-tabs button { min-height: 38px; }
+.rigging-panel .rigging-section-body { padding: 7px 2px 9px; gap: 6px; }
+.rigging-panel .rigging-action { min-height: 36px; border-radius: 6px; }
+.rigging-panel .rigging-check, .rigging-panel .rigging-field { min-height: 30px; }
+@media (max-width: 760px) {
+  .rigging-panel { left: 184px; right: auto; top: 54px; bottom: 68px; width: min(276px, calc(100vw - 194px)); padding: 7px; }
+  .rigging-panel .rigging-section-body { gap: 5px; }
+  .rigging-panel .rigging-action { min-height: 33px; font-size: 10px; }
+}
+@media (max-height: 430px) {
+  .rigging-panel { top: 52px; bottom: 64px; }
+}
+/* SkeletonHelper draws connected parent-child segments; side colors distinguish mirrored limbs. */
+
+
+/* Universal IK Rigging workspace: switchable viewport with a compact floating panel. */
+.rigging-mode .rigging-panel {
+  position: fixed; left: 194px; right: auto; top: 58px; bottom: auto;
+  width: 280px; height: 400px; max-height: calc(100vh - 76px);
+  overflow: hidden; display: flex; flex-direction: column; z-index: 35;
+  padding: 9px; border: 1px solid rgba(82, 215, 255, .32); border-radius: 10px;
+  background: rgba(8, 16, 28, .94);
+  box-shadow: 0 12px 36px rgba(0,0,0,.42), 0 0 18px rgba(45,190,255,.08);
+  backdrop-filter: blur(16px);
+}
+.rigging-mode .rigging-section-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 7px 3px 12px; }
+.rigging-mode .rigging-tabs { flex: 0 0 auto; }
+.rigging-mode .right-rail { z-index: 40; }
+.rigging-mode .camera-mode-hud { color: #9cecff; }
+@media (max-width: 700px) {
+  .rigging-mode .rigging-panel { left: 184px; top: 54px; width: min(280px, calc(100vw - 194px)); height: 400px; max-height: calc(100vh - 72px); }
+}
+
+
+/* Rigging workspace occupies the former left Menu panel slot below the top toolbar. */
+.rigging-mode .rigging-panel {
+  position: fixed !important;
+  left: 8px !important;
+  right: auto !important;
+  top: 56px !important;
+  bottom: auto !important;
+  width: 280px !important;
+  min-width: 250px !important;
+  max-width: min(300px, calc(100vw - 16px)) !important;
+  height: 300px !important;
+  max-height: calc(100dvh - 144px) !important;
+  box-sizing: border-box !important;
+  z-index: 50 !important;
+}
+.rigging-mode .rigging-panel .rigging-section-body {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+.rigging-mode .floating-menu-toggle,
+.rigging-mode .menu-panel { display: none !important; }
+@media (max-width: 520px) {
+  .rigging-mode .rigging-panel {
+    left: 8px !important;
+    top: 54px !important;
+    width: min(280px, calc(100vw - 16px)) !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 16px) !important;
+    height: 300px !important;
+  }
+}
+
+/* Guided Manual IK workflow: compact accordion steps and a scrollable inner body. */
+.rigging-panel .manual-rig-workflow { display:flex; flex-direction:column; gap:6px; padding:5px 2px 10px; }
+.rigging-panel .rigging-intro { margin:0 2px 3px; color:#91abc4; font-size:9px; line-height:1.45; }
+.rigging-panel .manual-rig-step { flex:0 0 auto; border:1px solid #233d54; border-radius:7px; background:rgba(12,25,39,.78); overflow:hidden; }
+.rigging-panel .manual-rig-step.current { border-color:#287e9c; box-shadow:inset 0 0 0 1px #1c657d33; }
+.rigging-panel .manual-rig-step-heading { width:100%; min-height:34px; display:flex; align-items:center; gap:8px; padding:5px 8px; color:#a9c6df; border:0; background:transparent; text-align:left; }
+.rigging-panel .manual-rig-step-heading strong { flex:1; font:9px 'DM Mono',monospace; letter-spacing:.55px; }
+.rigging-panel .manual-rig-step-number { color:#69dff9; font:9px 'DM Mono',monospace; }
+.rigging-panel .manual-rig-step-heading svg { transition:transform .16s ease; }
+.rigging-panel .manual-rig-step-heading svg.expanded { transform:rotate(180deg); }
+.rigging-panel .manual-rig-step-content { display:flex; flex-direction:column; gap:6px; padding:5px 7px 8px; border-top:1px solid #1d3449; }
+.rigging-panel .manual-rig-step-content p { margin:0 0 2px; color:#829db7; font-size:9px; line-height:1.45; }
+.rigging-panel .manual-rig-next { min-height:29px; margin-top:2px; border:1px solid #286d86; border-radius:5px; color:#9beaff; background:#102b3c; font:8px 'DM Mono',monospace; letter-spacing:.6px; }
+.rigging-mode .rigging-panel { height:300px !important; max-height:calc(100dvh - 144px) !important; }
+.rigging-mode .rigging-panel .rigging-section-body { min-height:0; overflow-x:hidden; overflow-y:auto; }
+
+
+/* IK Rigging workspace — concept-matched three-column layout. */
+.rigging-mode .quick-access-rail { display:none !important; }
+.rigging-mode .rigging-panel {
+  position:fixed !important; left:8px !important; right:auto !important;
+  top:58px !important; bottom:76px !important;
+  width:clamp(258px,22vw,330px) !important; min-width:0 !important;
+  max-width:calc(100vw - 440px) !important; height:auto !important;
+  max-height:none !important; display:flex !important; flex-direction:column !important;
+  padding:9px !important; border:1px solid rgba(65,205,245,.62) !important;
+  border-radius:11px !important; background:rgba(7,16,29,.94) !important;
+  box-shadow:0 12px 36px #0008,0 0 22px #00bfe51c !important;
+}
+.rigging-mode .rig-workspace-heading { min-height:42px !important; flex:0 0 auto; }
+.rigging-mode .rig-workspace-heading>div { display:flex; flex-direction:column; gap:2px; }
+.rigging-mode .rig-workspace-heading strong { color:#a8f0ff; font:700 13px 'DM Mono',monospace; letter-spacing:.8px; }
+.rigging-mode .rig-workspace-heading small { color:#688da9; font:7px 'DM Mono',monospace; letter-spacing:1.1px; }
+.rigging-mode .rigging-tabs { flex:0 0 auto; display:grid; grid-template-columns:1fr 1fr; gap:5px; margin:6px 0 8px; padding:4px; border:1px solid #1d3c54; border-radius:7px; background:#091523; }
+.rigging-mode .rigging-tabs button { min-height:34px; border-radius:5px; font:700 9px 'DM Mono',monospace; }
+.rigging-mode .rigging-section-body { min-height:0; flex:1 1 auto; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; padding:4px 2px 12px; }
+.rigging-mode .manual-rig-workflow { gap:7px; }
+.rigging-mode .manual-rig-step { border-color:#24435d; background:linear-gradient(135deg,rgba(15,31,49,.96),rgba(8,19,32,.96)); }
+.rigging-mode .manual-rig-step.current { border-color:#20b8df; box-shadow:0 0 12px #00bfe51c,inset 0 0 0 1px #20b8df24; }
+.rigging-mode .manual-rig-step-heading { min-height:39px; gap:9px; }
+.rigging-mode .manual-rig-step-number { display:grid; place-items:center; width:23px; height:23px; border-radius:50%; color:#03131d; background:#27d9f5; font:800 10px 'DM Mono',monospace; }
+.rigging-mode .manual-rig-step-heading strong { color:#e1f0ff; font:700 10px 'DM Mono',monospace; letter-spacing:.3px; }
+.rigging-mode .manual-rig-step-content { gap:7px; padding:8px; }
+.rigging-mode .manual-rig-step-content p { font-size:9px; color:#91abc4; }
+.rigging-mode .rigging-action { min-height:36px; font-size:10px; }
+.rigging-mode .hierarchy-panel {
+  position:fixed !important; left:auto !important; right:8px !important;
+  top:58px !important; bottom:auto !important; width:clamp(190px,18vw,238px) !important;
+  max-width:calc(100vw - 440px) !important; height:42vh !important;
+  max-height:390px !important; z-index:42 !important;
+  border:1px solid rgba(57,161,207,.58); border-radius:10px;
+  background:rgba(7,16,29,.94); box-shadow:0 12px 30px #0007;
+}
+.rigging-mode .hierarchy-panel .tree-list { min-height:0; overflow-y:auto; }
+.rigging-mode .quick-access-panel.inspector-panel {
+  position:fixed !important; left:auto !important; right:8px !important;
+  top:calc(58px + min(42vh, 390px) + 9px) !important; bottom:76px !important;
+  width:clamp(190px,18vw,238px) !important; max-width:calc(100vw - 440px) !important;
+  max-height:none !important; z-index:42 !important;
+  border:1px solid rgba(57,161,207,.58); border-radius:10px;
+  background:rgba(7,16,29,.94); box-shadow:0 12px 30px #0007;
+}
+.rigging-mode .quick-access-panel.inspector-panel .quick-panel-content { min-height:0; overflow:auto; }
+.rigging-mode .camera-mode-hud { left:50%; right:auto; transform:translateX(-50%); top:58px; z-index:12; }
+.rigging-mode .action-dock { display:none !important; }
+.rig-workspace-dock {
+  position:fixed; z-index:55; left:8px; right:8px; bottom:8px; min-height:52px;
+  display:flex; align-items:center; justify-content:center; gap:9px; padding:6px 10px;
+  border:1px solid rgba(65,151,196,.55); border-radius:10px;
+  background:rgba(7,16,28,.94); box-shadow:0 10px 28px #0008;
+  backdrop-filter:blur(14px); color:#bcd2e8;
+}
+.rig-workspace-dock button { min-height:34px; display:flex; align-items:center; justify-content:center; gap:6px; padding:0 10px; border:1px solid #29465e; border-radius:6px; color:#c9e5f6; background:#102337; font:700 8px 'DM Mono',monospace; white-space:nowrap; }
+.rig-workspace-dock button:disabled { opacity:.35; }
+.rig-workspace-dock button.rig-dock-primary { border-color:#1688a9; color:#a8f4ff; background:#0b3448; }
+.rig-workspace-dock button.rig-dock-save { border-color:#159db9; color:#b7f5ff; box-shadow:0 0 12px #00cfff20; }
+.rig-workspace-dock label { display:flex; align-items:center; gap:6px; color:#86a9c4; font:8px 'DM Mono',monospace; white-space:nowrap; }
+.rig-workspace-dock select { max-width:100px; min-height:31px; padding:0 6px; border:1px solid #2a536f; border-radius:5px; color:#d5efff; background:#0a1b2b; font-size:9px; }
+.rig-dock-group { display:flex; gap:4px; }
+.rig-dock-group button { width:34px; padding:0; }
+.rig-dock-divider { width:1px; height:25px; background:#29445a; margin:0 3px; }
+@media (max-width:760px) {
+  .rigging-mode .rigging-panel { left:6px !important; top:54px !important; bottom:68px !important; width:clamp(210px,28vw,270px) !important; max-width:calc(100vw - 390px) !important; padding:6px !important; }
+  .rigging-mode .hierarchy-panel { right:6px !important; top:54px !important; width:180px !important; max-width:calc(100vw - 390px) !important; height:40vh !important; }
+  .rigging-mode .quick-access-panel.inspector-panel { right:6px !important; top:calc(54px + 40vh + 7px) !important; bottom:68px !important; width:180px !important; max-width:calc(100vw - 390px) !important; }
+  .rig-workspace-dock { left:6px; right:6px; bottom:5px; min-height:48px; gap:5px; padding:4px; overflow-x:auto; justify-content:flex-start; }
+  .rig-workspace-dock button { min-height:32px; padding:0 7px; font-size:7px; }
+  .rig-workspace-dock label { font-size:7px; }
+}
+@media (max-width:520px) {
+  .rigging-mode .rigging-panel { width:196px !important; max-width:196px !important; }
+  .rigging-mode .hierarchy-panel,.rigging-mode .quick-access-panel.inspector-panel { width:164px !important; max-width:164px !important; }
+  .rigging-mode .camera-mode-hud { display:none; }
+}
+
+
+/* Compact IK workspace refinement: prioritize the 3D viewport on landscape screens. */
+.rigging-mode .rigging-panel {
+  left: 6px !important; top: 56px !important; bottom: 58px !important;
+  width: 184px !important; min-width: 0 !important; max-width: 184px !important;
+  padding: 6px !important; border-radius: 8px !important;
+}
+.rigging-mode .rig-workspace-heading { min-height: 30px !important; }
+.rigging-mode .rig-workspace-heading strong { font-size: 10px !important; }
+.rigging-mode .rig-workspace-heading small { font-size: 6px !important; }
+.rigging-mode .rigging-tabs { margin: 4px 0 5px !important; padding: 3px !important; gap: 3px !important; }
+.rigging-mode .rigging-tabs button { min-height: 27px !important; font-size: 8px !important; }
+.rigging-mode .rigging-intro { font-size: 8px !important; }
+.rigging-mode .manual-rig-step-heading { min-height: 30px !important; padding: 3px 5px !important; gap: 5px !important; }
+.rigging-mode .manual-rig-step-number { width: 18px !important; height: 18px !important; font-size: 8px !important; }
+.rigging-mode .manual-rig-step-heading strong { font-size: 8px !important; }
+.rigging-mode .manual-rig-step-content { gap: 4px !important; padding: 5px !important; }
+.rigging-mode .manual-rig-step-content p { font-size: 8px !important; }
+.rigging-mode .rigging-action { min-height: 29px !important; padding: 4px 6px !important; font-size: 8px !important; }
+.rigging-mode .manual-rig-next { min-height: 24px !important; font-size: 7px !important; }
+.rigging-mode .hierarchy-panel {
+  right: 6px !important; top: 56px !important; bottom: auto !important;
+  width: 154px !important; max-width: 154px !important; height: 38vh !important; max-height: 250px !important;
+}
+.rigging-mode .quick-access-panel.inspector-panel {
+  right: 6px !important; top: calc(56px + min(38vh, 250px) + 6px) !important;
+  bottom: 58px !important; width: 154px !important; max-width: 154px !important;
+}
+.rigging-mode .camera-mode-hud { top: 56px !important; font-size: 8px !important; }
+.rigging-mode .rig-workspace-dock {
+  left: 6px !important; right: 6px !important; bottom: 5px !important;
+  min-height: 42px !important; gap: 4px !important; padding: 3px 5px !important;
+}
+.rigging-mode .rig-workspace-dock button { min-height: 29px !important; padding: 0 6px !important; font-size: 7px !important; }
+.rigging-mode .rig-workspace-dock label { gap: 3px !important; font-size: 7px !important; }
+.rigging-mode .rig-workspace-dock select { min-height: 26px !important; max-width: 76px !important; font-size: 8px !important; }
+@media (max-width: 760px) {
+  .rigging-mode .rigging-panel { left: 4px !important; top: 52px !important; bottom: 54px !important; width: 164px !important; max-width: 164px !important; }
+  .rigging-mode .hierarchy-panel { right: 4px !important; top: 52px !important; width: 138px !important; max-width: 138px !important; height: 36vh !important; }
+  .rigging-mode .quick-access-panel.inspector-panel { right: 4px !important; top: calc(52px + 36vh + 5px) !important; bottom: 54px !important; width: 138px !important; max-width: 138px !important; }
+  .rigging-mode .rig-workspace-dock { bottom: 3px !important; min-height: 38px !important; }
+  .rigging-mode .rig-workspace-dock button { min-height: 26px !important; }
 }
