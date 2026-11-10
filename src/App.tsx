@@ -267,6 +267,8 @@ export default function App() {
   const [riggingView, setRiggingView] = useState(false);
   const [manualRigOpen, setManualRigOpen] = useState(true);
   const [autoIKOpen, setAutoIKOpen] = useState(true);
+  const [manualRigStage, setManualRigStage] = useState('setup');
+  const [manualRigSections, setManualRigSections] = useState<Record<string, boolean>>({ setup: true, skeleton: false, position: false, attach: false, controls: false, test: false });
   const [ikEnabled, setIkEnabled] = useState(false);
   const [ikChainLength, setIkChainLength] = useState(3);
   const [jointLimitDegrees, setJointLimitDegrees] = useState(120);
@@ -1065,6 +1067,48 @@ export default function App() {
       setStatus('Auto Rig created · 18 bones with heuristic skin weights. Inspect deformation before production use.');
       return true;
     };
+    const bindSelectedMeshToRig = () => {
+      const selectedObject = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
+      let source: THREE.Mesh | null = null;
+      if (selectedObject instanceof THREE.Mesh && !(selectedObject as any).isSkinnedMesh) source = selectedObject;
+      else if (selectedObject) selectedObject.traverse((node: any) => { if (!source && node.isMesh && !node.isSkinnedMesh) source = node as THREE.Mesh; });
+      if (!source || !source.geometry?.getAttribute('position')) { setStatus('Select an unrigged mesh in Scene Tree before attaching it to the skeleton'); return false; }
+      const mesh = source as THREE.Mesh;
+      const chain = [...rigChains].reverse().find(entry => entry.bones.length > 1);
+      if (!chain) { setStatus('Build or detect a skeleton before attaching the mesh'); return false; }
+      if (mesh.geometry.getAttribute('skinIndex')) { setStatus('This mesh already has skinning data. Use its existing skeleton instead of binding twice'); return false; }
+      mesh.updateWorldMatrix(true, false); scene.updateMatrixWorld(true);
+      const geometry = mesh.geometry.clone();
+      const position = geometry.getAttribute('position') as THREE.BufferAttribute;
+      const skinIndices = new Uint16Array(position.count * 4);
+      const skinWeights = new Float32Array(position.count * 4);
+      const boneWorld = chain.bones.map(bone => bone.getWorldPosition(new THREE.Vector3()));
+      const vertexWorld = new THREE.Vector3();
+      for (let vertexIndex = 0; vertexIndex < position.count; vertexIndex++) {
+        vertexWorld.fromBufferAttribute(position, vertexIndex).applyMatrix4(mesh.matrixWorld);
+        const nearest = boneWorld.map((point, index) => ({ index, distance: point.distanceToSquared(vertexWorld) }))
+          .sort((a, b) => a.distance - b.distance).slice(0, Math.min(4, chain.bones.length));
+        const raw = nearest.map(entry => 1 / Math.max(entry.distance, 1e-6));
+        const total = raw.reduce((sum, value) => sum + value, 0) || 1;
+        nearest.forEach((entry, slot) => { skinIndices[vertexIndex * 4 + slot] = entry.index; skinWeights[vertexIndex * 4 + slot] = raw[slot] / total; });
+      }
+      geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(skinIndices, 4));
+      geometry.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skinWeights, 4));
+      const skinned = new THREE.SkinnedMesh(geometry, mesh.material);
+      skinned.name = mesh.name; skinned.userData = { ...mesh.userData, kind: 'SkinnedMesh', manuallyRigged: true };
+      skinned.castShadow = mesh.castShadow; skinned.receiveShadow = mesh.receiveShadow;
+      skinned.position.copy(mesh.position); skinned.quaternion.copy(mesh.quaternion); skinned.scale.copy(mesh.scale);
+      const parent = mesh.parent || scene; parent.add(skinned); skinned.updateWorldMatrix(true, false);
+      const skeleton = new THREE.Skeleton(chain.bones); skeleton.calculateInverses();
+      skinned.bind(skeleton, skinned.matrixWorld.clone());
+      parent.remove(mesh);
+      const oldIndex = selectable.indexOf(mesh); if (oldIndex >= 0) selectable.splice(oldIndex, 1);
+      if (!selectable.includes(skinned)) selectable.push(skinned);
+      skinned.userData.editorId = mesh.userData.editorId || uid();
+      syncItems(); selectObject(skinned);
+      setStatus('Mesh attached with normalized nearest-bone weights. Test deformation before production use.');
+      return true;
+    };
     const detectRiggedMeshes = (rootObject?: THREE.Object3D) => {
       const root = rootObject || selectable.find(o => String(o.userData.editorId) === selectedRef.current) || scene;
       let found = 0;
@@ -1696,7 +1740,7 @@ export default function App() {
         }
       }
       renderer.render(scene, inCam ? activeCamera : camera);
-      runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, transform, selectable, syncItems, addObject, createManualRig, createIKTarget, solveIK, mirrorSelectedBone, deleteSelectedBone, createPoleTarget, detectRiggedMeshes, autoRigSelectedMesh, addUniversalBone, toggleSelectedBoneControlHandle, toggleSelectedBoneLock, refreshRigVisuals, restoreRigGroup: (rig: THREE.Object3D) => { const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) bones.push(node as THREE.Bone); }); if (!bones.length || rigChains.some(entry => entry.bones[0] === bones[0])) return; const helper = new THREE.SkeletonHelper(bones[0]); helper.name = rig.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); }, attachRigHandle: (handle: THREE.Object3D, rootId: string, kind: string) => { const chain = rigChains.find(entry => String(entry.bones[0]?.userData.editorId) === String(rootId)); if (!chain) return; if (kind === 'IK Target') chain.target = handle; if (kind === 'IK Pole') chain.pole = handle; }, restoreSkinnedMesh: (mesh: THREE.SkinnedMesh, bones: THREE.Bone[], savedSkeleton?: any) => { const inverses = Array.isArray(savedSkeleton?.boneInverses) && savedSkeleton.boneInverses.length === bones.length ? savedSkeleton.boneInverses.map((elements: number[]) => new THREE.Matrix4().fromArray(elements)) : undefined; const skeleton = new THREE.Skeleton(bones, inverses); if (!inverses) skeleton.calculateInverses(); const bindMatrix = Array.isArray(savedSkeleton?.bindMatrix) && savedSkeleton.bindMatrix.length === 16 ? new THREE.Matrix4().fromArray(savedSkeleton.bindMatrix) : mesh.matrixWorld.clone(); mesh.bind(skeleton, bindMatrix); if (savedSkeleton?.bindMode) mesh.bindMode = savedSkeleton.bindMode; const existingChain = rigChains.find(entry => entry.bones[0] === bones[0]); if (!existingChain) { const helper = new THREE.SkeletonHelper(bones[0]); helper.name = mesh.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); } }, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
+      runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, transform, selectable, syncItems, addObject, createManualRig, bindSelectedMeshToRig, createIKTarget, solveIK, mirrorSelectedBone, deleteSelectedBone, createPoleTarget, detectRiggedMeshes, autoRigSelectedMesh, addUniversalBone, toggleSelectedBoneControlHandle, toggleSelectedBoneLock, refreshRigVisuals, restoreRigGroup: (rig: THREE.Object3D) => { const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) bones.push(node as THREE.Bone); }); if (!bones.length || rigChains.some(entry => entry.bones[0] === bones[0])) return; const helper = new THREE.SkeletonHelper(bones[0]); helper.name = rig.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); }, attachRigHandle: (handle: THREE.Object3D, rootId: string, kind: string) => { const chain = rigChains.find(entry => String(entry.bones[0]?.userData.editorId) === String(rootId)); if (!chain) return; if (kind === 'IK Target') chain.target = handle; if (kind === 'IK Pole') chain.pole = handle; }, restoreSkinnedMesh: (mesh: THREE.SkinnedMesh, bones: THREE.Bone[], savedSkeleton?: any) => { const inverses = Array.isArray(savedSkeleton?.boneInverses) && savedSkeleton.boneInverses.length === bones.length ? savedSkeleton.boneInverses.map((elements: number[]) => new THREE.Matrix4().fromArray(elements)) : undefined; const skeleton = new THREE.Skeleton(bones, inverses); if (!inverses) skeleton.calculateInverses(); const bindMatrix = Array.isArray(savedSkeleton?.bindMatrix) && savedSkeleton.bindMatrix.length === 16 ? new THREE.Matrix4().fromArray(savedSkeleton.bindMatrix) : mesh.matrixWorld.clone(); mesh.bind(skeleton, bindMatrix); if (savedSkeleton?.bindMode) mesh.bindMode = savedSkeleton.bindMode; const existingChain = rigChains.find(entry => entry.bones[0] === bones[0]); if (!existingChain) { const helper = new THREE.SkeletonHelper(bones[0]); helper.name = mesh.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); } }, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
       raf = requestAnimationFrame(frameLoop);
     };
     let raf = requestAnimationFrame(frameLoop);
@@ -3152,24 +3196,59 @@ export default function App() {
           <button type="button" role="tab" aria-selected={rigTab === 'manual'} className={rigTab === 'manual' ? 'active' : ''} onClick={() => setRigTab('manual')}>MANUAL IK</button>
           <button type="button" role="tab" aria-selected={rigTab === 'auto'} className={rigTab === 'auto' ? 'active' : ''} onClick={() => setRigTab('auto')}>AUTO IK</button>
         </div>
-        {rigTab === 'manual' && <div className="rigging-section-body">
-          <p>Rig any mesh or shape. Add connected bones, bind a mesh, then assign handles and IK controls.</p>
-           <button type="button" className="rigging-action" onClick={() => runtime.current?.addUniversalBone()}>＋ Add Bone to Selection</button>
-          <button type="button" className="rigging-action" onClick={() => runtime.current?.createManualRig()}>＋ Create Humanoid Skeleton</button>
-           <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.addUniversalBone()}>＋ Add Connected Child Bone</button>
-          <label className="rigging-check"><input type="checkbox" checked={mirrorEnabled} onChange={e => setMirrorEnabled(e.target.checked)}/><span>Mirror X · live transform sync</span></label>
-          <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.toggleSelectedBoneControlHandle()}>◉ Set / Remove Control Handle</button>
-           <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.toggleSelectedBoneLock()}>🔒 Lock / Unlock Selected Bone</button>
-           <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.mirrorSelectedBone()}>⇄ Mirror Selected Bone</button>
-          <button type="button" className="rigging-action secondary" onClick={() => { const bone = items.find(item => item.id === selected)?.object; if (!(bone instanceof THREE.Bone)) { setStatus('Select a bone to rename'); return; } const name = window.prompt('Bone name',bone.name); if (name?.trim()) { bone.name = name.trim(); runtime.current?.syncItems?.(); setStatus('Bone renamed'); } }}>✎ Rename Selected Bone</button>
-          <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.deleteSelectedBone()}>− Delete Selected Bone</button>
-          <button type="button" className="rigging-action secondary" onClick={() => { const target = items.find(item => item.id === selected)?.object; if (target instanceof THREE.Bone) { const child = new THREE.Bone(); child.name = 'Manual Bone'; child.position.set(0,0.35,0); child.userData.editorId = uid(); child.userData.kind = 'Bone'; target.add(child); runtime.current?.selectable.push(child); runtime.current?.syncItems?.(); runtime.current?.selectObject(child); setStatus('Child bone added'); } else setStatus('Select a bone in Scene Tree first'); }}>＋ Add Child Bone</button>
-          <label className="rigging-field"><span>Solver</span><select aria-label="IK solver" value={ikSolver} onChange={e => setIkSolver(e.target.value as 'CCD' | 'FABRIK')}><option value="CCD">CCD</option><option value="FABRIK">FABRIK</option></select></label>
-          <label className="rigging-field"><span>Chain length</span><select aria-label="IK chain length" value={ikChainLength} onChange={e => setIkChainLength(Number(e.target.value))}><option value={1}>1 joint</option><option value={2}>2 joints</option><option value={3}>3 joints</option><option value={4}>4 joints</option><option value={6}>6 joints</option></select></label>
-          <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.createIKTarget()}>＋ Create IK Target for Selected Rig</button>
-          <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.createPoleTarget()}>＋ Create Pole Target</button>
-          <label className="rigging-field"><span>Joint limit · ±{jointLimitDegrees}°</span><input aria-label="Joint angle limit" type="range" min="15" max="180" step="5" value={jointLimitDegrees} onChange={e => { const value=Number(e.target.value); setJointLimitDegrees(value); const bone=items.find(item=>item.id===selected)?.object; if (bone instanceof THREE.Bone) bone.userData.jointLimitDegrees=value; }}/></label>
-          <button type="button" className="rigging-action" onClick={() => runtime.current?.solveIK(ikChainLength)}>Solve IK</button>
+        {rigTab === 'manual' && <div className="rigging-section-body manual-rig-workflow">
+          <p className="rigging-intro">Follow the steps in order. Select the character or bones in Scene Tree before each action.</p>
+          {([
+            { id: 'setup', number: '01', title: 'CHARACTER SETUP' },
+            { id: 'skeleton', number: '02', title: 'BUILD SKELETON' },
+            { id: 'position', number: '03', title: 'POSITION BONES' },
+            { id: 'attach', number: '04', title: 'ATTACH MESH' },
+            { id: 'controls', number: '05', title: 'IK CONTROLS' },
+            { id: 'test', number: '06', title: 'TEST RIG' },
+          ] as const).map(step => <section className={'manual-rig-step ' + (manualRigStage === step.id ? 'current' : '')} key={step.id}>
+            <button type="button" className="manual-rig-step-heading" aria-expanded={Boolean(manualRigSections[step.id])} onClick={() => { setManualRigStage(step.id); setManualRigSections(prev => ({ ...prev, [step.id]: !prev[step.id] })); }}>
+              <span className="manual-rig-step-number">{step.number}</span><strong>{step.title}</strong><ChevronDown size={13} className={manualRigSections[step.id] ? 'expanded' : ''}/>
+            </button>
+            {manualRigSections[step.id] && <div className="manual-rig-step-content">
+              {step.id === 'setup' && <>
+                <p>Select the character mesh in Scene Tree before creating a rig.</p>
+                <button type="button" className="rigging-action" onClick={() => { const obj = items.find(item => item.id === selected)?.object; setStatus(obj ? 'Selected for rigging: ' + obj.name : 'Select a character mesh or shape in Scene Tree first'); }}>Confirm Selected Character</button>
+              </>}
+              {step.id === 'skeleton' && <>
+                <p>Create a starter humanoid skeleton or build a chain one bone at a time.</p>
+                <button type="button" className="rigging-action" onClick={() => runtime.current?.createManualRig()}>＋ Create Humanoid Skeleton</button>
+                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.addUniversalBone()}>＋ Add Root / Connected Bone</button>
+                <button type="button" className="rigging-action secondary" onClick={() => { if (!(items.find(item => item.id === selected)?.object instanceof THREE.Bone)) { setStatus('Select a parent bone in Scene Tree first'); return; } runtime.current?.addUniversalBone(); }}>＋ Add Child Bone</button>
+                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.mirrorSelectedBone()}>⇄ Mirror Selected Bone</button>
+              </>}
+              {step.id === 'position' && <>
+                <p>Select a bone in Scene Tree, then position it with the viewport Move / Rotate / Scale gizmo.</p>
+                <label className="rigging-check"><input type="checkbox" checked={mirrorEnabled} onChange={e => setMirrorEnabled(e.target.checked)}/><span>Mirror X · live transform sync</span></label>
+                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.toggleSelectedBoneLock()}>🔒 Lock / Unlock Selected Bone</button>
+                <button type="button" className="rigging-action secondary" onClick={() => { const bone = items.find(item => item.id === selected)?.object; if (!(bone instanceof THREE.Bone)) { setStatus('Select a bone to rename'); return; } const name = window.prompt('Bone name', bone.name); if (name?.trim()) { bone.name = name.trim(); runtime.current?.syncItems?.(); setStatus('Bone renamed'); } }}>✎ Rename Selected Bone</button>
+                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.deleteSelectedBone()}>− Delete Selected Bone</button>
+              </>}
+              {step.id === 'attach' && <>
+                <p>Attach the selected mesh to the latest skeleton using normalized nearest-bone weights. Check deformation before production use.</p>
+                <button type="button" className="rigging-action" onClick={() => runtime.current?.bindSelectedMeshToRig()}>＋ Attach Selected Mesh to Skeleton</button>
+              </>}
+              {step.id === 'controls' && <>
+                <p>Select a bone to set a controller, then create an IK target for its chain.</p>
+                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.toggleSelectedBoneControlHandle()}>◉ Set / Remove Control Handle</button>
+                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.createIKTarget()}>＋ Create IK Target</button>
+                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.createPoleTarget()}>＋ Create Pole Target</button>
+                <label className="rigging-field"><span>Solver</span><select aria-label="IK solver" value={ikSolver} onChange={e => setIkSolver(e.target.value as 'CCD' | 'FABRIK')}><option value="CCD">CCD</option><option value="FABRIK">FABRIK</option></select></label>
+                <label className="rigging-field"><span>Chain length</span><select aria-label="IK chain length" value={ikChainLength} onChange={e => setIkChainLength(Number(e.target.value))}><option value={1}>1 joint</option><option value={2}>2 joints</option><option value={3}>3 joints</option><option value={4}>4 joints</option><option value={6}>6 joints</option></select></label>
+                <label className="rigging-field"><span>Joint limit · ±{jointLimitDegrees}°</span><input aria-label="Joint angle limit" type="range" min="15" max="180" step="5" value={jointLimitDegrees} onChange={e => { const value=Number(e.target.value); setJointLimitDegrees(value); const bone=items.find(item=>item.id===selected)?.object; if (bone instanceof THREE.Bone) bone.userData.jointLimitDegrees=value; }}/></label>
+              </>}
+              {step.id === 'test' && <>
+                <p>Move the IK target, solve the chain, and inspect the character deformation before saving.</p>
+                <button type="button" className="rigging-action" onClick={() => runtime.current?.solveIK(ikChainLength)}>Solve IK</button>
+                <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.refreshRigVisuals?.()}>Refresh Skeleton Display</button>
+              </>}
+              <button type="button" className="manual-rig-next" onClick={() => { const order = ['setup','skeleton','position','attach','controls','test']; const next = order[Math.min(order.length - 1, order.indexOf(step.id) + 1)]; setManualRigStage(next); setManualRigSections(prev => ({ ...prev, [step.id]: false, [next]: true })); }}>{step.id === 'test' ? 'FINISH WORKFLOW' : 'NEXT STEP →'}</button>
+            </div>}
+          </section>)}
         </div>}
         {rigTab === 'auto' && <div className="rigging-section-body">
           <p>Detect existing GLB/GLTF SkinnedMesh armatures and expose their bones in Scene Tree.</p>
