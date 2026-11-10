@@ -3219,7 +3219,7 @@ export default function App() {
         userDataSnapshots.forEach(snapshot => { snapshot.target.userData = snapshot.userData; });
       }
       const zip = new JSZip();
-      const safeBase = (projectName.trim() || 'Nexus3D_Project').replace(/\\.(nexus|zip)$/i, '').replace(/[^a-z0-9._-]/gi, '_');
+      const safeBase = (projectName.trim() || 'Nexus3D_Project').replace(/\.(nexus|zip)$/i, '').replace(/[^a-z0-9._-]/gi, '_');
       zip.file('Project.nexus', JSON.stringify({
         ...data,
         settings: { ...settings },
