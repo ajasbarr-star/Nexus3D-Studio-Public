@@ -852,6 +852,19 @@ export default function App() {
       if (chain) { mirrored.traverse(node => { if ((node as THREE.Bone).isBone && !chain.bones.includes(node as THREE.Bone)) chain.bones.push(node as THREE.Bone); }); chain.helper.update(); }
       syncItems(); selectObject(mirrored); setStatus('Mirror X synchronized · ' + source.name + ' ↔ ' + mirrored.name);
     };
+    transform.addEventListener('objectChange', () => {
+      if (!mirrorEnabledRef.current) return;
+      const source = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
+      if (!(source instanceof THREE.Bone) || !source.parent || !/\.(L|R)$/i.test(source.name)) return;
+      const chain = [...rigChains].reverse().find(entry => entry.bones.includes(source));
+      const pairedParent = chain?.bones.find(bone => bone.name === mirrorBoneName(source.parent!.name));
+      const targetParent = pairedParent || source.parent;
+      const paired = targetParent.children.find(child => child instanceof THREE.Bone && child.name === mirrorBoneName(source.name)) as THREE.Bone | undefined;
+      if (!paired) return;
+      paired.position.set(-source.position.x,source.position.y,source.position.z);
+      const e = new THREE.Euler().setFromQuaternion(source.quaternion,'XYZ'); paired.rotation.set(e.x,-e.y,-e.z,'XYZ');
+      paired.scale.copy(source.scale); chain?.helper.update();
+    });
     const autoRigSelectedMesh = () => {
       const selectedObject = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
       let mesh: THREE.Mesh | null = null;
@@ -2952,8 +2965,9 @@ export default function App() {
         {rigTab === 'manual' && <div className="rigging-section-body">
           <p>Create a humanoid hierarchy, select bones in Scene Tree, then pose with the viewport gizmo.</p>
           <button type="button" className="rigging-action" onClick={() => runtime.current?.createManualRig()}>＋ Create Humanoid Skeleton</button>
-          <label className="rigging-check"><input type="checkbox" checked={mirrorEnabled} onChange={e => setMirrorEnabled(e.target.checked)}/><span>Mirror X · paired bones</span></label>
+          <label className="rigging-check"><input type="checkbox" checked={mirrorEnabled} onChange={e => setMirrorEnabled(e.target.checked)}/><span>Mirror X · live transform sync</span></label>
           <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.mirrorSelectedBone()}>⇄ Mirror Selected Bone</button>
+          <button type="button" className="rigging-action secondary" onClick={() => { const bone = items.find(item => item.id === selected)?.object; if (!(bone instanceof THREE.Bone)) { setStatus('Select a bone to rename'); return; } const name = window.prompt('Bone name',bone.name); if (name?.trim()) { bone.name = name.trim(); runtime.current?.syncItems?.(); setStatus('Bone renamed'); } }}>✎ Rename Selected Bone</button>
           <button type="button" className="rigging-action secondary" onClick={() => { const target = items.find(item => item.id === selected)?.object; if (target instanceof THREE.Bone) { const child = new THREE.Bone(); child.name = 'Manual Bone'; child.position.set(0,0.35,0); child.userData.editorId = uid(); child.userData.kind = 'Bone'; target.add(child); runtime.current?.selectable.push(child); runtime.current?.syncItems?.(); runtime.current?.selectObject(child); setStatus('Child bone added'); } else setStatus('Select a bone in Scene Tree first'); }}>＋ Add Child Bone</button>
           <label className="rigging-field"><span>Chain length</span><select aria-label="IK chain length" value={ikChainLength} onChange={e => setIkChainLength(Number(e.target.value))}><option value={1}>1 joint</option><option value={2}>2 joints</option><option value={3}>3 joints</option><option value={4}>4 joints</option><option value={6}>6 joints</option></select></label>
           <button type="button" className="rigging-action secondary" onClick={() => runtime.current?.createIKTarget()}>＋ Create IK Target for Selected Rig</button>
