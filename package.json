@@ -24,7 +24,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "@capacitor/filesystem": "^7.1.4",
-    "@capacitor/share": "^7.0.2"
+    "@capacitor/share": "^7.0.2",
+    "jszip": "^3.10.1"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.0.0"
