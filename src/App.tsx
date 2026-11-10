@@ -1636,48 +1636,24 @@ export default function App() {
           const keysB = triangles[candidate].corners.map(pointKey);
           const common = keysA.filter(key => keysB.includes(key));
           if (common.length !== 2) continue;
-          // Reconstruct only a real manifold diagonal: the two triangles must
-          // traverse their shared edge in opposite directions. This prevents
-          // bow-tie quads and missing faces after an Extrude operation.
-          let firstEdgeIndex = -1;
-          for (let edge = 0; edge < 3; edge++) {
-            const aKey = keysA[edge], bKey = keysA[(edge + 1) % 3];
-            if (common.includes(aKey) && common.includes(bKey)) {
-              firstEdgeIndex = edge;
-              break;
-            }
-          }
-          if (firstEdgeIndex < 0) continue;
-          const sharedAKey = keysA[firstEdgeIndex];
-          const sharedBKey = keysA[(firstEdgeIndex + 1) % 3];
-          const secondHasReverseEdge = [0, 1, 2].some(edge =>
-            keysB[edge] === sharedBKey && keysB[(edge + 1) % 3] === sharedAKey
-          );
-          if (!secondHasReverseEdge) continue;
-          const sharedEdgeUsers = edgeTriangles.get(edgeKey(sharedAKey, sharedBKey)) || [];
-          if (sharedEdgeUsers.length !== 2) continue;
           const toVector = (corner: Record<string, number[]>) => new THREE.Vector3().fromArray(corner.position as [number, number, number]);
           const [a0, a1, a2] = first.corners.map(toVector);
           const [b0, b1, b2] = triangles[candidate].corners.map(toVector);
           const normalA = a1.clone().sub(a0).cross(a2.clone().sub(a0)).normalize();
           const normalB = b1.clone().sub(b0).cross(b2.clone().sub(b0)).normalize();
-          // Adjacent triangles on one face have matching, not opposing, normals.
-          if (normalA.lengthSq() < 0.99 || normalB.lengthSq() < 0.99 || normalA.dot(normalB) < 0.999) continue;
+          // Never pair triangles across a cube corner/edge: only coplanar
+          // triangles can be reconstructed as one editable quad face.
+          if (normalA.lengthSq() < 0.99 || normalB.lengthSq() < 0.99 || Math.abs(normalA.dot(normalB)) < 0.999) continue;
           match = candidate;
-          shared = [sharedAKey, sharedBKey];
+          shared = common;
           break;
         }
         if (match < 0) continue;
         const second = triangles[match];
-        const firstEdgeIndex = first.corners.findIndex((corner, edge) =>
-          pointKey(corner) === shared[0] &&
-          pointKey(first.corners[(edge + 1) % 3]) === shared[1]
-        );
-        if (firstEdgeIndex < 0) continue;
-        const firstOpposite = first.corners[(firstEdgeIndex + 2) % 3];
+        const firstOpposite = first.corners.find(corner => !shared.includes(pointKey(corner)));
         const secondOpposite = second.corners.find(corner => !shared.includes(pointKey(corner)));
-        const sharedA = first.corners[firstEdgeIndex];
-        const sharedB = first.corners[(firstEdgeIndex + 1) % 3];
+        const sharedA = first.corners.find(corner => pointKey(corner) === shared[0]);
+        const sharedB = first.corners.find(corner => pointKey(corner) === shared[1]);
         if (!firstOpposite || !secondOpposite || !sharedA || !sharedB) continue;
         quadPairs.push({ a: firstOpposite, b: sharedA, c: secondOpposite, d: sharedB, material: first.material });
         used.add(i);
