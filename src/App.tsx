@@ -524,6 +524,23 @@ export default function App() {
     let subGeometryBefore: THREE.BufferGeometry | null = null;
     const selectable: THREE.Object3D[] = [camBody];
     const rigChains: Array<{ bones: THREE.Bone[]; helper: THREE.SkeletonHelper; target: THREE.Object3D | null; pole?: THREE.Object3D | null }> = [];
+    const styleSkeletonHelper = (helper: THREE.SkeletonHelper, bones: THREE.Bone[]) => {
+      const colors: number[] = [];
+      bones.forEach(bone => {
+        const color = bone.name.endsWith('.L') ? new THREE.Color('#36d9ff')
+          : bone.name.endsWith('.R') ? new THREE.Color('#b28cff')
+            : new THREE.Color('#d7f4ff');
+        colors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+      });
+      helper.geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      const material = helper.material as THREE.LineBasicMaterial;
+      material.vertexColors = true;
+      material.color.set('#ffffff');
+      material.transparent = true;
+      material.opacity = 0.96;
+      material.linewidth = 2;
+      helper.frustumCulled = false;
+    };
     const lightSources: Array<{ type: string; object: THREE.Light; helper?: THREE.Mesh }> = [];
     const lightCounts: Record<string, number> = {};
     const particleSystems: Record<string, THREE.Points> = {};
@@ -822,7 +839,7 @@ export default function App() {
       const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) bones.push(node as THREE.Bone); });
       scene.add(rig);
       const helper = new THREE.SkeletonHelper(root); helper.name = rig.name + ' Skeleton';
-      (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper);
+      styleSkeletonHelper(helper, bones); scene.add(helper);
       selectable.push(rig, ...bones); rigChains.push({ bones, helper, target: null });
       syncItems(); selectObject(root); setStatus('Humanoid bone hierarchy created · Mirror X ready'); return rig;
     };
@@ -971,7 +988,7 @@ export default function App() {
       if (!selectable.includes(rigGroup)) selectable.push(rigGroup);
       if (!selectable.includes(skinned)) selectable.push(skinned);
       bones.forEach(bone=>selectable.push(bone));
-      const helper = new THREE.SkeletonHelper(root); helper.name = rigGroup.name + ' Skeleton';
+      const helper = new THREE.SkeletonHelper(root); helper.name = rigGroup.name + ' Skeleton'; styleSkeletonHelper(helper, bones);
       (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper);
       rigChains.push({bones,helper,target:null});
       syncItems(); selectObject(skinned);
@@ -985,7 +1002,7 @@ export default function App() {
         if (!node.isSkinnedMesh || !node.skeleton) return;
         const bones = node.skeleton.bones as THREE.Bone[];
         if (rigChains.some(entry => entry.bones[0] && bones.includes(entry.bones[0]))) return;
-        const helper = new THREE.SkeletonHelper(bones[0]); helper.name = (node.name || 'Character') + ' Skeleton';
+        const helper = new THREE.SkeletonHelper(bones[0]); helper.name = (node.name || 'Character') + ' Skeleton'; styleSkeletonHelper(helper, bones);
         (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper);
         bones.forEach(bone => { if (!bone.userData.editorId) bone.userData.editorId = uid(); bone.userData.kind = 'Bone'; if (!selectable.includes(bone)) selectable.push(bone); });
         rigChains.push({ bones: [...bones], helper, target: null }); found += 1;
