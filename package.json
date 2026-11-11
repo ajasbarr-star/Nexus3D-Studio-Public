@@ -10,7 +10,10 @@
     "cap:add:android": "cap add android",
     "cap:sync": "cap sync android",
     "cap:open": "cap open android",
-    "android:build": "npm run build && cap sync android"
+    "android:build": "npm run build && cap sync android",
+    "test:rds": "node --test tests/rds/*.test.mjs",
+    "rds:audit": "node scripts/rds-source-audit.mjs",
+    "verify:rds": "npm run test:rds && npm run rds:audit"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
