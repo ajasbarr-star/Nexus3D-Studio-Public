@@ -23,7 +23,7 @@ import {
   Film, Lightbulb, X, Check, Eye, EyeOff, Search, ChevronDown, ChevronRight, Download,
   Save, FolderOpen, FileJson, Settings2, Info, Keyboard, Sun, Flashlight, Palette, Upload,
   Sparkles, Waves, Aperture, SlidersHorizontal, CloudFog, ScanEye, Lock, Unlock, Scissors, GitBranch,
-  Plus, Target, Link2, Unlink, RefreshCw, GitMerge,
+  Plus, Target, Link2, Unlink, RefreshCw, GitMerge, Activity,
 } from 'lucide-react';
 import './index.css';
 
@@ -229,6 +229,7 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [diagnosticLogs, setDiagnosticLogs] = useState<DiagnosticEntry[]>([]);
   const [diagnosticFilter, setDiagnosticFilter] = useState<'ALL' | 'ERROR' | 'WARN' | 'INFO'>('ALL');
+  const [diagnosticPanelOpen, setDiagnosticPanelOpen] = useState(false);
   const diagnosticSinkRef = useRef<(level: DiagnosticEntry['level'], source: string, message: string, details?: string) => void>(() => {});
   const pushDiagnostic = (level: DiagnosticEntry['level'], source: string, message: string, details?: string) => {
     const entry: DiagnosticEntry = { id: uid(), time: new Date().toLocaleTimeString(), level, source, message: String(message).slice(0, 1200), details: details ? String(details).slice(0, 5000) : undefined };
@@ -400,25 +401,110 @@ export default function App() {
       try { return JSON.stringify(value, (_key, item) => typeof item === 'bigint' ? String(item) : item, 2) ?? String(value); }
       catch { return String(value); }
     };
-    const onError = (event: ErrorEvent) => diagnosticSinkRef.current('ERROR', 'JavaScript', event.message || 'Uncaught runtime error', `${event.filename || 'unknown source'}:${event.lineno || 0}:${event.colno || 0}${event.error ? '\\n' + formatDetails(event.error) : ''}`);
+    const onError = (event: ErrorEvent) => {
+      const target = event.target as (HTMLElement & { src?: string; href?: string }) | null;
+      const isResourceFailure = Boolean(target && target !== window && (target.tagName === 'SCRIPT' || target.tagName === 'LINK' || target.tagName === 'IMG'));
+      diagnosticSinkRef.current(isResourceFailure ? 'ERROR' : 'ERROR', isResourceFailure ? 'Resource Load' : 'JavaScript',
+        isResourceFailure ? 'Failed to load page resource' : (event.message || 'Uncaught runtime error'),
+        `${event.filename || target?.getAttribute?.('src') || target?.getAttribute?.('href') || 'unknown source'}:${event.lineno || 0}:${event.colno || 0}${event.error ? '\\n' + formatDetails(event.error) : ''}`);
+    };
     const onRejection = (event: PromiseRejectionEvent) => diagnosticSinkRef.current('ERROR', 'Promise', 'Unhandled promise rejection', formatDetails(event.reason));
     const onWebGL = (event: Event) => diagnosticSinkRef.current(event.type === 'webglcontextlost' ? 'ERROR' : 'INFO', 'WebGL', event.type === 'webglcontextlost' ? 'WebGL context lost' : 'WebGL context restored', 'Renderer canvas context event');
     const originalConsoleError = console.error;
+    const originalConsoleWarn = console.warn;
     console.error = (...args: unknown[]) => {
       try { diagnosticSinkRef.current('ERROR', 'console.error', args.map(formatDetails).join(' | ')); } catch { /* preserve native console behavior */ }
       originalConsoleError.apply(console, args);
     };
+    console.warn = (...args: unknown[]) => {
+      try {
+        const message = args.map(formatDetails).join(' | ');
+        const relevant = /webgl|context|memory|performance|failed|deprecated|overflow|texture|shader|three\.js|orbit|transform|pointer|gesture|bone|rig/i.test(message);
+        if (relevant) diagnosticSinkRef.current('WARN', 'console.warn', message);
+      } catch { /* preserve native console behavior */ }
+      originalConsoleWarn.apply(console, args);
+    };
+    const onResourceError = (event: Event) => {
+      const target = event.target as (HTMLElement & { src?: string; href?: string }) | null;
+      if (!target || target === document || !['SCRIPT','LINK','IMG','VIDEO','AUDIO'].includes(target.tagName)) return;
+      diagnosticSinkRef.current('ERROR', 'Resource Load', 'Asset or script failed to load',
+        target.getAttribute('src') || target.getAttribute('href') || target.tagName);
+    };
+    let longTaskObserver: PerformanceObserver | null = null;
+    try {
+      if (typeof PerformanceObserver !== 'undefined') {
+        longTaskObserver = new PerformanceObserver(list => {
+          list.getEntries().forEach(entry => diagnosticSinkRef.current(entry.duration >= 250 ? 'ERROR' : 'WARN',
+            'Main Thread', 'Long task blocked UI thread', `${Math.round(entry.duration)} ms`));
+        });
+        longTaskObserver.observe({ entryTypes: ['longtask'] });
+      }
+    } catch { diagnosticSinkRef.current('INFO', 'Performance', 'Long-task observer unavailable on this WebView'); }
     window.addEventListener('error', onError);
+    window.addEventListener('error', onResourceError, true);
     window.addEventListener('unhandledrejection', onRejection);
     document.addEventListener('webglcontextlost', onWebGL, true);
     document.addEventListener('webglcontextrestored', onWebGL, true);
     return () => {
       window.removeEventListener('error', onError);
+      window.removeEventListener('error', onResourceError, true);
       window.removeEventListener('unhandledrejection', onRejection);
+      longTaskObserver?.disconnect();
       document.removeEventListener('webglcontextlost', onWebGL, true);
       document.removeEventListener('webglcontextrestored', onWebGL, true);
       console.error = originalConsoleError;
+      console.warn = originalConsoleWarn;
     };
+  }, []);
+
+  // Independent monitor: continues while the diagnostics panel is collapsed.
+  useEffect(() => {
+    let raf = 0;
+    let windowStart = performance.now();
+    let lastFrame = windowStart;
+    let frameCount = 0;
+    let slowFrames = 0;
+    let lastMemoryWarning = 0;
+    const sample = (now: number) => {
+      const delta = now - lastFrame;
+      if (delta > 100) slowFrames += 1;
+      frameCount += 1;
+      lastFrame = now;
+      const elapsed = now - windowStart;
+      if (elapsed >= 5000) {
+        const fps = Math.round((frameCount * 1000) / Math.max(elapsed, 1));
+        if (fps < 24 || slowFrames >= 6) {
+          diagnosticSinkRef.current('WARN', 'Performance Monitor',
+            fps < 18 ? 'Severe frame-rate drop detected' : 'Frame-rate instability detected',
+            `Average FPS: ${fps} | Frames over 100ms: ${slowFrames} | Window: ${Math.round(elapsed)}ms`);
+        }
+        const perfMemory = (performance as Performance & { memory?: { usedJSHeapSize?: number; jsHeapSizeLimit?: number } }).memory;
+        const usedMB = perfMemory?.usedJSHeapSize ? Math.round(perfMemory.usedJSHeapSize / 1048576) : null;
+        const heapLimitMB = perfMemory?.jsHeapSizeLimit ? Math.round(perfMemory.jsHeapSizeLimit / 1048576) : null;
+        if (usedMB !== null && usedMB >= 400 && now - lastMemoryWarning > 15000) {
+          lastMemoryWarning = now;
+          diagnosticSinkRef.current('WARN', 'Memory Monitor', 'JavaScript heap usage is high',
+            `Used heap: ${usedMB}MB${heapLimitMB ? ` / ${heapLimitMB}MB` : ''}`);
+        }
+        const rendererInfo = (runtime.current as any)?.renderer?.info;
+        if (rendererInfo) {
+          const memory = rendererInfo.memory || {};
+          const render = rendererInfo.render || {};
+          if ((memory.geometries || 0) > 1200 || (memory.textures || 0) > 350 || (render.calls || 0) > 2200) {
+            diagnosticSinkRef.current('WARN', 'WebGL Resource Monitor', 'High scene rendering/resource load',
+              `Geometries: ${memory.geometries || 0} | Textures: ${memory.textures || 0} | Draw calls: ${render.calls || 0} | Triangles: ${render.triangles || 0}`);
+          }
+        }
+        windowStart = now;
+        frameCount = 0;
+        slowFrames = 0;
+      }
+      raf = requestAnimationFrame(sample);
+    };
+    diagnosticSinkRef.current('INFO', 'Diagnostic Monitor', 'Realtime monitoring started',
+      'Monitoring frame rate, long tasks, JavaScript heap (when supported), WebGL resources, runtime errors and failed resources.');
+    raf = requestAnimationFrame(sample);
+    return () => cancelAnimationFrame(raf);
   }, []);
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { spaceRef.current = space; }, [space]);
@@ -4345,7 +4431,13 @@ export default function App() {
             {category.title === 'Help & System Info' && <>
               <div className="menu-info"><Keyboard size={13} /><span>Touch: tap to select; drag the gizmo to transform. Pinch or orbit to navigate the view.</span></div>
               <div className="menu-info"><Info size={13} /><span>Three.js / WebGL. Objects: {objectCount}. Keyframes: {totalKeys}. Renderer: {settings.pathTracer ? 'Path trace preview' : 'Real-time'}.</span></div>
-              <div className="menu-subtitle">BUG / ERROR DETECTOR</div>
+              <button type="button" className={'menu-option diagnostic-toggle-button ' + (diagnosticPanelOpen ? 'expanded' : '')}
+                aria-expanded={diagnosticPanelOpen}
+                onClick={() => setDiagnosticPanelOpen(open => !open)}>
+                <Activity size={13}/><span>REALTIME DIAGNOSTIC SYSTEM</span>
+                {diagnosticPanelOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
+              </button>
+              {diagnosticPanelOpen && <section className="diagnostic-panel-expanded" aria-label="Realtime Diagnostic System Panel">
               <div className="diagnostic-summary"><span>{diagnosticLogs.length} captured log(s)</span><span>{diagnosticLogs.filter(entry => entry.level === 'ERROR').length} error(s)</span></div>
               <div className="diagnostic-actions">
                 <button type="button" onClick={() => void copyDiagnosticText(visibleDiagnosticLogs)} disabled={!visibleDiagnosticLogs.length}><ClipboardCopy size={12}/> COPY VIEW</button>
@@ -4363,7 +4455,9 @@ export default function App() {
                   {entry.details && <pre>{entry.details}</pre>}
                 </article>)}
               </div>
-              <div className="menu-info"><Info size={12}/><span>Captures JavaScript errors, rejected promises, console errors, WebGL context events and Nexus3D viewport-control state. Some logic bugs require reproducing the issue. Maximum 400 recent entries.</span></div>
+              <div className="menu-info"><Info size={12}/><span>Live capture stays active even when this panel is collapsed. Monitors JavaScript errors, rejected promises, failed resources, relevant console warnings, WebGL context events, main-thread stalls, FPS drops, memory and WebGL load, plus Nexus3D viewport-control state. Native Android process crashes may not leave a JavaScript log. Maximum 400 recent entries.</span></div>
+
+              </section>}
               <div className="menu-subtitle">APK MAINTENANCE</div>
               <button className="menu-option" onClick={() => { const next = !performanceMode; runtime.current?.setPerformanceMode?.(next); setPerformanceMode(next); setStatus(next ? 'Performance Mode enabled · reduced GPU load' : 'Performance Mode disabled · standard quality restored'); }}><Gauge size={13}/><span>{performanceMode ? 'Disable Performance Mode' : 'Optimize Performance'}</span></button>
               <button className="menu-option" onClick={clearNexusCache} disabled={maintenanceBusy || !Capacitor.isNativePlatform()}><Trash2 size={13}/><span>{maintenanceBusy ? 'Clearing Cache…' : 'Clear Temporary APK Cache'}</span></button>
