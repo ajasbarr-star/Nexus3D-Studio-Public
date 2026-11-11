@@ -2282,6 +2282,14 @@ export default function App() {
         activeOrbit.update();
       }
       const inCam = Boolean(runtime.current?.cameraView);
+      // Keep Manual Shape Rig connection lines synchronized with live bone transforms.
+      // SkeletonHelper.update() is not automatic when bones move through TransformControls.
+      if (rigChains.some(chain => chain.shapeRig && chain.displayVisible !== false)) {
+        scene.updateMatrixWorld(true);
+        rigChains.forEach(chain => {
+          if (chain.shapeRig && chain.displayVisible !== false) chain.helper.update();
+        });
+      }
       const topologyTarget = topologyOverlay.userData.targetMesh as THREE.Mesh | null;
       if (topologyTarget) {
         topologyTarget.updateWorldMatrix(true, false);
@@ -4270,6 +4278,9 @@ export default function App() {
             <button type="button" onClick={() => runtime.current?.setRigParentTarget?.()} title="Select the intended parent Bone, Shape, or Character first" aria-label="Set Parent"><GitMerge size={15}/><span>SET PARENT</span></button>
             <button type="button" onClick={() => runtime.current?.attachSelectedToRigParent?.()} title="Select the child Bone or Shape after setting its parent" aria-label="Parent selected"><CornerDownRight size={15}/><span>PARENT</span></button>
             <button type="button" onClick={() => runtime.current?.detachSelectedRigObject?.()} title="Unparent selected Bone or Shape while preserving world position" aria-label="Unparent selected"><Unlink size={15}/><span>UNPARENT</span></button>
+          </div>
+          <div className="rig-workspace-actions shape-rig-bind-actions">
+            <button type="button" className="rig-primary-action" onClick={() => runtime.current?.bindSelectedMeshToRig?.()} title="Bind the selected Shape to the Manual Shape Rig and assign normalized starter weights" aria-label="Bind Shape to Skeleton"><Link2 size={16}/><span>BIND SHAPE · AUTO WEIGHTS</span></button>
           </div>
           <div className="rig-tool-note">Parent workflow: select the parent Shape/Character or Bone → SET PARENT → select the child Bone/Shape → PARENT. UNPARENT returns the selection to its parent level. Parenting does not automatically skin-bind a mesh.</div>
         </> : <>
