@@ -215,6 +215,7 @@ function smoothQuadGridGeometry(geometry: THREE.BufferGeometry): boolean {
 
 export default function App() {
   const hostRef = useRef<HTMLDivElement>(null);
+  const ikHostRef = useRef<HTMLDivElement>(null);
   const runtime = useRef<any>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [selected, setSelected] = useState('');
@@ -392,6 +393,33 @@ export default function App() {
     renderer.toneMappingExposure = 1.12;
     host.appendChild(renderer.domElement);
     renderer.domElement.style.touchAction = 'none';
+
+    // Dedicated IK viewport: a second renderer and camera draw the exact same
+    // THREE.Scene. Geometry, skeletons, materials and skinning remain shared.
+    const ikHost = ikHostRef.current;
+    const ikCamera = new THREE.PerspectiveCamera(45, 1, 0.01, 10000);
+    ikCamera.position.set(0, 1.5, 6);
+    const ikRenderer = ikHost ? new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'low-power' }) : null;
+    const ikOrbit = ikRenderer && ikHost ? new OrbitControls(ikCamera, ikRenderer.domElement) : null;
+    if (ikRenderer && ikHost) {
+      ikRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.35));
+      ikRenderer.setSize(Math.max(ikHost.clientWidth, 1), Math.max(ikHost.clientHeight, 1));
+      ikRenderer.outputColorSpace = THREE.SRGBColorSpace;
+      ikRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+      ikRenderer.toneMappingExposure = 1.12;
+      ikHost.appendChild(ikRenderer.domElement);
+      ikRenderer.domElement.style.display = 'block';
+      ikRenderer.domElement.style.width = '100%';
+      ikRenderer.domElement.style.height = '100%';
+      ikRenderer.domElement.style.touchAction = 'none';
+    }
+    if (ikOrbit) {
+      ikOrbit.enableDamping = true;
+      ikOrbit.dampingFactor = 0.08;
+      ikOrbit.minDistance = 0.05;
+      ikOrbit.maxDistance = 10000;
+      ikOrbit.enabled = false;
+    }
 
     // Editor-only overlays provide visible sub-object selection without changing source mesh materials.
     const subObjectHighlight = new THREE.Group();
@@ -2167,6 +2195,12 @@ export default function App() {
       activeCamera.aspect = w / h;
       activeCamera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      if (ikHost && ikRenderer) {
+        const iw = Math.max(ikHost.clientWidth, 1), ih = Math.max(ikHost.clientHeight, 1);
+        ikCamera.aspect = iw / ih;
+        ikCamera.updateProjectionMatrix();
+        ikRenderer.setSize(iw, ih);
+      }
       setPortrait(window.innerHeight > window.innerWidth);
     };
     window.addEventListener('resize', resize);
@@ -2175,6 +2209,7 @@ export default function App() {
     });
     const frameLoop = () => {
       orbit.update();
+      if (runtime.current?.riggingView && ikOrbit) ikOrbit.update();
       if (!runtime.current?.cameraView) {
         activeCamera.position.copy(camBody.position);
         activeCamera.quaternion.copy(camBody.quaternion);
@@ -2210,8 +2245,18 @@ export default function App() {
           const wasVisible = mirrorObject.visible; mirrorObject.visible = false; reflectionCamera.update(renderer, scene); mirrorObject.visible = wasVisible;
         }
       }
-      renderer.render(scene, inCam ? activeCamera : camera);
-      runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, transform, selectable, syncItems, addObject, setPerformanceMode: (enabled: boolean) => { const pixelRatio = Math.min(window.devicePixelRatio || 1, enabled ? 1.15 : 2); renderer.setPixelRatio(pixelRatio); renderer.setSize(host.clientWidth, host.clientHeight, false); renderer.shadowMap.enabled = !enabled; renderer.renderLists.dispose(); renderer.info.reset(); }, startShapeRigPlacement, addShapeRigChildPlacement, finishShapeRigPlacement, cancelShapeRigPlacement, createManualRig, bindSelectedMeshToRig, createIKTarget, solveIK, mirrorSelectedBone, deleteSelectedBone, createPoleTarget, detectRiggedMeshes, autoRigSelectedMesh, normalizeSelectedSkinWeights, smoothSelectedSkinWeights, addUniversalBone, copySelectedBone, setRigParentTarget, attachSelectedToRigParent, detachSelectedRigObject, toggleSelectedBoneControlHandle, toggleSelectedBoneLock, toggleSelectedControlLock, refreshRigVisuals, toggleBoneDisplay, isBoneDisplayVisible, restoreRigGroup: (rig: THREE.Object3D) => { const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) { bones.push(node as THREE.Bone); ensureBoneJoint(node as THREE.Bone); } }); if (!bones.length || rigChains.some(entry => entry.bones[0] === bones[0])) return; const helper = new THREE.SkeletonHelper(bones[0]); helper.name = rig.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); }, attachRigHandle: (handle: THREE.Object3D, rootId: string, kind: string) => { const chain = rigChains.find(entry => String(entry.bones[0]?.userData.editorId) === String(rootId)); if (!chain) return; if (kind === 'IK Target') chain.target = handle; if (kind === 'IK Pole') chain.pole = handle; }, restoreSkinnedMesh: (mesh: THREE.SkinnedMesh, bones: THREE.Bone[], savedSkeleton?: any) => { const inverses = Array.isArray(savedSkeleton?.boneInverses) && savedSkeleton.boneInverses.length === bones.length ? savedSkeleton.boneInverses.map((elements: number[]) => new THREE.Matrix4().fromArray(elements)) : undefined; const skeleton = new THREE.Skeleton(bones, inverses); if (!inverses) skeleton.calculateInverses(); const bindMatrix = Array.isArray(savedSkeleton?.bindMatrix) && savedSkeleton.bindMatrix.length === 16 ? new THREE.Matrix4().fromArray(savedSkeleton.bindMatrix) : mesh.matrixWorld.clone(); mesh.bind(skeleton, bindMatrix); if (savedSkeleton?.bindMode) mesh.bindMode = savedSkeleton.bindMode; const existingChain = rigChains.find(entry => entry.bones[0] === bones[0]); if (!existingChain) { const helper = new THREE.SkeletonHelper(bones[0]); helper.name = mesh.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); } }, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
+      if (runtime.current?.riggingView && ikRenderer) {
+        // Avoid rendering the same scene twice on mobile while the dedicated IK
+        // viewport is active. The IK camera never changes the Main viewport camera.
+        const transformHelper = transform.getHelper?.();
+        const helperWasVisible = transformHelper?.visible;
+        if (transformHelper) transformHelper.visible = false;
+        ikRenderer.render(scene, ikCamera);
+        if (transformHelper) transformHelper.visible = helperWasVisible ?? false;
+      } else {
+        renderer.render(scene, inCam ? activeCamera : camera);
+      }
+      runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, ikCamera, ikRenderer, ikOrbit, transform, selectable, syncItems, addObject, setPerformanceMode: (enabled: boolean) => { const pixelRatio = Math.min(window.devicePixelRatio || 1, enabled ? 1.15 : 2); renderer.setPixelRatio(pixelRatio); renderer.setSize(host.clientWidth, host.clientHeight, false); renderer.shadowMap.enabled = !enabled; renderer.renderLists.dispose(); renderer.info.reset(); }, startShapeRigPlacement, addShapeRigChildPlacement, finishShapeRigPlacement, cancelShapeRigPlacement, createManualRig, bindSelectedMeshToRig, createIKTarget, solveIK, mirrorSelectedBone, deleteSelectedBone, createPoleTarget, detectRiggedMeshes, autoRigSelectedMesh, normalizeSelectedSkinWeights, smoothSelectedSkinWeights, addUniversalBone, copySelectedBone, setRigParentTarget, attachSelectedToRigParent, detachSelectedRigObject, toggleSelectedBoneControlHandle, toggleSelectedBoneLock, toggleSelectedControlLock, refreshRigVisuals, toggleBoneDisplay, isBoneDisplayVisible, restoreRigGroup: (rig: THREE.Object3D) => { const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) { bones.push(node as THREE.Bone); ensureBoneJoint(node as THREE.Bone); } }); if (!bones.length || rigChains.some(entry => entry.bones[0] === bones[0])) return; const helper = new THREE.SkeletonHelper(bones[0]); helper.name = rig.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); }, attachRigHandle: (handle: THREE.Object3D, rootId: string, kind: string) => { const chain = rigChains.find(entry => String(entry.bones[0]?.userData.editorId) === String(rootId)); if (!chain) return; if (kind === 'IK Target') chain.target = handle; if (kind === 'IK Pole') chain.pole = handle; }, restoreSkinnedMesh: (mesh: THREE.SkinnedMesh, bones: THREE.Bone[], savedSkeleton?: any) => { const inverses = Array.isArray(savedSkeleton?.boneInverses) && savedSkeleton.boneInverses.length === bones.length ? savedSkeleton.boneInverses.map((elements: number[]) => new THREE.Matrix4().fromArray(elements)) : undefined; const skeleton = new THREE.Skeleton(bones, inverses); if (!inverses) skeleton.calculateInverses(); const bindMatrix = Array.isArray(savedSkeleton?.bindMatrix) && savedSkeleton.bindMatrix.length === 16 ? new THREE.Matrix4().fromArray(savedSkeleton.bindMatrix) : mesh.matrixWorld.clone(); mesh.bind(skeleton, bindMatrix); if (savedSkeleton?.bindMode) mesh.bindMode = savedSkeleton.bindMode; const existingChain = rigChains.find(entry => entry.bones[0] === bones[0]); if (!existingChain) { const helper = new THREE.SkeletonHelper(bones[0]); helper.name = mesh.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); } }, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
       raf = requestAnimationFrame(frameLoop);
     };
     let raf = requestAnimationFrame(frameLoop);
@@ -2226,6 +2271,9 @@ export default function App() {
       clearLoopCutPreview();
       orbit.dispose();
       activeOrbit.dispose();
+      ikOrbit?.dispose();
+      ikRenderer?.dispose();
+      if (ikRenderer?.domElement.parentNode === ikHost) ikHost.removeChild(ikRenderer.domElement);
       transform.dispose();
       subObjectPivot.parent?.remove(subObjectPivot);
       clearSubObjectHighlight();
@@ -2766,8 +2814,8 @@ export default function App() {
   };
   const toggleRiggingWorkspace = () => {
     const r = runtime.current;
-    if (!r) {
-      setStatus('3D workspace is still initializing. Please try again.');
+    if (!r || !r.ikRenderer || !r.ikCamera || !r.ikOrbit) {
+      setStatus('IK Rigging viewport is still initializing. Please try again.');
       return;
     }
     const opening = !riggingView;
@@ -2776,63 +2824,39 @@ export default function App() {
         setStatus('Exit CAM view before opening IK Rigging');
         return;
       }
-
-      // Keep a rollback snapshot. Do not switch the renderer into rig mode until
-      // the camera fit and TransformControls setup have completed successfully.
-      const previous = {
-        position: r.camera.position.toArray(),
-        target: r.orbit.target.toArray(),
-        far: r.camera.far,
-        maxDistance: r.orbit.maxDistance,
-        fog: r.scene.fog,
-      };
       try {
         const rigSubject = r.selectable.find((object: THREE.Object3D) => object.userData.editorId === selectedRef.current)
           || r.selectable.find((object: THREE.Object3D) => object.userData.kind !== 'Light' && object.userData.kind !== 'Camera');
-        const rigBounds = new THREE.Box3();
+        const bounds = new THREE.Box3();
         if (rigSubject) {
           rigSubject.updateWorldMatrix(true, true);
-          rigBounds.setFromObject(rigSubject);
+          bounds.setFromObject(rigSubject);
         }
-        const rigSize = new THREE.Vector3();
-        const rigCenter = new THREE.Vector3(0, 1.45, 0);
-        let rigDistance = 9;
-        if (rigSubject && !rigBounds.isEmpty()) {
-          rigBounds.getSize(rigSize);
-          rigBounds.getCenter(rigCenter);
-          const maxDimension = Math.max(rigSize.x, rigSize.y, rigSize.z);
-          if (Number.isFinite(maxDimension) && maxDimension > 0) {
-            rigDistance = THREE.MathUtils.clamp(maxDimension * 2.35, 3.5, 10000);
-          }
+        const size = new THREE.Vector3();
+        const center = new THREE.Vector3(0, 1.2, 0);
+        let distance = 6;
+        if (!bounds.isEmpty()) {
+          bounds.getSize(size);
+          bounds.getCenter(center);
+          const maxDimension = Math.max(size.x, size.y, size.z);
+          if (Number.isFinite(maxDimension) && maxDimension > 0) distance = THREE.MathUtils.clamp(maxDimension * 2.6, 2.5, 10000);
         }
-        if (![rigCenter.x, rigCenter.y, rigCenter.z, rigDistance].every(Number.isFinite)) {
-          throw new Error('The selected rig has invalid scene bounds');
-        }
-
-        // MainCamera/UserCamera stays untouched; fit the editor camera to the
-        // selected rig. The normal scene camera has a short far plane and a
-        // 35-unit orbit cap; those defaults can clip large/imported characters
-        // and make the rigging viewport appear empty/black.
-        const maxDimension = Math.max(rigSize.x, rigSize.y, rigSize.z, 1);
-        r.scene.fog = null;
-        r.camera.near = Math.max(0.01, Math.min(0.1, rigDistance / 10000));
-        r.camera.far = Math.max(150, rigDistance * 6 + maxDimension * 3);
-        r.camera.updateProjectionMatrix();
-        r.orbit.minDistance = Math.max(0.05, Math.min(2.2, rigDistance * 0.08));
-        r.orbit.maxDistance = Math.max(35, rigDistance * 4);
-        r.camera.position.set(rigCenter.x, rigCenter.y, rigCenter.z + rigDistance);
-        r.camera.lookAt(rigCenter);
-        r.orbit.target.copy(rigCenter);
-        r.orbit.enabled = true;
-        r.activeOrbit.enabled = false;
-        r.orbit.update();
-        r.transform.camera = r.camera;
-        r.transform.enabled = true;
-        const transformHelper = r.transform.getHelper?.();
-        if (transformHelper) transformHelper.visible = Boolean(selectedRef.current);
-
-        r.riggingPreviousCamera = previous;
+        if (![center.x, center.y, center.z, distance].every(Number.isFinite)) throw new Error('Invalid rig bounds');
+        const maxDimension = Math.max(size.x, size.y, size.z, 1);
+        r.ikCamera.near = Math.max(0.01, distance / 10000);
+        r.ikCamera.far = Math.max(150, distance * 8 + maxDimension * 4);
+        r.ikCamera.position.set(center.x, center.y, center.z + distance);
+        r.ikCamera.lookAt(center);
+        r.ikCamera.updateProjectionMatrix();
+        r.ikOrbit.target.copy(center);
+        r.ikOrbit.minDistance = Math.max(0.05, Math.min(1, distance * 0.08));
+        r.ikOrbit.maxDistance = Math.max(35, distance * 5);
+        r.ikOrbit.enabled = true;
+        r.ikOrbit.update();
         r.riggingView = true;
+        r.transform.enabled = false;
+        const helper = r.transform.getHelper?.();
+        if (helper) helper.visible = false;
         setRiggingView(true);
         setRigPanelOpen(true);
         setPanel(true);
@@ -2843,54 +2867,27 @@ export default function App() {
         setMeshToolsOpen(false);
         setSkyboxOpen(false);
         setRenderVideoOpen(false);
-        setStatus('IK Rigging workspace · Front Perspective');
+        setStatus('IK Rigging · Dedicated Scene Viewport');
       } catch (error) {
         r.riggingView = false;
-        r.riggingPreviousCamera = null;
-        r.camera.position.fromArray(previous.position);
-        r.orbit.target.fromArray(previous.target);
-        r.camera.far = previous.far;
-        r.camera.updateProjectionMatrix();
-        r.orbit.maxDistance = previous.maxDistance;
-        r.scene.fog = previous.fog;
-        r.orbit.enabled = true;
-        r.activeOrbit.enabled = false;
-        r.orbit.update();
-        r.transform.camera = r.camera;
-        r.transform.enabled = editModeRef.current === 'Object';
+        r.ikOrbit.enabled = false;
         setRiggingView(false);
         setRigPanelOpen(false);
         const detail = error instanceof Error ? error.message : String(error);
-        console.error('[Nexus3D] Could not open IK Rigging workspace:', error);
+        console.error('[Nexus3D] Could not open dedicated IK viewport:', error);
         setStatus('IK Rigging could not open · ' + detail);
       }
     } else {
-      try {
-        r.riggingView = false;
-        const previous = r.riggingPreviousCamera;
-        if (previous?.position && previous?.target) {
-          r.camera.position.fromArray(previous.position);
-          r.orbit.target.fromArray(previous.target);
-          r.camera.far = previous.far;
-          r.camera.updateProjectionMatrix();
-          r.orbit.maxDistance = previous.maxDistance;
-          r.scene.fog = previous.fog;
-          r.orbit.update();
-        }
-        r.riggingPreviousCamera = null;
-        r.activeOrbit.enabled = false;
-        r.orbit.enabled = true;
-        r.transform.camera = r.camera;
-        r.transform.enabled = editModeRef.current === 'Object';
-        setRiggingView(false);
-        setRigPanelOpen(false);
-        setInspectorOpen(false);
-        setPanel(true);
-        setStatus('User Perspective View restored');
-      } catch (error) {
-        console.error('[Nexus3D] Could not restore User Perspective:', error);
-        setStatus('Could not restore User Perspective · ' + (error instanceof Error ? error.message : String(error)));
-      }
+      r.riggingView = false;
+      r.ikOrbit.enabled = false;
+      r.transform.enabled = editModeRef.current === 'Object';
+      const helper = r.transform.getHelper?.();
+      if (helper) helper.visible = Boolean(selectedRef.current);
+      setRiggingView(false);
+      setRigPanelOpen(false);
+      setInspectorOpen(false);
+      setPanel(true);
+      setStatus('Main Viewport restored');
     }
   };
 
@@ -3945,6 +3942,7 @@ export default function App() {
       {status !== 'Nothing selected' && <div role="status" aria-live="polite" style={{ position: 'fixed', top: 'calc(env(safe-area-inset-top, 0px) + 54px)', left: '50%', transform: 'translateX(-50%)', zIndex: 100000, maxWidth: 'min(90vw, 520px)', padding: '10px 16px', border: '1px solid rgba(88,220,255,.55)', borderRadius: 10, background: 'rgba(7,14,25,.96)', color: '#e8f8ff', fontSize: 13, fontWeight: 700, textAlign: 'center', boxShadow: '0 8px 28px rgba(0,0,0,.4)', pointerEvents: 'none' }}>{status}</div>}
 
       <div className={'viewport ' + (pathTool ? 'path-tool-active' : '')} ref={hostRef} onPointerDown={e => { if (!pathTool || animationMode) return; const rect = e.currentTarget.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width - .5) * 20; const z = ((e.clientY - rect.top) / rect.height - .5) * -20; setMotionPathPoints(prev => [...prev, {x, y:0.05, z}]); }} onDragOver={e => { if (e.dataTransfer.types.includes('text/nexus3d-object')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }} onDrop={e => { const childId = e.dataTransfer.getData('text/nexus3d-object'); if (!childId) return; e.preventDefault(); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }} />
+      <div ref={ikHostRef} className={'ik-dedicated-viewport ' + (riggingView ? 'active' : '')} aria-label="Dedicated IK Rigging 3D viewport" />
       <div className={'camera-mode-hud ' + (cameraView ? 'cine-active' : '')} aria-live="polite"><span className="camera-mode-dot" />{cameraView ? 'CINE CAMERA VIEW' : riggingView ? 'IK RIGGING · FRONT PERSPECTIVE' : 'PERSPECTIVE MODE'}</div>
       {!animationMode && !cameraView && <div className="quick-access-rail" aria-label="Quick access controls">
         <button type="button" className={quickPanel === 'lights' ? 'active' : ''} onClick={() => { setQuickPanel(quickPanel === 'lights' ? null : 'lights'); setInspectorOpen(false); setPanel(false); setMenuOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); }} title="Quick Light Controls"><Sun size={14}/><span>LIGHTS</span></button>
