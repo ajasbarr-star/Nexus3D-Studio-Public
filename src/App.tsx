@@ -267,6 +267,9 @@ export default function App() {
   const [motionPathPoints, setMotionPathPoints] = useState<Array<{x:number;y:number;z:number}>>([]);
   const touchDragId = useRef('');
   const touchPoint = useRef<{ x: number; y: number } | null>(null);
+  const touchDragOrigin = useRef<{ x: number; y: number } | null>(null);
+  const touchDragTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchDragActive = useRef(false);
   const [texturePreview, setTexturePreview] = useState('');
   const [hdrPreview, setHdrPreview] = useState('');
   const [particleToggles, setParticleToggles] = useState<Record<string, boolean>>({ Rain: false, Fire: false, Smoke: false, Thunder: false, Dust: false });
@@ -926,6 +929,16 @@ export default function App() {
       const inRiggingView = Boolean(runtime.current?.riggingView);
       const objectMode = editModeRef.current === 'Object';
       const selectionLocked = (obj instanceof THREE.Bone && obj.userData.locked && !movableLockedRoot) || (obj.userData.rigControlMarker && obj.userData.controlLocked);
+
+      // Release any previous target before attaching the newly selected item.
+      transform.detach();
+      transform.enabled = false;
+      transform.getHelper().visible = false;
+      ikTransform?.detach();
+      if (ikTransform) {
+        ikTransform.enabled = false;
+        ikTransform.getHelper().visible = false;
+      }
 
       // Keep exactly one TransformControls instance attached to the shared canvas.
       // The main viewport gizmo and IK viewport gizmo must never compete for pointer input.
@@ -2304,7 +2317,8 @@ export default function App() {
         topologyOverlay.matrixWorldNeedsUpdate = true;
       }
       camBody.visible = !inCam && !Boolean(runtime.current?.riggingView);
-      transform.getHelper().visible = Boolean(selectedRef.current);
+      // Selection changes own gizmo visibility; never reveal an old attachment.
+      transform.getHelper().visible = !runtime.current?.riggingView && Boolean(selectedRef.current && transform.object && transform.enabled);
       Object.entries(particleSystems).forEach(([type, points]) => {
         if (!points.visible) return;
         const position = points.geometry.getAttribute('position') as THREE.BufferAttribute;
@@ -4246,9 +4260,70 @@ export default function App() {
               onDragOver={e => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragTargetId(item.id); }}
               onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragTargetId(''); }}
               onDrop={e => { e.preventDefault(); e.stopPropagation(); setDragTargetId(''); const childId = e.dataTransfer.getData('text/nexus3d-object'); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (!child || child === item.object) return; const rect = e.currentTarget.getBoundingClientRect(); const ratio = (e.clientY - rect.top) / Math.max(rect.height, 1); runtime.current?.reorderObject(child, item.object, ratio < 0.28 ? 'before' : ratio > 0.72 ? 'after' : 'inside'); }}
-              onTouchStart={e => { const touch = e.touches[0]; touchDragId.current = item.id; touchPoint.current = touch ? { x: touch.clientX, y: touch.clientY } : null; setDragTargetId(item.id); }}
-              onTouchMove={e => { const touch = e.touches[0]; if (!touch || !touchDragId.current) return; e.preventDefault(); touchPoint.current = { x: touch.clientX, y: touch.clientY }; const hit = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('[data-tree-id]') as HTMLElement | null; if (hit?.dataset.treeId) setDragTargetId(hit.dataset.treeId); }}
-              onTouchEnd={e => { const touch = e.changedTouches[0]; const point = touchPoint.current || (touch ? { x: touch.clientX, y: touch.clientY } : null); const childId = touchDragId.current; touchDragId.current = ''; touchPoint.current = null; setDragTargetId(''); if (!point || !childId) return; const rootHit = document.elementFromPoint(point.x, point.y)?.closest('.tree-root'); const hit = document.elementFromPoint(point.x, point.y)?.closest('[data-tree-id]') as HTMLElement | null; const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); const target = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === hit?.dataset.treeId); if (child && rootHit) runtime.current?.reparentObject(child); else if (child && target && child !== target) { const rect = hit!.getBoundingClientRect(); const ratio = (point.y - rect.top) / Math.max(rect.height, 1); runtime.current?.reorderObject(child, target, ratio < 0.28 ? 'before' : ratio > 0.72 ? 'after' : 'inside'); } }}>
+              onTouchStart={e => {
+                const touch = e.touches[0];
+                if (!touch) return;
+                touchDragActive.current = false;
+                touchDragId.current = '';
+                touchDragOrigin.current = { x: touch.clientX, y: touch.clientY };
+                touchPoint.current = { x: touch.clientX, y: touch.clientY };
+                if (touchDragTimer.current) clearTimeout(touchDragTimer.current);
+                touchDragTimer.current = setTimeout(() => {
+                  touchDragId.current = item.id;
+                  touchDragActive.current = true;
+                  setDragTargetId(item.id);
+                }, 450);
+              }}
+              onTouchMove={e => {
+                const touch = e.touches[0];
+                if (!touch) return;
+                if (!touchDragActive.current) {
+                  const origin = touchDragOrigin.current;
+                  if (origin && Math.hypot(touch.clientX - origin.x, touch.clientY - origin.y) > 10) {
+                    if (touchDragTimer.current) clearTimeout(touchDragTimer.current);
+                    touchDragTimer.current = null;
+                    touchDragOrigin.current = null;
+                  }
+                  return;
+                }
+                e.preventDefault();
+                touchPoint.current = { x: touch.clientX, y: touch.clientY };
+                const hit = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('[data-tree-id]') as HTMLElement | null;
+                setDragTargetId(hit?.dataset.treeId || '');
+              }}
+              onTouchEnd={e => {
+                if (touchDragTimer.current) clearTimeout(touchDragTimer.current);
+                touchDragTimer.current = null;
+                const wasDragging = touchDragActive.current;
+                touchDragActive.current = false;
+                touchDragOrigin.current = null;
+                const touch = e.changedTouches[0];
+                const point = touchPoint.current || (touch ? { x: touch.clientX, y: touch.clientY } : null);
+                const childId = touchDragId.current;
+                touchDragId.current = '';
+                touchPoint.current = null;
+                setDragTargetId('');
+                if (!wasDragging || !point || !childId) return;
+                const rootHit = document.elementFromPoint(point.x, point.y)?.closest('.tree-root');
+                const hit = document.elementFromPoint(point.x, point.y)?.closest('[data-tree-id]') as HTMLElement | null;
+                const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId);
+                const target = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === hit?.dataset.treeId);
+                if (child && rootHit) runtime.current?.reparentObject(child);
+                else if (child && target && child !== target) {
+                  const rect = hit!.getBoundingClientRect();
+                  const ratio = (point.y - rect.top) / Math.max(rect.height, 1);
+                  runtime.current?.reorderObject(child, target, ratio < 0.28 ? 'before' : ratio > 0.72 ? 'after' : 'inside');
+                }
+              }}
+              onTouchCancel={() => {
+                if (touchDragTimer.current) clearTimeout(touchDragTimer.current);
+                touchDragTimer.current = null;
+                touchDragActive.current = false;
+                touchDragId.current = '';
+                touchPoint.current = null;
+                touchDragOrigin.current = null;
+                setDragTargetId('');
+              }}
               <button className={'tree-item ' + (selected === item.id ? 'selected' : '')} style={{ paddingLeft: 5 + depth * 12 }} onClick={() => { if (!cameraView) runtime.current?.selectObject(item.object); }} disabled={cameraView}>
                 {hasChildren ? <span className="tree-expand" onClick={e => { e.stopPropagation(); setExpanded(prev => ({ ...prev, [item.id]: prev[item.id] === false })); }}>{expanded[item.id] === false ? <ChevronRight size={11} /> : <ChevronDown size={11} />}</span> : <span className="tree-expand empty" />}
                 {item.kind === 'Sphere' ? <Circle size={13} /> : item.kind === 'Cylinder' ? <Cylinder size={13} /> : item.kind === 'Cone' ? <Cone size={13} /> : item.kind === 'Torus' ? <Circle size={13} /> : item.kind === 'Camera' ? <Film size={13} /> : <Box size={13} />}
