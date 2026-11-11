@@ -907,9 +907,8 @@ export default function App() {
       if (String(obj?.userData?.editorId || '') !== selectedRef.current) clearTopologyOverlay();
       if (!obj) {
         transform.detach();
+        transform.detach();
         transform.enabled = false;
-        transform?.detach();
-        if (transform) { transform.enabled = false; transform.getHelper().visible = false; }
         transform.getHelper().visible = false;
         setSelected('');
         selectedRef.current = '';
@@ -943,11 +942,6 @@ export default function App() {
       transform.detach();
       transform.enabled = false;
       transform.getHelper().visible = false;
-      transform?.detach();
-      if (transform) {
-        transform.enabled = false;
-        transform.getHelper().visible = false;
-      }
 
       // Keep exactly one TransformControls instance attached to the shared canvas.
       // The main viewport gizmo and IK viewport gizmo must never compete for pointer input.
@@ -981,8 +975,6 @@ export default function App() {
       }
       transform.setMode(movableLockedRoot ? 'translate' : mode);
       transform.setSpace(space);
-      transform?.setMode(movableLockedRoot ? 'translate' : mode);
-      transform?.setSpace(space);
       if (obj instanceof THREE.Light) {
         setSettings(prev => ({ ...prev, lightIntensity: obj.intensity, lightColor: '#' + obj.color.getHexString(), ...(obj instanceof THREE.DirectionalLight ? { directionalIntensity: obj.intensity } : {}), ...(obj instanceof THREE.SpotLight ? { spotIntensity: obj.intensity, spotDistance: obj.distance, spotDecay: obj.decay, spotAngle: THREE.MathUtils.radToDeg(obj.angle) } : {}), ...(obj instanceof THREE.HemisphereLight ? { sunIntensity: obj.intensity, ambientIntensity: obj.intensity } : {}) }));
       }
@@ -1874,11 +1866,6 @@ export default function App() {
       transform.detach();
       transform.enabled = false;
       transform.getHelper().visible = false;
-      transform?.detach();
-      if (transform) {
-        transform.enabled = false;
-        transform.getHelper().visible = false;
-      }
 
       // Remove external rig helpers and chain references when their Root Bone
       // (or owning Shape) is deleted. Keep the removed object tree intact for undo.
@@ -3151,9 +3138,6 @@ export default function App() {
         // IK gizmo is attached to the current Scene Tree item, never a stale target.
         const activeRigSelection = r.selectable.find((object: THREE.Object3D) => String(object.userData.editorId) === selectedRef.current);
         r.selectObject(activeRigSelection);
-        r.transform.enabled = false;
-        const helper = r.transform.getHelper?.();
-        if (helper) helper.visible = false;
         setRiggingView(true);
         setRigPanelOpen(true);
         setPanel(true);
