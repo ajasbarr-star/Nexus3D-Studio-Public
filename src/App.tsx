@@ -1004,7 +1004,7 @@ export default function App() {
             }
 
             rebuildRigHelper(chain);
-            chain.helper.update();
+            chain.helper.updateMatrixWorld(true);
             chain.helper.visible = chain.shapeRig ? chain.displayVisible !== false : false;
             chain.bones.forEach(bone => {
               const joint = bone.children.find(node => node.userData.nexusJointVisual);
@@ -1365,7 +1365,7 @@ export default function App() {
         else { anchor.userData.pendingShapeAttachment = true; root.userData.rigPendingAttachment = true; }
         const chain = makeHelper(root, attached ? owner : null);
         chain.owner = attached ? owner : null;
-        chain.helper.update();
+        chain.helper.updateMatrixWorld(true);
         syncItems();
         selectObject(owner);
         setStatus(attached ? 'Existing Root Bone found · Already attached' : 'Existing pending Root Bone found · Attach it to continue');
@@ -1409,7 +1409,7 @@ export default function App() {
       ensureBoneJoint(root);
       const chain = makeHelper(root, null);
       chain.owner = null;
-      chain.helper.update();
+      chain.helper.updateMatrixWorld(true);
       selectable.push(root);
       syncItems();
       // Root creation must not steal TransformControls ownership from the Shape.
@@ -1437,7 +1437,7 @@ export default function App() {
       anchor.userData.pendingShapeAttachment = false;
       root.userData.rigPendingAttachment = false; root.userData.nexusRigSchema = 3;
       const chain = rigChains.find(entry => entry.bones.includes(root!));
-      if (chain) { chain.owner = owner; rebuildRigHelper(chain); chain.helper.update(); chain.helper.visible = chain.displayVisible !== false; }
+      if (chain) { chain.owner = owner; rebuildRigHelper(chain); chain.helper.updateMatrixWorld(true); chain.helper.visible = chain.displayVisible !== false; }
       scene.updateMatrixWorld(true); syncItems(); selectObject(owner);
       setStatus('Root Bone attached · Bind Mesh remains a separate step'); return true;
     };
@@ -1514,7 +1514,7 @@ export default function App() {
         styleSkeletonHelper(chain.helper, chain.bones);
         const colors = chain.helper.geometry.getAttribute('color');
         if (colors) colors.needsUpdate = true;
-        chain.helper.update();
+        chain.helper.updateMatrixWorld(true);
       });
     };
     const toggleSelectedBoneControlHandle = () => {
@@ -1636,7 +1636,7 @@ export default function App() {
       [...bone.children].filter(child => child instanceof THREE.Bone).forEach(child => parent.attach(child));
       parent.remove(bone);
       const index = selectable.indexOf(bone); if (index >= 0) selectable.splice(index,1);
-      rigChains.forEach(chain => { chain.bones = chain.bones.filter(entry => entry !== bone); chain.helper.update(); });
+      rigChains.forEach(chain => { chain.bones = chain.bones.filter(entry => entry !== bone); chain.helper.updateMatrixWorld(true); });
       syncItems();
       if (parent instanceof THREE.Bone) selectObject(parent); else selectObject();
       setStatus('Bone deleted · child bones preserved'); return true;
@@ -1967,7 +1967,7 @@ export default function App() {
           else rootBone.quaternion.copy(desired);
         }
       }
-      chain.helper.update(); syncItems(); setStatus(ikSolverRef.current + ' IK + pole constraint solved · ' + bones.length + ' joints');
+      chain.helper.updateMatrixWorld(true); syncItems(); setStatus(ikSolverRef.current + ' IK + pole constraint solved · ' + bones.length + ' joints');
     };
     const removeObject = (obj: THREE.Object3D, preserveForUndo = false) => {
       if (obj === camBody) {
@@ -2607,7 +2607,7 @@ export default function App() {
       if (rigChains.some(chain => chain.shapeRig && chain.displayVisible !== false)) {
         scene.updateMatrixWorld(true);
         rigChains.forEach(chain => {
-          if (chain.shapeRig && chain.displayVisible !== false) chain.helper.update();
+          if (chain.shapeRig && chain.displayVisible !== false) chain.helper.updateMatrixWorld(true);
         });
       }
       const topologyTarget = topologyOverlay.userData.targetMesh as THREE.Mesh | null;
