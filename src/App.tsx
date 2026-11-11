@@ -1254,8 +1254,11 @@ export default function App() {
         const chain = makeHelper(root, owner);
         chain.helper.update();
         syncItems();
-        selectObject(root);
-        setStatus('Existing Root Bone migrated to isolated Rig Anchor');
+        // Keep the owning Shape selected after Root creation. Attaching the
+        // shared TransformControls to a newly-created Bone can leave the IK
+        // viewport gizmo bound to the rig instead of following Scene Tree picks.
+        selectObject(owner);
+        setStatus('Existing Root Bone ready · Shape remains selected');
         return root;
       }
 
@@ -1297,8 +1300,10 @@ export default function App() {
       chain.helper.update();
       selectable.push(root);
       syncItems();
-      selectObject(root);
-      setStatus('Root Bone v2 created at Shape center · isolated from mesh transform hierarchy');
+      // Root creation must not steal TransformControls ownership from the Shape.
+      // The Root remains selectable from the Scene Tree when the user needs it.
+      selectObject(owner);
+      setStatus('Root Bone created at Shape center · Shape remains selected');
       return root;
     };
     const copySelectedBone = () => {
