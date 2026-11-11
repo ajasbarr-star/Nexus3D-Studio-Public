@@ -1111,10 +1111,11 @@ export default function App() {
       };
       const resolveOwner = (root: THREE.Bone) => {
         const chain = rigChains.find(entry => entry.bones.includes(root));
-        if (chain?.owner) return chain.owner;
+        if (chain) return chain.owner || null;
         let parent: THREE.Object3D | null = root.parent;
         while (parent && !parent.userData.nexusRigAnchor) parent = parent.parent;
-        return parent?.parent || (root.parent && !(root.parent instanceof THREE.Bone) ? root.parent : null);
+        if (parent?.userData.nexusRigAnchor) return parent.userData.pendingShapeAttachment || parent.parent === scene ? null : parent.parent || null;
+        return root.parent && !(root.parent instanceof THREE.Bone) && root.parent !== scene ? root.parent : null;
       };
       const makeHelper = (root: THREE.Bone, owner: THREE.Object3D) => {
         const bones: THREE.Bone[] = [];
@@ -1148,6 +1149,11 @@ export default function App() {
         while (anchor && !anchor.userData.nexusRigAnchor) anchor = anchor.parent;
         if (anchor?.userData.nexusRigAnchor) {
           anchor.userData.rigOwnerId = String(owner.userData.editorId || '');
+          anchor.userData.pendingShapeAttachment = true;
+          scene.attach(anchor);
+          root.userData.nexusRigSchema = 3;
+          root.userData.rigOwnerId = String(owner.userData.editorId || '');
+          root.userData.rigPendingAttachment = true;
           return anchor;
         }
         scene.updateMatrixWorld(true);
@@ -1167,8 +1173,11 @@ export default function App() {
         root.position.set(0, 0, 0);
         root.quaternion.identity();
         root.scale.set(1, 1, 1);
-        root.userData.nexusRigSchema = 2;
+        root.userData.nexusRigSchema = 3;
         root.userData.rigOwnerId = String(owner.userData.editorId || '');
+        root.userData.rigPendingAttachment = true;
+        nextAnchor.userData.pendingShapeAttachment = true;
+        scene.attach(nextAnchor);
         scene.updateMatrixWorld(true);
         return nextAnchor;
       };
@@ -1251,6 +1260,7 @@ export default function App() {
         root.userData.nexusRigSchema = 2;
         root.userData.rigOwnerId = String(owner.userData.editorId || '');
         const chain = makeHelper(root, owner);
+        chain.owner = null;
         chain.helper.update();
         syncItems();
         // Keep the owning Shape selected after Root creation. Attaching the
@@ -1298,6 +1308,7 @@ export default function App() {
       anchor.add(root);
       ensureBoneJoint(root);
       const chain = makeHelper(root, owner);
+      chain.owner = null;
       chain.helper.update();
       selectable.push(root);
       syncItems();
