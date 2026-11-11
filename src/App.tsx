@@ -3809,35 +3809,51 @@ export default function App() {
           <button type="button" className="rig-toolbox-close" onClick={() => setRigPanelOpen(false)} title="Collapse workspace" aria-label="Collapse workspace"><X size={14}/></button>
         </div>
         {rigTab === 'auto' ? <>
-          <div className="rig-workspace-actions">
-            <button type="button" onClick={() => runtime.current?.detectRiggedMeshes?.()} title="Detect existing skeleton in selected character" aria-label="Detect skeleton"><ScanEye size={17}/><span>Detect</span></button>
-            <button type="button" onClick={() => runtime.current?.autoRigSelectedMesh?.()} title="Generate a skeleton and automatic skin weights" aria-label="Auto generate rig"><Sparkles size={17}/><span>Generate</span></button>
-            <button type="button" onClick={() => runtime.current?.bindSelectedMeshToRig?.()} title="Bind selected character or shape mesh to the skeleton" aria-label="Bind bones to character"><Link2 size={17}/><span>Bind Mesh</span></button>
+          <div className="rig-auto-intro">
+            <strong>ONE-TAP HUMANOID RIG</strong>
+            <span>Select an upright character mesh in the Scene Tree. AUTO RIG creates the skeleton and assigns initial skin weights in one operation.</span>
+          </div>
+          <div className="rig-workspace-actions rig-auto-actions">
+            <button type="button" className="rig-primary-action" onClick={() => runtime.current?.autoRigSelectedMesh?.()} title="Generate humanoid bones and initial skin weights" aria-label="Auto rig character"><Sparkles size={19}/><span>AUTO RIG + BIND</span></button>
+            <button type="button" onClick={() => runtime.current?.detectRiggedMeshes?.()} title="Find an existing skeleton in the selected character" aria-label="Detect existing rig"><ScanEye size={17}/><span>Detect Existing Rig</span></button>
+          </div>
+          <div className="rig-auto-steps">
+            <div><b>1</b><span>Detect body proportions</span></div>
+            <div><b>2</b><span>Generate humanoid bones</span></div>
+            <div><b>3</b><span>Assign initial skin weights</span></div>
+            <div><b>4</b><span>Inspect and refine in MANUAL</span></div>
           </div>
           <div className="rig-tool-group">
-            <span className="rig-tool-group-label">SKIN WEIGHTS</span>
+            <span className="rig-tool-group-label">WEIGHT REFINEMENT · AFTER AUTO RIG</span>
             <button type="button" onClick={() => runtime.current?.normalizeSelectedSkinWeights?.()} title="Normalize skin weights" aria-label="Normalize weights"><Check size={16}/></button>
             <button type="button" onClick={() => runtime.current?.smoothSelectedSkinWeights?.()} title="Smooth skin weights" aria-label="Smooth weights"><Waves size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.refreshRigVisuals?.()} title="Refresh skeleton and joint display" aria-label="Refresh rig"><RefreshCw size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.refreshRigVisuals?.()} title="Refresh skeleton display" aria-label="Refresh rig"><RefreshCw size={16}/></button>
           </div>
-          <div className="rig-tool-note">Select a character or mesh in Scene Tree, then Detect, Generate, or Bind. Binding creates skin weights for mesh deformation.</div>
+          <div className="rig-tool-note">Auto Rig currently uses a proportion-based humanoid template and heuristic weights. Check the generated joints and deformation before using the character.</div>
         </> : rigTab === 'manual' ? <>
+          <div className="rig-manual-guide">
+            <strong>BUILD / EDIT BONES</strong>
+            <span>Create a starter humanoid skeleton, then select a bone in the viewport or Scene Tree before adding a child bone. Move / Rotate tools edit the selected bone.</span>
+          </div>
           <div className="rig-workspace-actions">
-            <button type="button" onClick={() => runtime.current?.createManualRig?.()} title="Create humanoid skeleton" aria-label="Create skeleton"><GitBranch size={17}/><span>New Rig</span></button>
-            <button type="button" onClick={() => runtime.current?.addUniversalBone?.()} title="Add bone to selected bone" aria-label="Add bone"><Plus size={17}/><span>Add Bone</span></button>
-            <button type="button" onClick={() => runtime.current?.copySelectedBone?.()} title="Duplicate selected bone branch" aria-label="Duplicate bone"><Copy size={17}/><span>Duplicate</span></button>
-            <button type="button" onClick={() => runtime.current?.deleteSelectedBone?.()} title="Delete selected bone" aria-label="Delete bone"><Trash2 size={17}/><span>Delete</span></button>
+            <button type="button" className="rig-primary-action" onClick={() => runtime.current?.createManualRig?.()} title="Create a starter humanoid skeleton" aria-label="Create humanoid rig"><GitBranch size={18}/><span>CREATE HUMANOID</span></button>
+            <button type="button" onClick={() => runtime.current?.addUniversalBone?.()} title="Add a child bone to the selected bone" aria-label="Add child bone"><Plus size={17}/><span>Add Child</span></button>
           </div>
           <div className="rig-tool-group">
-            <span className="rig-tool-group-label">BONE HIERARCHY</span>
-            <button type="button" onClick={() => runtime.current?.setRigParentTarget?.()} title="Set selected bone as parent target" aria-label="Set parent"><Target size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.attachSelectedToRigParent?.()} title="Attach selected bone to parent; preserve world position" aria-label="Attach bone"><Link2 size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.detachSelectedRigObject?.()} title="Detach selected bone from its parent; preserve world position" aria-label="Detach bone"><Unlink size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.mirrorSelectedBone?.()} title="Mirror selected bone across X" aria-label="Mirror bone"><Layers size={16}/></button>
+            <span className="rig-tool-group-label">SELECTED BONE</span>
+            <button type="button" onClick={() => runtime.current?.copySelectedBone?.()} title="Duplicate selected bone branch" aria-label="Duplicate bone"><Copy size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.deleteSelectedBone?.()} title="Delete selected bone" aria-label="Delete bone"><Trash2 size={16}/></button>
             <button type="button" onClick={() => runtime.current?.toggleSelectedBoneControlHandle?.()} title="Show or hide selected bone handle" aria-label="Bone handle"><Circle size={16}/></button>
             <button type="button" onClick={() => runtime.current?.toggleSelectedBoneLock?.()} title="Lock or unlock selected bone" aria-label="Lock bone"><Lock size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.mirrorSelectedBone?.()} title="Mirror selected bone across X" aria-label="Mirror bone"><Layers size={16}/></button>
           </div>
-          <div className="rig-tool-note">Attach / Detach changes bone-to-bone hierarchy. Bind Mesh in AUTO connects the skeleton to the character surface.</div>
+          <div className="rig-tool-group">
+            <span className="rig-tool-group-label">PARENT CONNECTION</span>
+            <button type="button" onClick={() => runtime.current?.setRigParentTarget?.()} title="Set selected bone as the parent target" aria-label="Set parent"><Target size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.attachSelectedToRigParent?.()} title="Attach selected bone to parent; preserve world position" aria-label="Attach bone"><Link2 size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.detachSelectedRigObject?.()} title="Detach selected bone from its parent; preserve world position" aria-label="Detach bone"><Unlink size={16}/></button>
+          </div>
+          <div className="rig-tool-note">Attach / Detach changes bone hierarchy. Binding the skeleton to a mesh is a separate operation. Direct click-to-place bone creation is not yet wired into this build.</div>
         </> : <>
           <div className="rig-workspace-actions">
             <button type="button" onClick={() => runtime.current?.createIKTarget?.()} title="Create IK target" aria-label="Create IK target"><Target size={17}/><span>IK Target</span></button>
