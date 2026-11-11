@@ -1863,3 +1863,36 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   .manual-rig-quick-grid { gap: 4px; }
   .manual-rig-quick-grid button { min-height: 40px; }
 }
+
+
+/* Dedicated IK scene viewport: shares the live Three.js scene with Main Viewport,
+   but owns its own camera, orbit controls and renderer. */
+.ik-dedicated-viewport {
+  position:absolute;
+  inset:0;
+  z-index:1;
+  overflow:hidden;
+  visibility:hidden;
+  opacity:0;
+  pointer-events:none;
+  background:#0a101b;
+  touch-action:none;
+}
+.ik-dedicated-viewport.active {
+  visibility:visible;
+  opacity:1;
+  pointer-events:auto;
+}
+.ik-dedicated-viewport canvas {
+  display:block;
+  width:100%;
+  height:100%;
+  outline:none;
+  touch-action:none;
+}
+.rigging-mode .viewport {
+  visibility:hidden;
+}
+.rigging-mode .ik-dedicated-viewport.active {
+  z-index:1;
+}
