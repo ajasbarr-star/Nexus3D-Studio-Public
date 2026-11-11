@@ -394,32 +394,18 @@ export default function App() {
     host.appendChild(renderer.domElement);
     renderer.domElement.style.touchAction = 'none';
 
-    // Dedicated IK viewport: a second renderer and camera draw the exact same
-    // THREE.Scene. Geometry, skeletons, materials and skinning remain shared.
+    // Single-renderer IK workspace: reuse the Main Viewport WebGL context.
+    // Moving its canvas between hosts avoids a second Android WebGL context.
     const ikHost = ikHostRef.current;
     const ikCamera = new THREE.PerspectiveCamera(45, 1, 0.01, 10000);
     ikCamera.position.set(0, 1.5, 6);
-    const ikRenderer = ikHost ? new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'low-power' }) : null;
-    const ikOrbit = ikRenderer && ikHost ? new OrbitControls(ikCamera, ikRenderer.domElement) : null;
-    const ikTransform = ikRenderer ? new TransformControls(ikCamera, ikRenderer.domElement) : null;
-    if (ikTransform) {
-      ikTransform.size = 1.05;
-      ikTransform.enabled = false;
-      ikTransform.getHelper().visible = false;
-      scene.add(ikTransform.getHelper());
-    }
-    if (ikRenderer && ikHost) {
-      ikRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.35));
-      ikRenderer.setSize(Math.max(ikHost.clientWidth, 1), Math.max(ikHost.clientHeight, 1));
-      ikRenderer.outputColorSpace = THREE.SRGBColorSpace;
-      ikRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-      ikRenderer.toneMappingExposure = 1.12;
-      ikHost.appendChild(ikRenderer.domElement);
-      ikRenderer.domElement.style.display = 'block';
-      ikRenderer.domElement.style.width = '100%';
-      ikRenderer.domElement.style.height = '100%';
-      ikRenderer.domElement.style.touchAction = 'none';
-    }
+    const ikRenderer = renderer;
+    const ikOrbit = new OrbitControls(ikCamera, renderer.domElement);
+    const ikTransform = new TransformControls(ikCamera, renderer.domElement);
+    ikTransform.size = 1.05;
+    ikTransform.enabled = false;
+    ikTransform.getHelper().visible = false;
+    scene.add(ikTransform.getHelper());
     if (ikOrbit) {
       ikOrbit.enableDamping = true;
       ikOrbit.dampingFactor = 0.08;
@@ -1786,6 +1772,7 @@ export default function App() {
       }
     };
     const onPointerDown = (event: PointerEvent) => {
+      if (runtime.current?.riggingView) return;
       pointerStart = { x: event.clientX, y: event.clientY, id: event.pointerId };
       const active = runtime.current?.getActiveSubSelection?.();
       if (!runtime.current?.loopCutActive || editModeRef.current !== 'Face' || !active?.mesh || active.mesh !== selectable.find(o => String(o.userData.editorId) === selectedRef.current)) return;
@@ -1810,8 +1797,9 @@ export default function App() {
       updateLoopCutPreview(event);
       event.preventDefault();
     };
-    const onPointerMove = (event: PointerEvent) => { if (loopCutGesture?.pointerId === event.pointerId) { updateLoopCutPreview(event); event.preventDefault(); } };
+    const onPointerMove = (event: PointerEvent) => { if (runtime.current?.riggingView) return; if (loopCutGesture?.pointerId === event.pointerId) { updateLoopCutPreview(event); event.preventDefault(); } };
     const onPointerUp = (event: PointerEvent) => {
+      if (runtime.current?.riggingView) return;
       if (loopCutGesture?.pointerId === event.pointerId) {
         const gesture = loopCutGesture;
         const amount = THREE.MathUtils.clamp((gesture.projection-gesture.min)/Math.max(1e-8,gesture.max-gesture.min)*100, 1, 99);
@@ -2125,7 +2113,7 @@ export default function App() {
       const moved = Math.hypot(event.clientX - ikTapStart.x, event.clientY - ikTapStart.y);
       ikTapStart = null;
       if (moved > 8 || ikTransform?.dragging) return;
-      const rect = ikRenderer?.domElement.getBoundingClientRect();
+      const rect = renderer.domElement.getBoundingClientRect();
       if (!rect || !rect.width || !rect.height) return;
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -2156,9 +2144,9 @@ export default function App() {
         if (candidate) selectObject(candidate);
       }
     };
-    ikRenderer?.domElement.addEventListener('pointerdown', onIKPointerDown);
-    ikRenderer?.domElement.addEventListener('pointerup', onIKPointerUp);
-    ikRenderer?.domElement.addEventListener('pointercancel', () => { ikTapStart = null; });
+    renderer.domElement.addEventListener('pointerdown', onIKPointerDown);
+    renderer.domElement.addEventListener('pointerup', onIKPointerUp);
+    renderer.domElement.addEventListener('pointercancel', () => { ikTapStart = null; });
     renderer.domElement.addEventListener('pointerdown', onPointerDown);
     renderer.domElement.addEventListener('pointermove', onPointerMove);
     renderer.domElement.addEventListener('pointerup', onPointerUp);
@@ -2260,11 +2248,12 @@ export default function App() {
       activeCamera.aspect = w / h;
       activeCamera.updateProjectionMatrix();
       renderer.setSize(w, h);
-      if (ikHost && ikRenderer) {
-        const iw = Math.max(ikHost.clientWidth, 1), ih = Math.max(ikHost.clientHeight, 1);
+      if (ikHost) {
+        const activeHost = runtime.current?.riggingView ? ikHost : host;
+        const iw = Math.max(activeHost.clientWidth, 1), ih = Math.max(activeHost.clientHeight, 1);
         ikCamera.aspect = iw / ih;
         ikCamera.updateProjectionMatrix();
-        ikRenderer.setSize(iw, ih);
+        if (runtime.current?.riggingView) renderer.setSize(iw, ih);
       }
       setPortrait(window.innerHeight > window.innerWidth);
     };
@@ -2318,13 +2307,11 @@ export default function App() {
           const wasVisible = mirrorObject.visible; mirrorObject.visible = false; reflectionCamera.update(renderer, scene); mirrorObject.visible = wasVisible;
         }
       }
-      if (runtime.current?.riggingView && ikRenderer) {
-        // Avoid rendering the same scene twice on mobile while the dedicated IK
-        // viewport is active. The IK camera never changes the Main viewport camera.
+      if (runtime.current?.riggingView) {
         const transformHelper = transform.getHelper?.();
         const helperWasVisible = transformHelper?.visible;
         if (transformHelper) transformHelper.visible = false;
-        ikRenderer.render(scene, ikCamera);
+        renderer.render(scene, ikCamera);
         if (transformHelper) transformHelper.visible = helperWasVisible ?? false;
       } else {
         renderer.render(scene, inCam ? activeCamera : camera);
@@ -2341,15 +2328,13 @@ export default function App() {
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
       renderer.domElement.removeEventListener('pointerup', onPointerUp);
       renderer.domElement.removeEventListener('pointercancel', onPointerCancel);
-      ikRenderer?.domElement.removeEventListener('pointerdown', onIKPointerDown);
-      ikRenderer?.domElement.removeEventListener('pointerup', onIKPointerUp);
+      renderer.domElement.removeEventListener('pointerdown', onIKPointerDown);
+      renderer.domElement.removeEventListener('pointerup', onIKPointerUp);
       clearLoopCutPreview();
       orbit.dispose();
       activeOrbit.dispose();
       ikOrbit?.dispose();
       ikTransform?.dispose();
-      ikRenderer?.dispose();
-      if (ikHost && ikRenderer && ikRenderer.domElement.parentNode === ikHost) ikHost.removeChild(ikRenderer.domElement);
       transform.dispose();
       subObjectPivot.parent?.remove(subObjectPivot);
       clearSubObjectHighlight();
@@ -2892,7 +2877,7 @@ export default function App() {
   };
   const toggleRiggingWorkspace = () => {
     const r = runtime.current;
-    if (!r || !r.ikRenderer || !r.ikCamera || !r.ikOrbit) {
+    if (!r || !r.renderer || !r.ikCamera || !r.ikOrbit || !ikHostRef.current) {
       setStatus('IK Rigging viewport is still initializing. Please try again.');
       return;
     }
@@ -2930,8 +2915,15 @@ export default function App() {
         r.ikOrbit.minDistance = Math.max(0.05, Math.min(1, distance * 0.08));
         r.ikOrbit.maxDistance = Math.max(35, distance * 5);
         r.ikOrbit.enabled = true;
-        r.ikOrbit.update();
+        r.orbit.enabled = false;
+        r.activeOrbit.enabled = false;
         r.riggingView = true;
+        const ikHost = ikHostRef.current;
+        if (!ikHost) throw new Error('IK viewport host is unavailable');
+        if (r.renderer.domElement.parentNode !== ikHost) ikHost.appendChild(r.renderer.domElement);
+        r.renderer.setSize(Math.max(ikHost.clientWidth, 1), Math.max(ikHost.clientHeight, 1));
+        r.ikCamera.aspect = Math.max(ikHost.clientWidth, 1) / Math.max(ikHost.clientHeight, 1);
+        r.ikCamera.updateProjectionMatrix();
         r.ikTransform.enabled = Boolean(selectedRef.current);
         r.ikTransform.getHelper().visible = Boolean(selectedRef.current);
         r.ikTransform.setMode(modeRef.current);
@@ -2949,10 +2941,14 @@ export default function App() {
         setMeshToolsOpen(false);
         setSkyboxOpen(false);
         setRenderVideoOpen(false);
-        setStatus('IK Rigging · Dedicated Scene Viewport');
+        setStatus('IK Rigging · Single Renderer Viewport');
       } catch (error) {
         r.riggingView = false;
         r.ikOrbit.enabled = false;
+        r.orbit.enabled = true;
+        const mainHost = hostRef.current;
+        if (mainHost && r.renderer.domElement.parentNode !== mainHost) mainHost.appendChild(r.renderer.domElement);
+        if (mainHost) r.renderer.setSize(Math.max(mainHost.clientWidth, 1), Math.max(mainHost.clientHeight, 1));
         setRiggingView(false);
         setRigPanelOpen(false);
         const detail = error instanceof Error ? error.message : String(error);
@@ -2962,6 +2958,14 @@ export default function App() {
     } else {
       r.riggingView = false;
       r.ikOrbit.enabled = false;
+      const mainHost = hostRef.current;
+      if (mainHost && r.renderer.domElement.parentNode !== mainHost) mainHost.appendChild(r.renderer.domElement);
+      if (mainHost) {
+        r.renderer.setSize(Math.max(mainHost.clientWidth, 1), Math.max(mainHost.clientHeight, 1));
+        r.camera.aspect = Math.max(mainHost.clientWidth, 1) / Math.max(mainHost.clientHeight, 1);
+        r.camera.updateProjectionMatrix();
+      }
+      r.orbit.enabled = true;
       r.ikTransform.enabled = false;
       r.ikTransform.getHelper().visible = false;
       r.transform.enabled = Boolean(selectedRef.current) && editModeRef.current === 'Object';
