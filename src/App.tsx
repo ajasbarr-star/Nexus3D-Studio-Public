@@ -925,6 +925,25 @@ export default function App() {
         selectedRef.current = '';
         return;
       }
+      // Undo can restore a deleted Shape Root. Rebuild its helper/chain lazily
+      // from the restored hierarchy instead of retaining stale helper references.
+      if (obj instanceof THREE.Bone && obj.userData.shapeRig && obj.userData.rigRole === 'root' &&
+          !rigChains.some(chain => chain.bones.includes(obj))) {
+        const restoredBones: THREE.Bone[] = [];
+        obj.traverse(node => { if ((node as THREE.Bone).isBone) restoredBones.push(node as THREE.Bone); });
+        const restoredHelper = new THREE.SkeletonHelper(obj);
+        restoredHelper.name = obj.name + ' Skeleton';
+        styleSkeletonHelper(restoredHelper, restoredBones);
+        scene.add(restoredHelper);
+        rigChains.push({
+          bones: restoredBones,
+          helper: restoredHelper,
+          target: null,
+          displayVisible: true,
+          shapeRig: true,
+          owner: obj.parent && !(obj.parent instanceof THREE.Bone) ? obj.parent : null
+        });
+      }
       const movableLockedRoot = obj instanceof THREE.Bone && obj.userData.shapeRig && obj.userData.rigRole === 'root' && obj.userData.locked;
       const inRiggingView = Boolean(runtime.current?.riggingView);
       const objectMode = editModeRef.current === 'Object';
