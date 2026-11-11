@@ -1010,14 +1010,17 @@ export default function App() {
         return root;
       };
       const resolveOwner = (root: THREE.Bone) => {
+        let anchor: THREE.Object3D | null = root.parent;
+        while (anchor && !anchor.userData.nexusRigAnchor) anchor = anchor.parent;
+        if (anchor?.userData.nexusRigAnchor) {
+          if (anchor.userData.pendingShapeAttachment || anchor.parent === scene || !anchor.parent) return null;
+          return anchor.parent;
+        }
         const chain = rigChains.find(entry => entry.bones.includes(root));
-        if (chain) return chain.owner || null;
-        let parent: THREE.Object3D | null = root.parent;
-        while (parent && !parent.userData.nexusRigAnchor) parent = parent.parent;
-        if (parent?.userData.nexusRigAnchor) return parent.userData.pendingShapeAttachment || parent.parent === scene ? null : parent.parent || null;
+        if (chain?.owner) return chain.owner;
         return root.parent && !(root.parent instanceof THREE.Bone) && root.parent !== scene ? root.parent : null;
       };
-      const makeHelper = (root: THREE.Bone, owner: THREE.Object3D) => {
+      const makeHelper = (root: THREE.Bone, owner: THREE.Object3D | null = null) => {
         const bones: THREE.Bone[] = [];
         root.traverse(node => { if ((node as THREE.Bone).isBone) bones.push(node as THREE.Bone); });
         const helper = new THREE.SkeletonHelper(root);
@@ -1036,11 +1039,11 @@ export default function App() {
           }
           existing.bones = bones;
           existing.helper = helper;
-          existing.owner = owner;
+          existing.owner = owner || null;
           existing.shapeRig = true;
           existing.displayVisible = true;
         } else {
-          rigChains.push({ bones, helper, target: null, displayVisible: true, shapeRig: true, owner });
+          rigChains.push({ bones, helper, target: null, displayVisible: true, shapeRig: true, owner: owner || null });
         }
         return rigChains.find(entry => entry.bones.includes(root))!;
       };
@@ -1117,7 +1120,7 @@ export default function App() {
         child.userData.rigRole = 'deform';
         child.userData.locked = false;
         child.userData.shapeRig = true;
-        child.userData.nexusRigSchema = 2;
+        child.userData.nexusRigSchema = 3;
         child.userData.rigOwnerId = String(owner.userData.editorId || '');
         selectedObject.add(child);
         ensureBoneJoint(selectedObject);
@@ -1147,27 +1150,35 @@ export default function App() {
         return false;
       }
 
+      const ownerId = String(owner.userData.editorId || '');
       let existingRoot: THREE.Bone | null = null;
-      owner.traverse(node => {
-        if (!existingRoot && (node as THREE.Bone).isBone &&
-            node.userData.rigRole === 'root' && node.userData.shapeRig) {
-          existingRoot = node as THREE.Bone;
+      // Pending roots are detached by design, so owner.traverse() cannot find them.
+      for (const candidate of selectable) {
+        if (candidate instanceof THREE.Bone && candidate.userData.rigRole === 'root' &&
+            candidate.userData.shapeRig && String(candidate.userData.rigOwnerId || '') === ownerId) {
+          existingRoot = candidate;
+          break;
         }
+      }
+      if (!existingRoot) owner.traverse(node => {
+        if (!existingRoot && (node as THREE.Bone).isBone && node.userData.rigRole === 'root' && node.userData.shapeRig) existingRoot = node as THREE.Bone;
       });
       if (existingRoot) {
         const root = existingRoot as THREE.Bone;
-        migrateRootToAnchor(root, owner);
-        root.userData.nexusRigSchema = 2;
-        root.userData.rigOwnerId = String(owner.userData.editorId || '');
-        const chain = makeHelper(root, owner);
-        chain.owner = null;
+        root.userData.nexusRigSchema = 3;
+        root.userData.rigOwnerId = ownerId;
+        let anchor: THREE.Object3D | null = root.parent;
+        while (anchor && !anchor.userData.nexusRigAnchor) anchor = anchor.parent;
+        if (!anchor) anchor = migrateRootToAnchor(root, owner);
+        const attached = anchor.parent === owner && !anchor.userData.pendingShapeAttachment;
+        if (attached) root.userData.rigPendingAttachment = false;
+        else { anchor.userData.pendingShapeAttachment = true; root.userData.rigPendingAttachment = true; }
+        const chain = makeHelper(root, attached ? owner : null);
+        chain.owner = attached ? owner : null;
         chain.helper.update();
         syncItems();
-        // Keep the owning Shape selected after Root creation. Attaching the
-        // shared TransformControls to a newly-created Bone can leave the IK
-        // viewport gizmo bound to the rig instead of following Scene Tree picks.
         selectObject(owner);
-        setStatus('Existing Root Bone ready · Shape remains selected');
+        setStatus(attached ? 'Existing Root Bone found · Already attached' : 'Existing pending Root Bone found · Attach it to continue');
         return root;
       }
 
@@ -1182,7 +1193,6 @@ export default function App() {
       const worldLength = Math.max(size.y, size.x * 0.65, size.z * 0.65, 0.25) * 0.22;
       const segmentLength = Math.max(worldLength / Math.max(Math.abs(ownerScale.y), 1e-6), 0.12);
 
-      const ownerId = String(owner.userData.editorId || '');
       const anchor = new THREE.Group();
       anchor.name = 'Rig Anchor · Pending Attachment';
       anchor.userData.nexusRigAnchor = true;
@@ -1207,7 +1217,7 @@ export default function App() {
       root.position.set(0, 0, 0);
       anchor.add(root);
       ensureBoneJoint(root);
-      const chain = makeHelper(root, owner);
+      const chain = makeHelper(root, null);
       chain.owner = null;
       chain.helper.update();
       selectable.push(root);
@@ -1539,9 +1549,15 @@ export default function App() {
       else if (selectedObject) selectedObject.traverse((node: any) => { if (!source && node.isMesh && !node.isSkinnedMesh) source = node as THREE.Mesh; });
       if (!source || !source.geometry?.getAttribute('position')) { setStatus('Select an unrigged mesh in Scene Tree before attaching it to the skeleton'); return false; }
       const mesh = source as THREE.Mesh;
-      const chain = [...rigChains].reverse().find(entry => entry.bones.length > 1 && entry.bones.some(bone => bone === mesh || mesh.getObjectById(bone.id))) ||
-        [...rigChains].reverse().find(entry => entry.bones.length > 1);
-      if (!chain) { setStatus('Build or detect a skeleton before attaching the mesh'); return false; }
+      // Only bind to the selected Shape's own attached Manual Shape Rig.
+      // Do not silently select the last unrelated skeleton in the scene.
+      const selectedOwnerId = String(selectedObject?.userData.editorId || '');
+      const chain = [...rigChains].reverse().find(entry =>
+        entry.shapeRig === true && entry.bones.length > 1 &&
+        String(entry.bones[0]?.userData.rigOwnerId || '') === selectedOwnerId &&
+        entry.owner === selectedObject
+      );
+      if (!chain) { setStatus('No attached Manual Root Bone with Child Bones found for this selected Shape'); return false; }
       if (mesh.geometry.getAttribute('skinIndex')) { setStatus('This mesh already has skinning data. Use its existing skeleton instead of binding twice'); return false; }
       mesh.updateWorldMatrix(true, false); scene.updateMatrixWorld(true);
       const geometry = mesh.geometry.clone();
