@@ -1171,6 +1171,13 @@ export default function App() {
         scene.add(helper);
         const existing = rigChains.find(entry => entry.bones.includes(root));
         if (existing) {
+          if (existing.helper && existing.helper !== helper) {
+            scene.remove(existing.helper);
+            existing.helper.geometry?.dispose();
+            const oldMaterial = existing.helper.material;
+            if (Array.isArray(oldMaterial)) oldMaterial.forEach(material => material.dispose());
+            else oldMaterial?.dispose();
+          }
           existing.bones = bones;
           existing.helper = helper;
           existing.owner = owner;
@@ -1922,7 +1929,10 @@ export default function App() {
         }
       }
 
+      const rootAnchor = obj instanceof THREE.Bone && obj.userData.rigRole === 'root' && obj.parent?.userData.nexusRigAnchor
+        ? obj.parent : null;
       obj.parent?.remove(obj);
+      if (rootAnchor && !preserveForUndo && rootAnchor.children.length === 0) rootAnchor.parent?.remove(rootAnchor);
       const lightEntry = lightSources.find(entry => entry.object === obj);
       if (lightEntry && obj instanceof THREE.SpotLight) scene.remove(obj.target);
       const lightIndex = lightSources.findIndex(entry => entry.object === obj);
