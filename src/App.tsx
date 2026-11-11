@@ -227,13 +227,28 @@ export default function App() {
   const spaceRef = useRef<'world' | 'local'>('world');
   const [panel, setPanel] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [diagnosticLogs, setDiagnosticLogs] = useState<DiagnosticEntry[]>([]);
+  const [diagnosticLogs, setDiagnosticLogs] = useState<DiagnosticEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem('nexus3d_realtime_diagnostics_v1');
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed.slice(-400) as DiagnosticEntry[] : [];
+    } catch { return []; }
+  });
   const [diagnosticFilter, setDiagnosticFilter] = useState<'ALL' | 'ERROR' | 'WARN' | 'INFO'>('ALL');
   const [diagnosticPanelOpen, setDiagnosticPanelOpen] = useState(false);
   const diagnosticSinkRef = useRef<(level: DiagnosticEntry['level'], source: string, message: string, details?: string) => void>(() => {});
   const pushDiagnostic = (level: DiagnosticEntry['level'], source: string, message: string, details?: string) => {
     const entry: DiagnosticEntry = { id: uid(), time: new Date().toLocaleTimeString(), level, source, message: String(message).slice(0, 1200), details: details ? String(details).slice(0, 5000) : undefined };
-    setDiagnosticLogs(previous => [...previous.slice(-399), entry]);
+    setDiagnosticLogs(previous => {
+      const next = [...previous.slice(-399), entry];
+      // Persist the rolling log so recent diagnostics survive a WebView reload/relaunch.
+      try { localStorage.setItem('nexus3d_realtime_diagnostics_v1', JSON.stringify(next)); } catch { /* storage may be unavailable or full */ }
+      return next;
+    });
+  };
+  const clearDiagnosticLogs = () => {
+    setDiagnosticLogs([]);
+    try { localStorage.removeItem('nexus3d_realtime_diagnostics_v1'); } catch { /* ignore unavailable storage */ }
   };
   diagnosticSinkRef.current = pushDiagnostic;
   const copyDiagnosticText = async (entries: DiagnosticEntry[]) => {
@@ -4444,7 +4459,7 @@ export default function App() {
               <div className="diagnostic-actions">
                 <button type="button" onClick={() => void copyDiagnosticText(visibleDiagnosticLogs)} disabled={!visibleDiagnosticLogs.length}><ClipboardCopy size={12}/> COPY VIEW</button>
                 <button type="button" onClick={() => void copyDiagnosticText(diagnosticLogs)} disabled={!diagnosticLogs.length}><ClipboardCopy size={12}/> COPY ALL</button>
-                <button type="button" onClick={() => setDiagnosticLogs([])} disabled={!diagnosticLogs.length}><Trash2 size={12}/> CLEAR</button>
+                <button type="button" onClick={clearDiagnosticLogs} disabled={!diagnosticLogs.length}><Trash2 size={12}/> CLEAR</button>
               </div>
               <div className="diagnostic-filters" role="group" aria-label="Diagnostic log filter">
                 {(['ALL','ERROR','WARN','INFO'] as const).map(filter => <button type="button" key={filter} className={diagnosticFilter === filter ? 'active' : ''} onClick={() => setDiagnosticFilter(filter)}>{filter}</button>)}
