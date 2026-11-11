@@ -1065,7 +1065,6 @@ export default function App() {
         if (parent) parent.add(bone); else rig.add(bone); ensureBoneJoint(bone); if (parent) ensureBoneJoint(parent); return bone;
       };
       const root = makeBone('Root', null, [0,0,0]);
-      root.userData.locked = true; root.userData.rigRole = 'root'; ensureBoneJoint(root);
       const hips = makeBone('Hips', root, [0,0.9,0]);
       const spine = makeBone('Spine', hips, [0,0.28,0]);
       const chest = makeBone('Chest', spine, [0,0.38,0]);
