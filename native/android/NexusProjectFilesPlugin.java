@@ -21,6 +21,36 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 public class NexusProjectFilesPlugin extends Plugin {
     private static final String PREFS = "nexus_project_file_destinations";
 
+    /** Clears only temporary WebView and app cache files. User projects and app data are preserved. */
+    @PluginMethod
+    public void clearAppCache(PluginCall call) {
+        try {
+            getBridge().getWebView().clearCache(true);
+            long deletedBytes = deleteCacheContents(getContext().getCacheDir());
+            JSObject response = new JSObject();
+            response.put("cleared", true);
+            response.put("deletedBytes", deletedBytes);
+            response.put("message", "Temporary WebView cache cleared. Saved projects and app data were preserved.");
+            call.resolve(response);
+        } catch (Exception error) {
+            call.reject("Unable to clear temporary cache: " + error.getMessage(), error);
+        }
+    }
+
+    private long deleteCacheContents(java.io.File directory) {
+        if (directory == null || !directory.isDirectory()) return 0L;
+        long deletedBytes = 0L;
+        java.io.File[] children = directory.listFiles();
+        if (children == null) return 0L;
+        for (java.io.File child : children) {
+            if (child.isDirectory()) deletedBytes += deleteCacheContents(child);
+            long length = child.isFile() ? child.length() : 0L;
+            if (child.delete()) deletedBytes += length;
+        }
+        return deletedBytes;
+    }
+
+
     @PluginMethod
     public void saveProject(PluginCall call) {
         String fileName = call.getString("fileName", "Project.nexus");
