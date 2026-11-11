@@ -4435,7 +4435,10 @@ export default function App() {
                 const hit = document.elementFromPoint(point.x, point.y)?.closest('[data-tree-id]') as HTMLElement | null;
                 const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId);
                 const target = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === hit?.dataset.treeId);
-                if (child && rootHit) runtime.current?.reparentObject(child);
+                const treePanel = document.querySelector('.hierarchy-panel') as HTMLElement | null;
+                 const panelRect = treePanel?.getBoundingClientRect();
+                 const outsideTree = Boolean(panelRect && (point.x < panelRect.left || point.x > panelRect.right || point.y < panelRect.top || point.y > panelRect.bottom));
+                 if (child && (rootHit || outsideTree)) runtime.current?.reparentObject(child);
                 else if (child && target && child !== target) {
                   const rect = hit!.getBoundingClientRect();
                   const ratio = (point.y - rect.top) / Math.max(rect.height, 1);
