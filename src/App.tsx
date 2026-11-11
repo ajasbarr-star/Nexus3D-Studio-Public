@@ -3567,7 +3567,7 @@ export default function App() {
       objects.forEach(object => {
         const id = String(object.userData?.editorId || '');
         if (id) { ids.set(id, (ids.get(id) || 0) + 1); if ((ids.get(id) || 0) > 1) duplicateIds += 1; }
-        if (![...object.position.toArray(), ...object.rotation.toArray(), ...object.scale.toArray()].every(Number.isFinite)) invalidTransforms += 1;
+        if (![object.position.x, object.position.y, object.position.z, object.rotation.x, object.rotation.y, object.rotation.z, object.scale.x, object.scale.y, object.scale.z].every(Number.isFinite)) invalidTransforms += 1;
         const mesh = object as THREE.Mesh;
         if (mesh.isSkinnedMesh) skinnedMeshes += 1;
         if ((object as THREE.Bone).isBone) bones += 1;
