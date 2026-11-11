@@ -576,11 +576,11 @@ export default function App() {
       const existing = bone.children.find(child => child.userData.nexusJointVisual) as THREE.Mesh | undefined;
       const childBone = bone.children.find(child => child instanceof THREE.Bone) as THREE.Bone | undefined;
       const tail = childBone ? childBone.position.clone() : new THREE.Vector3(0, 0.35, 0);
-      if (existing && existing.userData.nexusBoneVisual) { existing.geometry.dispose(); existing.geometry = createOctahedralBoneGeometry(tail); existing.userData.nexusBoneOwner = bone; return; }
+      if (existing && existing.userData.nexusBoneVisual) { existing.geometry.dispose(); existing.geometry = createOctahedralBoneGeometry(tail); existing.userData.nexusBoneOwnerId = String(bone.userData.editorId || ''); const handle = bone.children.find(child => child.userData.rigControlMarker); if (handle) handle.position.copy(tail); return; }
       if (existing) { bone.remove(existing); existing.geometry?.dispose(); const oldMaterial = existing.material; if (Array.isArray(oldMaterial)) oldMaterial.forEach(material => material.dispose()); else (oldMaterial as THREE.Material | undefined)?.dispose(); }
       const color = bone.userData.locked ? '#ffb52e' : bone.userData.detached ? '#b56bdb' : '#aeb9c4';
       const visual = new THREE.Mesh(createOctahedralBoneGeometry(tail), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, depthTest: true, transparent: true, opacity: 0.96 }));
-      visual.name = bone.name + ' Octahedral Bone'; visual.userData.nexusJointVisual = true; visual.userData.nexusBoneVisual = true; visual.userData.nexusBoneOwner = bone; visual.renderOrder = 18; bone.add(visual);
+      visual.name = bone.name + ' Octahedral Bone'; visual.userData.nexusJointVisual = true; visual.userData.nexusBoneVisual = true; visual.userData.nexusBoneOwnerId = String(bone.userData.editorId || ''); visual.renderOrder = 18; bone.add(visual);
     };
     const refreshJointColors = (active?: THREE.Object3D) => {
       selectable.forEach(object => {
@@ -1005,7 +1005,7 @@ export default function App() {
     };
     const toggleSelectedControlLock = () => {
       const control = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
-      if (!control?.userData.rigControlMarker) { setStatus('Select a Control Handle sphere first'); return false; }
+      if (!control?.userData.rigControlMarker) { setStatus('Select a Control Handle first'); return false; }
       control.userData.controlLocked = !control.userData.controlLocked;
       ((control as THREE.Mesh).material as THREE.MeshBasicMaterial).color.set(control.userData.controlLocked ? '#ffb52e' : '#00d9ff');
       selectObject(control); setStatus(control.name + (control.userData.controlLocked ? ' locked' : ' unlocked')); return true;
@@ -1596,7 +1596,7 @@ export default function App() {
        if (boneHit) {
          const hitObject = boneHit.object;
          if (hitObject.userData.rigControlMarker) { selectObject(hitObject); setStatus('Selected Control Handle · ' + hitObject.name); }
-         else { const owner = hitObject.userData.nexusBoneOwner as THREE.Bone | undefined; if (owner) { selectObject(owner); setStatus('Selected Bone · ' + owner.name); } }
+         else { const owner = selectable.find(object => object instanceof THREE.Bone && String(object.userData.editorId || '') === String(hitObject.userData.nexusBoneOwnerId || '')) as THREE.Bone | undefined; if (owner) { selectObject(owner); setStatus('Selected Bone · ' + owner.name); } }
          return;
        }
       if (hits.length && editModeRef.current !== 'Object' && selectedRef.current) {
