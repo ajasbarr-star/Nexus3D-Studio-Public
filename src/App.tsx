@@ -555,11 +555,32 @@ export default function App() {
       do { candidate = 'Bone_' + String(index++).padStart(2, '0'); } while (used.has(candidate));
       return candidate;
     };
+    const createOctahedralBoneGeometry = (tail: THREE.Vector3) => {
+      const end = tail.lengthSq() > 1e-8 ? tail.clone() : new THREE.Vector3(0, 0.35, 0);
+      const direction = end.clone().normalize();
+      const reference = Math.abs(direction.y) > 0.92 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+      const axisA = new THREE.Vector3().crossVectors(direction, reference).normalize();
+      const axisB = new THREE.Vector3().crossVectors(direction, axisA).normalize();
+      const radius = THREE.MathUtils.clamp(end.length() * 0.105, 0.025, 0.085);
+      const middle = end.clone().multiplyScalar(0.5);
+      const ring = [middle.clone().addScaledVector(axisA, radius), middle.clone().addScaledVector(axisB, radius), middle.clone().addScaledVector(axisA, -radius), middle.clone().addScaledVector(axisB, -radius)];
+      const vertices: number[] = [];
+      const triangle = (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3) => vertices.push(...a.toArray(), ...b.toArray(), ...c.toArray());
+      const head = new THREE.Vector3();
+      for (let i = 0; i < 4; i++) { const next = (i + 1) % 4; triangle(head, ring[i], ring[next]); triangle(end, ring[next], ring[i]); }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      geometry.computeVertexNormals(); geometry.computeBoundingSphere(); return geometry;
+    };
     const ensureBoneJoint = (bone: THREE.Bone) => {
-      if (bone.children.some(child => child.userData.nexusJointVisual)) return;
-      const joint = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 10), new THREE.MeshBasicMaterial({ color: bone.userData.locked ? '#778391' : bone.userData.detached ? '#b56bdb' : '#39c98a', depthTest: false, transparent: true, opacity: 0.96 }));
-      joint.name = bone.name + ' Joint'; joint.userData.nexusJointVisual = true; joint.renderOrder = 18; joint.raycast = () => {};
-      bone.add(joint);
+      const existing = bone.children.find(child => child.userData.nexusJointVisual) as THREE.Mesh | undefined;
+      const childBone = bone.children.find(child => child instanceof THREE.Bone) as THREE.Bone | undefined;
+      const tail = childBone ? childBone.position.clone() : new THREE.Vector3(0, 0.35, 0);
+      if (existing && existing.userData.nexusBoneVisual) { existing.geometry.dispose(); existing.geometry = createOctahedralBoneGeometry(tail); existing.userData.nexusBoneOwner = bone; return; }
+      if (existing) { bone.remove(existing); existing.geometry?.dispose(); const oldMaterial = existing.material; if (Array.isArray(oldMaterial)) oldMaterial.forEach(material => material.dispose()); else (oldMaterial as THREE.Material | undefined)?.dispose(); }
+      const color = bone.userData.locked ? '#ffb52e' : bone.userData.detached ? '#b56bdb' : '#aeb9c4';
+      const visual = new THREE.Mesh(createOctahedralBoneGeometry(tail), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, depthTest: true, transparent: true, opacity: 0.96 }));
+      visual.name = bone.name + ' Octahedral Bone'; visual.userData.nexusJointVisual = true; visual.userData.nexusBoneVisual = true; visual.userData.nexusBoneOwner = bone; visual.renderOrder = 18; bone.add(visual);
     };
     const refreshJointColors = (active?: THREE.Object3D) => {
       selectable.forEach(object => {
@@ -567,7 +588,7 @@ export default function App() {
         const joint = object.children.find(child => child.userData.nexusJointVisual) as THREE.Mesh | undefined;
         if (!joint) return;
         const color = object.userData.locked ? '#ffb52e' : object === active ? '#00d9ff' : object.userData.detached ? '#b56bdb' : '#aeb9c4';
-        ((joint.material as THREE.MeshBasicMaterial)).color.set(color);
+        ((joint as THREE.Mesh).material as THREE.MeshBasicMaterial).color.set(color);
       });
     };
     const styleSkeletonHelper = (helper: THREE.SkeletonHelper, _bones: THREE.Bone[]) => {
@@ -587,6 +608,7 @@ export default function App() {
       material.opacity = 0.96;
       material.linewidth = 2;
       helper.frustumCulled = false;
+      helper.visible = false;
     };
     const rebuildRigHelper = (chain: { bones: THREE.Bone[]; helper: THREE.SkeletonHelper; target: THREE.Object3D | null; pole?: THREE.Object3D | null; displayVisible?: boolean }) => {
       // Recreate SkeletonHelper after hierarchy edits; update() alone cannot discover
@@ -602,7 +624,7 @@ export default function App() {
         else oldMaterial?.dispose();
       }
       const helper = new THREE.SkeletonHelper(root);
-      helper.name = root.name + ' Skeleton';
+      helper.name = root.name + ' Skeleton'; helper.visible = false;
       styleSkeletonHelper(helper, chain.bones);
       helper.visible = chain.displayVisible !== false;
       scene.add(helper);
@@ -814,11 +836,8 @@ export default function App() {
       const chain = rigChains.find(entry => entry.bones.includes(obj));
       if (!chain) { setStatus('No skeleton display group found for this bone'); return; }
       chain.displayVisible = chain.displayVisible === false ? true : false;
-      chain.helper.visible = chain.displayVisible;
-      chain.bones.forEach(bone => {
-        const joint = bone.children.find(child => child.userData.nexusJointVisual);
-        if (joint) joint.visible = chain.displayVisible!;
-      });
+      chain.helper.visible = false;
+      chain.bones.forEach(bone => { const visual = bone.children.find(child => child.userData.nexusJointVisual); if (visual) visual.visible = chain.displayVisible!; });
       syncItems();
       setStatus((chain.displayVisible ? 'IK bones shown: ' : 'IK bones hidden: ') + (chain.bones[0]?.name || obj.name));
     };
@@ -916,13 +935,13 @@ export default function App() {
       bone.position.set(0, 0.35, 0);
       bone.userData.editorId = uid(); bone.userData.kind = 'Bone';
       bone.userData.rigRole = 'deform'; bone.userData.handle = false; bone.userData.locked = false;
-      root.add(bone); ensureBoneJoint(bone); if (parentBone) ensureBoneJoint(parentBone);
+      root.add(bone); ensureBoneJoint(bone); ensureBoneJoint(root); if (parentBone) ensureBoneJoint(parentBone);
       let chain = rigChains.find(entry => entry.bones.includes(root));
       if (!chain) {
         const bones: THREE.Bone[] = [];
         root.traverse(node => { if ((node as THREE.Bone).isBone) bones.push(node as THREE.Bone); });
         const helper = new THREE.SkeletonHelper(root);
-        helper.name = 'Universal Rig Skeleton'; styleSkeletonHelper(helper, bones); scene.add(helper);
+        helper.name = 'Universal Rig Skeleton'; helper.visible = false; styleSkeletonHelper(helper, bones); scene.add(helper);
         chain = { bones, helper, target: null }; rigChains.push(chain);
       } else { chain.bones.push(bone); rebuildRigHelper(chain); }
       selectable.push(...(!parentBone ? [root] : []), bone);
@@ -943,11 +962,12 @@ export default function App() {
           clone.position.set(0, 0.35, 0);
         }
         clone.userData = { ...original.userData, editorId: uid(), kind: 'Bone', locked: false, detached: false, controlHandle: false, copiedFrom: original.userData.editorId };
-        parent.add(clone); ensureBoneJoint(clone); selectable.push(clone);
+        parent.add(clone); ensureBoneJoint(clone); if (parent instanceof THREE.Bone) ensureBoneJoint(parent); selectable.push(clone);
         original.children.filter(child => child instanceof THREE.Bone).forEach(child => cloneBranch(child as THREE.Bone, clone));
         return clone;
       };
       const clone = cloneBranch(source, source, true);
+      ensureBoneJoint(source);
       if (chain) { clone.traverse(node => { if ((node as THREE.Bone).isBone && !chain.bones.includes(node as THREE.Bone)) chain.bones.push(node as THREE.Bone); }); rebuildRigHelper(chain); }
       refreshRigVisuals(); syncItems(); selectObject(clone);
       setStatus(source.name + ' copied as ' + clone.name + ' with connected child hierarchy'); return true;
@@ -994,10 +1014,10 @@ export default function App() {
       rigChains.forEach(chain => {
         chain.bones.forEach(bone => {
           ensureBoneJoint(bone);
-          const joint = bone.children.find(child => child.userData.nexusJointVisual);
-          if (joint) joint.visible = chain.displayVisible !== false;
+          const visual = bone.children.find(child => child.userData.nexusJointVisual);
+          if (visual) visual.visible = chain.displayVisible !== false;
         });
-        chain.helper.visible = chain.displayVisible !== false;
+        chain.helper.visible = false;
         styleSkeletonHelper(chain.helper, chain.bones);
         const colors = chain.helper.geometry.getAttribute('color');
         if (colors) colors.needsUpdate = true;
@@ -1017,7 +1037,9 @@ export default function App() {
         bone.userData.controlHandle = false;
         setStatus('Control Handle removed from ' + bone.name);
       } else {
-        const marker = new THREE.Mesh(new THREE.SphereGeometry(0.07, 14, 10), new THREE.MeshBasicMaterial({ color: '#00d9ff', depthTest: false, transparent: true, opacity: 0.96 }));
+        const marker = new THREE.Mesh(new THREE.OctahedronGeometry(0.075, 0), new THREE.MeshBasicMaterial({ color: '#00d9ff', depthTest: false, transparent: true, opacity: 0.98 }));
+        const childBone = bone.children.find(child => child instanceof THREE.Bone) as THREE.Bone | undefined;
+        if (childBone) marker.position.copy(childBone.position);
         marker.name = bone.name + ' Control Handle'; marker.userData.rigControlMarker = true; marker.userData.editorId = uid(); marker.userData.kind = 'Control Handle'; marker.userData.controlLocked = false; marker.renderOrder = 20;
         bone.add(marker); selectable.push(marker); bone.userData.controlHandle = true;
         setStatus('Control Handle enabled · orange controller gizmo on ' + bone.name);
@@ -1040,7 +1062,7 @@ export default function App() {
       const makeBone = (name: string, parent: THREE.Bone | null, position: [number, number, number]) => {
         const bone = new THREE.Bone(); bone.name = name; bone.position.set(...position);
         bone.userData.editorId = uid(); bone.userData.kind = 'Bone';
-        if (parent) parent.add(bone); else rig.add(bone); ensureBoneJoint(bone); return bone;
+        if (parent) parent.add(bone); else rig.add(bone); ensureBoneJoint(bone); if (parent) ensureBoneJoint(parent); return bone;
       };
       const root = makeBone('Root', null, [0,0,0]);
       const hips = makeBone('Hips', root, [0,0.9,0]);
@@ -1060,7 +1082,7 @@ export default function App() {
       }
       const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) bones.push(node as THREE.Bone); });
       scene.add(rig);
-      const helper = new THREE.SkeletonHelper(root); helper.name = rig.name + ' Skeleton';
+      const helper = new THREE.SkeletonHelper(root); helper.name = rig.name + ' Skeleton'; helper.visible = false;
       styleSkeletonHelper(helper, bones); scene.add(helper);
       selectable.push(rig, ...bones); rigChains.push({ bones, helper, target: null });
       syncItems(); selectObject(root); setStatus('Humanoid bone hierarchy created · Mirror X ready'); return rig;
@@ -1560,7 +1582,7 @@ export default function App() {
       if (!pointerStart || pointerStart.id !== event.pointerId) return;
       const moved = Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y);
       pointerStart = null;
-      if (moved > 7 || transform.dragging || (editModeRef.current === 'Object' && !transform.enabled)) return;
+      if (moved > 7 || transform.dragging) return;
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -1570,6 +1592,13 @@ export default function App() {
       const targetRoot = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
       const roots = editModeRef.current === 'Object' ? selectable.filter(o => o.visible) : (targetRoot ? [targetRoot] : []);
       const hits = raycaster.intersectObjects(roots, true);
+       const boneHit = hits.find(hit => hit.object.userData.nexusBoneVisual || hit.object.userData.rigControlMarker);
+       if (boneHit) {
+         const hitObject = boneHit.object;
+         if (hitObject.userData.rigControlMarker) { selectObject(hitObject); setStatus('Selected Control Handle · ' + hitObject.name); }
+         else { const owner = hitObject.userData.nexusBoneOwner as THREE.Bone | undefined; if (owner) { selectObject(owner); setStatus('Selected Bone · ' + owner.name); } }
+         return;
+       }
       if (hits.length && editModeRef.current !== 'Object' && selectedRef.current) {
         const hit = hits[0];
         const target = targetRoot;
