@@ -928,7 +928,14 @@ export default function App() {
           target: null,
           displayVisible: true,
           shapeRig: true,
-          owner: (() => { let anchor = obj.parent; while (anchor && !anchor.userData.nexusRigAnchor) anchor = anchor.parent; return anchor?.parent || (obj.parent && !(obj.parent instanceof THREE.Bone) ? obj.parent : null); })()
+          owner: (() => {
+            let anchor: THREE.Object3D | null = obj.parent;
+            while (anchor && !anchor.userData.nexusRigAnchor) anchor = anchor.parent;
+            if (anchor?.userData.nexusRigAnchor) {
+              return anchor.userData.pendingShapeAttachment || anchor.parent === scene ? null : anchor.parent || null;
+            }
+            return obj.parent && !(obj.parent instanceof THREE.Bone) && obj.parent !== scene ? obj.parent : null;
+          })()
         });
       }
       const movableLockedRoot = obj instanceof THREE.Bone && obj.userData.shapeRig && obj.userData.rigRole === 'root' && obj.userData.locked;
