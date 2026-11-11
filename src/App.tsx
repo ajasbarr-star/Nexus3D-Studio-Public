@@ -1019,9 +1019,10 @@ export default function App() {
       syncItems();
       return true;
     };
-    const addUniversalBone = () => {
+    const addUniversalBone = (mode: 'root' | 'child' | 'auto' = 'auto') => {
       const selectedObject = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
-      if (selectedObject instanceof THREE.Bone) {
+      if (mode === 'child' && !(selectedObject instanceof THREE.Bone)) { setStatus('Select a Root or Child Bone first'); return false; }
+      if (mode !== 'root' && selectedObject instanceof THREE.Bone) {
         let rootBone: THREE.Bone = selectedObject;
         while (rootBone.parent instanceof THREE.Bone) rootBone = rootBone.parent;
         if (!rootBone.userData.shapeRig) { setStatus('Select a Manual Shape Rig bone to add a child'); return false; }
@@ -3995,8 +3996,8 @@ export default function App() {
             <span>Select a Shape and press ROOT to create an independent bone in Scene Root. Select a Root Bone and press CHILD to extend its hierarchy. Drag Shapes onto bones in Scene Tree to parent or unparent them.</span>
           </div>
           <div className="rig-workspace-actions shape-rig-compact-actions">
-            <button type="button" className="rig-primary-action" onClick={() => runtime.current?.addUniversalBone?.()} title="Create an independent Root Bone in Scene Root" aria-label="Create Root Bone"><GitBranch size={16}/><span>ROOT</span></button>
-            <button type="button" onClick={() => runtime.current?.addUniversalBone?.()} title="Select a Manual Rig bone first, then add its child" aria-label="Add Child Bone"><Plus size={16}/><span>CHILD</span></button>
+            <button type="button" className="rig-primary-action" onClick={() => runtime.current?.addUniversalBone?.('root')} title="Create an independent Root Bone in Scene Root" aria-label="Create Root Bone"><GitBranch size={16}/><span>ROOT</span></button>
+            <button type="button" onClick={() => runtime.current?.addUniversalBone?.('child')} title="Select a Manual Rig bone first, then add its child" aria-label="Add Child Bone"><Plus size={16}/><span>CHILD</span></button>
           </div>
         </> : <>
           <div className="rig-workspace-actions">
