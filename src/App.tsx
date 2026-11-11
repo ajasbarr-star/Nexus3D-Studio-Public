@@ -293,7 +293,6 @@ export default function App() {
   const [cameraView, setCameraView] = useState(false);
   const [rigPanelOpen, setRigPanelOpen] = useState(false);
   const [riggingView, setRiggingView] = useState(false);
-  const [ikToolsExpanded, setIkToolsExpanded] = useState(true);
   const [manualRigOpen, setManualRigOpen] = useState(true);
   const [autoIKOpen, setAutoIKOpen] = useState(true);
   const [manualRigStage, setManualRigStage] = useState('setup');
@@ -4214,36 +4213,7 @@ export default function App() {
 
       <div className={'viewport ' + (pathTool ? 'path-tool-active' : '')} ref={hostRef} onPointerDown={e => { if (!pathTool || animationMode) return; const rect = e.currentTarget.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width - .5) * 20; const z = ((e.clientY - rect.top) / rect.height - .5) * -20; setMotionPathPoints(prev => [...prev, {x, y:0.05, z}]); }} onDragOver={e => { if (e.dataTransfer.types.includes('text/nexus3d-object')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }} onDrop={e => { const childId = e.dataTransfer.getData('text/nexus3d-object'); if (!childId) return; e.preventDefault(); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }} />
       <div ref={ikHostRef} className={'ik-dedicated-viewport ' + (riggingView ? 'active' : '')} aria-label="Dedicated IK Rigging 3D viewport" />
-      {riggingView && <aside className={'ik-tools-dock ' + (ikToolsExpanded ? 'expanded' : 'collapsed')} aria-label="Manual IK rigging tools">
-        <div className="ik-tools-head">
-          <span className="ik-tools-indicator" />
-          <strong>IK TOOLS</strong>
-          <button type="button" className="ik-tools-collapse" onClick={() => setIkToolsExpanded(value => !value)} title={ikToolsExpanded ? 'Collapse IK tools' : 'Expand IK tools'} aria-label={ikToolsExpanded ? 'Collapse IK tools' : 'Expand IK tools'}>{ikToolsExpanded ? <ChevronDown size={14}/> : <GitBranch size={14}/>}</button>
-        </div>
-        {ikToolsExpanded && <div className="ik-tools-grid">
-          <button type="button" title="Create the single Root Bone" aria-label="Create Root Bone" onClick={() => runtime.current?.addUniversalBone('root')}><GitBranch size={16}/></button>
-          <button type="button" title="Add a connected Child Bone to the selected bone" aria-label="Add Child Bone" onClick={() => runtime.current?.addUniversalBone('child')}><Plus size={16}/></button>
-          <button type="button" title="Add or remove a bone Control Handle" aria-label="Toggle Bone Control Handle" onClick={() => runtime.current?.toggleSelectedBoneControlHandle()}><Magnet size={16}/></button>
-          <button type="button" title="Create an IK Target Handle" aria-label="Create IK Target" onClick={() => runtime.current?.createIKTarget()}><Target size={16}/></button>
-          <button type="button" title="Create an IK Pole Target" aria-label="Create IK Pole Target" onClick={() => runtime.current?.createPoleTarget()}><Circle size={16}/></button>
-          <button type="button" title="Set selected item as Parent target" aria-label="Set Parent Target" onClick={() => runtime.current?.setRigParentTarget()}><Link2 size={16}/></button>
-          <button type="button" title="Attach selected item to the Parent target" aria-label="Attach to Parent" onClick={() => runtime.current?.attachSelectedToRigParent()}><GitMerge size={16}/></button>
-          <button type="button" title="Unparent selected rig item" aria-label="Unparent selected item" onClick={() => runtime.current?.detachSelectedRigObject()}><Unlink size={16}/></button>
-          <button type="button" title="Bind selected mesh to the active skeleton" aria-label="Bind mesh to skeleton" onClick={() => runtime.current?.bindSelectedMeshToRig()}><Box size={16}/></button>
-          <button type="button" title="Create an automatic starter rig for selected mesh" aria-label="Auto Rig selected mesh" onClick={() => runtime.current?.autoRigSelectedMesh()}><Sparkles size={16}/></button>
-          <button type="button" title="Detect imported SkinnedMesh skeletons" aria-label="Detect existing skeletons" onClick={() => runtime.current?.detectRiggedMeshes()}><Search size={16}/></button>
-          <button type="button" title="Normalize skin weights" aria-label="Normalize skin weights" onClick={() => runtime.current?.normalizeSelectedSkinWeights()}><SlidersHorizontal size={16}/></button>
-          <button type="button" title="Smooth skin weights" aria-label="Smooth skin weights" onClick={() => runtime.current?.smoothSelectedSkinWeights()}><Waves size={16}/></button>
-          <button type="button" title="Mirror selected bone across X" aria-label="Mirror selected bone" onClick={() => runtime.current?.mirrorSelectedBone()}><RefreshCw size={16}/></button>
-          <button type="button" title="Duplicate selected bone branch" aria-label="Copy selected bone" onClick={() => runtime.current?.copySelectedBone()}><Copy size={16}/></button>
-          <button type="button" title="Lock or unlock selected bone" aria-label="Toggle bone lock" onClick={() => runtime.current?.toggleSelectedBoneLock()}><Lock size={16}/></button>
-          <button type="button" title="Lock or unlock selected Control Handle" aria-label="Toggle Control Handle lock" onClick={() => runtime.current?.toggleSelectedControlLock()}><Unlock size={16}/></button>
-          <button type="button" title="Solve the active IK chain" aria-label="Solve IK" onClick={() => runtime.current?.solveIK()}><Check size={16}/></button>
-          <button type="button" title="Delete selected child bone" aria-label="Delete selected bone" onClick={() => runtime.current?.deleteSelectedBone()}><Trash2 size={16}/></button>
-          <button type="button" title="Undo last scene or rig action" aria-label="Undo rig action" onClick={undo}><Undo2 size={16}/></button>
-          <button type="button" title="Redo last scene or rig action" aria-label="Redo rig action" onClick={redo}><Redo2 size={16}/></button>
-        </div>}
-      </aside>}
+      
       <div className={'camera-mode-hud ' + (cameraView ? 'cine-active' : '')} aria-live="polite"><span className="camera-mode-dot" />{cameraView ? 'CINE CAMERA VIEW' : riggingView ? 'IK RIGGING · FRONT PERSPECTIVE' : 'PERSPECTIVE MODE'}</div>
       {!animationMode && !cameraView && <div className="quick-access-rail" aria-label="Quick access controls">
         <button type="button" className={quickPanel === 'lights' ? 'active' : ''} onClick={() => { setQuickPanel(quickPanel === 'lights' ? null : 'lights'); setInspectorOpen(false); setPanel(false); setMenuOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); }} title="Quick Light Controls"><Sun size={14}/><span>LIGHTS</span></button>
@@ -4411,6 +4381,8 @@ export default function App() {
             const hasChildren = items.some(other => other.object.parent === item.object);
             return <div key={item.id} data-tree-id={item.id} className={'tree-row ' + (selected === item.id ? 'selected' : '') + (dragTargetId === item.id ? ' drop-target' : '')}
               draggable={!('ontouchstart' in window)}
+              onContextMenu={e => { if ('ontouchstart' in window) e.preventDefault(); }}
+              onSelectStart={e => { if ('ontouchstart' in window) e.preventDefault(); }}
               onDragStart={e => { e.dataTransfer.setData('text/nexus3d-object', item.id); e.dataTransfer.effectAllowed = 'move'; }}
               onDragOver={e => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragTargetId(item.id); }}
               onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragTargetId(''); }}
