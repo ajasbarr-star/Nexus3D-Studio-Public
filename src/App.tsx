@@ -941,7 +941,7 @@ export default function App() {
           target: null,
           displayVisible: true,
           shapeRig: true,
-          owner: obj.parent && !(obj.parent instanceof THREE.Bone) ? obj.parent : null
+          owner: (() => { let anchor = obj.parent; while (anchor && !anchor.userData.nexusRigAnchor) anchor = anchor.parent; return anchor?.parent || (obj.parent && !(obj.parent instanceof THREE.Bone) ? obj.parent : null); })()
         });
       }
       const movableLockedRoot = obj instanceof THREE.Bone && obj.userData.shapeRig && obj.userData.rigRole === 'root' && obj.userData.locked;
@@ -1145,141 +1145,197 @@ export default function App() {
       syncItems();
       return true;
     };
+    // Manual Shape Rig v2: a private anchor isolates the skeleton transform
+    // hierarchy from the mesh object while keeping the rig centered inside it.
     const addUniversalBone = (mode: 'root' | 'child' | 'auto' = 'auto') => {
       const selectedObject = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
-      if (mode === 'child' && !(selectedObject instanceof THREE.Bone)) { setStatus('Select the Root Bone or an existing Child Bone first'); return false; }
-      if (mode === 'root') {
-        // Root creation is scoped to the selected Shape only. Never search the
-        // whole scene: an unrelated rig must not steal this Shape's Root action.
-        let rigOwnerForRoot: THREE.Object3D | null = selectedObject || null;
-        if (selectedObject instanceof THREE.Bone) {
-          let topBone: THREE.Bone = selectedObject;
-          while (topBone.parent instanceof THREE.Bone) topBone = topBone.parent;
-          rigOwnerForRoot = topBone.parent && !(topBone.parent instanceof THREE.Bone)
-            ? topBone.parent : null;
+      const resolveRoot = (bone: THREE.Bone) => {
+        let root = bone;
+        while (root.parent instanceof THREE.Bone) root = root.parent;
+        return root;
+      };
+      const resolveOwner = (root: THREE.Bone) => {
+        const chain = rigChains.find(entry => entry.bones.includes(root));
+        if (chain?.owner) return chain.owner;
+        let parent: THREE.Object3D | null = root.parent;
+        while (parent && !parent.userData.nexusRigAnchor) parent = parent.parent;
+        return parent?.parent || (root.parent && !(root.parent instanceof THREE.Bone) ? root.parent : null);
+      };
+      const makeHelper = (root: THREE.Bone, owner: THREE.Object3D) => {
+        const bones: THREE.Bone[] = [];
+        root.traverse(node => { if ((node as THREE.Bone).isBone) bones.push(node as THREE.Bone); });
+        const helper = new THREE.SkeletonHelper(root);
+        helper.name = root.name + ' Skeleton';
+        styleSkeletonHelper(helper, bones);
+        helper.visible = true;
+        scene.add(helper);
+        const existing = rigChains.find(entry => entry.bones.includes(root));
+        if (existing) {
+          existing.bones = bones;
+          existing.helper = helper;
+          existing.owner = owner;
+          existing.shapeRig = true;
+          existing.displayVisible = true;
+        } else {
+          rigChains.push({ bones, helper, target: null, displayVisible: true, shapeRig: true, owner });
         }
-        if (!rigOwnerForRoot || rigOwnerForRoot instanceof THREE.Light || rigOwnerForRoot === scene) {
-          setStatus('Select the Shape first, then create its Root Bone');
+        return rigChains.find(entry => entry.bones.includes(root))!;
+      };
+      const migrateRootToAnchor = (root: THREE.Bone, owner: THREE.Object3D) => {
+        let anchor = root.parent;
+        while (anchor && !anchor.userData.nexusRigAnchor) anchor = anchor.parent;
+        if (anchor?.userData.nexusRigAnchor) {
+          anchor.userData.rigOwnerId = String(owner.userData.editorId || '');
+          return anchor;
+        }
+        scene.updateMatrixWorld(true);
+        const worldPosition = root.getWorldPosition(new THREE.Vector3());
+        const worldQuaternion = root.getWorldQuaternion(new THREE.Quaternion());
+        const nextAnchor = new THREE.Group();
+        nextAnchor.name = 'Rig Anchor';
+        nextAnchor.userData.nexusRigAnchor = true;
+        nextAnchor.userData.rigOwnerId = String(owner.userData.editorId || '');
+        owner.add(nextAnchor);
+        owner.updateWorldMatrix(true, false);
+        nextAnchor.position.copy(owner.worldToLocal(worldPosition.clone()));
+        nextAnchor.quaternion.copy(owner.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(worldQuaternion));
+        nextAnchor.scale.set(1, 1, 1);
+        root.parent?.remove(root);
+        nextAnchor.add(root);
+        root.position.set(0, 0, 0);
+        root.quaternion.identity();
+        root.scale.set(1, 1, 1);
+        root.userData.nexusRigSchema = 2;
+        root.userData.rigOwnerId = String(owner.userData.editorId || '');
+        scene.updateMatrixWorld(true);
+        return nextAnchor;
+      };
+
+      if (mode === 'child') {
+        if (!(selectedObject instanceof THREE.Bone)) {
+          setStatus('Select the Root Bone or an existing Child Bone first');
           return false;
         }
-        let existingRoot: THREE.Bone | null = null;
-        rigOwnerForRoot.traverse(node => {
-          if (!existingRoot && (node as THREE.Bone).isBone &&
-              node.userData.rigRole === 'root' && node.userData.shapeRig) {
-            existingRoot = node as THREE.Bone;
-          }
-        });
-        if (existingRoot) {
-          const root = existingRoot as THREE.Bone;
-          let chain = rigChains.find(entry => entry.bones.includes(root));
-          if (!chain) {
-            const bones: THREE.Bone[] = [];
-            root.traverse(node => { if ((node as THREE.Bone).isBone) bones.push(node as THREE.Bone); });
-            const helper = new THREE.SkeletonHelper(root);
-            helper.name = root.name + ' Skeleton';
-            styleSkeletonHelper(helper, bones);
-            helper.visible = true;
-            scene.add(helper);
-            chain = { bones, helper, target: null, displayVisible: true, shapeRig: true, owner: rigOwnerForRoot };
-            rigChains.push(chain);
-          } else {
-            chain.owner = rigOwnerForRoot;
-            if (chain.helper.parent !== scene) scene.add(chain.helper);
-            chain.helper.visible = chain.displayVisible !== false;
-            chain.helper.update();
-          }
-          selectObject(root);
-          setStatus('This Shape already has its Root Bone · select it in Scene Tree or add a Child Bone');
-          return root;
+        const root = resolveRoot(selectedObject);
+        if (!root.userData.shapeRig || root.userData.rigRole !== 'root') {
+          setStatus('Select a Root Bone from a Manual Shape Rig');
+          return false;
         }
-      }
-      if (mode !== 'root' && selectedObject instanceof THREE.Bone) {
-        let rootBone: THREE.Bone = selectedObject;
-        while (rootBone.parent instanceof THREE.Bone) rootBone = rootBone.parent;
-        if (!rootBone.userData.shapeRig) { setStatus('Select a Manual Shape Rig bone to add a child'); return false; }
+        const owner = resolveOwner(root);
+        if (!owner) {
+          setStatus('This Root Bone has no Shape owner · create a new Root Bone on the Shape');
+          return false;
+        }
+        const chain = rigChains.find(entry => entry.bones.includes(root)) || makeHelper(root, owner);
         const child = new THREE.Bone();
         child.name = nextManualBoneName();
-        let chain = rigChains.find(entry => entry.bones.includes(rootBone));
-        const rigOwner = chain?.owner || (rootBone.parent instanceof THREE.Bone ? null : rootBone.parent);
-        let segmentLength = Number(selectedObject.userData.segmentLength) || 0;
-        if (!segmentLength && rigOwner) {
-          rigOwner.updateWorldMatrix(true, false);
-          const ownerBounds = new THREE.Box3().setFromObject(rigOwner);
-          const ownerSize = ownerBounds.getSize(new THREE.Vector3());
-          const ownerScale = rigOwner.getWorldScale(new THREE.Vector3());
-          const worldLength = Math.max(ownerSize.y, ownerSize.x * 0.65, ownerSize.z * 0.65, 0.25) * 0.22;
-          segmentLength = worldLength / Math.max(Math.abs(ownerScale.y), 1e-6);
+        let segmentLength = Number(selectedObject.userData.segmentLength) || Number(root.userData.segmentLength) || 0;
+        if (!segmentLength) {
+          owner.updateWorldMatrix(true, false);
+          const bounds = new THREE.Box3().setFromObject(owner);
+          const size = bounds.getSize(new THREE.Vector3());
+          const scale = owner.getWorldScale(new THREE.Vector3());
+          const worldLength = Math.max(size.y, size.x * 0.65, size.z * 0.65, 0.25) * 0.22;
+          segmentLength = worldLength / Math.max(Math.abs(scale.y), 1e-6);
         }
         segmentLength = Math.max(segmentLength || 0.28, 0.12);
         child.position.set(0, segmentLength, 0);
         child.userData.segmentLength = segmentLength;
-        child.userData.editorId = uid(); child.userData.kind = 'Bone'; child.userData.rigRole = 'deform';
-        child.userData.handle = false; child.userData.locked = false; child.userData.shapeRig = true;
+        child.userData.editorId = uid();
+        child.userData.kind = 'Bone';
+        child.userData.rigRole = 'deform';
+        child.userData.locked = false;
+        child.userData.shapeRig = true;
+        child.userData.nexusRigSchema = 2;
+        child.userData.rigOwnerId = String(owner.userData.editorId || '');
         selectedObject.add(child);
-        ensureBoneJoint(selectedObject); ensureBoneJoint(child);
-        if (!chain) {
-          const bones: THREE.Bone[] = [];
-          rootBone.traverse(node => { if ((node as THREE.Bone).isBone) bones.push(node as THREE.Bone); });
-          const helper = new THREE.SkeletonHelper(rootBone);
-          helper.name = rootBone.name + ' Skeleton'; helper.visible = true;
-          styleSkeletonHelper(helper, bones); scene.add(helper);
-          chain = { bones, helper, target: null, displayVisible: true, shapeRig: true, owner: rigOwner }; rigChains.push(chain);
-        } else {
-          if (!chain.bones.includes(child)) chain.bones.push(child);
-          rebuildRigHelper(chain); chain.helper.visible = true; chain.displayVisible = true;
-        }
-        selectable.push(child); syncItems(); selectObject(child);
-        setStatus(child.name + ' added under ' + selectedObject.name + ' · Connected');
+        ensureBoneJoint(selectedObject);
+        ensureBoneJoint(child);
+        if (!chain.bones.includes(child)) chain.bones.push(child);
+        rebuildRigHelper(chain);
+        chain.helper.visible = true;
+        chain.displayVisible = true;
+        selectable.push(child);
+        syncItems();
+        selectObject(child);
+        setStatus(child.name + ' added · connected to ' + selectedObject.name);
         return child;
       }
+
+      if (mode !== 'root') {
+        setStatus('Select a Shape, then create its Root Bone first');
+        return false;
+      }
+      let owner: THREE.Object3D | null = selectedObject || null;
+      if (selectedObject instanceof THREE.Bone) {
+        const oldRoot = resolveRoot(selectedObject);
+        owner = resolveOwner(oldRoot);
+      }
+      if (!owner || owner instanceof THREE.Bone || owner instanceof THREE.Light || owner === scene) {
+        setStatus('Select the Shape first, then create its Root Bone');
+        return false;
+      }
+
+      let existingRoot: THREE.Bone | null = null;
+      owner.traverse(node => {
+        if (!existingRoot && (node as THREE.Bone).isBone &&
+            node.userData.rigRole === 'root' && node.userData.shapeRig) {
+          existingRoot = node as THREE.Bone;
+        }
+      });
+      if (existingRoot) {
+        const root = existingRoot as THREE.Bone;
+        migrateRootToAnchor(root, owner);
+        root.userData.nexusRigSchema = 2;
+        root.userData.rigOwnerId = String(owner.userData.editorId || '');
+        const chain = makeHelper(root, owner);
+        chain.helper.update();
+        syncItems();
+        selectObject(root);
+        setStatus('Existing Root Bone migrated to isolated Rig Anchor');
+        return root;
+      }
+
+      scene.updateMatrixWorld(true);
+      owner.updateWorldMatrix(true, false);
+      const bounds = new THREE.Box3().setFromObject(owner);
+      const center = new THREE.Vector3();
+      if (!bounds.isEmpty()) bounds.getCenter(center);
+      else owner.getWorldPosition(center);
+      const size = bounds.isEmpty() ? new THREE.Vector3(1, 1, 1) : bounds.getSize(new THREE.Vector3());
+      const ownerScale = owner.getWorldScale(new THREE.Vector3());
+      const worldLength = Math.max(size.y, size.x * 0.65, size.z * 0.65, 0.25) * 0.22;
+      const segmentLength = Math.max(worldLength / Math.max(Math.abs(ownerScale.y), 1e-6), 0.12);
+
+      const anchor = new THREE.Group();
+      anchor.name = 'Rig Anchor';
+      anchor.userData.nexusRigAnchor = true;
+      anchor.userData.rigOwnerId = String(owner.userData.editorId || '');
+      owner.add(anchor);
+      owner.updateWorldMatrix(true, false);
+      anchor.position.copy(owner.worldToLocal(center.clone()));
+      anchor.quaternion.identity();
+      anchor.scale.set(1, 1, 1);
+
       const root = new THREE.Bone();
       root.name = 'Root Bone';
-      root.userData.editorId = uid(); root.userData.kind = 'Bone'; root.userData.rigRole = 'root';
-      root.userData.locked = true; root.userData.shapeRig = true;
-      let rigOwner: THREE.Object3D | null = selectedObject && !(selectedObject instanceof THREE.Bone) && !(selectedObject instanceof THREE.Light)
-        ? selectedObject
-        : null;
-      if (mode === 'root' && selectedObject instanceof THREE.Bone) {
-        let topBone: THREE.Bone = selectedObject;
-        while (topBone.parent instanceof THREE.Bone) topBone = topBone.parent;
-        rigOwner = topBone.parent && !(topBone.parent instanceof THREE.Bone) ? topBone.parent : null;
-      }
-      let rootWorldCenter = new THREE.Vector3();
-      let segmentLength = 0.28;
-      if (rigOwner) {
-        scene.updateMatrixWorld(true);
-        const ownerBounds = new THREE.Box3().setFromObject(rigOwner);
-        if (!ownerBounds.isEmpty()) {
-          ownerBounds.getCenter(rootWorldCenter);
-          const ownerSize = ownerBounds.getSize(new THREE.Vector3());
-          const ownerScale = rigOwner.getWorldScale(new THREE.Vector3());
-          const worldLength = Math.max(ownerSize.y, ownerSize.x * 0.65, ownerSize.z * 0.65, 0.25) * 0.22;
-          segmentLength = Math.max(worldLength / Math.max(Math.abs(ownerScale.y), 1e-6), 0.12);
-        } else {
-          rigOwner.getWorldPosition(rootWorldCenter);
-        }
-        // Attach first so the root inherits the selected Shape's transform.
-        // Then place it at the Shape's world-space bounding-box center in local space.
-        rigOwner.attach(root);
-        root.position.copy(rigOwner.worldToLocal(rootWorldCenter.clone()));
-        root.quaternion.identity();
-        root.scale.set(1, 1, 1);
-      } else {
-        scene.updateMatrixWorld(true);
-        if (selectedObject) selectedObject.getWorldPosition(root.position);
-        scene.add(root);
-      }
+      root.userData.editorId = uid();
+      root.userData.kind = 'Bone';
+      root.userData.rigRole = 'root';
+      root.userData.locked = true;
+      root.userData.shapeRig = true;
+      root.userData.nexusRigSchema = 2;
+      root.userData.rigOwnerId = String(owner.userData.editorId || '');
       root.userData.segmentLength = segmentLength;
-      root.updateMatrixWorld(true);
+      root.position.set(0, 0, 0);
+      anchor.add(root);
       ensureBoneJoint(root);
-      const helper = new THREE.SkeletonHelper(root);
-      helper.name = root.name + ' Skeleton'; helper.visible = true;
-      styleSkeletonHelper(helper, [root]); scene.add(helper);
-      rigChains.push({ bones: [root], helper, target: null, displayVisible: true, shapeRig: true, owner: rigOwner });
-      selectable.push(root); syncItems(); selectObject(root);
-      setStatus(rigOwner
-        ? root.name + ' created at Shape center · attached under ' + rigOwner.name + ' · Add Child to extend the chain'
-        : root.name + ' created · Select a Shape before creating a Root Bone');
+      const chain = makeHelper(root, owner);
+      chain.helper.update();
+      selectable.push(root);
+      syncItems();
+      selectObject(root);
+      setStatus('Root Bone v2 created at Shape center · isolated from mesh transform hierarchy');
       return root;
     };
     const copySelectedBone = () => {
