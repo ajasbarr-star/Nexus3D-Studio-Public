@@ -890,7 +890,8 @@ export default function App() {
         setStatus('Nothing selected');
         return;
       }
-      if ((obj instanceof THREE.Bone && obj.userData.locked) || (obj.userData.rigControlMarker && obj.userData.controlLocked)) {
+      const movableLockedRoot = obj instanceof THREE.Bone && obj.userData.shapeRig && obj.userData.rigRole === 'root' && obj.userData.locked;
+      if ((obj instanceof THREE.Bone && obj.userData.locked && !movableLockedRoot) || (obj.userData.rigControlMarker && obj.userData.controlLocked)) {
         transform.detach();
         transform.enabled = false;
         transform.getHelper().visible = false;
@@ -899,7 +900,7 @@ export default function App() {
         transform.enabled = editModeRef.current === 'Object';
         transform.getHelper().visible = editModeRef.current === 'Object';
       }
-      transform.setMode(mode);
+      transform.setMode(movableLockedRoot ? 'translate' : mode);
       transform.setSpace(space);
       if (obj instanceof THREE.Light) {
         setSettings(prev => ({ ...prev, lightIntensity: obj.intensity, lightColor: '#' + obj.color.getHexString(), ...(obj instanceof THREE.DirectionalLight ? { directionalIntensity: obj.intensity } : {}), ...(obj instanceof THREE.SpotLight ? { spotIntensity: obj.intensity, spotDistance: obj.distance, spotDecay: obj.decay, spotAngle: THREE.MathUtils.radToDeg(obj.angle) } : {}), ...(obj instanceof THREE.HemisphereLight ? { sunIntensity: obj.intensity, ambientIntensity: obj.intensity } : {}) }));
@@ -4059,9 +4060,15 @@ export default function App() {
             <span>Select a Shape and press ROOT to create an independent bone in Scene Root. Select a Root Bone and press CHILD to extend its hierarchy. Drag Shapes onto bones in Scene Tree to parent or unparent them.</span>
           </div>
           <div className="rig-workspace-actions shape-rig-compact-actions">
-            <button type="button" className="rig-primary-action" onClick={() => runtime.current?.addUniversalBone?.('root')} title="Create an independent Root Bone in Scene Root" aria-label="Create Root Bone"><GitBranch size={16}/><span>ROOT</span></button>
-            <button type="button" onClick={() => runtime.current?.addUniversalBone?.('child')} title="Select a Manual Rig bone first, then add its child" aria-label="Add Child Bone"><Plus size={16}/><span>CHILD</span></button>
+            <button type="button" className="rig-primary-action" onClick={() => runtime.current?.addUniversalBone?.('root')} title="Create or select the single Manual Shape Rig Root Bone" aria-label="Create Root Bone"><GitBranch size={16}/><span>ROOT</span></button>
+            <button type="button" onClick={() => runtime.current?.addUniversalBone?.('child')} title="Add a connected Child Bone under the selected Manual Rig Bone" aria-label="Add Child Bone"><Plus size={16}/><span>CHILD</span></button>
           </div>
+          <div className="rig-workspace-actions shape-rig-compact-actions">
+            <button type="button" onClick={() => runtime.current?.setRigParentTarget?.()} title="Select the intended parent Bone, Shape, or Character first" aria-label="Set Parent"><GitMerge size={15}/><span>SET PARENT</span></button>
+            <button type="button" onClick={() => runtime.current?.attachSelectedToRigParent?.()} title="Select the child Bone or Shape after setting its parent" aria-label="Parent selected"><CornerDownRight size={15}/><span>PARENT</span></button>
+            <button type="button" onClick={() => runtime.current?.detachSelectedRigObject?.()} title="Unparent selected Bone or Shape while preserving world position" aria-label="Unparent selected"><Unlink size={15}/><span>UNPARENT</span></button>
+          </div>
+          <div className="rig-tool-note">Parent workflow: select the parent Shape/Character or Bone → SET PARENT → select the child Bone/Shape → PARENT. UNPARENT returns the selection to its parent level. Parenting does not automatically skin-bind a mesh.</div>
         </> : <>
           <div className="rig-workspace-actions">
             <button type="button" onClick={() => runtime.current?.createIKTarget?.()} title="Create IK target" aria-label="Create IK target"><Target size={17}/><span>IK Target</span></button>
