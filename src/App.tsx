@@ -619,7 +619,9 @@ export default function App() {
       const helper = new THREE.SkeletonHelper(root);
       helper.name = root.name + ' Skeleton';
       styleSkeletonHelper(helper, chain.bones);
-      helper.visible = false;
+      // Manual Shape Rig connections stay visible after hierarchy changes.
+      // Imported character skeleton helpers retain their existing hidden-helper behavior.
+      helper.visible = chain.shapeRig ? chain.displayVisible !== false : false;
       scene.add(helper);
       chain.helper = helper;
     };
@@ -778,8 +780,40 @@ export default function App() {
       const attachTo = (target: THREE.Object3D) => {
         scene.updateMatrixWorld(true); target.attach(child); scene.updateMatrixWorld(true);
         if (child instanceof THREE.Bone || target instanceof THREE.Bone) {
+          // Refresh the affected rig from its live hierarchy. This is important
+          // when a Bone is moved out of a chain or a Shape becomes a Bone child.
+          rigChains.forEach(chain => {
+            const affected = chain.bones.some(bone =>
+              bone === child || bone === target ||
+              child.getObjectById(bone.id) || target.getObjectById(bone.id)
+            );
+            if (!affected) return;
+
+            if (chain.shapeRig) {
+              const root = chain.bones.find(bone => bone.userData.rigRole === 'root') ||
+                chain.bones.find(bone => !chain.bones.some(other => other !== bone && other.getObjectById(bone.id)));
+              if (root) {
+                const liveBones: THREE.Bone[] = [];
+                root.traverse(node => {
+                  if ((node as THREE.Bone).isBone) {
+                    const bone = node as THREE.Bone;
+                    liveBones.push(bone);
+                    ensureBoneJoint(bone);
+                  }
+                });
+                chain.bones = liveBones;
+              }
+            }
+
+            rebuildRigHelper(chain);
+            chain.helper.update();
+            chain.helper.visible = chain.shapeRig ? chain.displayVisible !== false : false;
+            chain.bones.forEach(bone => {
+              const joint = bone.children.find(node => node.userData.nexusJointVisual);
+              if (joint) joint.visible = chain.displayVisible !== false;
+            });
+          });
           refreshRigVisuals();
-          rigChains.forEach(chain => { if (chain.bones.some(bone => bone === child || bone === target || child.getObjectById(bone.id) || target.getObjectById(bone.id))) { rebuildRigHelper(chain); chain.helper.update(); } });
         }
         syncItems();
       };
@@ -1165,7 +1199,7 @@ export default function App() {
           const visual = bone.children.find(child => child.userData.nexusJointVisual);
           if (visual) visual.visible = chain.displayVisible !== false;
         });
-        chain.helper.visible = false;
+        chain.helper.visible = chain.shapeRig ? chain.displayVisible !== false : false;
         styleSkeletonHelper(chain.helper, chain.bones);
         const colors = chain.helper.geometry.getAttribute('color');
         if (colors) colors.needsUpdate = true;
