@@ -2505,7 +2505,7 @@ export default function App() {
       r.transform.enabled = true;
       r.transform.getHelper().visible = Boolean(selectedRef.current);
       setRiggingView(true);
-      setRigPanelOpen(false);
+      setRigPanelOpen(true);
       setPanel(true);
       setInspectorOpen(false);
       setMenuOpen(false);
@@ -3748,6 +3748,70 @@ export default function App() {
         <button className={'rail-btn animation-rail-btn ' + (animationMode ? 'active' : '')} onClick={() => { if (animationMode) { setPlaybackControlsOpen(v => !v); } else { if (!cameraView) toggleCamera(); setPlaying(false); setAnimationMode(true); setAnimationObjectsOpen(true); setAnimOpen(false); setPlaybackControlsOpen(false); setTimelineOptionsOpen(false); } }} title={animationMode ? (playbackControlsOpen ? 'Hide playback controls' : 'Show playback controls') : 'Open Animation System Viewport'} aria-label="Toggle Animation Mode"><Film size={17} /><span>ANIM</span></button>
         <button className={'rail-btn rig-rail-btn ' + (riggingView ? 'active' : '')} onClick={toggleRiggingWorkspace} title={riggingView ? 'Return to User Workspace' : 'Switch to IK Rigging Workspace · Front Perspective'} aria-label="Rigging workspace"><GitBranch size={17}/><span>{riggingView ? 'USER' : 'RIG'}</span></button>
       </div>
+
+      {riggingView && rigPanelOpen && <aside className="rig-toolbox" aria-label="IK Rigging tools">
+        <div className="rig-toolbox-head">
+          <div className="rig-toolbox-title"><GitBranch size={14}/><strong>IK RIG</strong></div>
+          <div className="rig-toolbox-tabs">
+            <button type="button" className={rigTab === 'manual' ? 'active' : ''} onClick={() => setRigTab('manual')} title="Manual IK tools" aria-label="Manual IK"><Move size={15}/></button>
+            <button type="button" className={rigTab === 'auto' ? 'active' : ''} onClick={() => setRigTab('auto')} title="Automatic IK tools" aria-label="Automatic IK"><Sparkles size={15}/></button>
+          </div>
+          <button type="button" className="rig-toolbox-close" onClick={() => setRigPanelOpen(false)} title="Hide IK tools" aria-label="Hide IK tools"><X size={14}/></button>
+        </div>
+        {rigTab === 'manual' ? <>
+          <div className="rig-tool-group">
+            <span className="rig-tool-group-label">SKELETON</span>
+            <button type="button" onClick={() => runtime.current?.createManualRig?.()} title="Create humanoid skeleton" aria-label="Create humanoid skeleton"><GitBranch size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.addUniversalBone?.()} title="Add bone to selected bone or create a rig root" aria-label="Add bone"><Plus size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.copySelectedBone?.()} title="Duplicate selected bone branch" aria-label="Duplicate bone"><Copy size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.deleteSelectedBone?.()} title="Delete selected bone" aria-label="Delete bone"><Trash2 size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.mirrorSelectedBone?.()} title="Mirror selected bone across X" aria-label="Mirror bone"><Layers size={16}/></button>
+          </div>
+          <div className="rig-tool-group">
+            <span className="rig-tool-group-label">PARENT / CONTROL</span>
+            <button type="button" onClick={() => runtime.current?.setRigParentTarget?.()} title="Set selected object as parent target" aria-label="Set parent target"><Target size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.attachSelectedToRigParent?.()} title="Attach selected object to parent target" aria-label="Attach to parent"><Link2 size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.detachSelectedRigObject?.()} title="Detach selected object" aria-label="Detach"><Unlink size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.toggleSelectedBoneControlHandle?.()} title="Add or remove control handle on selected bone" aria-label="Toggle control handle"><Circle size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.toggleSelectedBoneLock?.()} title="Lock or unlock selected bone" aria-label="Lock bone"><Lock size={16}/></button>
+          </div>
+          <div className="rig-tool-group">
+            <span className="rig-tool-group-label">INVERSE KINEMATICS</span>
+            <button type="button" onClick={() => runtime.current?.createIKTarget?.()} title="Create IK target for selected bone" aria-label="Create IK target"><Target size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.createPoleTarget?.()} title="Create pole target" aria-label="Create pole target"><Aperture size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.solveIK?.(ikChainLength)} title="Solve IK using current target and solver" aria-label="Solve IK"><Check size={16}/></button>
+            <label className="rig-tool-setting" title="IK solver">
+              <span>SOLVER</span>
+              <select value={ikSolver} onChange={event => setIkSolver(event.target.value as 'CCD' | 'FABRIK')} aria-label="IK solver">
+                <option value="CCD">CCD</option><option value="FABRIK">FABRIK</option>
+              </select>
+            </label>
+            <label className="rig-tool-setting" title="IK chain length">
+              <span>CHAIN</span>
+              <input type="number" min="1" max="12" value={ikChainLength} onChange={event => setIkChainLength(Math.max(1,Math.min(12,Number(event.target.value)||1)))} aria-label="IK chain length"/>
+            </label>
+          </div>
+          <div className="rig-tool-group rig-tool-group-footer">
+            <button type="button" onClick={() => setMirrorEnabled(value => !value)} className={mirrorEnabled ? 'active' : ''} title="Toggle live X-axis mirror" aria-label="Toggle mirror X"><Layers size={15}/></button>
+            <button type="button" onClick={() => { const bone = items.find(item => item.object instanceof THREE.Bone)?.object; if (bone) runtime.current?.toggleBoneDisplay?.(bone); else setStatus('No skeleton to show or hide'); }} title="Show or hide skeleton display" aria-label="Toggle skeleton visibility"><Eye size={15}/></button>
+            <button type="button" onClick={() => runtime.current?.refreshRigVisuals?.()} title="Refresh skeleton display" aria-label="Refresh skeleton"><RefreshCw size={15}/></button>
+          </div>
+        </> : <>
+          <div className="rig-tool-group">
+            <span className="rig-tool-group-label">AUTO RIGGING</span>
+            <button type="button" onClick={() => runtime.current?.autoRigSelectedMesh?.()} title="Generate humanoid skeleton and skin weights from selected upright character mesh" aria-label="Generate automatic rig"><Sparkles size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.detectRiggedMeshes?.()} title="Detect skeletons already present in selected character" aria-label="Detect existing rig"><ScanEye size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.bindSelectedMeshToRig?.()} title="Bind selected mesh to existing skeleton" aria-label="Bind mesh to skeleton"><Link2 size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.refreshRigVisuals?.()} title="Refresh skeleton and joint display" aria-label="Refresh rig display"><RefreshCw size={16}/></button>
+          </div>
+          <div className="rig-tool-note">Auto Rig uses a heuristic humanoid bone layout and nearest-bone skin weights. Inspect deformation before production use.</div>
+          <div className="rig-tool-group rig-tool-group-footer">
+            <button type="button" onClick={() => { const bone = items.find(item => item.object instanceof THREE.Bone)?.object; if (bone) runtime.current?.toggleBoneDisplay?.(bone); else setStatus('No skeleton to show or hide'); }} title="Show or hide skeleton display" aria-label="Toggle skeleton visibility"><Eye size={15}/></button>
+            <button type="button" onClick={() => runtime.current?.refreshRigVisuals?.()} title="Refresh rig" aria-label="Refresh rig"><RefreshCw size={15}/></button>
+          </div>
+        </>}
+      </aside>}
+      {riggingView && !rigPanelOpen && <button type="button" className="rig-toolbox-reopen" onClick={() => setRigPanelOpen(true)} title="Show IK Rigging tools" aria-label="Show IK Rigging tools"><GitBranch size={17}/></button>}
 
       {animationMode && animationObjectsOpen && <aside className="animation-objects-panel" aria-label="Animation Objects hierarchy">
         <div className="animation-objects-heading"><div><Layers size={13}/><strong>ANIMATION OBJECTS</strong></div><button type="button" aria-label="Close animation objects" onClick={() => setAnimationObjectsOpen(false)}><X size={13}/></button></div>
