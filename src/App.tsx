@@ -1157,7 +1157,8 @@ export default function App() {
         return false;
       }
 
-      const ownerId = String(owner.userData.editorId || '');
+      if (!owner.userData.editorId) owner.userData.editorId = uid();
+      const ownerId = String(owner.userData.editorId);
       let existingRoot: THREE.Bone | null = null;
       // Pending roots are detached by design, so owner.traverse() cannot find them.
       for (const candidate of selectable) {
