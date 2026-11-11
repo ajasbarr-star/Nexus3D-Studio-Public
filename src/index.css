@@ -1763,3 +1763,20 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   .rig-workspace-actions button { min-width:64px; height:38px; }
 }
 /* Bone joint handle palette: normal gray, active cyan, locked amber, detached violet. */
+
+
+/* Clearer viewport-first rig workflow */
+.rig-auto-intro,.rig-manual-guide { display:flex; flex-direction:column; gap:4px; padding:7px 9px; border:1px solid rgba(50,151,190,.3); border-radius:7px; background:rgba(10,29,44,.72); }
+.rig-auto-intro strong,.rig-manual-guide strong { color:#a8f0ff; font:700 8px 'DM Mono',monospace; letter-spacing:.1em; }
+.rig-auto-intro span,.rig-manual-guide span { color:#a9bfd0; font-size:8px; line-height:1.45; }
+.rig-auto-actions .rig-primary-action,.rig-workspace-actions .rig-primary-action { min-height:43px; border-color:#159fbd; color:#baf6ff; background:linear-gradient(135deg,#10425a,#0b2c42); box-shadow:inset 0 0 0 1px #22c5e522,0 0 13px #00cfff16; }
+.rig-auto-actions .rig-primary-action { flex:1.6 1 150px; }
+.rig-auto-actions button:not(.rig-primary-action) { flex:1 1 95px; }
+.rig-auto-steps { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+.rig-auto-steps div { display:flex; align-items:center; gap:6px; min-height:25px; padding:4px 6px; border-radius:5px; background:rgba(16,36,53,.72); color:#a9bfd0; font-size:7px; }
+.rig-auto-steps b { display:grid; place-items:center; width:16px; height:16px; flex:0 0 16px; border-radius:50%; color:#061722; background:#65dff4; font:800 8px 'DM Mono',monospace; }
+@media (max-width:760px) {
+ .rig-auto-intro span,.rig-manual-guide span { font-size:7px; }
+ .rig-auto-steps { gap:4px; }
+ .rig-auto-steps div { font-size:6px; }
+}
