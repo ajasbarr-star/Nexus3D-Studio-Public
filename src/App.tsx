@@ -403,7 +403,7 @@ export default function App() {
     };
     const onError = (event: ErrorEvent) => {
       const target = event.target as (HTMLElement & { src?: string; href?: string }) | null;
-      const isResourceFailure = Boolean(target && target !== window && (target.tagName === 'SCRIPT' || target.tagName === 'LINK' || target.tagName === 'IMG'));
+      const isResourceFailure = Boolean(target && target.nodeType === 1 && (target.tagName === 'SCRIPT' || target.tagName === 'LINK' || target.tagName === 'IMG'));
       diagnosticSinkRef.current(isResourceFailure ? 'ERROR' : 'ERROR', isResourceFailure ? 'Resource Load' : 'JavaScript',
         isResourceFailure ? 'Failed to load page resource' : (event.message || 'Uncaught runtime error'),
         `${event.filename || target?.getAttribute?.('src') || target?.getAttribute?.('href') || 'unknown source'}:${event.lineno || 0}:${event.colno || 0}${event.error ? '\\n' + formatDetails(event.error) : ''}`);
@@ -426,7 +426,7 @@ export default function App() {
     };
     const onResourceError = (event: Event) => {
       const target = event.target as (HTMLElement & { src?: string; href?: string }) | null;
-      if (!target || target === document || !['SCRIPT','LINK','IMG','VIDEO','AUDIO'].includes(target.tagName)) return;
+      if (!target || target.nodeType !== 1 || !['SCRIPT','LINK','IMG','VIDEO','AUDIO'].includes(target.tagName)) return;
       diagnosticSinkRef.current('ERROR', 'Resource Load', 'Asset or script failed to load',
         target.getAttribute('src') || target.getAttribute('href') || target.tagName);
     };
@@ -465,6 +465,7 @@ export default function App() {
     let frameCount = 0;
     let slowFrames = 0;
     let lastMemoryWarning = 0;
+    let lastResourceWarning = 0;
     const sample = (now: number) => {
       const delta = now - lastFrame;
       if (delta > 100) slowFrames += 1;
@@ -490,7 +491,8 @@ export default function App() {
         if (rendererInfo) {
           const memory = rendererInfo.memory || {};
           const render = rendererInfo.render || {};
-          if ((memory.geometries || 0) > 1200 || (memory.textures || 0) > 350 || (render.calls || 0) > 2200) {
+          if (((memory.geometries || 0) > 1200 || (memory.textures || 0) > 350 || (render.calls || 0) > 2200) && now - lastResourceWarning > 15000) {
+            lastResourceWarning = now;
             diagnosticSinkRef.current('WARN', 'WebGL Resource Monitor', 'High scene rendering/resource load',
               `Geometries: ${memory.geometries || 0} | Textures: ${memory.textures || 0} | Draw calls: ${render.calls || 0} | Triangles: ${render.triangles || 0}`);
           }
