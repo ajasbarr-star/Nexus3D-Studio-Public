@@ -922,7 +922,7 @@ export default function App() {
       setShapeRigPlacementStep('root');
       orbit.enabled = false;
       activeOrbit.enabled = false;
-      setStatus('PLACE ROOT · Tap the selected Shape once');
+      setStatus('Tap the Shape: first tap creates Root, every next tap adds a connected bone');
       return true;
     };
     const addShapeRigChildPlacement = () => {
@@ -984,11 +984,11 @@ export default function App() {
         selectable.push(root);
         shapeRigPlacementRoot = root;
         shapeRigPlacementLast = root;
-        shapeRigPlacementActive = false;
-        orbit.enabled = true;
-        activeOrbit.enabled = true;
-        setShapeRigPlacementStep('child');
-        setStatus('Root created · Locked · Press ADD CHILD to continue');
+        shapeRigPlacementActive = true;
+        orbit.enabled = false;
+        activeOrbit.enabled = false;
+        setShapeRigPlacementStep('placing-child');
+        setStatus('Root placed · Tap again to add a connected bone');
       } else {
         const parent = shapeRigPlacementLast || shapeRigPlacementRoot;
         const bone = new THREE.Bone();
@@ -1002,12 +1002,12 @@ export default function App() {
         if (chain) { chain.bones.push(bone); rebuildRigHelper(chain); chain.helper.update(); chain.helper.visible = true; chain.displayVisible = true; }
         selectable.push(bone);
         shapeRigPlacementLast = bone;
-        shapeRigPlacementActive = false;
-        orbit.enabled = true;
-        activeOrbit.enabled = true;
+        shapeRigPlacementActive = true;
+        orbit.enabled = false;
+        activeOrbit.enabled = false;
         selectObject(bone);
-        setShapeRigPlacementStep('child');
-        setStatus('Child connected · Press ADD CHILD for the next joint');
+        setShapeRigPlacementStep('placing-child');
+        setStatus('Bone connected · Tap again to continue the chain');
       }
       syncItems();
       return true;
@@ -3966,16 +3966,14 @@ export default function App() {
           <div className="rig-tool-note">Auto Rig currently uses a proportion-based humanoid template and heuristic weights. Check the generated joints and deformation before using the character.</div>
         </> : rigTab === 'manual' ? <>
           <div className="rig-manual-guide">
-            <strong>MANUAL · SHAPE RIG</strong>
-            <span>{shapeRigPlacementStep === 'root' ? 'Tap the Shape to place the Root.' : shapeRigPlacementStep === 'placing-child' ? 'Tap the Shape to place one connected child bone.' : shapeRigPlacementStep === 'child' ? 'Root is ready. Add child bones one at a time.' : shapeRigPlacementStep === 'done' ? 'Step 1–2 complete. Bone hierarchy is ready.' : 'Select a Shape, then create its Root and connected child bones.'}</span>
+            <strong>MANUAL RIG</strong>
+            <span>{shapeRigPlacementStep === 'root' ? 'Tap the Shape to place the first bone.' : shapeRigPlacementStep === 'placing-child' ? 'Keep tapping the Shape. Each new bone connects automatically.' : shapeRigPlacementStep === 'child' ? 'Bone placement paused. Press DONE to keep this rig.' : shapeRigPlacementStep === 'done' ? 'Rig created. Select another Shape to start again.' : 'Select a Shape, press START, then tap along the Shape to build a connected bone chain.'}</span>
           </div>
           <div className="rig-workspace-actions shape-rig-compact-actions">
-            <button type="button" className="rig-primary-action" disabled={shapeRigPlacementStep === 'root' || shapeRigPlacementStep === 'placing-child' || shapeRigPlacementStep === 'child'} onClick={() => runtime.current?.startShapeRigPlacement?.()} title="Place the locked Root bone" aria-label="Create Root"><GitBranch size={16}/><span>ROOT</span></button>
-            <button type="button" disabled={shapeRigPlacementStep !== 'child'} onClick={() => runtime.current?.addShapeRigChildPlacement?.()} title="Place one connected child bone" aria-label="Add Child"><Plus size={16}/><span>ADD CHILD</span></button>
-            <button type="button" disabled={shapeRigPlacementStep !== 'child'} onClick={() => runtime.current?.finishShapeRigPlacement?.()} title="Finish manual bone creation" aria-label="Finish"><Check size={16}/><span>FINISH</span></button>
-            <button type="button" disabled={shapeRigPlacementStep === 'idle' || shapeRigPlacementStep === 'done'} onClick={() => runtime.current?.cancelShapeRigPlacement?.()} title="Stop the current placement step" aria-label="Cancel"><X size={16}/></button>
+            <button type="button" className="rig-primary-action" disabled={shapeRigPlacementStep === 'root' || shapeRigPlacementStep === 'placing-child' || shapeRigPlacementStep === 'child'} onClick={() => runtime.current?.startShapeRigPlacement?.()} title="Start placing bones" aria-label="Start"><GitBranch size={16}/><span>START</span></button>
+            <button type="button" disabled={shapeRigPlacementStep !== 'placing-child' && shapeRigPlacementStep !== 'child'} onClick={() => runtime.current?.finishShapeRigPlacement?.()} title="Finish and keep the connected bone chain" aria-label="Done"><Check size={16}/><span>DONE</span></button>
+            <button type="button" disabled={shapeRigPlacementStep !== 'root' && shapeRigPlacementStep !== 'placing-child'} onClick={() => runtime.current?.cancelShapeRigPlacement?.()} title="Stop placing bones" aria-label="Stop"><X size={16}/></button>
           </div>
-          <div className="rig-tool-note">STEP 1 · Root creation  /  STEP 2 · Connected child bones</div>
         </> : <>
           <div className="rig-workspace-actions">
             <button type="button" onClick={() => runtime.current?.createIKTarget?.()} title="Create IK target" aria-label="Create IK target"><Target size={17}/><span>IK Target</span></button>
