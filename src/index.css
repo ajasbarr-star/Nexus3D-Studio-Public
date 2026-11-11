@@ -1898,3 +1898,38 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .rigging-mode .ik-dedicated-viewport.active {
   z-index:1;
 }
+
+
+/* Compact icon-only Manual IK dock: visible only inside the dedicated IK workspace. */
+.ik-tools-dock {
+  position: absolute;
+  z-index: 19;
+  right: 66px;
+  bottom: 38px;
+  width: 204px;
+  padding: 6px;
+  border: 1px solid rgba(75, 190, 224, .34);
+  border-radius: 10px;
+  background: rgba(7, 15, 25, .88);
+  box-shadow: 0 10px 30px rgba(0,0,0,.38), inset 0 1px 0 rgba(190,235,255,.05);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  touch-action: manipulation;
+}
+.ik-tools-head { height: 24px; display:flex; align-items:center; gap:7px; padding:0 2px 5px; color:#9ab4c9; font:800 8px 'DM Mono',monospace; letter-spacing:1px; }
+.ik-tools-indicator { width:6px; height:6px; border-radius:50%; background:#42d9f5; box-shadow:0 0 8px #42d9f5; }
+.ik-tools-collapse { margin-left:auto; width:25px; height:23px; display:grid; place-items:center; border:1px solid rgba(109,161,188,.22); border-radius:5px; color:#a7c6d8; background:rgba(27,48,64,.78); padding:0; }
+.ik-tools-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:4px; }
+.ik-tools-grid button { width:34px; height:34px; min-width:34px; display:grid; place-items:center; padding:0; border:1px solid rgba(105,145,171,.23); border-radius:6px; color:#a9c4d5; background:rgba(25,42,57,.88); }
+.ik-tools-grid button:active, .ik-tools-grid button:focus-visible { outline:none; color:#d9faff; border-color:#35c9eb; background:rgba(18,91,112,.72); box-shadow:0 0 9px rgba(39,205,238,.2); }
+.ik-tools-dock.collapsed { width:104px; }
+.ik-tools-dock.collapsed .ik-tools-head { padding-bottom:0; }
+@media (max-width:760px) {
+  .ik-tools-dock { right:56px; bottom:34px; width:194px; padding:5px; }
+  .ik-tools-grid { gap:3px; }
+  .ik-tools-grid button { width:33px; height:33px; min-width:33px; }
+  .ik-tools-dock.collapsed { width:100px; }
+}
+@media (max-height:520px) {
+  .ik-tools-dock { bottom:29px; transform:scale(.88); transform-origin:bottom right; }
+}
