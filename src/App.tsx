@@ -279,6 +279,11 @@ export default function App() {
   const [coreOptimizerOpen, setCoreOptimizerOpen] = useState(false);
   const [coreOptimizerReport, setCoreOptimizerReport] = useState('Run an analysis to inspect current runtime load.');
   const [coreOptimizerAnalyzed, setCoreOptimizerAnalyzed] = useState(false);
+  const [rdsScanBusy, setRdsScanBusy] = useState(false);
+  const [rdsScanReport, setRdsScanReport] = useState('No full scan has been run yet.');
+  const [rdsScanSummary, setRdsScanSummary] = useState({ checks: 0, passed: 0, warnings: 0, errors: 0 });
+  const [rdsLastScanAt, setRdsLastScanAt] = useState('');
+  const rdsResourceBaselineRef = useRef<{ geometries: number; textures: number; time: number } | null>(null);
   const [menuAccordion, setMenuAccordion] = useState('Project & File');
   const [projectName, setProjectName] = useState('Project.nexus');
   const [saveAccordionOpen, setSaveAccordionOpen] = useState(false);
@@ -3543,6 +3548,82 @@ export default function App() {
     diagnosticSinkRef.current('INFO', 'Core Optimizer', 'Core system analysis completed', report);
     setStatus('Core system analysis completed · no project data changed');
   };
+  const runRdsFullScan = () => {
+    if (rdsScanBusy) return;
+    setRdsScanBusy(true);
+    try {
+      const rt = runtime.current;
+      const scene = rt?.scene as THREE.Scene | undefined;
+      const renderer = rt?.renderer as THREE.WebGLRenderer | undefined;
+      const checks: Array<{ name: string; status: 'PASS' | 'WARN' | 'ERROR'; detail: string }> = [];
+      const add = (name: string, status: 'PASS' | 'WARN' | 'ERROR', detail: string) => checks.push({ name, status, detail });
+      const heap = (performance as Performance & { memory?: { usedJSHeapSize?: number; jsHeapSizeLimit?: number } }).memory;
+      const usedMB = heap?.usedJSHeapSize ? Math.round(heap.usedJSHeapSize / 1048576) : null;
+      const info = renderer?.info;
+      const objects: THREE.Object3D[] = [];
+      if (scene) scene.traverse(object => objects.push(object));
+      const ids = new Map<string, number>();
+      let duplicateIds = 0, invalidTransforms = 0, skinnedMeshes = 0, bones = 0, missingGeometry = 0, missingMaterial = 0;
+      objects.forEach(object => {
+        const id = String(object.userData?.editorId || '');
+        if (id) { ids.set(id, (ids.get(id) || 0) + 1); if ((ids.get(id) || 0) > 1) duplicateIds += 1; }
+        if (![...object.position.toArray(), ...object.rotation.toArray(), ...object.scale.toArray()].every(Number.isFinite)) invalidTransforms += 1;
+        const mesh = object as THREE.Mesh;
+        if (mesh.isSkinnedMesh) skinnedMeshes += 1;
+        if ((object as THREE.Bone).isBone) bones += 1;
+        if (mesh.isMesh && !mesh.geometry) missingGeometry += 1;
+        if (mesh.isMesh && !mesh.material) missingMaterial += 1;
+      });
+      add('Runtime / Main Scene', scene && renderer ? 'PASS' : 'ERROR', scene && renderer ? 'Scene and WebGL renderer are available.' : 'Scene or renderer is not initialized.');
+      add('Viewport & Camera', rt?.camera && rt?.activeCamera && rt?.ikCamera ? 'PASS' : 'WARN', rt?.camera && rt?.activeCamera && rt?.ikCamera ? 'Main, active and IK cameras are registered.' : 'One or more camera references are unavailable.');
+      add('Transform / Orbit Controls', rt?.transform && rt?.orbit && rt?.ikOrbit ? 'PASS' : 'WARN', rt?.transform && rt?.orbit && rt?.ikOrbit ? 'TransformControls and both orbit controllers are registered.' : 'A transform or orbit controller reference is unavailable.');
+      add('Scene Tree Integrity', duplicateIds || invalidTransforms || missingGeometry || missingMaterial ? 'WARN' : 'PASS', `${objects.length} objects; duplicate editor IDs: ${duplicateIds}; invalid transforms: ${invalidTransforms}; meshes without geometry: ${missingGeometry}; meshes without material: ${missingMaterial}.`);
+      add('IK / Rig Inventory', skinnedMeshes || bones ? 'PASS' : 'WARN', `${skinnedMeshes} skinned mesh(es), ${bones} bone(s) currently in scene. No rig was modified.`);
+      add('Modeling / Resource Inventory', info ? 'PASS' : 'WARN', `Geometries: ${info?.memory?.geometries ?? 'unavailable'}; textures: ${info?.memory?.textures ?? 'unavailable'}; draw calls: ${info?.render?.calls ?? 'unavailable'}; triangles: ${info?.render?.triangles ?? 'unavailable'}.`);
+      add('Memory Leak Trend', 'WARN', rdsResourceBaselineRef.current && info ? (() => {
+        const previous = rdsResourceBaselineRef.current!;
+        const geometryDelta = (info.memory.geometries || 0) - previous.geometries;
+        const textureDelta = (info.memory.textures || 0) - previous.textures;
+        return `Since previous scan: geometries ${geometryDelta >= 0 ? '+' : ''}${geometryDelta}, textures ${textureDelta >= 0 ? '+' : ''}${textureDelta}. Growth alone is not proof of a leak.`;
+      })() : 'Baseline recorded. Run another scan after repeated create/delete operations to compare resource counts.');
+      if (info) rdsResourceBaselineRef.current = { geometries: info.memory.geometries || 0, textures: info.memory.textures || 0, time: Date.now() };
+      add('Animation / Keyframe State', 'PASS', `Animation state inventory available; editor reports ${totalKeys} keyframe(s). Deep clip validation requires a project-level animation audit.`);
+      add('Project / Asset Integrity', 'WARN', 'Live scene references were inspected. Saved .nexus archives and external asset contents are not opened or modified by this runtime scan.');
+      add('Offline / Storage', navigator.onLine ? 'PASS' : 'PASS', `Network status: ${navigator.onLine ? 'online' : 'offline'}; localStorage: ${(() => { try { const k='__nexus_rds_probe__'; localStorage.setItem(k,'1'); localStorage.removeItem(k); return 'available'; } catch { return 'unavailable'; } })()}. Offline status does not imply a broken app.`);
+      const gl = renderer?.getContext();
+      const glVersion = gl?.getParameter(gl.VERSION) || 'unavailable';
+      const maxTexture = gl?.getParameter(gl.MAX_TEXTURE_SIZE) || 'unavailable';
+      add('Device / WebGL Capability', gl ? 'PASS' : 'WARN', `WebGL: ${glVersion}; max texture size: ${maxTexture}; DPR: ${window.devicePixelRatio || 1}; heap: ${usedMB === null ? 'not exposed' : usedMB + ' MB'}.`);
+      add('Module API Contract', ['addObject','syncItems','syncViewportControls','setPerformanceMode','createManualRig','solveIK'].every(key => typeof rt?.[key] === 'function') ? 'PASS' : 'WARN', 'Checks registered runtime entry points; this does not statically inspect every source-code call site.');
+      add('Regression Safety', 'PASS', 'Read-only checks only. No transforms, hierarchy, bones, materials, animation, renderer settings or project files were changed.');
+      const errors = checks.filter(item => item.status === 'ERROR').length;
+      const warnings = checks.filter(item => item.status === 'WARN').length;
+      const passed = checks.filter(item => item.status === 'PASS').length;
+      const report = [
+        'NEXUS3D RDS · FULL CORE DIAGNOSTIC REPORT',
+        `Scan time: ${new Date().toLocaleString()}`,
+        `Result: ${errors} error(s) · ${warnings} warning(s) · ${passed} passed`,
+        `Scene objects: ${objects.length} · JS heap: ${usedMB === null ? 'not exposed' : usedMB + ' MB'}`,
+        '',
+        ...checks.map(item => `[${item.status}] ${item.name}\n  ${item.detail}`),
+        '',
+        'LIMITATIONS: This is a runtime integrity scan, not a static source-code analyzer. Native Android process crashes require native Logcat instrumentation. A warning is not automatically a confirmed root cause.'
+      ].join('\\n');
+      setRdsScanReport(report);
+      setRdsScanSummary({ checks: checks.length, passed, warnings, errors });
+      setRdsLastScanAt(new Date().toLocaleTimeString());
+      diagnosticSinkRef.current(errors ? 'ERROR' : warnings ? 'WARN' : 'INFO', 'RDS Full Core Scan', `${errors} error(s), ${warnings} warning(s), ${passed} passed`, report);
+      setStatus(`RDS scan complete · ${errors} error(s), ${warnings} warning(s)`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const report = `RDS scan failed safely: ${message}\\nNo repair or scene mutation was attempted.`;
+      setRdsScanReport(report);
+      diagnosticSinkRef.current('ERROR', 'RDS Scanner', 'Full scan could not complete', message);
+      setStatus('RDS scan failed · diagnostic captured');
+    } finally {
+      setRdsScanBusy(false);
+    }
+  };
   const applyCoreOptimization = () => {
     if (!coreOptimizerAnalyzed) { setStatus('Run Analyze before applying optimization'); return; }
     if (!runtime.current?.setPerformanceMode) { setStatus('Renderer is not ready; optimization was not applied'); return; }
@@ -4482,6 +4563,15 @@ export default function App() {
             {coreOptimizerOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
           </button>
           {coreOptimizerOpen && <section className="diagnostic-panel-expanded" aria-label="Nexus3D Core Optimizer">
+            <div className="menu-subtitle">ADVANCED RDS DIAGNOSTICS</div>
+            <div className="diagnostic-summary"><span>{rdsScanSummary.checks} checks</span><span>{rdsScanSummary.errors} errors</span><span>{rdsScanSummary.warnings} warnings</span></div>
+            <div className="diagnostic-actions core-optimizer-actions">
+              <button type="button" onClick={runRdsFullScan} disabled={rdsScanBusy}><ScanEye size={12}/> {rdsScanBusy ? 'SCANNING…' : 'SCAN ALL MODULES'}</button>
+              <button type="button" onClick={() => void copyDiagnosticText([{ id: 'rds-report', time: rdsLastScanAt || new Date().toLocaleTimeString(), level: rdsScanSummary.errors ? 'ERROR' : rdsScanSummary.warnings ? 'WARN' : 'INFO', source: 'RDS Full Core Scan', message: 'Full scan report', details: rdsScanReport }])} disabled={!rdsLastScanAt}><ClipboardCopy size={12}/> COPY REPORT</button>
+            </div>
+            <pre className="core-optimizer-report">{rdsScanReport}</pre>
+            <div className="menu-info"><Info size={12}/><span>Scans runtime modules, scene hierarchy, transform values, rig inventory, animation inventory, renderer resources, device capabilities, storage availability and registered API entry points. Read-only: no project or scene data is changed. Static source analysis and native Android crash logs are not included.</span></div>
+            <div className="menu-subtitle">CORE PERFORMANCE PROFILE</div>
             <div className="menu-info"><Info size={12}/><span>Analyze first. Safe optimization changes renderer quality only; it never deletes scene objects, meshes, materials, bones, animation, or saved projects.</span></div>
             <div className="diagnostic-actions core-optimizer-actions">
               <button type="button" onClick={analyzeCoreSystem}><Activity size={12}/> ANALYZE</button>
