@@ -555,32 +555,24 @@ export default function App() {
       do { candidate = 'Bone_' + String(index++).padStart(2, '0'); } while (used.has(candidate));
       return candidate;
     };
-    const createOctahedralBoneGeometry = (tail: THREE.Vector3) => {
-      const end = tail.lengthSq() > 1e-8 ? tail.clone() : new THREE.Vector3(0, 0.35, 0);
-      const direction = end.clone().normalize();
-      const reference = Math.abs(direction.y) > 0.92 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
-      const axisA = new THREE.Vector3().crossVectors(direction, reference).normalize();
-      const axisB = new THREE.Vector3().crossVectors(direction, axisA).normalize();
-      const radius = THREE.MathUtils.clamp(end.length() * 0.105, 0.025, 0.085);
-      const middle = end.clone().multiplyScalar(0.5);
-      const ring = [middle.clone().addScaledVector(axisA, radius), middle.clone().addScaledVector(axisB, radius), middle.clone().addScaledVector(axisA, -radius), middle.clone().addScaledVector(axisB, -radius)];
-      const vertices: number[] = [];
-      const triangle = (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3) => vertices.push(...a.toArray(), ...b.toArray(), ...c.toArray());
-      const head = new THREE.Vector3();
-      for (let i = 0; i < 4; i++) { const next = (i + 1) % 4; triangle(head, ring[i], ring[next]); triangle(end, ring[next], ring[i]); }
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-      geometry.computeVertexNormals(); geometry.computeBoundingSphere(); return geometry;
-    };
     const ensureBoneJoint = (bone: THREE.Bone) => {
       const existing = bone.children.find(child => child.userData.nexusJointVisual) as THREE.Mesh | undefined;
-      const childBone = bone.children.find(child => child instanceof THREE.Bone) as THREE.Bone | undefined;
-      const tail = childBone ? childBone.position.clone() : new THREE.Vector3(0, 0.35, 0);
-      if (existing && existing.userData.nexusBoneVisual) { existing.geometry.dispose(); existing.geometry = createOctahedralBoneGeometry(tail); existing.userData.nexusBoneOwnerId = String(bone.userData.editorId || ''); const handle = bone.children.find(child => child.userData.rigControlMarker); if (handle) handle.position.copy(tail); return; }
-      if (existing) { bone.remove(existing); existing.geometry?.dispose(); const oldMaterial = existing.material; if (Array.isArray(oldMaterial)) oldMaterial.forEach(material => material.dispose()); else (oldMaterial as THREE.Material | undefined)?.dispose(); }
-      const color = bone.userData.locked ? '#ffb52e' : bone.userData.detached ? '#b56bdb' : '#aeb9c4';
-      const visual = new THREE.Mesh(createOctahedralBoneGeometry(tail), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, depthTest: true, transparent: true, opacity: 0.96 }));
-      visual.name = bone.name + ' Octahedral Bone'; visual.userData.nexusJointVisual = true; visual.userData.nexusBoneVisual = true; visual.userData.nexusBoneOwnerId = String(bone.userData.editorId || ''); visual.renderOrder = 18; bone.add(visual);
+      if (existing) {
+        existing.geometry = existing.geometry instanceof THREE.SphereGeometry ? existing.geometry : new THREE.SphereGeometry(0.035, 12, 10);
+        existing.name = bone.name + ' Joint';
+        existing.userData.nexusBoneVisual = true;
+        existing.userData.nexusBoneOwnerId = String(bone.userData.editorId || '');
+        return;
+      }
+      const color = bone.userData.locked ? '#778391' : bone.userData.detached ? '#b56bdb' : '#39c98a';
+      const joint = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 10), new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.96 }));
+      joint.name = bone.name + ' Joint';
+      joint.userData.nexusJointVisual = true;
+      joint.userData.nexusBoneVisual = true;
+      joint.userData.nexusBoneOwnerId = String(bone.userData.editorId || '');
+      joint.renderOrder = 18;
+      joint.raycast = () => {};
+      bone.add(joint);
     };
     const refreshJointColors = (active?: THREE.Object3D) => {
       selectable.forEach(object => {
@@ -624,7 +616,7 @@ export default function App() {
         else oldMaterial?.dispose();
       }
       const helper = new THREE.SkeletonHelper(root);
-      helper.name = root.name + ' Skeleton'; helper.visible = false;
+      helper.name = root.name + ' Skeleton';
       styleSkeletonHelper(helper, chain.bones);
       helper.visible = false;
       scene.add(helper);
@@ -1037,7 +1029,7 @@ export default function App() {
         bone.userData.controlHandle = false;
         setStatus('Control Handle removed from ' + bone.name);
       } else {
-        const marker = new THREE.Mesh(new THREE.OctahedronGeometry(0.075, 0), new THREE.MeshBasicMaterial({ color: '#00d9ff', depthTest: false, transparent: true, opacity: 0.98 }));
+        const marker = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), new THREE.MeshBasicMaterial({ color: '#00d9ff', depthTest: false, transparent: true, opacity: 0.98 }));
         const childBone = bone.children.find(child => child instanceof THREE.Bone) as THREE.Bone | undefined;
         if (childBone) marker.position.copy(childBone.position);
         marker.name = bone.name + ' Control Handle'; marker.userData.rigControlMarker = true; marker.userData.editorId = uid(); marker.userData.kind = 'Control Handle'; marker.userData.controlLocked = false; marker.renderOrder = 20;
@@ -1082,7 +1074,7 @@ export default function App() {
       }
       const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) bones.push(node as THREE.Bone); });
       scene.add(rig);
-      const helper = new THREE.SkeletonHelper(root); helper.name = rig.name + ' Skeleton'; helper.visible = false;
+      const helper = new THREE.SkeletonHelper(root); helper.name = rig.name + ' Skeleton';
       styleSkeletonHelper(helper, bones); scene.add(helper);
       selectable.push(rig, ...bones); rigChains.push({ bones, helper, target: null });
       syncItems(); selectObject(root); setStatus('Humanoid bone hierarchy created · Mirror X ready'); return rig;
