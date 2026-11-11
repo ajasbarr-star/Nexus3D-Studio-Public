@@ -4239,74 +4239,7 @@ export default function App() {
         <button className={'rail-btn rig-rail-btn ' + (riggingView ? 'active' : '')} onClick={toggleRiggingWorkspace} title={riggingView ? 'Return to User Workspace' : 'Switch to IK Rigging Workspace · Front Perspective'} aria-label="Rigging workspace"><GitBranch size={17}/><span>{riggingView ? 'USER' : 'RIG'}</span></button>
       </div>
 
-      {riggingView && rigPanelOpen && <aside className="rig-toolbox rig-workspace" aria-label="IK Rigging workspace">
-        <div className="rig-toolbox-head">
-          <div className="rig-toolbox-title"><GitBranch size={14}/><strong>RIG WORKSPACE</strong></div>
-          <div className="rig-toolbox-tabs">
-            <button type="button" className="active" aria-label="Manual rigging" title="Manual rigging · Steps 1–2"><GitBranch size={15}/><small>MANUAL</small></button>
-          </div>
-          <button type="button" className="rig-toolbox-close" onClick={() => setRigPanelOpen(false)} title="Collapse workspace" aria-label="Collapse workspace"><X size={14}/></button>
-        </div>
-        {rigTab === 'auto' ? <>
-          <div className="rig-auto-intro">
-            <strong>ONE-TAP HUMANOID RIG</strong>
-            <span>Select an upright character mesh in the Scene Tree. AUTO RIG creates the skeleton and assigns initial skin weights in one operation.</span>
-          </div>
-          <div className="rig-workspace-actions rig-auto-actions">
-            <button type="button" className="rig-primary-action" onClick={() => runtime.current?.autoRigSelectedMesh?.()} title="Generate humanoid bones and initial skin weights" aria-label="Auto rig character"><Sparkles size={19}/><span>AUTO RIG + BIND</span></button>
-            <button type="button" onClick={() => runtime.current?.detectRiggedMeshes?.()} title="Find an existing skeleton in the selected character" aria-label="Detect existing rig"><ScanEye size={17}/><span>Detect Existing Rig</span></button>
-          </div>
-          <div className="rig-auto-steps">
-            <div><b>1</b><span>Detect body proportions</span></div>
-            <div><b>2</b><span>Generate humanoid bones</span></div>
-            <div><b>3</b><span>Assign initial skin weights</span></div>
-            <div><b>4</b><span>Inspect and refine in MANUAL</span></div>
-          </div>
-          <div className="rig-tool-group">
-            <span className="rig-tool-group-label">WEIGHT REFINEMENT · AFTER AUTO RIG</span>
-            <button type="button" onClick={() => runtime.current?.normalizeSelectedSkinWeights?.()} title="Normalize skin weights" aria-label="Normalize weights"><Check size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.smoothSelectedSkinWeights?.()} title="Smooth skin weights" aria-label="Smooth weights"><Waves size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.refreshRigVisuals?.()} title="Refresh skeleton display" aria-label="Refresh rig"><RefreshCw size={16}/></button>
-          </div>
-          <div className="rig-tool-note">Auto Rig currently uses a proportion-based humanoid template and heuristic weights. Check the generated joints and deformation before using the character.</div>
-        </> : rigTab === 'manual' ? <>
-          <div className="rig-manual-guide">
-            <strong>MANUAL RIG</strong>
-            <span>Select a Shape and press ROOT to create an independent bone in Scene Root. Select a Root Bone and press CHILD to extend its hierarchy. Drag Shapes onto bones in Scene Tree to parent or unparent them.</span>
-          </div>
-          <div className="rig-workspace-actions shape-rig-compact-actions">
-            <button type="button" className="rig-primary-action" onClick={() => runtime.current?.addUniversalBone?.('root')} title="Create or select the single Manual Shape Rig Root Bone" aria-label="Create Root Bone"><GitBranch size={16}/><span>ROOT</span></button>
-            <button type="button" onClick={() => runtime.current?.addUniversalBone?.('child')} title="Add a connected Child Bone under the selected Manual Rig Bone" aria-label="Add Child Bone"><Plus size={16}/><span>CHILD</span></button>
-          </div>
-          <div className="rig-workspace-actions shape-rig-compact-actions">
-            <button type="button" onClick={() => runtime.current?.setRigParentTarget?.()} title="Select the intended parent Bone, Shape, or Character first" aria-label="Set Parent"><GitMerge size={15}/><span>SET PARENT</span></button>
-            <button type="button" onClick={() => runtime.current?.attachSelectedToRigParent?.()} title="Select the child Bone or Shape after setting its parent" aria-label="Parent selected"><CornerDownRight size={15}/><span>PARENT</span></button>
-            <button type="button" onClick={() => runtime.current?.detachSelectedRigObject?.()} title="Unparent selected Bone or Shape while preserving world position" aria-label="Unparent selected"><Unlink size={15}/><span>UNPARENT</span></button>
-          </div>
-          <div className="rig-workspace-actions shape-rig-bind-actions">
-            <button type="button" className="rig-primary-action" onClick={() => runtime.current?.bindSelectedMeshToRig?.()} title="Bind the selected Shape to the Manual Shape Rig and assign normalized starter weights" aria-label="Bind Shape to Skeleton"><Link2 size={16}/><span>BIND SHAPE · AUTO WEIGHTS</span></button>
-          </div>
-          <div className="rig-tool-note">Parent workflow: select the parent Shape/Character or Bone → SET PARENT → select the child Bone/Shape → PARENT. UNPARENT returns the selection to its parent level. Parenting does not automatically skin-bind a mesh.</div>
-        </> : <>
-          <div className="rig-workspace-actions">
-            <button type="button" onClick={() => runtime.current?.createIKTarget?.()} title="Create IK target" aria-label="Create IK target"><Target size={17}/><span>IK Target</span></button>
-            <button type="button" onClick={() => runtime.current?.createPoleTarget?.()} title="Create pole target" aria-label="Create pole target"><Aperture size={17}/><span>Pole</span></button>
-            <button type="button" onClick={() => runtime.current?.solveIK?.(ikChainLength)} title="Solve selected IK chain" aria-label="Solve IK"><Check size={17}/><span>Solve IK</span></button>
-          </div>
-          <div className="rig-tool-group">
-            <label className="rig-tool-setting"><span>SOLVER</span><select value={ikSolver} onChange={event => setIkSolver(event.target.value as 'CCD' | 'FABRIK')} aria-label="IK solver"><option value="CCD">CCD</option><option value="FABRIK">FABRIK</option></select></label>
-            <label className="rig-tool-setting"><span>CHAIN</span><input type="number" min="1" max="12" value={ikChainLength} onChange={event => setIkChainLength(Math.max(1,Math.min(12,Number(event.target.value)||1)))} aria-label="IK chain length"/></label>
-            <label className="rig-tool-setting"><span>LIMIT°</span><input type="number" min="1" max="180" value={jointLimitDegrees} onChange={event => setJointLimitDegrees(Math.max(1,Math.min(180,Number(event.target.value)||1)))} aria-label="Joint rotation limit"/></label>
-          </div>
-          <div className="rig-tool-note">Select a bone, create an IK Target, then solve the chain. Move or rotate the target in the viewport.</div>
-        </>}
-        <div className="rig-tool-group rig-tool-group-footer">
-          <button type="button" onClick={() => { const bone = items.find(item => item.object instanceof THREE.Bone)?.object; if (bone) runtime.current?.toggleBoneDisplay?.(bone); else setStatus('No skeleton to show or hide'); }} title="Show or hide skeleton" aria-label="Toggle skeleton visibility"><Eye size={15}/></button>
-          <button type="button" onClick={() => setMirrorEnabled(value => !value)} className={mirrorEnabled ? 'active' : ''} title="Toggle X-axis mirror" aria-label="Toggle mirror X"><Layers size={15}/></button>
-          <button type="button" onClick={() => runtime.current?.refreshRigVisuals?.()} title="Refresh rig" aria-label="Refresh rig"><RefreshCw size={15}/></button>
-        </div>
-      </aside>}
-      {riggingView && !rigPanelOpen && <button type="button" className="rig-toolbox-reopen" onClick={() => setRigPanelOpen(true)} title="Show IK Rigging tools" aria-label="Show IK Rigging tools"><GitBranch size={17}/></button>}
+      
 
       {animationMode && animationObjectsOpen && <aside className="animation-objects-panel" aria-label="Animation Objects hierarchy">
         <div className="animation-objects-heading"><div><Layers size={13}/><strong>ANIMATION OBJECTS</strong></div><button type="button" aria-label="Close animation objects" onClick={() => setAnimationObjectsOpen(false)}><X size={13}/></button></div>
