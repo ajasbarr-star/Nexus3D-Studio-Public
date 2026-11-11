@@ -2362,35 +2362,38 @@ export default function App() {
       selection.lastQuaternion.copy(subObjectPivot.quaternion);
       selection.lastScale.copy(subObjectPivot.scale);
     });
-    transform.addEventListener('dragging-changed', (event: any) => {
-      syncViewportControls(Boolean(event.value));
-      if (event.value) {
-        const object = transform.object;
-        if (object === subObjectPivot && activeSubSelection) subGeometryBefore = activeSubSelection.mesh.geometry.clone();
-        else transformBefore = object ? { object, state: snapshot(object) } : null;
-      } else {
-        if (subGeometryBefore && activeSubSelection) {
-          const mesh = activeSubSelection.mesh;
-          const beforeGeometry = subGeometryBefore.clone();
-          const afterGeometry = mesh.geometry.clone();
-          if (beforeGeometry.getAttribute('position').count !== afterGeometry.getAttribute('position').count || beforeGeometry.getAttribute('position').array.some((value: number, index: number) => value !== afterGeometry.getAttribute('position').array[index])) {
-            recordSceneAction({ label: 'Move sub-object ' + mesh.name, undo: () => { mesh.geometry.dispose(); mesh.geometry = beforeGeometry.clone(); mesh.geometry.computeVertexNormals(); }, redo: () => { mesh.geometry.dispose(); mesh.geometry = afterGeometry.clone(); mesh.geometry.computeVertexNormals(); } });
-          } else beforeGeometry.dispose();
-          subGeometryBefore.dispose(); subGeometryBefore = null;
-        }
-        // Vertex/Edge gizmo edits update the live mesh; refresh the working geometry
-        // so the next Face tool starts from those exact positions.
-        const editedMesh = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
-        if (editedMesh instanceof THREE.Mesh) {
-          editBaseGeometry.current?.dispose();
-          editBaseGeometry.current = editedMesh.geometry.clone();
-        }
-        if (transformBefore) {
-          const before = transformBefore;
-          const after = snapshot(before.object);
-          if (JSON.stringify(before.state) !== JSON.stringify(after)) recordSceneAction({ label: 'Transform ' + before.object.name, undo: () => { applySnapshot(before.object, before.state); selectObject(before.object); }, redo: () => { applySnapshot(before.object, after); selectObject(before.object); } });
-          transformBefore = null;
-        }
+    // Three.js r172 TransformControls emits mouseDown/mouseUp, not
+    // dragging-changed. Use its real events so orbit is disabled only while a
+    // gizmo drag is active, and transform snapshots are captured consistently.
+    transform.addEventListener('mouseDown', () => {
+      syncViewportControls(true);
+      const object = transform.object;
+      if (object === subObjectPivot && activeSubSelection) subGeometryBefore = activeSubSelection.mesh.geometry.clone();
+      else transformBefore = object ? { object, state: snapshot(object) } : null;
+    });
+    transform.addEventListener('mouseUp', () => {
+      syncViewportControls(false);
+      if (subGeometryBefore && activeSubSelection) {
+        const mesh = activeSubSelection.mesh;
+        const beforeGeometry = subGeometryBefore.clone();
+        const afterGeometry = mesh.geometry.clone();
+        if (beforeGeometry.getAttribute('position').count !== afterGeometry.getAttribute('position').count || beforeGeometry.getAttribute('position').array.some((value: number, index: number) => value !== afterGeometry.getAttribute('position').array[index])) {
+          recordSceneAction({ label: 'Move sub-object ' + mesh.name, undo: () => { mesh.geometry.dispose(); mesh.geometry = beforeGeometry.clone(); mesh.geometry.computeVertexNormals(); }, redo: () => { mesh.geometry.dispose(); mesh.geometry = afterGeometry.clone(); mesh.geometry.computeVertexNormals(); } });
+        } else beforeGeometry.dispose();
+        subGeometryBefore.dispose(); subGeometryBefore = null;
+      }
+      // Vertex/Edge gizmo edits update the live mesh; refresh the working geometry
+      // so the next Face tool starts from those exact positions.
+      const editedMesh = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
+      if (editedMesh instanceof THREE.Mesh) {
+        editBaseGeometry.current?.dispose();
+        editBaseGeometry.current = editedMesh.geometry.clone();
+      }
+      if (transformBefore) {
+        const before = transformBefore;
+        const after = snapshot(before.object);
+        if (JSON.stringify(before.state) !== JSON.stringify(after)) recordSceneAction({ label: 'Transform ' + before.object.name, undo: () => { applySnapshot(before.object, before.state); selectObject(before.object); }, redo: () => { applySnapshot(before.object, after); selectObject(before.object); } });
+        transformBefore = null;
       }
     });
     const resize = () => {
