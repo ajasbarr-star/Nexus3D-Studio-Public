@@ -1164,7 +1164,7 @@ export default function App() {
         if (!rootBone.userData.shapeRig) { setStatus('Select a Manual Shape Rig bone to add a child'); return false; }
         const child = new THREE.Bone();
         child.name = nextManualBoneName();
-        const chain = rigChains.find(entry => entry.bones.includes(rootBone));
+        let chain = rigChains.find(entry => entry.bones.includes(rootBone));
         const rigOwner = chain?.owner || (rootBone.parent instanceof THREE.Bone ? null : rootBone.parent);
         let segmentLength = Number(selectedObject.userData.segmentLength) || 0;
         if (!segmentLength && rigOwner) {
