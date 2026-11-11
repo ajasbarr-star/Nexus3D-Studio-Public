@@ -1021,7 +1021,18 @@ export default function App() {
     };
     const addUniversalBone = (mode: 'root' | 'child' | 'auto' = 'auto') => {
       const selectedObject = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
-      if (mode === 'child' && !(selectedObject instanceof THREE.Bone)) { setStatus('Select a Root or Child Bone first'); return false; }
+      if (mode === 'child' && !(selectedObject instanceof THREE.Bone)) { setStatus('Select the Root Bone or an existing Child Bone first'); return false; }
+      if (mode === 'root') {
+        const existingRoot = rigChains
+          .filter(entry => entry.shapeRig)
+          .flatMap(entry => entry.bones)
+          .find(bone => bone.userData.rigRole === 'root' && bone.userData.shapeRig);
+        if (existingRoot) {
+          selectObject(existingRoot);
+          setStatus('Only one Root Bone is allowed · Select it and use CHILD for every next bone');
+          return existingRoot;
+        }
+      }
       if (mode !== 'root' && selectedObject instanceof THREE.Bone) {
         let rootBone: THREE.Bone = selectedObject;
         while (rootBone.parent instanceof THREE.Bone) rootBone = rootBone.parent;
@@ -1050,7 +1061,7 @@ export default function App() {
         return child;
       }
       const root = new THREE.Bone();
-      root.name = 'Root Bone ' + (rigChains.filter(entry => entry.shapeRig).length + 1);
+      root.name = 'Root Bone';
       root.userData.editorId = uid(); root.userData.kind = 'Bone'; root.userData.rigRole = 'root';
       root.userData.locked = true; root.userData.shapeRig = true;
       if (selectedObject) {
