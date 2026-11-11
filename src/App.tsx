@@ -4410,7 +4410,7 @@ export default function App() {
             while (parent) { if (parent.userData.editorId) depth += 1; parent = parent.parent; }
             const hasChildren = items.some(other => other.object.parent === item.object);
             return <div key={item.id} data-tree-id={item.id} className={'tree-row ' + (selected === item.id ? 'selected' : '') + (dragTargetId === item.id ? ' drop-target' : '')}
-              draggable={true}
+              draggable={!('ontouchstart' in window)}
               onDragStart={e => { e.dataTransfer.setData('text/nexus3d-object', item.id); e.dataTransfer.effectAllowed = 'move'; }}
               onDragOver={e => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragTargetId(item.id); }}
               onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragTargetId(''); }}
@@ -4479,7 +4479,7 @@ export default function App() {
                 touchDragOrigin.current = null;
                 setDragTargetId('');
               }}>
-              <button className={'tree-item ' + (selected === item.id ? 'selected' : '')} style={{ paddingLeft: 5 + depth * 12 }} onClick={() => { if (!cameraView) runtime.current?.selectObject(item.object); }} disabled={cameraView}>
+              <button className={'tree-item ' + (selected === item.id ? 'selected' : '')} style={{ paddingLeft: 5 + depth * 12 }} onClick={() => { if (!cameraView) { runtime.current?.selectObject(item.object); setSelected(item.id); } }} disabled={cameraView}>
                 {hasChildren ? <span className="tree-expand" onClick={e => { e.stopPropagation(); setExpanded(prev => ({ ...prev, [item.id]: prev[item.id] === false })); }}>{expanded[item.id] === false ? <ChevronRight size={11} /> : <ChevronDown size={11} />}</span> : <span className="tree-expand empty" />}
                 {item.kind === 'Sphere' ? <Circle size={13} /> : item.kind === 'Cylinder' ? <Cylinder size={13} /> : item.kind === 'Cone' ? <Cone size={13} /> : item.kind === 'Torus' ? <Circle size={13} /> : item.kind === 'Camera' ? <Film size={13} /> : <Box size={13} />}
                 <span className="tree-name">{item.name}</span>{selected === item.id && <span className="tree-selected-dot" />}
