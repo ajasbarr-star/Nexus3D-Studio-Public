@@ -406,6 +406,9 @@ export default function App() {
     const ikRenderer = renderer;
     const ikOrbit = new OrbitControls(ikCamera, renderer.domElement);
     const ikTransform = new TransformControls(ikCamera, renderer.domElement);
+    // The Main and IK controls share one physical canvas. Keep only the active
+    // viewport's TransformControls connected to DOM pointer events.
+    ikTransform.disconnect();
     ikTransform.size = 1.05;
     ikTransform.enabled = false;
     ikTransform.getHelper().visible = false;
@@ -918,6 +921,7 @@ export default function App() {
       if (String(obj?.userData?.editorId || '') !== selectedRef.current) clearTopologyOverlay();
       if (!obj) {
         transform.detach();
+        transform.enabled = false;
         ikTransform?.detach();
         if (ikTransform) { ikTransform.enabled = false; ikTransform.getHelper().visible = false; }
         transform.getHelper().visible = false;
@@ -3148,6 +3152,9 @@ export default function App() {
         r.orbit.enabled = false;
         r.activeOrbit.enabled = false;
         r.riggingView = true;
+        // Prevent two TransformControls instances from listening to the same canvas.
+        r.transform.disconnect();
+        r.ikTransform.connect(r.renderer.domElement);
         const ikHost = ikHostRef.current;
         if (!ikHost) throw new Error('IK viewport host is unavailable');
         if (r.renderer.domElement.parentNode !== ikHost) ikHost.appendChild(r.renderer.domElement);
@@ -3158,6 +3165,10 @@ export default function App() {
         r.ikTransform.getHelper().visible = Boolean(selectedRef.current);
         r.ikTransform.setMode(modeRef.current);
         r.ikTransform.setSpace(spaceRef.current);
+        // Re-apply selection after switching the active camera/controller so the
+        // IK gizmo is attached to the current Scene Tree item, never a stale target.
+        const activeRigSelection = r.selectable.find((object: THREE.Object3D) => String(object.userData.editorId) === selectedRef.current);
+        r.selectObject(activeRigSelection);
         r.transform.enabled = false;
         const helper = r.transform.getHelper?.();
         if (helper) helper.visible = false;
@@ -3175,6 +3186,8 @@ export default function App() {
       } catch (error) {
         r.riggingView = false;
         r.ikOrbit.enabled = false;
+        r.ikTransform.disconnect();
+        r.transform.connect(r.renderer.domElement);
         r.orbit.enabled = true;
         const mainHost = hostRef.current;
         if (mainHost && r.renderer.domElement.parentNode !== mainHost) mainHost.appendChild(r.renderer.domElement);
@@ -3188,6 +3201,8 @@ export default function App() {
     } else {
       r.riggingView = false;
       r.ikOrbit.enabled = false;
+      r.ikTransform.disconnect();
+      r.transform.connect(r.renderer.domElement);
       const mainHost = hostRef.current;
       if (mainHost && r.renderer.domElement.parentNode !== mainHost) mainHost.appendChild(r.renderer.domElement);
       if (mainHost) {
@@ -3198,6 +3213,8 @@ export default function App() {
       r.orbit.enabled = true;
       r.ikTransform.enabled = false;
       r.ikTransform.getHelper().visible = false;
+      const mainSelection = r.selectable.find((object: THREE.Object3D) => String(object.userData.editorId) === selectedRef.current);
+      r.selectObject(mainSelection);
       r.transform.enabled = Boolean(selectedRef.current) && editModeRef.current === 'Object';
       const helper = r.transform.getHelper?.();
       if (helper) helper.visible = Boolean(selectedRef.current);
