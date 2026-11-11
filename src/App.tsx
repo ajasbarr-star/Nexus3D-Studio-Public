@@ -8,6 +8,11 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
+import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
+import { BVHLoader } from 'three/examples/jsm/loaders/BVHLoader.js';
+import { VRMLoaderPlugin } from '@pixiv/three-vrm';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import JSZip from 'jszip';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -3180,12 +3185,12 @@ export default function App() {
     try {
       setStatus('Extracting model ZIP…');
       const zip = await JSZip.loadAsync(archive);
-      const supported = /\.(glb|gltf|obj|fbx)$/i;
+      const supported = /\.(glb|gltf|obj|fbx|dae|stl|ply|vrm|bvh)$/i;
       const entries = Object.values(zip.files).filter((entry: any) => !entry.dir && supported.test(entry.name));
-      if (!entries.length) throw new Error('ZIP contains no GLB, GLTF, OBJ or FBX model');
+      if (!entries.length) throw new Error('ZIP contains no supported 3D model (GLB, GLTF, OBJ, FBX, DAE, STL, PLY, VRM or BVH)');
       // Prefer a GLB, then GLTF, then OBJ; prefer the shallowest path when there are multiple assets.
       entries.sort((a: any, b: any) => {
-        const rank = (name: string) => /\.glb$/i.test(name) ? 0 : /\.gltf$/i.test(name) ? 1 : /\.fbx$/i.test(name) ? 2 : 3;
+        const rank = (name: string) => /\.glb$/i.test(name) ? 0 : /\.gltf$/i.test(name) ? 1 : /\.vrm$/i.test(name) ? 2 : /\.fbx$/i.test(name) ? 3 : /\.dae$/i.test(name) ? 4 : /\.obj$/i.test(name) ? 5 : /\.ply$/i.test(name) ? 6 : /\.stl$/i.test(name) ? 7 : 8;
         return rank(a.name) - rank(b.name) || a.name.split('/').length - b.name.split('/').length;
       });
       const primary: any = entries[0];
@@ -3212,6 +3217,8 @@ export default function App() {
     const objectUrls: string[] = [];
     try {
       let object: THREE.Object3D;
+      let importedAnimations: THREE.AnimationClip[] = [];
+      const extension = file.name.split('.').pop()?.toLowerCase() || '';
       const allFiles = [file, ...companionFiles];
       const fileMap = new Map<string, File>();
       allFiles.forEach(asset => {
@@ -3231,7 +3238,7 @@ export default function App() {
         objectUrls.push(blobUrl);
         return blobUrl;
       });
-      if (file.name.toLowerCase().endsWith('.obj')) {
+      if (extension === 'obj') {
         const materialFile = companionFiles.find(asset => asset.name.toLowerCase().endsWith('.mtl'));
         const objLoader = new OBJLoader(manager);
         if (materialFile) {
@@ -3240,17 +3247,50 @@ export default function App() {
           objLoader.setMaterials(materials);
         }
         object = objLoader.parse(await file.text());
-      } else if (file.name.toLowerCase().endsWith('.gltf') || file.name.toLowerCase().endsWith('.glb')) {
+      } else if (extension === 'gltf' || extension === 'glb' || extension === 'vrm') {
         const buffer = await file.arrayBuffer();
-        object = await new Promise<THREE.Object3D>((resolve, reject) => new GLTFLoader(manager).parse(buffer, primaryDirectory, gltf => resolve(gltf.scene), reject));
-      } else if (file.name.toLowerCase().endsWith('.fbx')) {
+        const loader = new GLTFLoader(manager);
+        if (extension === 'vrm') loader.register(parser => new VRMLoaderPlugin(parser));
+        const gltf = await new Promise<any>((resolve, reject) => loader.parse(buffer, primaryDirectory, resolve, reject));
+        object = gltf.scene;
+        importedAnimations = gltf.animations || [];
+        if (gltf.userData?.vrm) object.userData.nexusVRM = gltf.userData.vrm;
+      } else if (extension === 'fbx') {
         const buffer = await file.arrayBuffer();
         object = new FBXLoader(manager).parse(buffer, primaryDirectory);
+        importedAnimations = (object as any).animations || [];
+      } else if (extension === 'dae') {
+        const collada = new ColladaLoader(manager).parse(await file.text(), primaryDirectory);
+        object = collada.scene;
+        importedAnimations = collada.animations || [];
+      } else if (extension === 'stl' || extension === 'ply') {
+        const buffer = await file.arrayBuffer();
+        const geometry = extension === 'stl' ? new STLLoader(manager).parse(buffer) : new PLYLoader(manager).parse(buffer);
+        if (!geometry.getAttribute('normal')) geometry.computeVertexNormals();
+        const hasColors = Boolean(geometry.getAttribute('color'));
+        const material = new THREE.MeshStandardMaterial({ color: hasColors ? 0xffffff : 0xb8c5d6, roughness: 0.72, metalness: 0.08, vertexColors: hasColors });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.name = file.name.replace(/\.(stl|ply)$/i, '') || 'Imported Geometry';
+        object = new THREE.Group();
+        object.add(mesh);
+      } else if (extension === 'bvh') {
+        const bvh = new BVHLoader().parse(await file.text());
+        const rootBone = bvh.skeleton.bones[0];
+        if (!rootBone) throw new Error('BVH file does not contain a skeleton root');
+        object = new THREE.Group();
+        object.name = 'BVH Skeleton';
+        object.add(rootBone);
+        const helper = new THREE.SkeletonHelper(rootBone);
+        helper.name = 'BVH Bone Display';
+        object.add(helper);
+        importedAnimations = bvh.clip ? [bvh.clip] : [];
+        object.userData.nexusBVHSkeleton = true;
       } else {
-        setStatus('Unsupported model format. Choose GLB, GLTF, OBJ or FBX.');
+        setStatus('Unsupported model format. Choose GLB, GLTF, OBJ, FBX, DAE, STL, PLY, VRM or BVH.');
         return;
       }
-      object.name = file.name.replace(/\.(gltf|glb|obj|fbx)$/i, '') || 'Imported Model';
+      object.userData.nexusAnimationClips = importedAnimations;
+      object.name = file.name.replace(/\.(gltf|glb|obj|fbx|dae|stl|ply|vrm|bvh)$/i, '') || 'Imported Model';
       const importedNodes: THREE.Object3D[] = [];
       object.traverse((node: any) => {
         if (!node.userData.editorId) node.userData.editorId = uid();
@@ -3591,7 +3631,7 @@ export default function App() {
               <button className="menu-option" onClick={() => { void chooseProjectZip(); }}><FolderOpen size={13} /><span>Import Project ZIP</span></button>
               <input ref={projectZipFileRef} type="file" accept=".zip,application/zip" hidden onChange={e => { void chooseProjectZip(e.target.files?.[0]); e.currentTarget.value = ''; }} />
               <input ref={projectFileRef} type="file" accept=".nexus,.json,application/json" hidden onChange={e => { handleProjectFile(e.target.files?.[0]); e.currentTarget.value = ''; }} />
-              <input ref={modelFileRef} type="file" multiple accept=".zip,application/zip,.gltf,.glb,.obj,.mtl,.bin,.png,.jpg,.jpeg,.webp,.ktx2,.fbx,model/gltf+json,model/gltf-binary,text/plain,image/*" hidden onChange={e => { const files = Array.from(e.target.files || []); const archive = files.find(file => /\.zip$/i.test(file.name)); const primary = files.find(file => /\.(gltf|glb|obj|fbx)$/i.test(file.name)); if (archive) void importModelArchive(archive); else if (primary) void importModel(primary, files.filter(file => file !== primary)); else setStatus('Select a ZIP archive, or one GLB/GLTF/OBJ/FBX model with its companion files.'); e.currentTarget.value = ''; }} />
+              <input ref={modelFileRef} type="file" multiple accept=".zip,application/zip,.gltf,.glb,.obj,.mtl,.bin,.png,.jpg,.jpeg,.webp,.ktx2,.fbx,.dae,.stl,.ply,.vrm,.bvh,model/gltf+json,model/gltf-binary,text/plain,image/*" hidden onChange={e => { const files = Array.from(e.target.files || []); const archive = files.find(file => /\.zip$/i.test(file.name)); const primary = files.find(file => /\.(gltf|glb|obj|fbx|dae|stl|ply|vrm|bvh)$/i.test(file.name)); if (archive) void importModelArchive(archive); else if (primary) void importModel(primary, files.filter(file => file !== primary)); else setStatus('Select a ZIP archive, or one supported 3D model with its companion files.'); e.currentTarget.value = ''; }} />
             </>}
             {category.title === 'Editor Settings & Preferences' && <>
               <button className="menu-option" onClick={setAxisSpace}><Globe size={13} /><span>Toggle World / Local</span></button>
