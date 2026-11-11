@@ -37,6 +37,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Run RDS source audit and regression tests
+        run: npm run verify:rds
+
       - name: Build bundled Nexus3D editor
         run: npm run build
 
