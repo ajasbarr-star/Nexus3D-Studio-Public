@@ -237,20 +237,31 @@ export default function App() {
   const [diagnosticFilter, setDiagnosticFilter] = useState<'ALL' | 'ERROR' | 'WARN' | 'INFO'>('ALL');
   const [diagnosticPanelOpen, setDiagnosticPanelOpen] = useState(false);
   const diagnosticSinkRef = useRef<(level: DiagnosticEntry['level'], source: string, message: string, details?: string) => void>(() => {});
+  const diagnosticQueueRef = useRef<DiagnosticEntry[]>([]);
   const pushDiagnostic = (level: DiagnosticEntry['level'], source: string, message: string, details?: string) => {
-    const entry: DiagnosticEntry = { id: uid(), time: new Date().toLocaleTimeString(), level, source, message: String(message).slice(0, 1200), details: details ? String(details).slice(0, 5000) : undefined };
-    setDiagnosticLogs(previous => {
-      const next = [...previous.slice(-399), entry];
-      // Persist the rolling log so recent diagnostics survive a WebView reload/relaunch.
-      try { localStorage.setItem('nexus3d_realtime_diagnostics_v1', JSON.stringify(next)); } catch { /* storage may be unavailable or full */ }
-      return next;
-    });
+    // Capture immediately; UI state and localStorage are flushed in small batches.
+    diagnosticQueueRef.current.push({ id: uid(), time: new Date().toLocaleTimeString(), level, source, message: String(message).slice(0, 1200), details: details ? String(details).slice(0, 5000) : undefined });
+    if (diagnosticQueueRef.current.length > 100) diagnosticQueueRef.current.splice(0, diagnosticQueueRef.current.length - 100);
   };
   const clearDiagnosticLogs = () => {
+    diagnosticQueueRef.current = [];
     setDiagnosticLogs([]);
     try { localStorage.removeItem('nexus3d_realtime_diagnostics_v1'); } catch { /* ignore unavailable storage */ }
   };
   diagnosticSinkRef.current = pushDiagnostic;
+  useEffect(() => {
+    const flush = () => {
+      if (!diagnosticQueueRef.current.length) return;
+      const batch = diagnosticQueueRef.current.splice(0, 100);
+      setDiagnosticLogs(previous => {
+        const next = [...previous, ...batch].slice(-400);
+        try { localStorage.setItem('nexus3d_realtime_diagnostics_v1', JSON.stringify(next)); } catch { /* storage may be unavailable or full */ }
+        return next;
+      });
+    };
+    const timer = window.setInterval(flush, 180);
+    return () => { window.clearInterval(timer); flush(); };
+  }, []);
   const copyDiagnosticText = async (entries: DiagnosticEntry[]) => {
     const report = entries.map(entry => `[${entry.time}] [${entry.level}] [${entry.source}] ${entry.message}${entry.details ? '\\n' + entry.details : ''}`).join('\\n\\n');
     try {
@@ -265,6 +276,9 @@ export default function App() {
   const visibleDiagnosticLogs = diagnosticFilter === 'ALL' ? diagnosticLogs : diagnosticLogs.filter(entry => entry.level === diagnosticFilter);
   const [maintenanceBusy, setMaintenanceBusy] = useState(false);
   const [performanceMode, setPerformanceMode] = useState(false);
+  const [coreOptimizerOpen, setCoreOptimizerOpen] = useState(false);
+  const [coreOptimizerReport, setCoreOptimizerReport] = useState('Run an analysis to inspect current runtime load.');
+  const [coreOptimizerAnalyzed, setCoreOptimizerAnalyzed] = useState(false);
   const [menuAccordion, setMenuAccordion] = useState('Project & File');
   const [projectName, setProjectName] = useState('Project.nexus');
   const [saveAccordionOpen, setSaveAccordionOpen] = useState(false);
@@ -472,56 +486,32 @@ export default function App() {
     };
   }, []);
 
-  // Independent monitor: continues while the diagnostics panel is collapsed.
+  // Event-driven fault capture plus low-overhead periodic health sampling.
   useEffect(() => {
-    let raf = 0;
-    let windowStart = performance.now();
-    let lastFrame = windowStart;
-    let frameCount = 0;
-    let slowFrames = 0;
     let lastMemoryWarning = 0;
     let lastResourceWarning = 0;
-    const sample = (now: number) => {
-      const delta = now - lastFrame;
-      if (delta > 100) slowFrames += 1;
-      frameCount += 1;
-      lastFrame = now;
-      const elapsed = now - windowStart;
-      if (elapsed >= 5000) {
-        const fps = Math.round((frameCount * 1000) / Math.max(elapsed, 1));
-        if (fps < 24 || slowFrames >= 6) {
-          diagnosticSinkRef.current('WARN', 'Performance Monitor',
-            fps < 18 ? 'Severe frame-rate drop detected' : 'Frame-rate instability detected',
-            `Average FPS: ${fps} | Frames over 100ms: ${slowFrames} | Window: ${Math.round(elapsed)}ms`);
-        }
-        const perfMemory = (performance as Performance & { memory?: { usedJSHeapSize?: number; jsHeapSizeLimit?: number } }).memory;
-        const usedMB = perfMemory?.usedJSHeapSize ? Math.round(perfMemory.usedJSHeapSize / 1048576) : null;
-        const heapLimitMB = perfMemory?.jsHeapSizeLimit ? Math.round(perfMemory.jsHeapSizeLimit / 1048576) : null;
-        if (usedMB !== null && usedMB >= 400 && now - lastMemoryWarning > 15000) {
-          lastMemoryWarning = now;
-          diagnosticSinkRef.current('WARN', 'Memory Monitor', 'JavaScript heap usage is high',
-            `Used heap: ${usedMB}MB${heapLimitMB ? ` / ${heapLimitMB}MB` : ''}`);
-        }
-        const rendererInfo = (runtime.current as any)?.renderer?.info;
-        if (rendererInfo) {
-          const memory = rendererInfo.memory || {};
-          const render = rendererInfo.render || {};
-          if (((memory.geometries || 0) > 1200 || (memory.textures || 0) > 350 || (render.calls || 0) > 2200) && now - lastResourceWarning > 15000) {
-            lastResourceWarning = now;
-            diagnosticSinkRef.current('WARN', 'WebGL Resource Monitor', 'High scene rendering/resource load',
-              `Geometries: ${memory.geometries || 0} | Textures: ${memory.textures || 0} | Draw calls: ${render.calls || 0} | Triangles: ${render.triangles || 0}`);
-          }
-        }
-        windowStart = now;
-        frameCount = 0;
-        slowFrames = 0;
+    const sample = () => {
+      if (document.visibilityState === 'hidden') return;
+      const now = performance.now();
+      const heap = (performance as Performance & { memory?: { usedJSHeapSize?: number; jsHeapSizeLimit?: number } }).memory;
+      const usedMB = heap?.usedJSHeapSize ? Math.round(heap.usedJSHeapSize / 1048576) : null;
+      const limitMB = heap?.jsHeapSizeLimit ? Math.round(heap.jsHeapSizeLimit / 1048576) : null;
+      if (usedMB !== null && usedMB >= 400 && now - lastMemoryWarning > 20000) {
+        lastMemoryWarning = now;
+        diagnosticSinkRef.current('WARN', 'Memory Monitor', 'JavaScript heap usage is high', `Used heap: ${usedMB}MB${limitMB ? ` / ${limitMB}MB` : ''}`);
       }
-      raf = requestAnimationFrame(sample);
+      const info = (runtime.current as any)?.renderer?.info;
+      if (info) {
+        const memory = info.memory || {}; const render = info.render || {};
+        if (((memory.geometries || 0) > 1200 || (memory.textures || 0) > 350 || (render.calls || 0) > 2200) && now - lastResourceWarning > 20000) {
+          lastResourceWarning = now;
+          diagnosticSinkRef.current('WARN', 'WebGL Resource Monitor', 'High scene rendering/resource load', `Geometries: ${memory.geometries || 0} | Textures: ${memory.textures || 0} | Draw calls: ${render.calls || 0} | Triangles: ${render.triangles || 0}`);
+        }
+      }
     };
-    diagnosticSinkRef.current('INFO', 'Diagnostic Monitor', 'Realtime monitoring started',
-      'Monitoring frame rate, long tasks, JavaScript heap (when supported), WebGL resources, runtime errors and failed resources.');
-    raf = requestAnimationFrame(sample);
-    return () => cancelAnimationFrame(raf);
+    diagnosticSinkRef.current('INFO', 'Diagnostic Monitor', 'Low-overhead realtime monitoring started', 'Runtime faults are event-driven; memory and WebGL load are sampled every 5 seconds. No extra animation-frame loop is used.');
+    const timer = window.setInterval(sample, 5000);
+    return () => window.clearInterval(timer);
   }, []);
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { spaceRef.current = space; }, [space]);
@@ -3527,6 +3517,41 @@ export default function App() {
     setSettings(prev => ({ ...prev, [key]: value }));
     runtime.current?.applySettings(key, value);
   };
+
+  const analyzeCoreSystem = () => {
+    const renderer = runtime.current?.renderer;
+    const info = renderer?.info;
+    const heap = (performance as Performance & { memory?: { usedJSHeapSize?: number; jsHeapSizeLimit?: number } }).memory;
+    const usedMB = heap?.usedJSHeapSize ? Math.round(heap.usedJSHeapSize / 1048576) : null;
+    let objects = 0;
+    runtime.current?.scene?.traverse(() => { objects += 1; });
+    const report = [
+      'CORE SYSTEM ANALYSIS',
+      `Scene objects: ${objects}`,
+      `Geometries: ${info?.memory?.geometries ?? 'unavailable'}`,
+      `Textures: ${info?.memory?.textures ?? 'unavailable'}`,
+      `Last render calls: ${info?.render?.calls ?? 'unavailable'}`,
+      `Triangles: ${info?.render?.triangles ?? 'unavailable'}`,
+      `JS heap: ${usedMB === null ? 'not exposed by this WebView' : usedMB + ' MB'}`,
+      `Device pixel ratio: ${window.devicePixelRatio || 1}`,
+      `Performance mode: ${performanceMode ? 'ON' : 'OFF'}`,
+      '',
+      'Read-only analysis. No scene or project data was changed.'
+    ].join('\\n');
+    setCoreOptimizerReport(report);
+    setCoreOptimizerAnalyzed(true);
+    diagnosticSinkRef.current('INFO', 'Core Optimizer', 'Core system analysis completed', report);
+    setStatus('Core system analysis completed · no project data changed');
+  };
+  const applyCoreOptimization = () => {
+    if (!coreOptimizerAnalyzed) { setStatus('Run Analyze before applying optimization'); return; }
+    if (!runtime.current?.setPerformanceMode) { setStatus('Renderer is not ready; optimization was not applied'); return; }
+    runtime.current.setPerformanceMode(true);
+    setPerformanceMode(true);
+    setCoreOptimizerReport(previous => previous + '\\n\\nSAFE OPTIMIZATION APPLIED\\nRenderer pixel ratio reduced and real-time shadows disabled. Scene and project data were preserved.');
+    diagnosticSinkRef.current('INFO', 'Core Optimizer', 'Safe performance profile applied', 'Renderer pixel ratio capped at 1.15 and real-time shadows disabled. No scene resources were disposed.');
+    setStatus('Safe Core Optimization applied · scene data preserved');
+  };
   const clearNexusCache = async () => {
     if (!Capacitor.isNativePlatform()) {
       setStatus('Clear Cache is available in the installed Android APK only');
@@ -4449,6 +4474,22 @@ export default function App() {
                         <div className="menu-info"><Info size={12}/><span>Live capture stays active even when this panel is collapsed. Monitors JavaScript errors, rejected promises, failed resources, relevant console warnings, WebGL context events, main-thread stalls, FPS drops, memory and WebGL load, plus Nexus3D viewport-control state. Native Android process crashes may not leave a JavaScript log. Maximum 400 recent entries.</span></div>
           
                         </section>}
+        </section>
+        <section className="menu-category core-optimizer-section">
+          <button type="button" className={'menu-option diagnostic-toggle-button ' + (coreOptimizerOpen ? 'expanded' : '')}
+            aria-expanded={coreOptimizerOpen} onClick={() => setCoreOptimizerOpen(open => !open)}>
+            <Gauge size={13}/><span>NEXUS3D CORE OPTIMIZER</span>
+            {coreOptimizerOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
+          </button>
+          {coreOptimizerOpen && <section className="diagnostic-panel-expanded" aria-label="Nexus3D Core Optimizer">
+            <div className="menu-info"><Info size={12}/><span>Analyze first. Safe optimization changes renderer quality only; it never deletes scene objects, meshes, materials, bones, animation, or saved projects.</span></div>
+            <div className="diagnostic-actions core-optimizer-actions">
+              <button type="button" onClick={analyzeCoreSystem}><Activity size={12}/> ANALYZE</button>
+              <button type="button" onClick={applyCoreOptimization} disabled={!coreOptimizerAnalyzed || performanceMode}><Gauge size={12}/> APPLY SAFE</button>
+              <button type="button" onClick={() => { setCoreOptimizerReport('Run an analysis to inspect current runtime load.'); setCoreOptimizerAnalyzed(false); }}><RefreshCw size={12}/> RESET</button>
+            </div>
+            <pre className="core-optimizer-report">{coreOptimizerReport}</pre>
+          </section>}
         </section>
         {menuCategories.map(category => <section className="menu-category" key={category.title}>
           <button className={'menu-category-button ' + (menuAccordion === category.title ? 'expanded' : '')} onClick={() => setMenuAccordion(menuAccordion === category.title ? '' : category.title)}>
