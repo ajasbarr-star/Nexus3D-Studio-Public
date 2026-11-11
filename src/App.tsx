@@ -807,7 +807,7 @@ export default function App() {
       if (!(obj instanceof THREE.Bone)) return toggleVisibility(obj);
       const chain = rigChains.find(entry => entry.bones.includes(obj));
       if (!chain) { setStatus('No skeleton display group found for this bone'); return; }
-      chain.displayVisible = chain.displayVisible === false;
+      chain.displayVisible = chain.displayVisible === false ? true : false;
       chain.helper.visible = chain.displayVisible;
       chain.bones.forEach(bone => {
         const joint = bone.children.find(child => child.userData.nexusJointVisual);
