@@ -626,7 +626,7 @@ export default function App() {
       const helper = new THREE.SkeletonHelper(root);
       helper.name = root.name + ' Skeleton'; helper.visible = false;
       styleSkeletonHelper(helper, chain.bones);
-      helper.visible = chain.displayVisible !== false;
+      helper.visible = false;
       scene.add(helper);
       chain.helper = helper;
     };
@@ -925,7 +925,7 @@ export default function App() {
       const root = parentBone || new THREE.Bone();
       if (!parentBone) {
         root.name = 'Universal Rig ' + (rigChains.length + 1);
-        root.userData.editorId = uid(); root.userData.kind = 'Rig';
+        root.userData.editorId = uid(); root.userData.kind = 'Rig'; root.userData.locked = true; root.userData.rigRole = 'root';
         if (selectedObject) { selectedObject.updateWorldMatrix(true, false); root.position.copy(selectedObject.getWorldPosition(new THREE.Vector3())); }
         scene.add(root);
         if (selectedObject) { scene.updateMatrixWorld(true); selectedObject.attach(root); }
@@ -1065,6 +1065,7 @@ export default function App() {
         if (parent) parent.add(bone); else rig.add(bone); ensureBoneJoint(bone); if (parent) ensureBoneJoint(parent); return bone;
       };
       const root = makeBone('Root', null, [0,0,0]);
+      root.userData.locked = true; root.userData.rigRole = 'root'; ensureBoneJoint(root);
       const hips = makeBone('Hips', root, [0,0.9,0]);
       const spine = makeBone('Spine', hips, [0,0.28,0]);
       const chest = makeBone('Chest', spine, [0,0.38,0]);
@@ -1100,7 +1101,7 @@ export default function App() {
       const cloneTree = (original: THREE.Bone, parent: THREE.Object3D): THREE.Bone => {
         const clone = new THREE.Bone(); clone.name = mirrorBoneName(original.name); mirrorTransform(original,clone);
         clone.userData = { ...original.userData, editorId: uid(), kind: 'Bone', mirroredFrom: original.userData.editorId };
-        parent.add(clone); selectable.push(clone);
+        parent.add(clone); ensureBoneJoint(clone); if (parent instanceof THREE.Bone) ensureBoneJoint(parent); selectable.push(clone);
         original.children.filter(child => child instanceof THREE.Bone).forEach(child => cloneTree(child as THREE.Bone,clone));
         return clone;
       };
@@ -1858,7 +1859,11 @@ export default function App() {
     let transformBefore: { object: THREE.Object3D; state: TransformSnapshot } | null = null;
     transform.addEventListener('objectChange', () => {
       if (!activeSubSelection || transform.object !== subObjectPivot) {
-        if (transform.object) { transform.object.updateMatrixWorld(true); setItems(prev => [...prev]); }
+        if (transform.object) {
+          transform.object.updateMatrixWorld(true);
+          if (transform.object instanceof THREE.Bone) refreshRigVisuals();
+          setItems(prev => [...prev]);
+        }
         return;
       }
       const selection = activeSubSelection;
