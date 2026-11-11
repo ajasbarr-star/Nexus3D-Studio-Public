@@ -23,6 +23,7 @@ import {
   Film, Lightbulb, X, Check, Eye, EyeOff, Search, ChevronDown, ChevronRight, Download,
   Save, FolderOpen, FileJson, Settings2, Info, Keyboard, Sun, Flashlight, Palette, Upload,
   Sparkles, Waves, Aperture, SlidersHorizontal, CloudFog, ScanEye, Lock, Unlock, Scissors, GitBranch,
+  Plus, Target, Link2, Unlink, RefreshCw,
 } from 'lucide-react';
 import './index.css';
 
