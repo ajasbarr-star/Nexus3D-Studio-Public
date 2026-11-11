@@ -1696,3 +1696,44 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   .rigging-mode .hierarchy-panel { left:4px !important; top:48px !important; bottom:46px !important; width:132px !important; max-width:34vw !important; }
   .rigging-mode .quick-access-panel.inspector-panel { right:4px !important; top:48px !important; bottom:46px !important; width:132px !important; max-width:34vw !important; }
 }
+
+
+/* Compact, icon-only IK Rigging toolbox. */
+.rig-toolbox {
+  position:fixed; z-index:72; left:50%; bottom:54px; transform:translateX(-50%);
+  width:min(520px,calc(100vw - 310px)); min-width:230px; max-height:42vh; overflow:auto;
+  display:flex; flex-direction:column; gap:7px; padding:8px;
+  color:#d9efff; background:rgba(5,14,26,.95); border:1px solid rgba(46,170,210,.48);
+  border-radius:11px; box-shadow:0 10px 30px #0009,0 0 18px #00bfe51a; backdrop-filter:blur(14px);
+}
+.rig-toolbox-head { display:flex; align-items:center; gap:8px; min-height:28px; }
+.rig-toolbox-title { display:flex; align-items:center; gap:6px; margin-right:auto; color:#a9efff; font:700 9px 'DM Mono',monospace; letter-spacing:.12em; }
+.rig-toolbox-tabs { display:flex; gap:4px; }
+.rig-toolbox button {
+  width:34px; min-width:34px; height:32px; min-height:32px; display:grid; place-items:center;
+  padding:0; border:1px solid #29465e; border-radius:6px; color:#c9e5f6; background:#102337;
+}
+.rig-toolbox button.active,.rig-toolbox-tabs button.active {
+  border-color:#1aa8ca; color:#a5f2ff; background:#10394d; box-shadow:0 0 10px #00cfff24;
+}
+.rig-toolbox .rig-toolbox-close { width:28px; min-width:28px; height:28px; min-height:28px; }
+.rig-tool-group { display:flex; align-items:center; flex-wrap:wrap; gap:5px; padding-top:6px; border-top:1px solid rgba(83,132,160,.2); }
+.rig-tool-group-label { width:100%; color:#7197b1; font:700 7px 'DM Mono',monospace; letter-spacing:.13em; }
+.rig-tool-group-footer { justify-content:flex-end; }
+.rig-tool-setting { display:flex; align-items:center; gap:5px; min-height:30px; padding:0 5px; border:1px solid #29465e; border-radius:6px; color:#89abc1; font:700 7px 'DM Mono',monospace; }
+.rig-tool-setting select,.rig-tool-setting input {
+  width:58px; min-width:0; height:24px; padding:0 4px; color:#d9efff; background:#091a2a;
+  border:1px solid #29465e; border-radius:4px; font-size:9px;
+}
+.rig-tool-setting input { width:38px; }
+.rig-tool-note { color:#9bb8cb; font-size:8px; line-height:1.45; padding:2px 4px; }
+.rig-toolbox-reopen {
+  position:fixed; z-index:72; left:50%; bottom:8px; transform:translateX(-50%);
+  width:40px; height:36px; display:grid; place-items:center; border:1px solid #1688a9;
+  border-radius:8px; color:#a8f4ff; background:rgba(8,34,49,.96); box-shadow:0 5px 18px #0008;
+}
+@media (max-width:760px) {
+  .rig-toolbox { bottom:48px; width:calc(100vw - 285px); min-width:190px; max-height:38vh; padding:6px; gap:5px; }
+  .rig-toolbox button { width:30px; min-width:30px; height:29px; min-height:29px; }
+  .rig-tool-setting { min-height:27px; }
+}
