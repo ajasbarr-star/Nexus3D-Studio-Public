@@ -2273,7 +2273,7 @@ export default function App() {
       activeOrbit.dispose();
       ikOrbit?.dispose();
       ikRenderer?.dispose();
-      if (ikRenderer?.domElement.parentNode === ikHost) ikHost.removeChild(ikRenderer.domElement);
+      if (ikHost && ikRenderer && ikRenderer.domElement.parentNode === ikHost) ikHost.removeChild(ikRenderer.domElement);
       transform.dispose();
       subObjectPivot.parent?.remove(subObjectPivot);
       clearSubObjectHighlight();
@@ -2880,7 +2880,7 @@ export default function App() {
     } else {
       r.riggingView = false;
       r.ikOrbit.enabled = false;
-      r.transform.enabled = editModeRef.current === 'Object';
+      r.transform.enabled = Boolean(selectedRef.current) && editModeRef.current === 'Object';
       const helper = r.transform.getHelper?.();
       if (helper) helper.visible = Boolean(selectedRef.current);
       setRiggingView(false);
