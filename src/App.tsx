@@ -3150,6 +3150,37 @@ export default function App() {
     setStatus('New project created');
     setMenuOpen(false);
   };
+  const importModelArchive = async (archive?: File) => {
+    if (!archive || !runtime.current?.scene) return;
+    try {
+      setStatus('Extracting model ZIP…');
+      const zip = await JSZip.loadAsync(archive);
+      const supported = /\.(glb|gltf|obj)$/i;
+      const entries = Object.values(zip.files).filter((entry: any) => !entry.dir && supported.test(entry.name));
+      if (!entries.length) throw new Error('ZIP contains no GLB, GLTF or OBJ model');
+      // Prefer a GLB, then GLTF, then OBJ; prefer the shallowest path when there are multiple assets.
+      entries.sort((a: any, b: any) => {
+        const rank = (name: string) => /\.glb$/i.test(name) ? 0 : /\.gltf$/i.test(name) ? 1 : 2;
+        return rank(a.name) - rank(b.name) || a.name.split('/').length - b.name.split('/').length;
+      });
+      const primary: any = entries[0];
+      const extracted: File[] = [];
+      for (const entry of Object.values(zip.files) as any[]) {
+        if (entry.dir) continue;
+        const blob = await entry.async('blob');
+        const file = new File([blob], entry.name.split('/').pop() || entry.name, { type: blob.type || 'application/octet-stream' });
+        Object.defineProperty(file, 'webkitRelativePath', { value: entry.name, configurable: true });
+        extracted.push(file);
+      }
+      const main = extracted.find(file => (file as any).webkitRelativePath === primary.name);
+      if (!main) throw new Error('Could not extract the main model file');
+      await importModel(main, extracted.filter(file => file !== main));
+      setStatus('ZIP MODEL IMPORTED · ' + primary.name);
+    } catch (error) {
+      console.error('Nexus3D model ZIP import failed:', error);
+      setStatus('MODEL ZIP IMPORT FAILED: ZIP must contain a valid GLB, GLTF or OBJ and its companion files');
+    }
+  };
   const importModel = async (file?: File, companionFiles: File[] = []) => {
     if (!file || !runtime.current?.scene) return;
     const r = runtime.current;
@@ -3158,11 +3189,18 @@ export default function App() {
       let object: THREE.Object3D;
       const allFiles = [file, ...companionFiles];
       const fileMap = new Map<string, File>();
-      allFiles.forEach(asset => { fileMap.set(asset.name.toLowerCase(), asset); fileMap.set(asset.name.split('/').pop()!.toLowerCase(), asset); });
+      allFiles.forEach(asset => {
+        const relativePath = ((asset as any).webkitRelativePath || asset.name).replace(/\\/g, '/').toLowerCase();
+        fileMap.set(relativePath, asset);
+        fileMap.set(asset.name.toLowerCase(), asset);
+        fileMap.set(relativePath.split('/').pop() || asset.name.toLowerCase(), asset);
+      });
+      const primaryPath = ((file as any).webkitRelativePath || file.name).replace(/\\/g, '/').toLowerCase();
+      const primaryDirectory = primaryPath.includes('/') ? primaryPath.slice(0, primaryPath.lastIndexOf('/') + 1) : '';
       const manager = new THREE.LoadingManager();
       manager.setURLModifier((url: string) => {
-        const clean = decodeURIComponent(url.split(/[?#]/)[0]).replace(/\\/g, '/').toLowerCase();
-        const match = fileMap.get(clean) || fileMap.get(clean.split('/').pop() || '');
+        const clean = decodeURIComponent(url.split(/[?#]/)[0]).replace(/\\/g, '/').replace(/^\.\//, '').toLowerCase();
+        const match = fileMap.get(clean) || fileMap.get((primaryDirectory + clean).replace(/\/+/g, '/')) || fileMap.get(clean.split('/').pop() || '');
         if (!match) return url;
         const blobUrl = URL.createObjectURL(match);
         objectUrls.push(blobUrl);
@@ -3179,7 +3217,7 @@ export default function App() {
         object = objLoader.parse(await file.text());
       } else if (file.name.toLowerCase().endsWith('.gltf') || file.name.toLowerCase().endsWith('.glb')) {
         const buffer = await file.arrayBuffer();
-        object = await new Promise<THREE.Object3D>((resolve, reject) => new GLTFLoader(manager).parse(buffer, '', gltf => resolve(gltf.scene), reject));
+        object = await new Promise<THREE.Object3D>((resolve, reject) => new GLTFLoader(manager).parse(buffer, primaryDirectory, gltf => resolve(gltf.scene), reject));
       } else {
         setStatus('This browser build supports OBJ, GLTF and GLB import. FBX is not enabled yet.');
         return;
@@ -3191,7 +3229,6 @@ export default function App() {
         node.userData.kind = node === object ? 'Imported Model' : node.isBone ? 'Bone' : node.isMesh ? 'Mesh' : 'GLTF Node';
         importedNodes.push(node);
         if (node.isMesh && node.geometry) {
-          // Preserve indexed topology and shared vertex references from GLTF; do not flatten to non-indexed triangles.
           node.geometry.computeVertexNormals();
           node.geometry.computeBoundingBox();
           node.geometry.computeBoundingSphere();
@@ -3208,7 +3245,8 @@ export default function App() {
       console.error('Nexus3D model import failed:', error);
       setStatus('Model import failed. Check the model and its companion BIN/MTL/texture files.');
     } finally {
-      objectUrls.forEach(url => URL.revokeObjectURL(url));
+      // Keep dependency object URLs alive while the loaded textures finish decoding.
+      window.setTimeout(() => objectUrls.forEach(url => URL.revokeObjectURL(url)), 30000);
     }
   };
   const exportProjectZip = async () => {
@@ -3519,13 +3557,13 @@ export default function App() {
               <button className="menu-option" onClick={() => setSaveAccordionOpen(v => !v)}><Save size={13} /><span>Save Project</span>{saveAccordionOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}</button>
               {saveAccordionOpen && <div className="project-save-inline"><label htmlFor="nexus-project-name">Project Name</label><input id="nexus-project-name" value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="Project.nexus" /><button className="menu-option save-inline-action" onClick={saveProject}><Save size={12}/><span>[ SAVE ]</span></button></div>}
               <button className="menu-option" onClick={loadProject}><FolderOpen size={13} /><span>Load Project File</span></button>
-              <button className="menu-option" onClick={() => modelFileRef.current?.click()}><Upload size={13} /><span>Import 3D Model</span></button>
+              <button className="menu-option" onClick={() => modelFileRef.current?.click()}><Upload size={13} /><span>Import 3D Model / ZIP</span></button>
               <button className="menu-option" onClick={exportProject}><Download size={13} /><span>Export Scene JSON</span></button>
               <button className="menu-option" onClick={() => { void exportProjectZip(); }}><Download size={13} /><span>Export Project ZIP</span></button>
               <button className="menu-option" onClick={() => { void chooseProjectZip(); }}><FolderOpen size={13} /><span>Import Project ZIP</span></button>
               <input ref={projectZipFileRef} type="file" accept=".zip,application/zip" hidden onChange={e => { void chooseProjectZip(e.target.files?.[0]); e.currentTarget.value = ''; }} />
               <input ref={projectFileRef} type="file" accept=".nexus,.json,application/json" hidden onChange={e => { handleProjectFile(e.target.files?.[0]); e.currentTarget.value = ''; }} />
-              <input ref={modelFileRef} type="file" multiple accept=".gltf,.glb,.obj,.mtl,.bin,.png,.jpg,.jpeg,.webp,.ktx2,.fbx,model/gltf+json,model/gltf-binary,text/plain,image/*" hidden onChange={e => { const files = Array.from(e.target.files || []); const primary = files.find(file => /\.(gltf|glb|obj|fbx)$/i.test(file.name)); if (primary) void importModel(primary, files.filter(file => file !== primary)); else setStatus('Select one GLB, GLTF or OBJ model together with its companion files.'); e.currentTarget.value = ''; }} />
+              <input ref={modelFileRef} type="file" multiple accept=".zip,application/zip,.gltf,.glb,.obj,.mtl,.bin,.png,.jpg,.jpeg,.webp,.ktx2,.fbx,model/gltf+json,model/gltf-binary,text/plain,image/*" hidden onChange={e => { const files = Array.from(e.target.files || []); const archive = files.find(file => /\.zip$/i.test(file.name)); const primary = files.find(file => /\.(gltf|glb|obj|fbx)$/i.test(file.name)); if (archive) void importModelArchive(archive); else if (primary) void importModel(primary, files.filter(file => file !== primary)); else setStatus('Select a ZIP archive, or one GLB/GLTF/OBJ model with its companion files.'); e.currentTarget.value = ''; }} />
             </>}
             {category.title === 'Editor Settings & Preferences' && <>
               <button className="menu-option" onClick={setAxisSpace}><Globe size={13} /><span>Toggle World / Local</span></button>
