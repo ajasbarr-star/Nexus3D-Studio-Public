@@ -1299,7 +1299,7 @@ export default function App() {
         const values = [weights.getX(i), weights.getY(i), weights.getZ(i), weights.getW(i)];
         const total = values.reduce((sum, value) => sum + Math.max(0, value), 0);
         if (total <= 1e-8) weights.setXYZW(i, 1, 0, 0, 0);
-        else weights.setXYZW(i, ...values.map(value => Math.max(0, value) / total) as [number, number, number, number]);
+        else weights.setXYZW(i, Math.max(0, values[0]) / total, Math.max(0, values[1]) / total, Math.max(0, values[2]) / total, Math.max(0, values[3]) / total);
       }
       weights.needsUpdate = true; mesh.geometry.computeBoundingSphere();
       setStatus('Skin weights normalized across all vertices'); return true;
