@@ -1188,7 +1188,7 @@ export default function App() {
           const helper = new THREE.SkeletonHelper(rootBone);
           helper.name = rootBone.name + ' Skeleton'; helper.visible = true;
           styleSkeletonHelper(helper, bones); scene.add(helper);
-          chain = { bones, helper, target: null, displayVisible: true, shapeRig: true }; rigChains.push(chain);
+          chain = { bones, helper, target: null, displayVisible: true, shapeRig: true, owner: rigOwner }; rigChains.push(chain);
         } else {
           if (!chain.bones.includes(child)) chain.bones.push(child);
           rebuildRigHelper(chain); chain.helper.visible = true; chain.displayVisible = true;
