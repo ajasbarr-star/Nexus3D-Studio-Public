@@ -4376,7 +4376,6 @@ export default function App() {
                 if (touchDragTimer.current) clearTimeout(touchDragTimer.current);
                 touchDragTimer.current = null;
                 const wasDragging = touchDragActive.current;
-                const wasTap = Boolean(touchDragOrigin.current) && !wasDragging;
                 touchDragActive.current = false;
                 touchDragOrigin.current = null;
                 const touch = e.changedTouches[0];
@@ -4385,16 +4384,10 @@ export default function App() {
                 touchDragId.current = '';
                 touchPoint.current = null;
                 setDragTargetId('');
-                // Android touch taps must select the row explicitly. Pointer/click
-                // events can be swallowed by the long-press drag gesture on mobile.
-                // A scroll clears touchDragOrigin, so scrolling never selects or reparents.
-                if (!wasDragging) {
-                  if (wasTap && !cameraView) {
-                    setSelected(item.id);
-                    runtime.current?.selectObject(item.object);
-                  }
-                  return;
-                }
+                // Tap selection is handled in onTouchEndCapture on the button,
+                // before this row-level handler clears the touch origin. This handler
+                // is reserved for completed long-press drag gestures.
+                if (!wasDragging) return;
                 if (!point || !childId) return;
                 const rootHit = document.elementFromPoint(point.x, point.y)?.closest('.tree-root');
                 const hit = document.elementFromPoint(point.x, point.y)?.closest('[data-tree-id]') as HTMLElement | null;
@@ -4419,7 +4412,7 @@ export default function App() {
                 touchDragOrigin.current = null;
                 setDragTargetId('');
               }}>
-              <button className={'tree-item ' + (selected === item.id ? 'selected' : '')} style={{ paddingLeft: 5 + depth * 12 }} onPointerDown={e => { e.stopPropagation(); if (!cameraView) { setSelected(item.id); runtime.current?.selectObject(item.object); } }} onClick={e => { e.stopPropagation(); if (!cameraView) { setSelected(item.id); runtime.current?.selectObject(item.object); } }} disabled={cameraView}>
+              <button className={'tree-item ' + (selected === item.id ? 'selected' : '')} style={{ paddingLeft: 5 + depth * 12 }} onTouchEndCapture={e => { if (!touchDragOrigin.current || touchDragActive.current || cameraView) return; setSelected(item.id); runtime.current?.selectObject(item.object); }} onPointerDown={e => { e.stopPropagation(); if (!cameraView) { setSelected(item.id); runtime.current?.selectObject(item.object); } }} onClick={e => { e.stopPropagation(); if (!cameraView) { setSelected(item.id); runtime.current?.selectObject(item.object); } }} disabled={cameraView}>
                 {hasChildren ? <span className="tree-expand" onClick={e => { e.stopPropagation(); setExpanded(prev => ({ ...prev, [item.id]: prev[item.id] === false })); }}>{expanded[item.id] === false ? <ChevronRight size={11} /> : <ChevronDown size={11} />}</span> : <span className="tree-expand empty" />}
                 {item.kind === 'Sphere' ? <Circle size={13} /> : item.kind === 'Cylinder' ? <Cylinder size={13} /> : item.kind === 'Cone' ? <Cone size={13} /> : item.kind === 'Torus' ? <Circle size={13} /> : item.kind === 'Camera' ? <Film size={13} /> : <Box size={13} />}
                 <span className="tree-name">{item.name}</span>{selected === item.id && <span className="tree-selected-dot" />}
