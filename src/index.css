@@ -1947,3 +1947,14 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .diagnostic-entry pre{max-height:100px;overflow:auto;margin:5px 0 0;padding:5px;background:#050b12;color:#a9c2d4;border-radius:3px;font:6px/1.4 'DM Mono',monospace;white-space:pre-wrap;overflow-wrap:anywhere}
 .diagnostic-error{border-left-color:#ff6577}.diagnostic-error strong{color:#ff9aa5}
 .diagnostic-warn{border-left-color:#eab65b}.diagnostic-warn strong{color:#ffd58a}
+
+
+/* Expandable realtime diagnostics panel; monitoring runs independently of visibility. */
+.diagnostic-toggle-button{width:100%;display:flex;align-items:center;gap:7px;min-height:34px;margin:7px 0 3px;padding:7px 9px;border:1px solid #26718b;border-radius:6px;background:linear-gradient(100deg,rgba(11,52,70,.92),rgba(12,29,46,.96));color:#c8f5ff;font:800 8px 'DM Mono',monospace;letter-spacing:.045em;text-align:left}
+.diagnostic-toggle-button span{flex:1}
+.diagnostic-toggle-button.expanded{border-color:#46c8e9;background:linear-gradient(100deg,rgba(13,67,86,.98),rgba(14,37,57,.98));box-shadow:inset 0 0 12px rgba(50,197,232,.08)}
+.diagnostic-panel-expanded{display:flex;flex-direction:column;gap:5px;margin:0 0 9px;padding:7px;border:1px solid #28536a;border-top:2px solid #32c5e8;border-radius:0 0 7px 7px;background:rgba(4,13,23,.94);max-height:min(58vh,520px);overflow-y:auto;overscroll-behavior:contain;animation:diagnosticPanelIn .16s ease-out}
+@keyframes diagnosticPanelIn{from{opacity:.45;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.diagnostic-panel-expanded .diagnostic-log-list{max-height: min(32vh,260px);min-height:70px}
+.diagnostic-panel-expanded .diagnostic-summary{position:sticky;top:-7px;z-index:1;background:#081522;border-radius:4px}
+.diagnostic-panel-expanded .diagnostic-actions button,.diagnostic-panel-expanded .diagnostic-filters button{font-size:7px}
