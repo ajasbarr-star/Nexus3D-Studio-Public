@@ -922,21 +922,39 @@ export default function App() {
         return;
       }
       const movableLockedRoot = obj instanceof THREE.Bone && obj.userData.shapeRig && obj.userData.rigRole === 'root' && obj.userData.locked;
-      if ((obj instanceof THREE.Bone && obj.userData.locked && !movableLockedRoot) || (obj.userData.rigControlMarker && obj.userData.controlLocked)) {
+      const inRiggingView = Boolean(runtime.current?.riggingView);
+      const objectMode = editModeRef.current === 'Object';
+      const selectionLocked = (obj instanceof THREE.Bone && obj.userData.locked && !movableLockedRoot) || (obj.userData.rigControlMarker && obj.userData.controlLocked);
+
+      // Keep exactly one TransformControls instance attached to the shared canvas.
+      // The main viewport gizmo and IK viewport gizmo must never compete for pointer input.
+      if (selectionLocked) {
         transform.detach();
-        ikTransform?.detach();
-        if (ikTransform) { ikTransform.enabled = false; ikTransform.getHelper().visible = false; }
         transform.enabled = false;
         transform.getHelper().visible = false;
-      } else {
-        transform.attach(obj);
-        transform.enabled = editModeRef.current === 'Object';
-        transform.getHelper().visible = editModeRef.current === 'Object';
+        ikTransform?.detach();
+        if (ikTransform) {
+          ikTransform.enabled = false;
+          ikTransform.getHelper().visible = false;
+        }
+      } else if (inRiggingView) {
+        transform.detach();
+        transform.enabled = false;
+        transform.getHelper().visible = false;
         if (ikTransform) {
           ikTransform.attach(obj);
-          ikTransform.enabled = Boolean(runtime.current?.riggingView) && editModeRef.current === 'Object';
-          ikTransform.getHelper().visible = ikTransform.enabled;
+          ikTransform.enabled = objectMode;
+          ikTransform.getHelper().visible = objectMode;
         }
+      } else {
+        ikTransform?.detach();
+        if (ikTransform) {
+          ikTransform.enabled = false;
+          ikTransform.getHelper().visible = false;
+        }
+        transform.attach(obj);
+        transform.enabled = objectMode;
+        transform.getHelper().visible = objectMode;
       }
       transform.setMode(movableLockedRoot ? 'translate' : mode);
       transform.setSpace(space);
@@ -4026,7 +4044,7 @@ export default function App() {
   const showManualRigQuickTools = !riggingView && !cameraView && !animationMode && (!!selectedManualBone || selectedRigObject instanceof THREE.Mesh);
   return (
     <main className={'editor-shell ' + (animationMode ? 'animation-mode' : '') + (riggingView ? ' rigging-mode' : '')}>
-      {status !== 'Nothing selected' && <div role="status" aria-live="polite" style={{ position: 'fixed', top: 'calc(env(safe-area-inset-top, 0px) + 54px)', left: '50%', transform: 'translateX(-50%)', zIndex: 100000, maxWidth: 'min(90vw, 520px)', padding: '10px 16px', border: '1px solid rgba(88,220,255,.55)', borderRadius: 10, background: 'rgba(7,14,25,.96)', color: '#e8f8ff', fontSize: 13, fontWeight: 700, textAlign: 'center', boxShadow: '0 8px 28px rgba(0,0,0,.4)', pointerEvents: 'none' }}>{status}</div>}
+
 
       <div className={'viewport ' + (pathTool ? 'path-tool-active' : '')} ref={hostRef} onPointerDown={e => { if (!pathTool || animationMode) return; const rect = e.currentTarget.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width - .5) * 20; const z = ((e.clientY - rect.top) / rect.height - .5) * -20; setMotionPathPoints(prev => [...prev, {x, y:0.05, z}]); }} onDragOver={e => { if (e.dataTransfer.types.includes('text/nexus3d-object')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }} onDrop={e => { const childId = e.dataTransfer.getData('text/nexus3d-object'); if (!childId) return; e.preventDefault(); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }} />
       <div ref={ikHostRef} className={'ik-dedicated-viewport ' + (riggingView ? 'active' : '')} aria-label="Dedicated IK Rigging 3D viewport" />
