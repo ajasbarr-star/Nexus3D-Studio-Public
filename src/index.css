@@ -1649,3 +1649,50 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   .rigging-mode .rig-workspace-dock { bottom: 3px !important; min-height: 38px !important; }
   .rigging-mode .rig-workspace-dock button { min-height: 26px !important; }
 }
+
+
+/* Nexus3D IK workspace: icon-first access to the original editor panels. */
+.rigging-mode .quick-access-rail {
+  display:flex !important; position:fixed !important; z-index:65 !important;
+  right:50% !important; top:7px !important; bottom:auto !important;
+  transform:translateX(50%) !important; width:auto !important; max-width:calc(100vw - 150px) !important;
+  padding:4px !important; gap:4px !important; border:1px solid rgba(65,190,225,.42) !important;
+  border-radius:9px !important; background:rgba(5,15,27,.92) !important;
+  box-shadow:0 6px 20px #0007 !important; backdrop-filter:blur(12px) !important;
+}
+.rigging-mode .quick-access-rail button {
+  width:38px !important; min-width:38px !important; height:36px !important; min-height:36px !important;
+  padding:0 !important; display:grid !important; place-items:center !important;
+  border:1px solid transparent !important; border-radius:6px !important;
+}
+.rigging-mode .quick-access-rail button span { display:none !important; }
+.rigging-mode .quick-access-rail button.active { border-color:#1aa8ca !important; color:#9ceeff !important; background:#103448 !important; box-shadow:0 0 12px #00cfff24 !important; }
+.rigging-mode .hierarchy-panel {
+  display:flex !important; position:fixed !important; z-index:48 !important;
+  left:5px !important; right:auto !important; top:52px !important; bottom:52px !important;
+  width:clamp(142px,17vw,190px) !important; max-width:34vw !important; height:auto !important;
+  max-height:none !important; overflow:hidden !important; flex-direction:column !important;
+  border-radius:8px !important; background:rgba(6,15,27,.94) !important;
+}
+.rigging-mode .hierarchy-panel .panel-heading { min-height:31px !important; padding:5px 7px !important; }
+.rigging-mode .hierarchy-panel .tree-search input { min-width:0 !important; }
+.rigging-mode .quick-access-panel.inspector-panel {
+  display:flex !important; position:fixed !important; z-index:48 !important;
+  left:auto !important; right:5px !important; top:52px !important; bottom:52px !important;
+  width:clamp(142px,17vw,190px) !important; max-width:34vw !important; height:auto !important;
+  max-height:none !important; overflow:hidden !important; border-radius:8px !important;
+  background:rgba(6,15,27,.94) !important;
+}
+.rigging-mode .quick-access-panel.inspector-panel .quick-panel-content { min-height:0 !important; overflow:auto !important; }
+.rigging-mode .quick-access-panel.inspector-panel .quick-panel-heading { min-height:31px !important; }
+.rigging-mode .quick-access-panel.inspector-panel .quick-panel-heading strong { font-size:8px !important; }
+.rigging-mode .quick-access-panel.inspector-panel .transform-group { padding:5px !important; }
+.rigging-mode .quick-access-panel.inspector-panel .transform-group label { gap:3px !important; }
+.rigging-mode .quick-access-panel.inspector-panel .transform-group input { min-width:0 !important; }
+.rigging-mode .viewport { touch-action:none; }
+@media (max-width:760px) {
+  .rigging-mode .quick-access-rail { top:5px !important; gap:2px !important; }
+  .rigging-mode .quick-access-rail button { width:34px !important; min-width:34px !important; height:33px !important; min-height:33px !important; }
+  .rigging-mode .hierarchy-panel { left:4px !important; top:48px !important; bottom:46px !important; width:132px !important; max-width:34vw !important; }
+  .rigging-mode .quick-access-panel.inspector-panel { right:4px !important; top:48px !important; bottom:46px !important; width:132px !important; max-width:34vw !important; }
+}
