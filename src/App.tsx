@@ -549,12 +549,28 @@ export default function App() {
     activeOrbit.minDistance = 0.25;
     activeOrbit.maxDistance = 50;
     const transform = new TransformControls(camera, renderer.domElement);
+    const controlDiag = (eventName: string, extra: Record<string, unknown> = {}) => {
+      console.info('[Nexus3D ControlDiag]', eventName, {
+        dragging: Boolean(transform.dragging),
+        axis: transform.axis ?? null,
+        transformEnabled: Boolean(transform.enabled),
+        attachedObject: transform.object?.name ?? null,
+        mainOrbitEnabled: Boolean(orbit.enabled),
+        cameraOrbitEnabled: Boolean(activeOrbit.enabled),
+        ikOrbitEnabled: Boolean(ikOrbit.enabled),
+        riggingView: Boolean(runtime.current?.riggingView),
+        cameraView: Boolean(runtime.current?.cameraView),
+        selectedId: selectedRef.current ?? null,
+        ...extra,
+      });
+    };
     const syncViewportControls = (dragging = Boolean(transform.dragging)) => {
       const inRigView = Boolean(runtime.current?.riggingView);
       const inCameraView = Boolean(runtime.current?.cameraView);
       orbit.enabled = !dragging && !inRigView && !inCameraView;
       activeOrbit.enabled = !dragging && inCameraView && !inRigView;
       ikOrbit.enabled = !dragging && inRigView;
+      controlDiag('syncViewportControls', { requestedDragging: dragging });
     };
     transform.setMode('translate');
     transform.setSpace('world');
@@ -1072,6 +1088,7 @@ export default function App() {
         if (anchor?.userData.nexusRigAnchor) {
           anchor.userData.rigOwnerId = String(owner.userData.editorId || '');
           anchor.userData.pendingShapeAttachment = true;
+      controlDiag('manual-root:create', { anchorName: anchor.name, rootPending: true });
           scene.attach(anchor);
           root.userData.nexusRigSchema = 3;
           root.userData.rigOwnerId = String(owner.userData.editorId || '');
@@ -2244,8 +2261,9 @@ export default function App() {
       } else if (!transform.axis) selectObject();
     };
     const onPointerCancel = (event: PointerEvent) => {
-      // TransformControls r172 handles pointerup but not pointercancel. Android can
-      // cancel a touch mid-drag, leaving the gizmo in dragging state and orbit disabled.
+      controlDiag('pointercancel:before', { pointerId: event.pointerId, button: event.button, pointerType: event.pointerType });
+      // Diagnostic-only in this build: preserve current behavior and capture the
+      // exact state when Android cancels a touch while a gizmo drag is active.
       if (transform.dragging) (transform as any).pointerUp(event);
       ikTapStart = null;
       if (loopCutGesture?.pointerId === event.pointerId) {
@@ -2254,10 +2272,13 @@ export default function App() {
         clearLoopCutPreview();
       }
       syncViewportControls();
+      controlDiag('pointercancel:after', { pointerId: event.pointerId, button: event.button, pointerType: event.pointerType });
     };
     const onWindowBlur = () => {
+      controlDiag('window-blur:before');
       if (transform.dragging) (transform as any).pointerUp(new PointerEvent('pointerup'));
       syncViewportControls();
+      controlDiag('window-blur:after');
     };
     let ikTapStart: { x: number; y: number; id: number } | null = null;
     const onIKPointerDown = (event: PointerEvent) => { ikTapStart = { x: event.clientX, y: event.clientY, id: event.pointerId }; };
@@ -2366,12 +2387,14 @@ export default function App() {
     // dragging-changed. Use its real events so orbit is disabled only while a
     // gizmo drag is active, and transform snapshots are captured consistently.
     transform.addEventListener('mouseDown', () => {
+      controlDiag('transform:mouseDown');
       syncViewportControls(true);
       const object = transform.object;
       if (object === subObjectPivot && activeSubSelection) subGeometryBefore = activeSubSelection.mesh.geometry.clone();
       else transformBefore = object ? { object, state: snapshot(object) } : null;
     });
     transform.addEventListener('mouseUp', () => {
+      controlDiag('transform:mouseUp');
       syncViewportControls(false);
       if (subGeometryBefore && activeSubSelection) {
         const mesh = activeSubSelection.mesh;
