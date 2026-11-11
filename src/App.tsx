@@ -3911,6 +3911,13 @@ export default function App() {
     }
   };
 
+  const selectedRigItem = items.find(item => item.id === selected);
+  const selectedRigObject = selectedRigItem?.object as THREE.Object3D | undefined;
+  const selectedManualBone = selectedRigObject instanceof THREE.Bone
+    ? (selectedRigObject.userData.shapeRig ? selectedRigObject : null)
+    : selectedRigObject?.userData.rigControlMarker && selectedRigObject.parent instanceof THREE.Bone && selectedRigObject.parent.userData.shapeRig
+      ? selectedRigObject.parent as THREE.Bone : null;
+  const showManualRigQuickTools = !riggingView && !cameraView && !animationMode && !!selectedManualBone;
   return (
     <main className={'editor-shell ' + (animationMode ? 'animation-mode' : '') + (riggingView ? ' rigging-mode' : '')}>
       {status !== 'Nothing selected' && <div role="status" aria-live="polite" style={{ position: 'fixed', top: 'calc(env(safe-area-inset-top, 0px) + 54px)', left: '50%', transform: 'translateX(-50%)', zIndex: 100000, maxWidth: 'min(90vw, 520px)', padding: '10px 16px', border: '1px solid rgba(88,220,255,.55)', borderRadius: 10, background: 'rgba(7,14,25,.96)', color: '#e8f8ff', fontSize: 13, fontWeight: 700, textAlign: 'center', boxShadow: '0 8px 28px rgba(0,0,0,.4)', pointerEvents: 'none' }}>{status}</div>}
@@ -4103,6 +4110,20 @@ export default function App() {
       </aside>}
 
 
+
+      {showManualRigQuickTools && <aside className="manual-rig-quick-tools" aria-label="Manual IK rigging tools">
+        <div className="manual-rig-quick-head"><GitBranch size={13}/><strong>MANUAL IK</strong><span>{selectedManualBone?.name}</span></div>
+        <div className="manual-rig-quick-grid">
+          <button type="button" onClick={() => runtime.current?.addUniversalBone?.('root')} title="Create or select the single Root Bone" aria-label="Root Bone"><GitBranch size={16}/><small>ROOT</small></button>
+          <button type="button" onClick={() => runtime.current?.addUniversalBone?.('child')} title="Add a connected child to the selected bone" aria-label="Add Child Bone"><Plus size={16}/><small>CHILD</small></button>
+          <button type="button" onClick={() => runtime.current?.toggleSelectedBoneControlHandle?.()} title="Add or remove a Control Handle" aria-label="Toggle Control Handle"><Target size={16}/><small>HANDLE</small></button>
+          <button type="button" onClick={() => runtime.current?.toggleSelectedBoneLock?.()} title="Lock or unlock selected bone" aria-label="Lock Bone"><Lock size={16}/><small>LOCK</small></button>
+          <button type="button" onClick={() => runtime.current?.setRigParentTarget?.()} title="Set selected bone as the parent target" aria-label="Set Parent"><GitMerge size={16}/><small>SET PARENT</small></button>
+          <button type="button" onClick={() => runtime.current?.attachSelectedToRigParent?.()} title="Parent selected object to the stored target" aria-label="Parent"><CornerDownRight size={16}/><small>PARENT</small></button>
+          <button type="button" onClick={() => runtime.current?.detachSelectedRigObject?.()} title="Unparent selected bone" aria-label="Unparent"><Unlink size={16}/><small>UNPARENT</small></button>
+          <button type="button" onClick={() => runtime.current?.solveIK?.(ikChainLength)} title="Solve selected IK chain" aria-label="Solve IK"><Check size={16}/><small>SOLVE</small></button>
+        </div>
+      </aside>}
 
       <div className="right-rail">
         <button className={'rail-btn ' + (cameraView ? 'active' : '')} onClick={toggleCamera} title={cameraView ? 'Return to User View' : 'Directly view through MainCamera'}><Camera size={17} /><span>{cameraView ? 'USER' : 'CAM'}</span></button>
