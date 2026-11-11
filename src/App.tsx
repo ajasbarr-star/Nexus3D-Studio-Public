@@ -4376,6 +4376,7 @@ export default function App() {
                 if (touchDragTimer.current) clearTimeout(touchDragTimer.current);
                 touchDragTimer.current = null;
                 const wasDragging = touchDragActive.current;
+                const wasTap = Boolean(touchDragOrigin.current) && !wasDragging;
                 touchDragActive.current = false;
                 touchDragOrigin.current = null;
                 const touch = e.changedTouches[0];
@@ -4384,7 +4385,17 @@ export default function App() {
                 touchDragId.current = '';
                 touchPoint.current = null;
                 setDragTargetId('');
-                if (!wasDragging || !point || !childId) return;
+                // Android touch taps must select the row explicitly. Pointer/click
+                // events can be swallowed by the long-press drag gesture on mobile.
+                // A scroll clears touchDragOrigin, so scrolling never selects or reparents.
+                if (!wasDragging) {
+                  if (wasTap && !cameraView) {
+                    setSelected(item.id);
+                    runtime.current?.selectObject(item.object);
+                  }
+                  return;
+                }
+                if (!point || !childId) return;
                 const rootHit = document.elementFromPoint(point.x, point.y)?.closest('.tree-root');
                 const hit = document.elementFromPoint(point.x, point.y)?.closest('[data-tree-id]') as HTMLElement | null;
                 const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId);
