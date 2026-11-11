@@ -986,7 +986,12 @@ export default function App() {
     };
     const refreshRigVisuals = () => {
       rigChains.forEach(chain => {
-        chain.bones.forEach(ensureBoneJoint);
+        chain.bones.forEach(bone => {
+          ensureBoneJoint(bone);
+          const joint = bone.children.find(child => child.userData.nexusJointVisual);
+          if (joint) joint.visible = chain.displayVisible !== false;
+        });
+        chain.helper.visible = chain.displayVisible !== false;
         styleSkeletonHelper(chain.helper, chain.bones);
         const colors = chain.helper.geometry.getAttribute('color');
         if (colors) colors.needsUpdate = true;
