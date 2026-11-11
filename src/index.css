@@ -1928,3 +1928,22 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .ik-rig-actions button{min-height:32px;padding:0 10px;border:1px solid #28536b;border-radius:5px;background:#10283a;color:#bdefff;font:700 9px 'DM Mono',monospace;letter-spacing:.4px}
 .ik-rig-actions button:active{background:#16435a;border-color:#35cfff}
 @media(max-width:760px){.ik-rig-actions{top:50px;right:54px;gap:4px;padding:4px}.ik-rig-actions button{min-height:29px;padding:0 7px;font-size:8px}}
+
+/* Built-in runtime diagnostics inside Menu > Help & System Info. */
+.diagnostic-summary{display:flex;justify-content:space-between;gap:6px;padding:5px 4px;color:#9bc5d8;font:700 7px 'DM Mono',monospace}
+.diagnostic-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:3px 0}
+.diagnostic-actions button,.diagnostic-filters button{display:flex;align-items:center;justify-content:center;gap:3px;min-width:0;min-height:27px;padding:3px 4px;border:1px solid #29465d;border-radius:5px;background:#102235;color:#b9dce9;font:700 7px 'DM Mono',monospace}
+.diagnostic-actions button:disabled{opacity:.38}
+.diagnostic-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;padding:3px 0 5px}
+.diagnostic-filters button.active{border-color:#32c5e8;background:#12445a;color:#c9f8ff}
+.diagnostic-log-list{display:flex;flex-direction:column;gap:5px;max-height:190px;overflow:auto;overscroll-behavior:contain;padding:3px;background:rgba(3,9,16,.55);border:1px solid #20384c;border-radius:5px}
+.diagnostic-empty{padding:12px 7px;color:#829bb1;text-align:center;font-size:8px;line-height:1.5}
+.diagnostic-entry{padding:6px;border:1px solid #2a4054;border-left:3px solid #5b91a8;border-radius:4px;background:rgba(12,25,39,.9);overflow-wrap:anywhere}
+.diagnostic-entry>div{display:flex;justify-content:space-between;gap:5px}
+.diagnostic-entry strong{font:800 7px 'DM Mono',monospace;color:#9bdff0}
+.diagnostic-entry time,.diagnostic-entry>b{font:7px 'DM Mono',monospace;color:#8da9bd}
+.diagnostic-entry>b{display:block;margin-top:4px;color:#7dd8ef}
+.diagnostic-entry p{margin:3px 0 0;color:#d2e3ef;font-size:8px;line-height:1.4;white-space:pre-wrap}
+.diagnostic-entry pre{max-height:100px;overflow:auto;margin:5px 0 0;padding:5px;background:#050b12;color:#a9c2d4;border-radius:3px;font:6px/1.4 'DM Mono',monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+.diagnostic-error{border-left-color:#ff6577}.diagnostic-error strong{color:#ff9aa5}
+.diagnostic-warn{border-left-color:#eab65b}.diagnostic-warn strong{color:#ffd58a}
