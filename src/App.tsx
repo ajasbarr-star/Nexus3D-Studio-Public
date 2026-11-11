@@ -929,8 +929,8 @@ export default function App() {
       orbit.enabled = true;
       activeOrbit.enabled = true;
       const chain = rigChains.find(entry => entry.bones.includes(shapeRigPlacementRoot!));
-      if (chain) { chain.helper.update(); chain.helper.visible = true; chain.displayVisible = true; }
       refreshRigVisuals();
+      if (chain) { chain.helper.update(); chain.helper.visible = true; chain.displayVisible = true; }
       syncItems();
       selectObject(shapeRigPlacementLast || shapeRigPlacementRoot);
       setStatus('Shape Rig created · ' + (chain?.bones.length || 1) + ' connected bone(s) · Root locked');
