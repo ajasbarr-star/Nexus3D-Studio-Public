@@ -919,7 +919,6 @@ export default function App() {
         transform.getHelper().visible = false;
         setSelected('');
         selectedRef.current = '';
-        setStatus('Nothing selected');
         return;
       }
       const movableLockedRoot = obj instanceof THREE.Bone && obj.userData.shapeRig && obj.userData.rigRole === 'root' && obj.userData.locked;
@@ -950,7 +949,7 @@ export default function App() {
       selectedRef.current = String(obj.userData.editorId || '');
       refreshJointColors(obj instanceof THREE.Bone ? obj : undefined);
       if (obj instanceof THREE.Mesh && editModeRef.current !== 'Object') refreshTopologyOverlay(obj);
-      setStatus('Selected · ' + obj.name);
+      // Selection is reflected by the viewport, Scene Tree, and Inspector; do not spawn a toast per tap.
     };
     const addObject = (kind: string, name?: string, cloneOf?: THREE.Object3D) => {
       let obj: THREE.Object3D;
