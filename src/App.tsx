@@ -2782,6 +2782,9 @@ export default function App() {
       const previous = {
         position: r.camera.position.toArray(),
         target: r.orbit.target.toArray(),
+        far: r.camera.far,
+        maxDistance: r.orbit.maxDistance,
+        fog: r.scene.fog,
       };
       try {
         const rigSubject = r.selectable.find((object: THREE.Object3D) => object.userData.editorId === selectedRef.current)
@@ -2806,8 +2809,19 @@ export default function App() {
           throw new Error('The selected rig has invalid scene bounds');
         }
 
-        // MainCamera/UserCamera stays untouched; only the editor perspective camera moves.
+        // MainCamera/UserCamera stays untouched; fit the editor camera to the
+        // selected rig. The normal scene camera has a short far plane and a
+        // 35-unit orbit cap; those defaults can clip large/imported characters
+        // and make the rigging viewport appear empty/black.
+        const maxDimension = Math.max(rigSize.x, rigSize.y, rigSize.z, 1);
+        r.scene.fog = null;
+        r.camera.near = Math.max(0.01, Math.min(0.1, rigDistance / 10000));
+        r.camera.far = Math.max(150, rigDistance * 6 + maxDimension * 3);
+        r.camera.updateProjectionMatrix();
+        r.orbit.minDistance = Math.max(0.05, Math.min(2.2, rigDistance * 0.08));
+        r.orbit.maxDistance = Math.max(35, rigDistance * 4);
         r.camera.position.set(rigCenter.x, rigCenter.y, rigCenter.z + rigDistance);
+        r.camera.lookAt(rigCenter);
         r.orbit.target.copy(rigCenter);
         r.orbit.enabled = true;
         r.activeOrbit.enabled = false;
@@ -2835,6 +2849,10 @@ export default function App() {
         r.riggingPreviousCamera = null;
         r.camera.position.fromArray(previous.position);
         r.orbit.target.fromArray(previous.target);
+        r.camera.far = previous.far;
+        r.camera.updateProjectionMatrix();
+        r.orbit.maxDistance = previous.maxDistance;
+        r.scene.fog = previous.fog;
         r.orbit.enabled = true;
         r.activeOrbit.enabled = false;
         r.orbit.update();
@@ -2853,6 +2871,10 @@ export default function App() {
         if (previous?.position && previous?.target) {
           r.camera.position.fromArray(previous.position);
           r.orbit.target.fromArray(previous.target);
+          r.camera.far = previous.far;
+          r.camera.updateProjectionMatrix();
+          r.orbit.maxDistance = previous.maxDistance;
+          r.scene.fog = previous.fog;
           r.orbit.update();
         }
         r.riggingPreviousCamera = null;
