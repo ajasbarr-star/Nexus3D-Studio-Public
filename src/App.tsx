@@ -775,7 +775,14 @@ export default function App() {
       const targetParent = parent || scene;
       if (child === targetParent || child.getObjectById(targetParent.id) || targetParent === child.parent) return;
       const previousParent = child.parent || scene;
-      const attachTo = (target: THREE.Object3D) => { scene.updateMatrixWorld(true); target.attach(child); syncItems(); };
+      const attachTo = (target: THREE.Object3D) => {
+        scene.updateMatrixWorld(true); target.attach(child); scene.updateMatrixWorld(true);
+        if (child instanceof THREE.Bone || target instanceof THREE.Bone) {
+          refreshRigVisuals();
+          rigChains.forEach(chain => { if (chain.bones.some(bone => bone === child || bone === target || child.getObjectById(bone.id) || target.getObjectById(bone.id))) { rebuildRigHelper(chain); chain.helper.update(); } });
+        }
+        syncItems();
+      };
       attachTo(targetParent);
       if (record) recordSceneAction({ label: 'Reparent ' + child.name, undo: () => { attachTo(previousParent); selectObject(child); }, redo: () => { attachTo(targetParent); selectObject(child); } });
       syncItems();
@@ -1014,32 +1021,50 @@ export default function App() {
     };
     const addUniversalBone = () => {
       const selectedObject = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
-      const parentBone = selectedObject instanceof THREE.Bone ? selectedObject : null;
-      const root = parentBone || new THREE.Bone();
-      if (!parentBone) {
-        root.name = 'Universal Rig ' + (rigChains.length + 1);
-        root.userData.editorId = uid(); root.userData.kind = 'Rig'; root.userData.locked = true; root.userData.rigRole = 'root';
-        if (selectedObject) { selectedObject.updateWorldMatrix(true, false); root.position.copy(selectedObject.getWorldPosition(new THREE.Vector3())); }
-        scene.add(root);
-        if (selectedObject) { scene.updateMatrixWorld(true); selectedObject.attach(root); }
+      if (selectedObject instanceof THREE.Bone) {
+        let rootBone: THREE.Bone = selectedObject;
+        while (rootBone.parent instanceof THREE.Bone) rootBone = rootBone.parent;
+        if (!rootBone.userData.shapeRig) { setStatus('Select a Manual Shape Rig bone to add a child'); return false; }
+        const child = new THREE.Bone();
+        child.name = nextManualBoneName();
+        child.position.set(0, 0.35, 0);
+        child.userData.editorId = uid(); child.userData.kind = 'Bone'; child.userData.rigRole = 'deform';
+        child.userData.handle = false; child.userData.locked = false; child.userData.shapeRig = true;
+        selectedObject.add(child);
+        ensureBoneJoint(selectedObject); ensureBoneJoint(child);
+        let chain = rigChains.find(entry => entry.bones.includes(rootBone));
+        if (!chain) {
+          const bones: THREE.Bone[] = [];
+          rootBone.traverse(node => { if ((node as THREE.Bone).isBone) bones.push(node as THREE.Bone); });
+          const helper = new THREE.SkeletonHelper(rootBone);
+          helper.name = rootBone.name + ' Skeleton'; helper.visible = true;
+          styleSkeletonHelper(helper, bones); scene.add(helper);
+          chain = { bones, helper, target: null, displayVisible: true, shapeRig: true }; rigChains.push(chain);
+        } else {
+          if (!chain.bones.includes(child)) chain.bones.push(child);
+          rebuildRigHelper(chain); chain.helper.visible = true; chain.displayVisible = true;
+        }
+        selectable.push(child); syncItems(); selectObject(child);
+        setStatus(child.name + ' added under ' + selectedObject.name + ' · Connected');
+        return child;
       }
-      const bone = new THREE.Bone();
-      bone.name = nextManualBoneName();
-      bone.position.set(0, 0.35, 0);
-      bone.userData.editorId = uid(); bone.userData.kind = 'Bone';
-      bone.userData.rigRole = 'deform'; bone.userData.handle = false; bone.userData.locked = false;
-      root.add(bone); ensureBoneJoint(bone); ensureBoneJoint(root); if (parentBone) ensureBoneJoint(parentBone);
-      let chain = rigChains.find(entry => entry.bones.includes(root));
-      if (!chain) {
-        const bones: THREE.Bone[] = [];
-        root.traverse(node => { if ((node as THREE.Bone).isBone) bones.push(node as THREE.Bone); });
-        const helper = new THREE.SkeletonHelper(root);
-        helper.name = 'Universal Rig Skeleton'; helper.visible = false; styleSkeletonHelper(helper, bones); scene.add(helper);
-        chain = { bones, helper, target: null }; rigChains.push(chain);
-      } else { chain.bones.push(bone); rebuildRigHelper(chain); }
-      selectable.push(...(!parentBone ? [root] : []), bone);
-      syncItems(); selectObject(bone); setStatus('Universal bone added and connected to selected rig');
-      return bone;
+      const root = new THREE.Bone();
+      root.name = 'Root Bone ' + (rigChains.filter(entry => entry.shapeRig).length + 1);
+      root.userData.editorId = uid(); root.userData.kind = 'Bone'; root.userData.rigRole = 'root';
+      root.userData.locked = true; root.userData.shapeRig = true;
+      if (selectedObject) {
+        scene.updateMatrixWorld(true);
+        root.position.copy(selectedObject.getWorldPosition(new THREE.Vector3()));
+      }
+      scene.add(root);
+      ensureBoneJoint(root);
+      const helper = new THREE.SkeletonHelper(root);
+      helper.name = root.name + ' Skeleton'; helper.visible = true;
+      styleSkeletonHelper(helper, [root]); scene.add(helper);
+      rigChains.push({ bones: [root], helper, target: null, displayVisible: true, shapeRig: true });
+      selectable.push(root); syncItems(); selectObject(root);
+      setStatus(root.name + ' created in Scene Root · Add Child or parent a Shape in Scene Tree');
+      return root;
     };
     const copySelectedBone = () => {
       const source = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
@@ -3967,12 +3992,11 @@ export default function App() {
         </> : rigTab === 'manual' ? <>
           <div className="rig-manual-guide">
             <strong>MANUAL RIG</strong>
-            <span>{shapeRigPlacementStep === 'root' ? 'Tap the Shape to place the first bone.' : shapeRigPlacementStep === 'placing-child' ? 'Keep tapping the Shape. Each new bone connects automatically.' : shapeRigPlacementStep === 'child' ? 'Bone placement paused. Press DONE to keep this rig.' : shapeRigPlacementStep === 'done' ? 'Rig created. Select another Shape to start again.' : 'Select a Shape, press START, then tap along the Shape to build a connected bone chain.'}</span>
+            <span>Select a Shape and press ROOT to create an independent bone in Scene Root. Select a Root Bone and press CHILD to extend its hierarchy. Drag Shapes onto bones in Scene Tree to parent or unparent them.</span>
           </div>
           <div className="rig-workspace-actions shape-rig-compact-actions">
-            <button type="button" className="rig-primary-action" disabled={shapeRigPlacementStep === 'root' || shapeRigPlacementStep === 'placing-child' || shapeRigPlacementStep === 'child'} onClick={() => runtime.current?.startShapeRigPlacement?.()} title="Start placing bones" aria-label="Start"><GitBranch size={16}/><span>START</span></button>
-            <button type="button" disabled={shapeRigPlacementStep !== 'placing-child' && shapeRigPlacementStep !== 'child'} onClick={() => runtime.current?.finishShapeRigPlacement?.()} title="Finish and keep the connected bone chain" aria-label="Done"><Check size={16}/><span>DONE</span></button>
-            <button type="button" disabled={shapeRigPlacementStep !== 'root' && shapeRigPlacementStep !== 'placing-child'} onClick={() => runtime.current?.cancelShapeRigPlacement?.()} title="Stop placing bones" aria-label="Stop"><X size={16}/></button>
+            <button type="button" className="rig-primary-action" onClick={() => runtime.current?.addUniversalBone?.()} title="Create an independent Root Bone in Scene Root" aria-label="Create Root Bone"><GitBranch size={16}/><span>ROOT</span></button>
+            <button type="button" onClick={() => runtime.current?.addUniversalBone?.()} title="Select a Manual Rig bone first, then add its child" aria-label="Add Child Bone"><Plus size={16}/><span>CHILD</span></button>
           </div>
         </> : <>
           <div className="rig-workspace-actions">
