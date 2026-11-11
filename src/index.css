@@ -1958,3 +1958,13 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .diagnostic-panel-expanded .diagnostic-log-list{max-height: min(32vh,260px);min-height:70px}
 .diagnostic-panel-expanded .diagnostic-summary{position:sticky;top:-7px;z-index:1;background:#081522;border-radius:4px}
 .diagnostic-panel-expanded .diagnostic-actions button,.diagnostic-panel-expanded .diagnostic-filters button{font-size:7px}
+
+
+/* Compact read-only Core Optimizer report panel. */
+.core-optimizer-actions { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.core-optimizer-report {
+  max-height:180px; overflow:auto; margin:2px 0 0; padding:8px;
+  border:1px solid #29465d; border-radius:5px; background:rgba(2,8,14,.78);
+  color:#b8d8e8; font:7px/1.55 'DM Mono',monospace; white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
