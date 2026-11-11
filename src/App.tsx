@@ -4107,9 +4107,6 @@ export default function App() {
           <button type="button" title="Add or remove a bone Control Handle" aria-label="Toggle Bone Control Handle" onClick={() => runtime.current?.toggleSelectedBoneControlHandle()}><Magnet size={16}/></button>
           <button type="button" title="Create an IK Target Handle" aria-label="Create IK Target" onClick={() => runtime.current?.createIKTarget()}><Target size={16}/></button>
           <button type="button" title="Create an IK Pole Target" aria-label="Create IK Pole Target" onClick={() => runtime.current?.createPoleTarget()}><Circle size={16}/></button>
-          <button type="button" title="Move selected rig item" aria-label="Move rig item" onClick={() => { runtime.current?.ikTransform?.setMode('translate'); setMode('translate'); }}><Move size={16}/></button>
-          <button type="button" title="Rotate selected rig item" aria-label="Rotate rig item" onClick={() => { runtime.current?.ikTransform?.setMode('rotate'); setMode('rotate'); }}><Rotate3D size={16}/></button>
-          <button type="button" title="Scale selected rig item" aria-label="Scale rig item" onClick={() => { runtime.current?.ikTransform?.setMode('scale'); setMode('scale'); }}><Scaling size={16}/></button>
           <button type="button" title="Set selected item as Parent target" aria-label="Set Parent Target" onClick={() => runtime.current?.setRigParentTarget()}><Link2 size={16}/></button>
           <button type="button" title="Attach selected item to the Parent target" aria-label="Attach to Parent" onClick={() => runtime.current?.attachSelectedToRigParent()}><GitBranch size={16}/></button>
           <button type="button" title="Unparent selected rig item" aria-label="Unparent selected item" onClick={() => runtime.current?.detachSelectedRigObject()}><Unlink size={16}/></button>
@@ -4149,7 +4146,7 @@ export default function App() {
           <div><strong>Nexus<span>3D</span></strong></div>
         </div>
         <div className="top-actions">
-          {!riggingView && <button className={'icon-btn ' + (panel ? 'active' : '')} id="btn-hierarchy" onClick={() => { const opening = !panel; setPanel(opening); setMenuOpen(false); setQuickPanel(null); if (!riggingView) setInspectorOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); }} title={panel ? 'Hide Scene Tree' : 'Show Scene Tree'} disabled={cameraView}><Layers size={14} /></button>}
+          {!riggingView && <button className={'icon-btn ' + (panel ? 'active' : '')} id="btn-hierarchy" onClick={() => { const opening = !panel; setPanel(opening); setMenuOpen(false); setQuickPanel(null); if (!riggingView) setInspectorOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); }} title={panel ? 'Hide Scene Tree' : 'Show Scene Tree'} disabled={cameraView}><Layers size={14} /></button>
           <button className="icon-btn" onClick={() => { setMenuOpen(v => !v); setPanel(false); setQuickPanel(null); setInspectorOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); }} title="Menu"><Settings2 size={14} /></button>
           <div className="tool-divider" />
           <button className="icon-btn" onClick={undo} disabled={!actionUndoStack.length && !undoStack.length} title="Undo scene or timeline action"><Undo2 size={15} /></button>
@@ -4273,7 +4270,7 @@ export default function App() {
         </section>)}
       </aside>}
 
-      {panel && !cameraView && !riggingView && <aside className="hierarchy-panel">
+      {panel && !cameraView && <aside className="hierarchy-panel">
         <div className="panel-heading"><div><Layers size={13} /><span>Scenes Tree</span></div><span className="count">{items.length.toString().padStart(2, '0')}</span></div>
         <div className="tree-search"><Search size={12} /><input aria-label="Search scene tree" value={treeSearch} onChange={e => setTreeSearch(e.target.value)} placeholder="Search scene…" /></div>
         <div className={'tree-root ' + (dragTargetId === 'root' ? 'drop-target' : '')} onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragTargetId('root'); }} onDragLeave={() => setDragTargetId('')} onDrop={e => { e.preventDefault(); setDragTargetId(''); const childId = e.dataTransfer.getData('text/nexus3d-object'); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }} title="Drop an object here to move it to the Scene root"><span className="tree-caret">⌄</span><Grid2X2 size={12} /><span>Scene Root</span></div>
