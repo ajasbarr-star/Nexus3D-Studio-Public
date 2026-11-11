@@ -907,7 +907,6 @@ export default function App() {
       if (String(obj?.userData?.editorId || '') !== selectedRef.current) clearTopologyOverlay();
       if (!obj) {
         transform.detach();
-        transform.detach();
         transform.enabled = false;
         transform.getHelper().visible = false;
         setSelected('');
@@ -938,37 +937,13 @@ export default function App() {
       const objectMode = editModeRef.current === 'Object';
       const selectionLocked = (obj instanceof THREE.Bone && obj.userData.locked && !movableLockedRoot) || (obj.userData.rigControlMarker && obj.userData.controlLocked);
 
-      // Release any previous target before attaching the newly selected item.
+      // One controller owns selection in both workspaces. The active camera is
+      // switched by the workspace toggle; attachment never changes controllers.
       transform.detach();
-      transform.enabled = false;
-      transform.getHelper().visible = false;
-
-      // Keep exactly one TransformControls instance attached to the shared canvas.
-      // The main viewport gizmo and IK viewport gizmo must never compete for pointer input.
       if (selectionLocked) {
-        transform.detach();
         transform.enabled = false;
         transform.getHelper().visible = false;
-        transform?.detach();
-        if (transform) {
-          transform.enabled = false;
-          transform.getHelper().visible = false;
-        }
-      } else if (inRiggingView) {
-        transform.detach();
-        transform.enabled = false;
-        transform.getHelper().visible = false;
-        if (transform) {
-          transform.attach(obj);
-          transform.enabled = objectMode;
-          transform.getHelper().visible = objectMode;
-        }
       } else {
-        transform?.detach();
-        if (transform) {
-          transform.enabled = false;
-          transform.getHelper().visible = false;
-        }
         transform.attach(obj);
         transform.enabled = objectMode;
         transform.getHelper().visible = objectMode;
