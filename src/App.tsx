@@ -548,7 +548,7 @@ export default function App() {
     let activeSubSelection: { mesh: THREE.Mesh; indices: number[]; lastWorld: THREE.Vector3; lastQuaternion: THREE.Quaternion; lastScale: THREE.Vector3 } | null = null;
     let subGeometryBefore: THREE.BufferGeometry | null = null;
     const selectable: THREE.Object3D[] = [camBody];
-    const rigChains: Array<{ bones: THREE.Bone[]; helper: THREE.SkeletonHelper; target: THREE.Object3D | null; pole?: THREE.Object3D | null; displayVisible?: boolean }> = [];
+    const rigChains: Array<{ bones: THREE.Bone[]; helper: THREE.SkeletonHelper; target: THREE.Object3D | null; pole?: THREE.Object3D | null; displayVisible?: boolean; shapeRig?: boolean }> = [];
     let rigAttachTarget: THREE.Object3D | null = null;
     const nextManualBoneName = () => {
       const used = new Set(selectable.filter(object => object instanceof THREE.Bone).map(object => object.name));
@@ -1023,14 +1023,32 @@ export default function App() {
       const selectedObject = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
       if (mode === 'child' && !(selectedObject instanceof THREE.Bone)) { setStatus('Select the Root Bone or an existing Child Bone first'); return false; }
       if (mode === 'root') {
-        const existingRoot = rigChains
-          .filter(entry => entry.shapeRig)
-          .flatMap(entry => entry.bones)
-          .find(bone => bone.userData.rigRole === 'root' && bone.userData.shapeRig);
+        // Search the live scene hierarchy, not only rigChains: reparenting or
+        // restoring a rig must never allow a second Manual Shape Rig root.
+        let existingRoot: THREE.Bone | null = null;
+        scene.traverse(node => {
+          if (!existingRoot && (node as THREE.Bone).isBone &&
+              node.userData.rigRole === 'root' && node.userData.shapeRig) {
+            existingRoot = node as THREE.Bone;
+          }
+        });
         if (existingRoot) {
-          selectObject(existingRoot);
-          setStatus('Only one Root Bone is allowed · Select it and use CHILD for every next bone');
-          return existingRoot;
+          const root = existingRoot as THREE.Bone;
+          let chain = rigChains.find(entry => entry.bones.includes(root));
+          if (!chain) {
+            const bones: THREE.Bone[] = [];
+            root.traverse(node => { if ((node as THREE.Bone).isBone) bones.push(node as THREE.Bone); });
+            const helper = new THREE.SkeletonHelper(root);
+            helper.name = root.name + ' Skeleton';
+            helper.visible = true;
+            styleSkeletonHelper(helper, bones);
+            scene.add(helper);
+            chain = { bones, helper, target: null, displayVisible: true, shapeRig: true };
+            rigChains.push(chain);
+          }
+          selectObject(root);
+          setStatus('Only one Root Bone is allowed · Existing Root Bone selected; use CHILD for every next bone');
+          return root;
         }
       }
       if (mode !== 'root' && selectedObject instanceof THREE.Bone) {
