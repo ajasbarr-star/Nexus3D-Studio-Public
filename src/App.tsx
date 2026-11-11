@@ -4142,7 +4142,7 @@ export default function App() {
          <button type="button" onClick={() => runtime.current?.addUniversalBone?.('root')}>＋ ROOT</button>
          <button type="button" onClick={() => runtime.current?.attachRootToShape?.()}>ATTACH TO SHAPE</button>
          <button type="button" onClick={() => runtime.current?.bindSelectedMeshToRig?.()}>BIND MESH</button>
-       </div>
+       </div>}
       
       <div className={'camera-mode-hud ' + (cameraView ? 'cine-active' : '')} aria-live="polite"><span className="camera-mode-dot" />{cameraView ? 'CINE CAMERA VIEW' : riggingView ? 'IK RIGGING · FRONT PERSPECTIVE' : 'PERSPECTIVE MODE'}</div>
       {!animationMode && !cameraView && <div className="quick-access-rail" aria-label="Quick access controls">
