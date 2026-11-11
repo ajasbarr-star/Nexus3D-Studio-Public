@@ -298,7 +298,8 @@ export default function App() {
   const jointLimitDegreesRef = useRef(120);
   useEffect(() => { ikSolverRef.current = ikSolver; }, [ikSolver]);
   useEffect(() => { jointLimitDegreesRef.current = jointLimitDegrees; }, [jointLimitDegrees]);
-  const [rigTab, setRigTab] = useState<'auto' | 'manual' | 'pose'>('auto');
+  const [rigTab, setRigTab] = useState<'auto' | 'manual' | 'pose'>('manual');
+  const [shapeRigPlacementStep, setShapeRigPlacementStep] = useState<'idle' | 'root' | 'child' | 'placing-child' | 'done'>('idle');
   const [mirrorEnabled, setMirrorEnabled] = useState(true);
   const mirrorEnabledRef = useRef(true);
   useEffect(() => { mirrorEnabledRef.current = mirrorEnabled; }, [mirrorEnabled]);
@@ -918,13 +919,23 @@ export default function App() {
       shapeRigPlacementRoot = null;
       shapeRigPlacementLast = null;
       shapeRigPlacementActive = true;
+      setShapeRigPlacementStep('root');
       orbit.enabled = false;
       activeOrbit.enabled = false;
-      setStatus('PLACE ROOT · Tap the selected Shape to place the first bone');
+      setStatus('PLACE ROOT · Tap the selected Shape once');
+      return true;
+    };
+    const addShapeRigChildPlacement = () => {
+      if (!shapeRigPlacementRoot || !shapeRigPlacementOwner) { setStatus('Create the Root first'); return false; }
+      shapeRigPlacementActive = true;
+      setShapeRigPlacementStep('placing-child');
+      orbit.enabled = false;
+      activeOrbit.enabled = false;
+      setStatus('ADD CHILD · Tap the selected Shape once');
       return true;
     };
     const finishShapeRigPlacement = () => {
-      if (!shapeRigPlacementRoot) { setStatus('Place at least one bone before finishing'); return false; }
+      if (!shapeRigPlacementRoot) { setStatus('Create the Root first'); return false; }
       shapeRigPlacementActive = false;
       orbit.enabled = true;
       activeOrbit.enabled = true;
@@ -933,7 +944,8 @@ export default function App() {
       if (chain) { chain.helper.update(); chain.helper.visible = true; chain.displayVisible = true; }
       syncItems();
       selectObject(shapeRigPlacementLast || shapeRigPlacementRoot);
-      setStatus('Shape Rig created · ' + (chain?.bones.length || 1) + ' connected bone(s) · Root locked');
+      setShapeRigPlacementStep('done');
+      setStatus('Manual Shape Rig finished · ' + (chain?.bones.length || 1) + ' bone(s) connected');
       shapeRigPlacementOwner = null;
       return true;
     };
@@ -941,10 +953,15 @@ export default function App() {
       shapeRigPlacementActive = false;
       orbit.enabled = true;
       activeOrbit.enabled = true;
-      shapeRigPlacementOwner = null;
-      shapeRigPlacementRoot = null;
-      shapeRigPlacementLast = null;
-      setStatus('Bone placement cancelled');
+      if (shapeRigPlacementRoot) {
+        setShapeRigPlacementStep('child');
+        setStatus('Placement stopped · Existing bones kept · Add Child to continue');
+      } else {
+        shapeRigPlacementOwner = null;
+        shapeRigPlacementLast = null;
+        setShapeRigPlacementStep('idle');
+        setStatus('Bone placement cancelled');
+      }
       return true;
     };
     const placeShapeRigBoneAt = (worldPoint: THREE.Vector3) => {
@@ -967,22 +984,30 @@ export default function App() {
         selectable.push(root);
         shapeRigPlacementRoot = root;
         shapeRigPlacementLast = root;
-        setStatus('Root placed and locked · Tap another point to add connected bones');
+        shapeRigPlacementActive = false;
+        orbit.enabled = true;
+        activeOrbit.enabled = true;
+        setShapeRigPlacementStep('child');
+        setStatus('Root created · Locked · Press ADD CHILD to continue');
       } else {
         const parent = shapeRigPlacementLast || shapeRigPlacementRoot;
         const bone = new THREE.Bone();
-        bone.name = 'Shape Bone ' + (rigChains.find(entry => entry.bones.includes(shapeRigPlacementRoot!))?.bones.length || 1);
+        const chain = rigChains.find(entry => entry.bones.includes(shapeRigPlacementRoot!));
+        bone.name = 'Shape Bone ' + ((chain?.bones.length || 1) + 1);
         bone.userData.editorId = uid(); bone.userData.kind = 'Bone'; bone.userData.rigRole = 'deform'; bone.userData.locked = false; bone.userData.shapeRig = true;
         parent.updateWorldMatrix(true, false);
         bone.position.copy(parent.worldToLocal(worldPoint.clone()));
         parent.add(bone);
         ensureBoneJoint(parent); ensureBoneJoint(bone);
-        const chain = rigChains.find(entry => entry.bones.includes(shapeRigPlacementRoot!));
-        if (chain) { chain.bones.push(bone); rebuildRigHelper(chain); chain.helper.visible = true; chain.displayVisible = true; }
+        if (chain) { chain.bones.push(bone); rebuildRigHelper(chain); chain.helper.update(); chain.helper.visible = true; chain.displayVisible = true; }
         selectable.push(bone);
         shapeRigPlacementLast = bone;
+        shapeRigPlacementActive = false;
+        orbit.enabled = true;
+        activeOrbit.enabled = true;
         selectObject(bone);
-        setStatus('Connected ' + bone.name + ' · Tap to continue the chain');
+        setShapeRigPlacementStep('child');
+        setStatus('Child connected · Press ADD CHILD for the next joint');
       }
       syncItems();
       return true;
@@ -2074,7 +2099,7 @@ export default function App() {
         }
       }
       renderer.render(scene, inCam ? activeCamera : camera);
-      runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, transform, selectable, syncItems, addObject, startShapeRigPlacement, finishShapeRigPlacement, cancelShapeRigPlacement, createManualRig, bindSelectedMeshToRig, createIKTarget, solveIK, mirrorSelectedBone, deleteSelectedBone, createPoleTarget, detectRiggedMeshes, autoRigSelectedMesh, normalizeSelectedSkinWeights, smoothSelectedSkinWeights, addUniversalBone, copySelectedBone, setRigParentTarget, attachSelectedToRigParent, detachSelectedRigObject, toggleSelectedBoneControlHandle, toggleSelectedBoneLock, toggleSelectedControlLock, refreshRigVisuals, toggleBoneDisplay, isBoneDisplayVisible, restoreRigGroup: (rig: THREE.Object3D) => { const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) { bones.push(node as THREE.Bone); ensureBoneJoint(node as THREE.Bone); } }); if (!bones.length || rigChains.some(entry => entry.bones[0] === bones[0])) return; const helper = new THREE.SkeletonHelper(bones[0]); helper.name = rig.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); }, attachRigHandle: (handle: THREE.Object3D, rootId: string, kind: string) => { const chain = rigChains.find(entry => String(entry.bones[0]?.userData.editorId) === String(rootId)); if (!chain) return; if (kind === 'IK Target') chain.target = handle; if (kind === 'IK Pole') chain.pole = handle; }, restoreSkinnedMesh: (mesh: THREE.SkinnedMesh, bones: THREE.Bone[], savedSkeleton?: any) => { const inverses = Array.isArray(savedSkeleton?.boneInverses) && savedSkeleton.boneInverses.length === bones.length ? savedSkeleton.boneInverses.map((elements: number[]) => new THREE.Matrix4().fromArray(elements)) : undefined; const skeleton = new THREE.Skeleton(bones, inverses); if (!inverses) skeleton.calculateInverses(); const bindMatrix = Array.isArray(savedSkeleton?.bindMatrix) && savedSkeleton.bindMatrix.length === 16 ? new THREE.Matrix4().fromArray(savedSkeleton.bindMatrix) : mesh.matrixWorld.clone(); mesh.bind(skeleton, bindMatrix); if (savedSkeleton?.bindMode) mesh.bindMode = savedSkeleton.bindMode; const existingChain = rigChains.find(entry => entry.bones[0] === bones[0]); if (!existingChain) { const helper = new THREE.SkeletonHelper(bones[0]); helper.name = mesh.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); } }, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
+      runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, transform, selectable, syncItems, addObject, startShapeRigPlacement, addShapeRigChildPlacement, finishShapeRigPlacement, cancelShapeRigPlacement, createManualRig, bindSelectedMeshToRig, createIKTarget, solveIK, mirrorSelectedBone, deleteSelectedBone, createPoleTarget, detectRiggedMeshes, autoRigSelectedMesh, normalizeSelectedSkinWeights, smoothSelectedSkinWeights, addUniversalBone, copySelectedBone, setRigParentTarget, attachSelectedToRigParent, detachSelectedRigObject, toggleSelectedBoneControlHandle, toggleSelectedBoneLock, toggleSelectedControlLock, refreshRigVisuals, toggleBoneDisplay, isBoneDisplayVisible, restoreRigGroup: (rig: THREE.Object3D) => { const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) { bones.push(node as THREE.Bone); ensureBoneJoint(node as THREE.Bone); } }); if (!bones.length || rigChains.some(entry => entry.bones[0] === bones[0])) return; const helper = new THREE.SkeletonHelper(bones[0]); helper.name = rig.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); }, attachRigHandle: (handle: THREE.Object3D, rootId: string, kind: string) => { const chain = rigChains.find(entry => String(entry.bones[0]?.userData.editorId) === String(rootId)); if (!chain) return; if (kind === 'IK Target') chain.target = handle; if (kind === 'IK Pole') chain.pole = handle; }, restoreSkinnedMesh: (mesh: THREE.SkinnedMesh, bones: THREE.Bone[], savedSkeleton?: any) => { const inverses = Array.isArray(savedSkeleton?.boneInverses) && savedSkeleton.boneInverses.length === bones.length ? savedSkeleton.boneInverses.map((elements: number[]) => new THREE.Matrix4().fromArray(elements)) : undefined; const skeleton = new THREE.Skeleton(bones, inverses); if (!inverses) skeleton.calculateInverses(); const bindMatrix = Array.isArray(savedSkeleton?.bindMatrix) && savedSkeleton.bindMatrix.length === 16 ? new THREE.Matrix4().fromArray(savedSkeleton.bindMatrix) : mesh.matrixWorld.clone(); mesh.bind(skeleton, bindMatrix); if (savedSkeleton?.bindMode) mesh.bindMode = savedSkeleton.bindMode; const existingChain = rigChains.find(entry => entry.bones[0] === bones[0]); if (!existingChain) { const helper = new THREE.SkeletonHelper(bones[0]); helper.name = mesh.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); } }, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
       raf = requestAnimationFrame(frameLoop);
     };
     let raf = requestAnimationFrame(frameLoop);
@@ -3913,9 +3938,7 @@ export default function App() {
         <div className="rig-toolbox-head">
           <div className="rig-toolbox-title"><GitBranch size={14}/><strong>RIG WORKSPACE</strong></div>
           <div className="rig-toolbox-tabs">
-            <button type="button" className={rigTab === 'auto' ? 'active' : ''} onClick={() => setRigTab('auto')} title="Automatic rigging" aria-label="Auto"><Sparkles size={15}/><small>AUTO</small></button>
-            <button type="button" className={rigTab === 'manual' ? 'active' : ''} onClick={() => setRigTab('manual')} title="Manual skeleton editing" aria-label="Manual"><GitBranch size={15}/><small>MANUAL</small></button>
-            <button type="button" className={rigTab === 'pose' ? 'active' : ''} onClick={() => setRigTab('pose')} title="Pose and IK controls" aria-label="Pose"><Move size={15}/><small>POSE</small></button>
+            <button type="button" className="active" aria-label="Manual rigging" title="Manual rigging · Steps 1–2"><GitBranch size={15}/><small>MANUAL</small></button>
           </div>
           <button type="button" className="rig-toolbox-close" onClick={() => setRigPanelOpen(false)} title="Collapse workspace" aria-label="Collapse workspace"><X size={14}/></button>
         </div>
@@ -3943,33 +3966,16 @@ export default function App() {
           <div className="rig-tool-note">Auto Rig currently uses a proportion-based humanoid template and heuristic weights. Check the generated joints and deformation before using the character.</div>
         </> : rigTab === 'manual' ? <>
           <div className="rig-manual-guide">
-            <strong>SHAPE RIG · DIRECT PLACEMENT</strong>
-            <span>Select a Shape or Object, start placement, then tap points on its surface. The first joint becomes a locked Root; every next tap creates a connected child bone.</span>
+            <strong>MANUAL · SHAPE RIG</strong>
+            <span>{shapeRigPlacementStep === 'root' ? 'Tap the Shape to place the Root.' : shapeRigPlacementStep === 'placing-child' ? 'Tap the Shape to place one connected child bone.' : shapeRigPlacementStep === 'child' ? 'Root is ready. Add child bones one at a time.' : shapeRigPlacementStep === 'done' ? 'Step 1–2 complete. Bone hierarchy is ready.' : 'Select a Shape, then create its Root and connected child bones.'}</span>
           </div>
-          <div className="rig-workspace-actions">
-            <button type="button" className="rig-primary-action" onClick={() => runtime.current?.startShapeRigPlacement?.()} title="Start direct bone placement on the selected shape" aria-label="Start Shape Rig"><GitBranch size={18}/><span>START SHAPE RIG</span></button>
-            <button type="button" onClick={() => runtime.current?.finishShapeRigPlacement?.()} title="Finish the current Shape Rig" aria-label="Finish Shape Rig"><Check size={17}/><span>FINISH</span></button>
-            <button type="button" onClick={() => runtime.current?.cancelShapeRigPlacement?.()} title="Cancel bone placement" aria-label="Cancel placement"><X size={17}/></button>
+          <div className="rig-workspace-actions shape-rig-compact-actions">
+            <button type="button" className="rig-primary-action" disabled={shapeRigPlacementStep === 'root' || shapeRigPlacementStep === 'placing-child' || shapeRigPlacementStep === 'child' || shapeRigPlacementStep === 'done'} onClick={() => runtime.current?.startShapeRigPlacement?.()} title="Place the locked Root bone" aria-label="Create Root"><GitBranch size={16}/><span>ROOT</span></button>
+            <button type="button" disabled={shapeRigPlacementStep !== 'child'} onClick={() => runtime.current?.addShapeRigChildPlacement?.()} title="Place one connected child bone" aria-label="Add Child"><Plus size={16}/><span>ADD CHILD</span></button>
+            <button type="button" disabled={shapeRigPlacementStep !== 'child'} onClick={() => runtime.current?.finishShapeRigPlacement?.()} title="Finish manual bone creation" aria-label="Finish"><Check size={16}/><span>FINISH</span></button>
+            <button type="button" disabled={shapeRigPlacementStep === 'idle' || shapeRigPlacementStep === 'done'} onClick={() => runtime.current?.cancelShapeRigPlacement?.()} title="Stop the current placement step" aria-label="Cancel"><X size={16}/></button>
           </div>
-          <div className="rig-workspace-actions">
-            <button type="button" className="rig-primary-action" onClick={() => runtime.current?.createManualRig?.()} title="Create a starter humanoid skeleton" aria-label="Create humanoid rig"><GitBranch size={18}/><span>CREATE HUMANOID</span></button>
-            <button type="button" onClick={() => runtime.current?.addUniversalBone?.()} title="Add a child bone to the selected bone" aria-label="Add child bone"><Plus size={17}/><span>Add Child</span></button>
-          </div>
-          <div className="rig-tool-group">
-            <span className="rig-tool-group-label">SELECTED BONE</span>
-            <button type="button" onClick={() => runtime.current?.copySelectedBone?.()} title="Duplicate selected bone branch" aria-label="Duplicate bone"><Copy size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.deleteSelectedBone?.()} title="Delete selected bone" aria-label="Delete bone"><Trash2 size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.toggleSelectedBoneControlHandle?.()} title="Show or hide selected bone handle" aria-label="Bone handle"><Circle size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.toggleSelectedBoneLock?.()} title="Lock or unlock selected bone" aria-label="Lock bone"><Lock size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.mirrorSelectedBone?.()} title="Mirror selected bone across X" aria-label="Mirror bone"><Layers size={16}/></button>
-          </div>
-          <div className="rig-tool-group">
-            <span className="rig-tool-group-label">PARENT CONNECTION</span>
-            <button type="button" onClick={() => runtime.current?.setRigParentTarget?.()} title="Set selected bone as the parent target" aria-label="Set parent"><Target size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.attachSelectedToRigParent?.()} title="Attach selected bone to parent; preserve world position" aria-label="Attach bone"><Link2 size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.detachSelectedRigObject?.()} title="Detach selected bone from its parent; preserve world position" aria-label="Detach bone"><Unlink size={16}/></button>
-          </div>
-          <div className="rig-tool-note">Tap the selected Shape to place connected bones. Root is locked by default. Finish placement before using Move / Rotate. Shape Rig placement is separate from imported Character skeletons.</div>
+          <div className="rig-tool-note">STEP 1 · Root creation  /  STEP 2 · Connected child bones</div>
         </> : <>
           <div className="rig-workspace-actions">
             <button type="button" onClick={() => runtime.current?.createIKTarget?.()} title="Create IK target" aria-label="Create IK target"><Target size={17}/><span>IK Target</span></button>
