@@ -298,7 +298,7 @@ export default function App() {
   const jointLimitDegreesRef = useRef(120);
   useEffect(() => { ikSolverRef.current = ikSolver; }, [ikSolver]);
   useEffect(() => { jointLimitDegreesRef.current = jointLimitDegrees; }, [jointLimitDegrees]);
-  const [rigTab, setRigTab] = useState<'manual' | 'auto'>('manual');
+  const [rigTab, setRigTab] = useState<'auto' | 'manual' | 'pose'>('auto');
   const [mirrorEnabled, setMirrorEnabled] = useState(true);
   const mirrorEnabledRef = useRef(true);
   useEffect(() => { mirrorEnabledRef.current = mirrorEnabled; }, [mirrorEnabled]);
@@ -566,7 +566,7 @@ export default function App() {
         if (!(object instanceof THREE.Bone)) return;
         const joint = object.children.find(child => child.userData.nexusJointVisual) as THREE.Mesh | undefined;
         if (!joint) return;
-        const color = object.userData.locked ? '#778391' : object === active ? '#ff9f43' : object.userData.detached ? '#b56bdb' : object.parent instanceof THREE.Bone ? '#39c98a' : '#38a9e8';
+        const color = object.userData.locked ? '#ffb52e' : object === active ? '#00d9ff' : object.userData.detached ? '#b56bdb' : '#aeb9c4';
         ((joint.material as THREE.MeshBasicMaterial)).color.set(color);
       });
     };
@@ -987,7 +987,7 @@ export default function App() {
       const control = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
       if (!control?.userData.rigControlMarker) { setStatus('Select a Control Handle sphere first'); return false; }
       control.userData.controlLocked = !control.userData.controlLocked;
-      ((control as THREE.Mesh).material as THREE.MeshBasicMaterial).color.set(control.userData.controlLocked ? '#778391' : '#00e5ff');
+      ((control as THREE.Mesh).material as THREE.MeshBasicMaterial).color.set(control.userData.controlLocked ? '#ffb52e' : '#00d9ff');
       selectObject(control); setStatus(control.name + (control.userData.controlLocked ? ' locked' : ' unlocked')); return true;
     };
     const refreshRigVisuals = () => {
@@ -1017,7 +1017,7 @@ export default function App() {
         bone.userData.controlHandle = false;
         setStatus('Control Handle removed from ' + bone.name);
       } else {
-        const marker = new THREE.Mesh(new THREE.SphereGeometry(0.105, 16, 12), new THREE.MeshBasicMaterial({ color: '#00e5ff', depthTest: false, transparent: true, opacity: 0.98 }));
+        const marker = new THREE.Mesh(new THREE.SphereGeometry(0.07, 14, 10), new THREE.MeshBasicMaterial({ color: '#00d9ff', depthTest: false, transparent: true, opacity: 0.96 }));
         marker.name = bone.name + ' Control Handle'; marker.userData.rigControlMarker = true; marker.userData.editorId = uid(); marker.userData.kind = 'Control Handle'; marker.userData.controlLocked = false; marker.renderOrder = 20;
         bone.add(marker); selectable.push(marker); bone.userData.controlHandle = true;
         setStatus('Control Handle enabled · orange controller gizmo on ' + bone.name);
@@ -3798,76 +3798,64 @@ export default function App() {
         <button className={'rail-btn rig-rail-btn ' + (riggingView ? 'active' : '')} onClick={toggleRiggingWorkspace} title={riggingView ? 'Return to User Workspace' : 'Switch to IK Rigging Workspace · Front Perspective'} aria-label="Rigging workspace"><GitBranch size={17}/><span>{riggingView ? 'USER' : 'RIG'}</span></button>
       </div>
 
-      {riggingView && rigPanelOpen && <aside className="rig-toolbox" aria-label="IK Rigging tools">
+      {riggingView && rigPanelOpen && <aside className="rig-toolbox rig-workspace" aria-label="IK Rigging workspace">
         <div className="rig-toolbox-head">
-          <div className="rig-toolbox-title"><GitBranch size={14}/><strong>IK RIG</strong></div>
+          <div className="rig-toolbox-title"><GitBranch size={14}/><strong>RIG WORKSPACE</strong></div>
           <div className="rig-toolbox-tabs">
-            <button type="button" className={rigTab === 'manual' ? 'active' : ''} onClick={() => setRigTab('manual')} title="Manual IK tools" aria-label="Manual IK"><Move size={15}/></button>
-            <button type="button" className={rigTab === 'auto' ? 'active' : ''} onClick={() => setRigTab('auto')} title="Automatic IK tools" aria-label="Automatic IK"><Sparkles size={15}/></button>
+            <button type="button" className={rigTab === 'auto' ? 'active' : ''} onClick={() => setRigTab('auto')} title="Automatic rigging" aria-label="Auto"><Sparkles size={15}/><small>AUTO</small></button>
+            <button type="button" className={rigTab === 'manual' ? 'active' : ''} onClick={() => setRigTab('manual')} title="Manual skeleton editing" aria-label="Manual"><GitBranch size={15}/><small>MANUAL</small></button>
+            <button type="button" className={rigTab === 'pose' ? 'active' : ''} onClick={() => setRigTab('pose')} title="Pose and IK controls" aria-label="Pose"><Move size={15}/><small>POSE</small></button>
           </div>
-          <button type="button" className="rig-toolbox-close" onClick={() => setRigPanelOpen(false)} title="Hide IK tools" aria-label="Hide IK tools"><X size={14}/></button>
+          <button type="button" className="rig-toolbox-close" onClick={() => setRigPanelOpen(false)} title="Collapse workspace" aria-label="Collapse workspace"><X size={14}/></button>
         </div>
-        {rigTab === 'manual' ? <>
-          <div className="rig-tool-group">
-            <span className="rig-tool-group-label">SKELETON</span>
-            <button type="button" onClick={() => runtime.current?.createManualRig?.()} title="Create humanoid skeleton" aria-label="Create humanoid skeleton"><GitBranch size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.addUniversalBone?.()} title="Add bone to selected bone or create a rig root" aria-label="Add bone"><Plus size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.copySelectedBone?.()} title="Duplicate selected bone branch" aria-label="Duplicate bone"><Copy size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.deleteSelectedBone?.()} title="Delete selected bone" aria-label="Delete bone"><Trash2 size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.mirrorSelectedBone?.()} title="Mirror selected bone across X" aria-label="Mirror bone"><Layers size={16}/></button>
-          </div>
-          <div className="rig-tool-group">
-            <span className="rig-tool-group-label">PARENT / CONTROL</span>
-            <button type="button" onClick={() => runtime.current?.setRigParentTarget?.()} title="Set selected object as parent target" aria-label="Set parent target"><Target size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.attachSelectedToRigParent?.()} title="Attach selected object to parent target" aria-label="Attach to parent"><Link2 size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.detachSelectedRigObject?.()} title="Detach selected object" aria-label="Detach"><Unlink size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.toggleSelectedBoneControlHandle?.()} title="Add or remove control handle on selected bone" aria-label="Toggle control handle"><Circle size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.toggleSelectedBoneLock?.()} title="Lock or unlock selected bone" aria-label="Lock bone"><Lock size={16}/></button>
-          </div>
-          <div className="rig-tool-group">
-            <span className="rig-tool-group-label">INVERSE KINEMATICS</span>
-            <button type="button" onClick={() => runtime.current?.createIKTarget?.()} title="Create IK target for selected bone" aria-label="Create IK target"><Target size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.createPoleTarget?.()} title="Create pole target" aria-label="Create pole target"><Aperture size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.solveIK?.(ikChainLength)} title="Solve IK using current target and solver" aria-label="Solve IK"><Check size={16}/></button>
-            <label className="rig-tool-setting" title="IK solver">
-              <span>SOLVER</span>
-              <select value={ikSolver} onChange={event => setIkSolver(event.target.value as 'CCD' | 'FABRIK')} aria-label="IK solver">
-                <option value="CCD">CCD</option><option value="FABRIK">FABRIK</option>
-              </select>
-            </label>
-            <label className="rig-tool-setting" title="IK chain length">
-              <span>CHAIN</span>
-              <input type="number" min="1" max="12" value={ikChainLength} onChange={event => setIkChainLength(Math.max(1,Math.min(12,Number(event.target.value)||1)))} aria-label="IK chain length"/>
-            </label>
-            <label className="rig-tool-setting" title="Maximum joint rotation in degrees">
-              <span>LIMIT°</span>
-              <input type="number" min="1" max="180" value={jointLimitDegrees} onChange={event => setJointLimitDegrees(Math.max(1,Math.min(180,Number(event.target.value)||1)))} aria-label="Joint rotation limit"/>
-            </label>
-          </div>
-          <div className="rig-tool-group rig-tool-group-footer">
-            <button type="button" onClick={() => setMirrorEnabled(value => !value)} className={mirrorEnabled ? 'active' : ''} title="Toggle live X-axis mirror" aria-label="Toggle mirror X"><Layers size={15}/></button>
-            <button type="button" onClick={() => { const bone = items.find(item => item.object instanceof THREE.Bone)?.object; if (bone) runtime.current?.toggleBoneDisplay?.(bone); else setStatus('No skeleton to show or hide'); }} title="Show or hide skeleton display" aria-label="Toggle skeleton visibility"><Eye size={15}/></button>
-            <button type="button" onClick={() => runtime.current?.refreshRigVisuals?.()} title="Refresh skeleton display" aria-label="Refresh skeleton"><RefreshCw size={15}/></button>
-          </div>
-        </> : <>
-          <div className="rig-tool-group">
-            <span className="rig-tool-group-label">AUTO RIGGING</span>
-            <button type="button" onClick={() => runtime.current?.autoRigSelectedMesh?.()} title="Generate humanoid skeleton and skin weights from selected upright character mesh" aria-label="Generate automatic rig"><Sparkles size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.detectRiggedMeshes?.()} title="Detect skeletons already present in selected character" aria-label="Detect existing rig"><ScanEye size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.bindSelectedMeshToRig?.()} title="Bind selected mesh to existing skeleton" aria-label="Bind mesh to skeleton"><Link2 size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.refreshRigVisuals?.()} title="Refresh skeleton and joint display" aria-label="Refresh rig display"><RefreshCw size={16}/></button>
+        {rigTab === 'auto' ? <>
+          <div className="rig-workspace-actions">
+            <button type="button" onClick={() => runtime.current?.detectRiggedMeshes?.()} title="Detect existing skeleton in selected character" aria-label="Detect skeleton"><ScanEye size={17}/><span>Detect</span></button>
+            <button type="button" onClick={() => runtime.current?.autoRigSelectedMesh?.()} title="Generate a skeleton and automatic skin weights" aria-label="Auto generate rig"><Sparkles size={17}/><span>Generate</span></button>
+            <button type="button" onClick={() => runtime.current?.bindSelectedMeshToRig?.()} title="Bind selected character or shape mesh to the skeleton" aria-label="Bind bones to character"><Link2 size={17}/><span>Bind Mesh</span></button>
           </div>
           <div className="rig-tool-group">
             <span className="rig-tool-group-label">SKIN WEIGHTS</span>
-            <button type="button" onClick={() => runtime.current?.normalizeSelectedSkinWeights?.()} title="Normalize selected skinned mesh weights" aria-label="Normalize skin weights"><Check size={16}/></button>
-            <button type="button" onClick={() => runtime.current?.smoothSelectedSkinWeights?.()} title="Smooth weights once across connected vertices" aria-label="Smooth skin weights"><Waves size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.normalizeSelectedSkinWeights?.()} title="Normalize skin weights" aria-label="Normalize weights"><Check size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.smoothSelectedSkinWeights?.()} title="Smooth skin weights" aria-label="Smooth weights"><Waves size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.refreshRigVisuals?.()} title="Refresh skeleton and joint display" aria-label="Refresh rig"><RefreshCw size={16}/></button>
           </div>
-          <div className="rig-tool-note">Auto Rig uses a heuristic humanoid bone layout and nearest-bone skin weights. Inspect deformation before production use.</div>
-          <div className="rig-tool-group rig-tool-group-footer">
-            <button type="button" onClick={() => { const bone = items.find(item => item.object instanceof THREE.Bone)?.object; if (bone) runtime.current?.toggleBoneDisplay?.(bone); else setStatus('No skeleton to show or hide'); }} title="Show or hide skeleton display" aria-label="Toggle skeleton visibility"><Eye size={15}/></button>
-            <button type="button" onClick={() => runtime.current?.refreshRigVisuals?.()} title="Refresh rig" aria-label="Refresh rig"><RefreshCw size={15}/></button>
+          <div className="rig-tool-note">Select a character or mesh in Scene Tree, then Detect, Generate, or Bind. Binding creates skin weights for mesh deformation.</div>
+        </> : rigTab === 'manual' ? <>
+          <div className="rig-workspace-actions">
+            <button type="button" onClick={() => runtime.current?.createManualRig?.()} title="Create humanoid skeleton" aria-label="Create skeleton"><GitBranch size={17}/><span>New Rig</span></button>
+            <button type="button" onClick={() => runtime.current?.addUniversalBone?.()} title="Add bone to selected bone" aria-label="Add bone"><Plus size={17}/><span>Add Bone</span></button>
+            <button type="button" onClick={() => runtime.current?.copySelectedBone?.()} title="Duplicate selected bone branch" aria-label="Duplicate bone"><Copy size={17}/><span>Duplicate</span></button>
+            <button type="button" onClick={() => runtime.current?.deleteSelectedBone?.()} title="Delete selected bone" aria-label="Delete bone"><Trash2 size={17}/><span>Delete</span></button>
           </div>
+          <div className="rig-tool-group">
+            <span className="rig-tool-group-label">BONE HIERARCHY</span>
+            <button type="button" onClick={() => runtime.current?.setRigParentTarget?.()} title="Set selected bone as parent target" aria-label="Set parent"><Target size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.attachSelectedToRigParent?.()} title="Attach selected bone to parent; preserve world position" aria-label="Attach bone"><Link2 size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.detachSelectedRigObject?.()} title="Detach selected bone from its parent; preserve world position" aria-label="Detach bone"><Unlink size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.mirrorSelectedBone?.()} title="Mirror selected bone across X" aria-label="Mirror bone"><Layers size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.toggleSelectedBoneControlHandle?.()} title="Show or hide selected bone handle" aria-label="Bone handle"><Circle size={16}/></button>
+            <button type="button" onClick={() => runtime.current?.toggleSelectedBoneLock?.()} title="Lock or unlock selected bone" aria-label="Lock bone"><Lock size={16}/></button>
+          </div>
+          <div className="rig-tool-note">Attach / Detach changes bone-to-bone hierarchy. Bind Mesh in AUTO connects the skeleton to the character surface.</div>
+        </> : <>
+          <div className="rig-workspace-actions">
+            <button type="button" onClick={() => runtime.current?.createIKTarget?.()} title="Create IK target" aria-label="Create IK target"><Target size={17}/><span>IK Target</span></button>
+            <button type="button" onClick={() => runtime.current?.createPoleTarget?.()} title="Create pole target" aria-label="Create pole target"><Aperture size={17}/><span>Pole</span></button>
+            <button type="button" onClick={() => runtime.current?.solveIK?.(ikChainLength)} title="Solve selected IK chain" aria-label="Solve IK"><Check size={17}/><span>Solve IK</span></button>
+          </div>
+          <div className="rig-tool-group">
+            <label className="rig-tool-setting"><span>SOLVER</span><select value={ikSolver} onChange={event => setIkSolver(event.target.value as 'CCD' | 'FABRIK')} aria-label="IK solver"><option value="CCD">CCD</option><option value="FABRIK">FABRIK</option></select></label>
+            <label className="rig-tool-setting"><span>CHAIN</span><input type="number" min="1" max="12" value={ikChainLength} onChange={event => setIkChainLength(Math.max(1,Math.min(12,Number(event.target.value)||1)))} aria-label="IK chain length"/></label>
+            <label className="rig-tool-setting"><span>LIMIT°</span><input type="number" min="1" max="180" value={jointLimitDegrees} onChange={event => setJointLimitDegrees(Math.max(1,Math.min(180,Number(event.target.value)||1)))} aria-label="Joint rotation limit"/></label>
+          </div>
+          <div className="rig-tool-note">Select a bone, create an IK Target, then solve the chain. Move or rotate the target in the viewport.</div>
         </>}
+        <div className="rig-tool-group rig-tool-group-footer">
+          <button type="button" onClick={() => { const bone = items.find(item => item.object instanceof THREE.Bone)?.object; if (bone) runtime.current?.toggleBoneDisplay?.(bone); else setStatus('No skeleton to show or hide'); }} title="Show or hide skeleton" aria-label="Toggle skeleton visibility"><Eye size={15}/></button>
+          <button type="button" onClick={() => setMirrorEnabled(value => !value)} className={mirrorEnabled ? 'active' : ''} title="Toggle X-axis mirror" aria-label="Toggle mirror X"><Layers size={15}/></button>
+          <button type="button" onClick={() => runtime.current?.refreshRigVisuals?.()} title="Refresh rig" aria-label="Refresh rig"><RefreshCw size={15}/></button>
+        </div>
       </aside>}
       {riggingView && !rigPanelOpen && <button type="button" className="rig-toolbox-reopen" onClick={() => setRigPanelOpen(true)} title="Show IK Rigging tools" aria-label="Show IK Rigging tools"><GitBranch size={17}/></button>}
 
