@@ -283,6 +283,7 @@ export default function App() {
   const [rdsScanReport, setRdsScanReport] = useState('No full scan has been run yet.');
   const [rdsScanSummary, setRdsScanSummary] = useState({ checks: 0, passed: 0, warnings: 0, errors: 0 });
   const [rdsLastScanAt, setRdsLastScanAt] = useState('');
+  const [rdsSourceAuditReport, setRdsSourceAuditReport] = useState('Build-time source audit has not been loaded yet.');
   const rdsResourceBaselineRef = useRef<{ geometries: number; textures: number; time: number } | null>(null);
   const [menuAccordion, setMenuAccordion] = useState('Project & File');
   const [projectName, setProjectName] = useState('Project.nexus');
@@ -3548,6 +3549,38 @@ export default function App() {
     diagnosticSinkRef.current('INFO', 'Core Optimizer', 'Core system analysis completed', report);
     setStatus('Core system analysis completed · no project data changed');
   };
+  const loadRdsSourceAudit = async () => {
+    try {
+      const response = await fetch('./rds-source-audit.json', { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Build audit asset unavailable (HTTP ${response.status})`);
+      const audit = await response.json() as {
+        generatedAt?: string; scannedFiles?: number; errors?: number; warnings?: number;
+        findings?: Array<{ severity?: string; file?: string; line?: number; rule?: string; message?: string }>;
+        limitations?: string[];
+      };
+      const report = [
+        'NEXUS3D RDS · BUILD-TIME SOURCE AUDIT',
+        `Generated: ${audit.generatedAt || 'unknown'}`,
+        `Scanned source files: ${audit.scannedFiles ?? 'unknown'}`,
+        `Errors: ${audit.errors ?? 'unknown'} · Warnings: ${audit.warnings ?? 'unknown'}`,
+        '',
+        ...(audit.findings || []).map(item => `[${item.severity || 'INFO'}] ${item.file || 'source'}:${item.line || '?'} ${item.rule || ''}\n  ${item.message || ''}`),
+        ...(audit.findings?.length ? [] : ['No findings from the currently enabled static rules.']),
+        '',
+        'LIMITATIONS:',
+        ...(audit.limitations || ['Targeted static rules only; not a complete semantic analyzer.'])
+      ].join('\\n');
+      setRdsSourceAuditReport(report);
+      diagnosticSinkRef.current(audit.errors ? 'ERROR' : audit.warnings ? 'WARN' : 'INFO',
+        'RDS Source Audit', `${audit.errors || 0} error(s), ${audit.warnings || 0} warning(s)`, report);
+      setStatus('Build-time source audit loaded');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setRdsSourceAuditReport(`SOURCE AUDIT UNAVAILABLE\\n${message}\\nRun a new APK build with the RDS audit workflow.`);
+      diagnosticSinkRef.current('WARN', 'RDS Source Audit', 'Build-time source audit could not be loaded', message);
+      setStatus('Source audit unavailable in this build');
+    }
+  };
   const runRdsFullScan = () => {
     if (rdsScanBusy) return;
     setRdsScanBusy(true);
@@ -4567,9 +4600,12 @@ export default function App() {
             <div className="diagnostic-summary"><span>{rdsScanSummary.checks} checks</span><span>{rdsScanSummary.errors} errors</span><span>{rdsScanSummary.warnings} warnings</span></div>
             <div className="diagnostic-actions core-optimizer-actions">
               <button type="button" onClick={runRdsFullScan} disabled={rdsScanBusy}><ScanEye size={12}/> {rdsScanBusy ? 'SCANNING…' : 'SCAN ALL MODULES'}</button>
-              <button type="button" onClick={() => void copyDiagnosticText([{ id: 'rds-report', time: rdsLastScanAt || new Date().toLocaleTimeString(), level: rdsScanSummary.errors ? 'ERROR' : rdsScanSummary.warnings ? 'WARN' : 'INFO', source: 'RDS Full Core Scan', message: 'Full scan report', details: rdsScanReport }])} disabled={!rdsLastScanAt}><ClipboardCopy size={12}/> COPY REPORT</button>
+              <button type="button" onClick={() => void loadRdsSourceAudit()}><Code2 size={12}/> LOAD SOURCE AUDIT</button>
+              <button type="button" onClick={() => void copyDiagnosticText([{ id: 'rds-report', time: rdsLastScanAt || new Date().toLocaleTimeString(), level: rdsScanSummary.errors ? 'ERROR' : rdsScanSummary.warnings ? 'WARN' : 'INFO', source: 'RDS Full Core Scan', message: 'Full scan report', details: rdsScanReport + '\\n\\n' + rdsSourceAuditReport }])} disabled={!rdsLastScanAt}><ClipboardCopy size={12}/> COPY REPORT</button>
             </div>
             <pre className="core-optimizer-report">{rdsScanReport}</pre>
+            <div className="menu-subtitle">BUILD-TIME SOURCE CONFLICT AUDIT</div>
+            <pre className="core-optimizer-report">{rdsSourceAuditReport}</pre>
             <div className="menu-info"><Info size={12}/><span>Scans runtime modules, scene hierarchy, transform values, rig inventory, animation inventory, renderer resources, device capabilities, storage availability and registered API entry points. Read-only: no project or scene data is changed. Static source analysis and native Android crash logs are not included.</span></div>
             <div className="menu-subtitle">CORE PERFORMANCE PROFILE</div>
             <div className="menu-info"><Info size={12}/><span>Analyze first. Safe optimization changes renderer quality only; it never deletes scene objects, meshes, materials, bones, animation, or saved projects.</span></div>
