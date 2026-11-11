@@ -23,7 +23,7 @@ import {
   Film, Lightbulb, X, Check, Eye, EyeOff, Search, ChevronDown, ChevronRight, Download,
   Save, FolderOpen, FileJson, Settings2, Info, Keyboard, Sun, Flashlight, Palette, Upload,
   Sparkles, Waves, Aperture, SlidersHorizontal, CloudFog, ScanEye, Lock, Unlock, Scissors, GitBranch,
-  Plus, Target, Link2, Unlink, RefreshCw,
+  Plus, Target, Link2, Unlink, RefreshCw, GitMerge,
 } from 'lucide-react';
 import './index.css';
 
@@ -4108,7 +4108,7 @@ export default function App() {
           <button type="button" title="Create an IK Target Handle" aria-label="Create IK Target" onClick={() => runtime.current?.createIKTarget()}><Target size={16}/></button>
           <button type="button" title="Create an IK Pole Target" aria-label="Create IK Pole Target" onClick={() => runtime.current?.createPoleTarget()}><Circle size={16}/></button>
           <button type="button" title="Set selected item as Parent target" aria-label="Set Parent Target" onClick={() => runtime.current?.setRigParentTarget()}><Link2 size={16}/></button>
-          <button type="button" title="Attach selected item to the Parent target" aria-label="Attach to Parent" onClick={() => runtime.current?.attachSelectedToRigParent()}><GitBranch size={16}/></button>
+          <button type="button" title="Attach selected item to the Parent target" aria-label="Attach to Parent" onClick={() => runtime.current?.attachSelectedToRigParent()}><GitMerge size={16}/></button>
           <button type="button" title="Unparent selected rig item" aria-label="Unparent selected item" onClick={() => runtime.current?.detachSelectedRigObject()}><Unlink size={16}/></button>
           <button type="button" title="Bind selected mesh to the active skeleton" aria-label="Bind mesh to skeleton" onClick={() => runtime.current?.bindSelectedMeshToRig()}><Box size={16}/></button>
           <button type="button" title="Create an automatic starter rig for selected mesh" aria-label="Auto Rig selected mesh" onClick={() => runtime.current?.autoRigSelectedMesh()}><Sparkles size={16}/></button>
