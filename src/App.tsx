@@ -1652,7 +1652,7 @@ export default function App() {
       if (!paired) return;
       paired.position.set(-source.position.x,source.position.y,source.position.z);
       const e = new THREE.Euler().setFromQuaternion(source.quaternion,'XYZ'); paired.rotation.set(e.x,-e.y,-e.z,'XYZ');
-      paired.scale.copy(source.scale); chain?.helper.update();
+      paired.scale.copy(source.scale); chain?.helper.updateMatrixWorld(true);
     });
     const autoRigSelectedMesh = () => {
       const selectedObject = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
