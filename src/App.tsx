@@ -108,6 +108,7 @@ function BufferedNumberInput({ value, step = 0.1, disabled = false, ariaLabel, o
   );
 }
 
+type DiagnosticEntry = { id: string; time: string; level: 'ERROR' | 'WARN' | 'INFO'; source: string; message: string; details?: string };
 type Item = { id: string; name: string; object: THREE.Object3D; kind: string };
 type TransformSnapshot = { position: number[]; rotation: number[]; scale: number[] };
 type FrameData = Record<string, TransformSnapshot>;
@@ -226,6 +227,26 @@ export default function App() {
   const spaceRef = useRef<'world' | 'local'>('world');
   const [panel, setPanel] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [diagnosticLogs, setDiagnosticLogs] = useState<DiagnosticEntry[]>([]);
+  const [diagnosticFilter, setDiagnosticFilter] = useState<'ALL' | 'ERROR' | 'WARN' | 'INFO'>('ALL');
+  const diagnosticSinkRef = useRef<(level: DiagnosticEntry['level'], source: string, message: string, details?: string) => void>(() => {});
+  const pushDiagnostic = (level: DiagnosticEntry['level'], source: string, message: string, details?: string) => {
+    const entry: DiagnosticEntry = { id: uid(), time: new Date().toLocaleTimeString(), level, source, message: String(message).slice(0, 1200), details: details ? String(details).slice(0, 5000) : undefined };
+    setDiagnosticLogs(previous => [...previous.slice(-399), entry]);
+  };
+  diagnosticSinkRef.current = pushDiagnostic;
+  const copyDiagnosticText = async (entries: DiagnosticEntry[]) => {
+    const report = entries.map(entry => `[${entry.time}] [${entry.level}] [${entry.source}] ${entry.message}${entry.details ? '\\n' + entry.details : ''}`).join('\\n\\n');
+    try {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(report);
+      else {
+        const field = document.createElement('textarea'); field.value = report; field.style.position = 'fixed'; field.style.opacity = '0'; document.body.appendChild(field); field.select();
+        const copied = document.execCommand('copy'); field.remove(); if (!copied) throw new Error('Clipboard permission unavailable');
+      }
+      setStatus(`Copied ${entries.length} diagnostic log(s)`);
+    } catch { setStatus('Copy failed · allow clipboard permission and try again'); }
+  };
+  const visibleDiagnosticLogs = diagnosticFilter === 'ALL' ? diagnosticLogs : diagnosticLogs.filter(entry => entry.level === diagnosticFilter);
   const [maintenanceBusy, setMaintenanceBusy] = useState(false);
   const [performanceMode, setPerformanceMode] = useState(false);
   const [menuAccordion, setMenuAccordion] = useState('Project & File');
@@ -372,6 +393,33 @@ export default function App() {
   };
 
   useEffect(() => { selectedRef.current = selected; }, [selected]);
+  useEffect(() => {
+    const formatDetails = (value: unknown) => {
+      if (value instanceof Error) return `${value.name}: ${value.message}${value.stack ? '\\n' + value.stack : ''}`;
+      if (typeof value === 'string') return value;
+      try { return JSON.stringify(value, (_key, item) => typeof item === 'bigint' ? String(item) : item, 2) ?? String(value); }
+      catch { return String(value); }
+    };
+    const onError = (event: ErrorEvent) => diagnosticSinkRef.current('ERROR', 'JavaScript', event.message || 'Uncaught runtime error', `${event.filename || 'unknown source'}:${event.lineno || 0}:${event.colno || 0}${event.error ? '\\n' + formatDetails(event.error) : ''}`);
+    const onRejection = (event: PromiseRejectionEvent) => diagnosticSinkRef.current('ERROR', 'Promise', 'Unhandled promise rejection', formatDetails(event.reason));
+    const onWebGL = (event: Event) => diagnosticSinkRef.current(event.type === 'webglcontextlost' ? 'ERROR' : 'INFO', 'WebGL', event.type === 'webglcontextlost' ? 'WebGL context lost' : 'WebGL context restored', 'Renderer canvas context event');
+    const originalConsoleError = console.error;
+    console.error = (...args: unknown[]) => {
+      try { diagnosticSinkRef.current('ERROR', 'console.error', args.map(formatDetails).join(' | ')); } catch { /* preserve native console behavior */ }
+      originalConsoleError.apply(console, args);
+    };
+    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onRejection);
+    document.addEventListener('webglcontextlost', onWebGL, true);
+    document.addEventListener('webglcontextrestored', onWebGL, true);
+    return () => {
+      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onRejection);
+      document.removeEventListener('webglcontextlost', onWebGL, true);
+      document.removeEventListener('webglcontextrestored', onWebGL, true);
+      console.error = originalConsoleError;
+    };
+  }, []);
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { spaceRef.current = space; }, [space]);
   useEffect(() => { frameRef.current = frame; }, [frame]);
@@ -550,7 +598,7 @@ export default function App() {
     activeOrbit.maxDistance = 50;
     const transform = new TransformControls(camera, renderer.domElement);
     const controlDiag = (eventName: string, extra: Record<string, unknown> = {}) => {
-      console.info('[Nexus3D ControlDiag]', eventName, {
+      const state = {
         dragging: Boolean(transform.dragging),
         axis: transform.axis ?? null,
         transformEnabled: Boolean(transform.enabled),
@@ -562,7 +610,9 @@ export default function App() {
         cameraView: Boolean(runtime.current?.cameraView),
         selectedId: selectedRef.current ?? null,
         ...extra,
-      });
+      };
+      console.info('[Nexus3D ControlDiag]', eventName, state);
+      diagnosticSinkRef.current('INFO', 'Viewport Controls', eventName, JSON.stringify(state));
     };
     const syncViewportControls = (dragging = Boolean(transform.dragging)) => {
       const inRigView = Boolean(runtime.current?.riggingView);
@@ -4295,6 +4345,25 @@ export default function App() {
             {category.title === 'Help & System Info' && <>
               <div className="menu-info"><Keyboard size={13} /><span>Touch: tap to select; drag the gizmo to transform. Pinch or orbit to navigate the view.</span></div>
               <div className="menu-info"><Info size={13} /><span>Three.js / WebGL. Objects: {objectCount}. Keyframes: {totalKeys}. Renderer: {settings.pathTracer ? 'Path trace preview' : 'Real-time'}.</span></div>
+              <div className="menu-subtitle">BUG / ERROR DETECTOR</div>
+              <div className="diagnostic-summary"><span>{diagnosticLogs.length} captured log(s)</span><span>{diagnosticLogs.filter(entry => entry.level === 'ERROR').length} error(s)</span></div>
+              <div className="diagnostic-actions">
+                <button type="button" onClick={() => void copyDiagnosticText(visibleDiagnosticLogs)} disabled={!visibleDiagnosticLogs.length}><ClipboardCopy size={12}/> COPY VIEW</button>
+                <button type="button" onClick={() => void copyDiagnosticText(diagnosticLogs)} disabled={!diagnosticLogs.length}><ClipboardCopy size={12}/> COPY ALL</button>
+                <button type="button" onClick={() => setDiagnosticLogs([])} disabled={!diagnosticLogs.length}><Trash2 size={12}/> CLEAR</button>
+              </div>
+              <div className="diagnostic-filters" role="group" aria-label="Diagnostic log filter">
+                {(['ALL','ERROR','WARN','INFO'] as const).map(filter => <button type="button" key={filter} className={diagnosticFilter === filter ? 'active' : ''} onClick={() => setDiagnosticFilter(filter)}>{filter}</button>)}
+              </div>
+              <div className="diagnostic-log-list" role="log" aria-live="polite" aria-label="Nexus3D runtime diagnostics">
+                {!visibleDiagnosticLogs.length && <div className="diagnostic-empty">No {diagnosticFilter === 'ALL' ? '' : diagnosticFilter.toLowerCase() + ' '}logs captured yet. Reproduce the problem, then open this panel again.</div>}
+                {visibleDiagnosticLogs.slice().reverse().map(entry => <article className={'diagnostic-entry diagnostic-' + entry.level.toLowerCase()} key={entry.id}>
+                  <div><strong>{entry.level}</strong><time>{entry.time}</time></div>
+                  <b>{entry.source}</b><p>{entry.message}</p>
+                  {entry.details && <pre>{entry.details}</pre>}
+                </article>)}
+              </div>
+              <div className="menu-info"><Info size={12}/><span>Captures JavaScript errors, rejected promises, console errors, WebGL context events and Nexus3D viewport-control state. Some logic bugs require reproducing the issue. Maximum 400 recent entries.</span></div>
               <div className="menu-subtitle">APK MAINTENANCE</div>
               <button className="menu-option" onClick={() => { const next = !performanceMode; runtime.current?.setPerformanceMode?.(next); setPerformanceMode(next); setStatus(next ? 'Performance Mode enabled · reduced GPU load' : 'Performance Mode disabled · standard quality restored'); }}><Gauge size={13}/><span>{performanceMode ? 'Disable Performance Mode' : 'Optimize Performance'}</span></button>
               <button className="menu-option" onClick={clearNexusCache} disabled={maintenanceBusy || !Capacitor.isNativePlatform()}><Trash2 size={13}/><span>{maintenanceBusy ? 'Clearing Cache…' : 'Clear Temporary APK Cache'}</span></button>
