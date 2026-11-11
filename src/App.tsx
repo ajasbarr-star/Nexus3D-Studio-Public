@@ -1130,10 +1130,21 @@ export default function App() {
       const selectedObject = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
       if (mode === 'child' && !(selectedObject instanceof THREE.Bone)) { setStatus('Select the Root Bone or an existing Child Bone first'); return false; }
       if (mode === 'root') {
-        // Search the live scene hierarchy, not only rigChains: reparenting or
-        // restoring a rig must never allow a second Manual Shape Rig root.
+        // Root creation is scoped to the selected Shape only. Never search the
+        // whole scene: an unrelated rig must not steal this Shape's Root action.
+        let rigOwnerForRoot: THREE.Object3D | null = selectedObject || null;
+        if (selectedObject instanceof THREE.Bone) {
+          let topBone: THREE.Bone = selectedObject;
+          while (topBone.parent instanceof THREE.Bone) topBone = topBone.parent;
+          rigOwnerForRoot = topBone.parent && !(topBone.parent instanceof THREE.Bone)
+            ? topBone.parent : null;
+        }
+        if (!rigOwnerForRoot || rigOwnerForRoot instanceof THREE.Light || rigOwnerForRoot === scene) {
+          setStatus('Select the Shape first, then create its Root Bone');
+          return false;
+        }
         let existingRoot: THREE.Bone | null = null;
-        scene.traverse(node => {
+        rigOwnerForRoot.traverse(node => {
           if (!existingRoot && (node as THREE.Bone).isBone &&
               node.userData.rigRole === 'root' && node.userData.shapeRig) {
             existingRoot = node as THREE.Bone;
@@ -1147,14 +1158,19 @@ export default function App() {
             root.traverse(node => { if ((node as THREE.Bone).isBone) bones.push(node as THREE.Bone); });
             const helper = new THREE.SkeletonHelper(root);
             helper.name = root.name + ' Skeleton';
-            helper.visible = true;
             styleSkeletonHelper(helper, bones);
+            helper.visible = true;
             scene.add(helper);
-            chain = { bones, helper, target: null, displayVisible: true, shapeRig: true };
+            chain = { bones, helper, target: null, displayVisible: true, shapeRig: true, owner: rigOwnerForRoot };
             rigChains.push(chain);
+          } else {
+            chain.owner = rigOwnerForRoot;
+            if (chain.helper.parent !== scene) scene.add(chain.helper);
+            chain.helper.visible = chain.displayVisible !== false;
+            chain.helper.update();
           }
           selectObject(root);
-          setStatus('Only one Root Bone is allowed · Existing Root Bone selected; use CHILD for every next bone');
+          setStatus('This Shape already has its Root Bone · select it in Scene Tree or add a Child Bone');
           return root;
         }
       }
@@ -1201,9 +1217,14 @@ export default function App() {
       root.name = 'Root Bone';
       root.userData.editorId = uid(); root.userData.kind = 'Bone'; root.userData.rigRole = 'root';
       root.userData.locked = true; root.userData.shapeRig = true;
-      const rigOwner = selectedObject && !(selectedObject instanceof THREE.Bone) && !(selectedObject instanceof THREE.Light)
+      let rigOwner: THREE.Object3D | null = selectedObject && !(selectedObject instanceof THREE.Bone) && !(selectedObject instanceof THREE.Light)
         ? selectedObject
         : null;
+      if (mode === 'root' && selectedObject instanceof THREE.Bone) {
+        let topBone: THREE.Bone = selectedObject;
+        while (topBone.parent instanceof THREE.Bone) topBone = topBone.parent;
+        rigOwner = topBone.parent && !(topBone.parent instanceof THREE.Bone) ? topBone.parent : null;
+      }
       let rootWorldCenter = new THREE.Vector3();
       let segmentLength = 0.28;
       if (rigOwner) {
@@ -1769,17 +1790,72 @@ export default function App() {
         setStatus('MainCamera is required for CAM view');
         return;
       }
+
+      // A rig root is a child of its Shape, while its TransformControls and
+      // SkeletonHelper live outside that hierarchy. Always release both gizmos
+      // before removing any part of a rig so no control can retain a dead target.
+      const removedNodes = new Set<THREE.Object3D>();
+      obj.traverse(node => removedNodes.add(node));
+      const previousParent = obj.parent;
+      const fallbackSelection = previousParent && selectable.includes(previousParent) && !removedNodes.has(previousParent)
+        ? previousParent : undefined;
       transform.detach();
+      transform.enabled = false;
       transform.getHelper().visible = false;
+      ikTransform?.detach();
+      if (ikTransform) {
+        ikTransform.enabled = false;
+        ikTransform.getHelper().visible = false;
+      }
+
+      // Remove external rig helpers and chain references when their Root Bone
+      // (or owning Shape) is deleted. Keep the removed object tree intact for undo.
+      for (let i = rigChains.length - 1; i >= 0; i--) {
+        const chain = rigChains[i];
+        const rootIsRemoved = chain.bones.some(bone =>
+          bone.userData.rigRole === 'root' && removedNodes.has(bone)
+        );
+        const ownerIsRemoved = Boolean(chain.owner && removedNodes.has(chain.owner));
+        const anyBoneIsRemoved = chain.bones.some(bone => removedNodes.has(bone));
+        if (!rootIsRemoved && !ownerIsRemoved && !anyBoneIsRemoved) continue;
+        if (chain.helper) {
+          scene.remove(chain.helper);
+          chain.helper.visible = false;
+          if (!preserveForUndo) {
+            chain.helper.geometry?.dispose();
+            const helperMaterial = chain.helper.material;
+            if (Array.isArray(helperMaterial)) helperMaterial.forEach(material => material.dispose());
+            else helperMaterial?.dispose();
+          }
+        }
+        if (rootIsRemoved || ownerIsRemoved) {
+          [chain.target, chain.pole].forEach(handle => {
+            if (!handle) return;
+            scene.remove(handle);
+            const handleIndex = selectable.indexOf(handle);
+            if (handleIndex >= 0) selectable.splice(handleIndex, 1);
+          });
+          rigChains.splice(i, 1);
+        } else {
+          chain.bones = chain.bones.filter(bone => !removedNodes.has(bone));
+          if (chain.bones.length > 0) {
+            rebuildRigHelper(chain);
+            chain.helper.visible = chain.shapeRig ? chain.displayVisible !== false : false;
+          } else {
+            rigChains.splice(i, 1);
+          }
+        }
+      }
+
       obj.parent?.remove(obj);
       const lightEntry = lightSources.find(entry => entry.object === obj);
       if (lightEntry && obj instanceof THREE.SpotLight) scene.remove(obj.target);
       const lightIndex = lightSources.findIndex(entry => entry.object === obj);
       if (lightIndex >= 0) lightSources.splice(lightIndex, 1);
-      selectable.filter(candidate => candidate !== obj && candidate.parent === obj).forEach(child => {
-        const childIndex = selectable.indexOf(child);
-        if (childIndex >= 0) selectable.splice(childIndex, 1);
-      });
+      for (const node of removedNodes) {
+        const selectableIndex = selectable.indexOf(node);
+        if (selectableIndex >= 0) selectable.splice(selectableIndex, 1);
+      }
       if (!preserveForUndo) obj.traverse((child: any) => {
         if (child.isMesh) {
           child.geometry?.dispose();
@@ -1787,16 +1863,14 @@ export default function App() {
           else child.material?.dispose();
         }
       });
-      const index = selectable.indexOf(obj);
-      if (index >= 0) selectable.splice(index, 1);
       const next = { ...keysRef.current };
-      delete next[String(obj.userData.editorId)];
+      removedNodes.forEach(node => { if (node.userData.editorId) delete next[String(node.userData.editorId)]; });
       keysRef.current = next;
       setKeyframes(next);
       syncItems();
-      setSelected('');
-      selectedRef.current = '';
-      setStatus(obj.name + ' deleted');
+      if (fallbackSelection) selectObject(fallbackSelection);
+      else selectObject();
+      setStatus(obj.name + ' deleted · rig controls released');
     };
     let pointerStart: { x: number; y: number; id: number } | null = null;
     let shapeRigPlacementActive = false;
