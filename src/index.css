@@ -1750,6 +1750,8 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 }
 .rig-workspace .rig-toolbox-tabs button small { font-size:6px; line-height:1; letter-spacing:.08em; }
 .rig-workspace-actions { display:flex; flex-wrap:wrap; gap:6px; }
+.rig-workspace-actions.shape-rig-bind-actions button { min-height:36px; flex:1 1 100%; flex-direction:row; justify-content:center; gap:8px; }
+.rig-workspace-actions.shape-rig-bind-actions button span { font-size:8px; letter-spacing:.06em; }
 .rig-workspace-actions button {
   width:auto; min-width:76px; height:42px; padding:4px 8px; display:flex;
   flex:1 1 0; flex-direction:column; gap:3px; font-size:8px; color:#c9e5f6;
