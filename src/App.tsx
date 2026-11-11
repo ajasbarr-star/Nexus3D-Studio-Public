@@ -933,7 +933,6 @@ export default function App() {
         });
       }
       const movableLockedRoot = obj instanceof THREE.Bone && obj.userData.shapeRig && obj.userData.rigRole === 'root' && obj.userData.locked;
-      const inRiggingView = Boolean(runtime.current?.riggingView);
       const objectMode = editModeRef.current === 'Object';
       const selectionLocked = (obj instanceof THREE.Bone && obj.userData.locked && !movableLockedRoot) || (obj.userData.rigControlMarker && obj.userData.controlLocked);
 
