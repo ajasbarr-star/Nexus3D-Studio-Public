@@ -18,7 +18,7 @@ import JSZip from 'jszip';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   Box, Camera, Circle, Copy, Cuboid, Cylinder, Cone, Focus, Globe, Grid2X2,
-  Layers, Maximize, Move, Rotate3D, Scaling, Trash2, Magnet,
+  Layers, Maximize, Move, Rotate3D, Scaling, Trash2, Magnet, Gauge,
   Play, Pause, Rewind, ClipboardCopy, ClipboardPaste, Diamond, Undo2, Redo2,
   Film, Lightbulb, X, Check, Eye, EyeOff, Search, ChevronDown, ChevronRight, Download,
   Save, FolderOpen, FileJson, Settings2, Info, Keyboard, Sun, Flashlight, Palette, Upload,
@@ -4421,6 +4421,35 @@ export default function App() {
 
       {menuOpen && !panel && !cameraView && !riggingView && <aside className="menu-panel">
         <div className="panel-heading"><div><Settings2 size={13} /><span>Menu</span></div><button className="menu-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={13} /></button></div>
+        <section className="menu-category diagnostic-menu-section">
+          <button type="button" className={'menu-option diagnostic-toggle-button ' + (diagnosticPanelOpen ? 'expanded' : '')}
+                          aria-expanded={diagnosticPanelOpen}
+                          onClick={() => setDiagnosticPanelOpen(open => !open)}>
+                          <Activity size={13}/><span>REALTIME DIAGNOSTIC SYSTEM</span>
+                          {diagnosticPanelOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
+                        </button>
+                        {diagnosticPanelOpen && <section className="diagnostic-panel-expanded" aria-label="Realtime Diagnostic System Panel">
+                        <div className="diagnostic-summary"><span>{diagnosticLogs.length} captured log(s)</span><span>{diagnosticLogs.filter(entry => entry.level === 'ERROR').length} error(s)</span></div>
+                        <div className="diagnostic-actions">
+                          <button type="button" onClick={() => void copyDiagnosticText(visibleDiagnosticLogs)} disabled={!visibleDiagnosticLogs.length}><ClipboardCopy size={12}/> COPY VIEW</button>
+                          <button type="button" onClick={() => void copyDiagnosticText(diagnosticLogs)} disabled={!diagnosticLogs.length}><ClipboardCopy size={12}/> COPY ALL</button>
+                          <button type="button" onClick={clearDiagnosticLogs} disabled={!diagnosticLogs.length}><Trash2 size={12}/> CLEAR</button>
+                        </div>
+                        <div className="diagnostic-filters" role="group" aria-label="Diagnostic log filter">
+                          {(['ALL','ERROR','WARN','INFO'] as const).map(filter => <button type="button" key={filter} className={diagnosticFilter === filter ? 'active' : ''} onClick={() => setDiagnosticFilter(filter)}>{filter}</button>)}
+                        </div>
+                        <div className="diagnostic-log-list" role="log" aria-live="polite" aria-label="Nexus3D runtime diagnostics">
+                          {!visibleDiagnosticLogs.length && <div className="diagnostic-empty">No {diagnosticFilter === 'ALL' ? '' : diagnosticFilter.toLowerCase() + ' '}logs captured yet. Reproduce the problem, then open this panel again.</div>}
+                          {visibleDiagnosticLogs.slice().reverse().map(entry => <article className={'diagnostic-entry diagnostic-' + entry.level.toLowerCase()} key={entry.id}>
+                            <div><strong>{entry.level}</strong><time>{entry.time}</time></div>
+                            <b>{entry.source}</b><p>{entry.message}</p>
+                            {entry.details && <pre>{entry.details}</pre>}
+                          </article>)}
+                        </div>
+                        <div className="menu-info"><Info size={12}/><span>Live capture stays active even when this panel is collapsed. Monitors JavaScript errors, rejected promises, failed resources, relevant console warnings, WebGL context events, main-thread stalls, FPS drops, memory and WebGL load, plus Nexus3D viewport-control state. Native Android process crashes may not leave a JavaScript log. Maximum 400 recent entries.</span></div>
+          
+                        </section>}
+        </section>
         {menuCategories.map(category => <section className="menu-category" key={category.title}>
           <button className={'menu-category-button ' + (menuAccordion === category.title ? 'expanded' : '')} onClick={() => setMenuAccordion(menuAccordion === category.title ? '' : category.title)}>
             {category.icon}<span>{category.title}</span>{menuAccordion === category.title ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -4448,33 +4477,6 @@ export default function App() {
             {category.title === 'Help & System Info' && <>
               <div className="menu-info"><Keyboard size={13} /><span>Touch: tap to select; drag the gizmo to transform. Pinch or orbit to navigate the view.</span></div>
               <div className="menu-info"><Info size={13} /><span>Three.js / WebGL. Objects: {objectCount}. Keyframes: {totalKeys}. Renderer: {settings.pathTracer ? 'Path trace preview' : 'Real-time'}.</span></div>
-              <button type="button" className={'menu-option diagnostic-toggle-button ' + (diagnosticPanelOpen ? 'expanded' : '')}
-                aria-expanded={diagnosticPanelOpen}
-                onClick={() => setDiagnosticPanelOpen(open => !open)}>
-                <Activity size={13}/><span>REALTIME DIAGNOSTIC SYSTEM</span>
-                {diagnosticPanelOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
-              </button>
-              {diagnosticPanelOpen && <section className="diagnostic-panel-expanded" aria-label="Realtime Diagnostic System Panel">
-              <div className="diagnostic-summary"><span>{diagnosticLogs.length} captured log(s)</span><span>{diagnosticLogs.filter(entry => entry.level === 'ERROR').length} error(s)</span></div>
-              <div className="diagnostic-actions">
-                <button type="button" onClick={() => void copyDiagnosticText(visibleDiagnosticLogs)} disabled={!visibleDiagnosticLogs.length}><ClipboardCopy size={12}/> COPY VIEW</button>
-                <button type="button" onClick={() => void copyDiagnosticText(diagnosticLogs)} disabled={!diagnosticLogs.length}><ClipboardCopy size={12}/> COPY ALL</button>
-                <button type="button" onClick={clearDiagnosticLogs} disabled={!diagnosticLogs.length}><Trash2 size={12}/> CLEAR</button>
-              </div>
-              <div className="diagnostic-filters" role="group" aria-label="Diagnostic log filter">
-                {(['ALL','ERROR','WARN','INFO'] as const).map(filter => <button type="button" key={filter} className={diagnosticFilter === filter ? 'active' : ''} onClick={() => setDiagnosticFilter(filter)}>{filter}</button>)}
-              </div>
-              <div className="diagnostic-log-list" role="log" aria-live="polite" aria-label="Nexus3D runtime diagnostics">
-                {!visibleDiagnosticLogs.length && <div className="diagnostic-empty">No {diagnosticFilter === 'ALL' ? '' : diagnosticFilter.toLowerCase() + ' '}logs captured yet. Reproduce the problem, then open this panel again.</div>}
-                {visibleDiagnosticLogs.slice().reverse().map(entry => <article className={'diagnostic-entry diagnostic-' + entry.level.toLowerCase()} key={entry.id}>
-                  <div><strong>{entry.level}</strong><time>{entry.time}</time></div>
-                  <b>{entry.source}</b><p>{entry.message}</p>
-                  {entry.details && <pre>{entry.details}</pre>}
-                </article>)}
-              </div>
-              <div className="menu-info"><Info size={12}/><span>Live capture stays active even when this panel is collapsed. Monitors JavaScript errors, rejected promises, failed resources, relevant console warnings, WebGL context events, main-thread stalls, FPS drops, memory and WebGL load, plus Nexus3D viewport-control state. Native Android process crashes may not leave a JavaScript log. Maximum 400 recent entries.</span></div>
-
-              </section>}
               <div className="menu-subtitle">APK MAINTENANCE</div>
               <button className="menu-option" onClick={() => { const next = !performanceMode; runtime.current?.setPerformanceMode?.(next); setPerformanceMode(next); setStatus(next ? 'Performance Mode enabled · reduced GPU load' : 'Performance Mode disabled · standard quality restored'); }}><Gauge size={13}/><span>{performanceMode ? 'Disable Performance Mode' : 'Optimize Performance'}</span></button>
               <button className="menu-option" onClick={clearNexusCache} disabled={maintenanceBusy || !Capacitor.isNativePlatform()}><Trash2 size={13}/><span>{maintenanceBusy ? 'Clearing Cache…' : 'Clear Temporary APK Cache'}</span></button>
