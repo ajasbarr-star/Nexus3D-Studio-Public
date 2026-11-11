@@ -405,14 +405,6 @@ export default function App() {
     ikCamera.position.set(0, 1.5, 6);
     const ikRenderer = renderer;
     const ikOrbit = new OrbitControls(ikCamera, renderer.domElement);
-    const ikTransform = new TransformControls(ikCamera, renderer.domElement);
-    // The Main and IK controls share one physical canvas. Keep only the active
-    // viewport's TransformControls connected to DOM pointer events.
-    ikTransform.disconnect();
-    ikTransform.size = 1.05;
-    ikTransform.enabled = false;
-    ikTransform.getHelper().visible = false;
-    scene.add(ikTransform.getHelper());
     if (ikOrbit) {
       ikOrbit.enableDamping = true;
       ikOrbit.dampingFactor = 0.08;
@@ -420,12 +412,6 @@ export default function App() {
       ikOrbit.maxDistance = 10000;
       ikOrbit.enabled = false;
     }
-    ikTransform?.addEventListener('dragging-changed', (event: any) => {
-      if (ikOrbit) ikOrbit.enabled = !event.value && Boolean(runtime.current?.riggingView);
-    });
-    ikTransform?.addEventListener('mouseUp', () => {
-      if (autoKeyRef.current && selectedRef.current) captureRef.current();
-    });
 
     // Editor-only overlays provide visible sub-object selection without changing source mesh materials.
     const subObjectHighlight = new THREE.Group();
@@ -922,8 +908,8 @@ export default function App() {
       if (!obj) {
         transform.detach();
         transform.enabled = false;
-        ikTransform?.detach();
-        if (ikTransform) { ikTransform.enabled = false; ikTransform.getHelper().visible = false; }
+        transform?.detach();
+        if (transform) { transform.enabled = false; transform.getHelper().visible = false; }
         transform.getHelper().visible = false;
         setSelected('');
         selectedRef.current = '';
@@ -957,10 +943,10 @@ export default function App() {
       transform.detach();
       transform.enabled = false;
       transform.getHelper().visible = false;
-      ikTransform?.detach();
-      if (ikTransform) {
-        ikTransform.enabled = false;
-        ikTransform.getHelper().visible = false;
+      transform?.detach();
+      if (transform) {
+        transform.enabled = false;
+        transform.getHelper().visible = false;
       }
 
       // Keep exactly one TransformControls instance attached to the shared canvas.
@@ -969,25 +955,25 @@ export default function App() {
         transform.detach();
         transform.enabled = false;
         transform.getHelper().visible = false;
-        ikTransform?.detach();
-        if (ikTransform) {
-          ikTransform.enabled = false;
-          ikTransform.getHelper().visible = false;
+        transform?.detach();
+        if (transform) {
+          transform.enabled = false;
+          transform.getHelper().visible = false;
         }
       } else if (inRiggingView) {
         transform.detach();
         transform.enabled = false;
         transform.getHelper().visible = false;
-        if (ikTransform) {
-          ikTransform.attach(obj);
-          ikTransform.enabled = objectMode;
-          ikTransform.getHelper().visible = objectMode;
+        if (transform) {
+          transform.attach(obj);
+          transform.enabled = objectMode;
+          transform.getHelper().visible = objectMode;
         }
       } else {
-        ikTransform?.detach();
-        if (ikTransform) {
-          ikTransform.enabled = false;
-          ikTransform.getHelper().visible = false;
+        transform?.detach();
+        if (transform) {
+          transform.enabled = false;
+          transform.getHelper().visible = false;
         }
         transform.attach(obj);
         transform.enabled = objectMode;
@@ -995,8 +981,8 @@ export default function App() {
       }
       transform.setMode(movableLockedRoot ? 'translate' : mode);
       transform.setSpace(space);
-      ikTransform?.setMode(movableLockedRoot ? 'translate' : mode);
-      ikTransform?.setSpace(space);
+      transform?.setMode(movableLockedRoot ? 'translate' : mode);
+      transform?.setSpace(space);
       if (obj instanceof THREE.Light) {
         setSettings(prev => ({ ...prev, lightIntensity: obj.intensity, lightColor: '#' + obj.color.getHexString(), ...(obj instanceof THREE.DirectionalLight ? { directionalIntensity: obj.intensity } : {}), ...(obj instanceof THREE.SpotLight ? { spotIntensity: obj.intensity, spotDistance: obj.distance, spotDecay: obj.decay, spotAngle: THREE.MathUtils.radToDeg(obj.angle) } : {}), ...(obj instanceof THREE.HemisphereLight ? { sunIntensity: obj.intensity, ambientIntensity: obj.intensity } : {}) }));
       }
@@ -1888,10 +1874,10 @@ export default function App() {
       transform.detach();
       transform.enabled = false;
       transform.getHelper().visible = false;
-      ikTransform?.detach();
-      if (ikTransform) {
-        ikTransform.enabled = false;
-        ikTransform.getHelper().visible = false;
+      transform?.detach();
+      if (transform) {
+        transform.enabled = false;
+        transform.getHelper().visible = false;
       }
 
       // Remove external rig helpers and chain references when their Root Bone
@@ -2345,7 +2331,7 @@ export default function App() {
       if (!ikTapStart || ikTapStart.id !== event.pointerId) return;
       const moved = Math.hypot(event.clientX - ikTapStart.x, event.clientY - ikTapStart.y);
       ikTapStart = null;
-      if (moved > 8 || ikTransform?.dragging) return;
+      if (moved > 8 || transform?.dragging) return;
       const rect = renderer.domElement.getBoundingClientRect();
       if (!rect || !rect.width || !rect.height) return;
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -2443,8 +2429,10 @@ export default function App() {
     });
     transform.addEventListener('dragging-changed', (event: any) => {
       const inCameraView = Boolean(runtime.current?.cameraView);
-      orbit.enabled = !event.value && !inCameraView;
+      const inRigView = Boolean(runtime.current?.riggingView);
+      orbit.enabled = !event.value && !inCameraView && !inRigView;
       activeOrbit.enabled = !event.value && inCameraView;
+      ikOrbit.enabled = !event.value && inRigView;
       if (event.value) {
         const object = transform.object;
         if (object === subObjectPivot && activeSubSelection) subGeometryBefore = activeSubSelection.mesh.geometry.clone();
@@ -2520,7 +2508,7 @@ export default function App() {
       }
       camBody.visible = !inCam && !Boolean(runtime.current?.riggingView);
       // Selection changes own gizmo visibility; never reveal an old attachment.
-      transform.getHelper().visible = !runtime.current?.riggingView && Boolean(selectedRef.current && transform.object && transform.enabled);
+      transform.getHelper().visible = Boolean(selectedRef.current && transform.object && transform.enabled);
       Object.entries(particleSystems).forEach(([type, points]) => {
         if (!points.visible) return;
         const position = points.geometry.getAttribute('position') as THREE.BufferAttribute;
@@ -2542,15 +2530,11 @@ export default function App() {
         }
       }
       if (runtime.current?.riggingView) {
-        const transformHelper = transform.getHelper?.();
-        const helperWasVisible = transformHelper?.visible;
-        if (transformHelper) transformHelper.visible = false;
         renderer.render(scene, ikCamera);
-        if (transformHelper) transformHelper.visible = helperWasVisible ?? false;
       } else {
         renderer.render(scene, inCam ? activeCamera : camera);
       }
-      runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, ikCamera, ikRenderer, ikOrbit, ikTransform, transform, selectable, syncItems, addObject, setPerformanceMode: (enabled: boolean) => { const pixelRatio = Math.min(window.devicePixelRatio || 1, enabled ? 1.15 : 2); renderer.setPixelRatio(pixelRatio); const renderHost = runtime.current?.riggingView && ikHost ? ikHost : host; renderer.setSize(Math.max(renderHost.clientWidth, 1), Math.max(renderHost.clientHeight, 1), false); renderer.shadowMap.enabled = !enabled; renderer.renderLists.dispose(); renderer.info.reset(); }, startShapeRigPlacement, addShapeRigChildPlacement, finishShapeRigPlacement, cancelShapeRigPlacement, createManualRig, bindSelectedMeshToRig, createIKTarget, solveIK, mirrorSelectedBone, deleteSelectedBone, createPoleTarget, detectRiggedMeshes, autoRigSelectedMesh, normalizeSelectedSkinWeights, smoothSelectedSkinWeights, addUniversalBone, copySelectedBone, setRigParentTarget, attachSelectedToRigParent, detachSelectedRigObject, toggleSelectedBoneControlHandle, toggleSelectedBoneLock, toggleSelectedControlLock, refreshRigVisuals, toggleBoneDisplay, isBoneDisplayVisible, restoreRigGroup: (rig: THREE.Object3D) => { const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) { bones.push(node as THREE.Bone); ensureBoneJoint(node as THREE.Bone); } }); if (!bones.length || rigChains.some(entry => entry.bones[0] === bones[0])) return; const helper = new THREE.SkeletonHelper(bones[0]); helper.name = rig.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); }, attachRigHandle: (handle: THREE.Object3D, rootId: string, kind: string) => { const chain = rigChains.find(entry => String(entry.bones[0]?.userData.editorId) === String(rootId)); if (!chain) return; if (kind === 'IK Target') chain.target = handle; if (kind === 'IK Pole') chain.pole = handle; }, restoreSkinnedMesh: (mesh: THREE.SkinnedMesh, bones: THREE.Bone[], savedSkeleton?: any) => { const inverses = Array.isArray(savedSkeleton?.boneInverses) && savedSkeleton.boneInverses.length === bones.length ? savedSkeleton.boneInverses.map((elements: number[]) => new THREE.Matrix4().fromArray(elements)) : undefined; const skeleton = new THREE.Skeleton(bones, inverses); if (!inverses) skeleton.calculateInverses(); const bindMatrix = Array.isArray(savedSkeleton?.bindMatrix) && savedSkeleton.bindMatrix.length === 16 ? new THREE.Matrix4().fromArray(savedSkeleton.bindMatrix) : mesh.matrixWorld.clone(); mesh.bind(skeleton, bindMatrix); if (savedSkeleton?.bindMode) mesh.bindMode = savedSkeleton.bindMode; const existingChain = rigChains.find(entry => entry.bones[0] === bones[0]); if (!existingChain) { const helper = new THREE.SkeletonHelper(bones[0]); helper.name = mesh.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); } }, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
+      runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, ikCamera, ikRenderer, ikOrbit, transform, selectable, syncItems, addObject, setPerformanceMode: (enabled: boolean) => { const pixelRatio = Math.min(window.devicePixelRatio || 1, enabled ? 1.15 : 2); renderer.setPixelRatio(pixelRatio); const renderHost = runtime.current?.riggingView && ikHost ? ikHost : host; renderer.setSize(Math.max(renderHost.clientWidth, 1), Math.max(renderHost.clientHeight, 1), false); renderer.shadowMap.enabled = !enabled; renderer.renderLists.dispose(); renderer.info.reset(); }, startShapeRigPlacement, addShapeRigChildPlacement, finishShapeRigPlacement, cancelShapeRigPlacement, createManualRig, bindSelectedMeshToRig, createIKTarget, solveIK, mirrorSelectedBone, deleteSelectedBone, createPoleTarget, detectRiggedMeshes, autoRigSelectedMesh, normalizeSelectedSkinWeights, smoothSelectedSkinWeights, addUniversalBone, copySelectedBone, setRigParentTarget, attachSelectedToRigParent, detachSelectedRigObject, toggleSelectedBoneControlHandle, toggleSelectedBoneLock, toggleSelectedControlLock, refreshRigVisuals, toggleBoneDisplay, isBoneDisplayVisible, restoreRigGroup: (rig: THREE.Object3D) => { const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) { bones.push(node as THREE.Bone); ensureBoneJoint(node as THREE.Bone); } }); if (!bones.length || rigChains.some(entry => entry.bones[0] === bones[0])) return; const helper = new THREE.SkeletonHelper(bones[0]); helper.name = rig.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); }, attachRigHandle: (handle: THREE.Object3D, rootId: string, kind: string) => { const chain = rigChains.find(entry => String(entry.bones[0]?.userData.editorId) === String(rootId)); if (!chain) return; if (kind === 'IK Target') chain.target = handle; if (kind === 'IK Pole') chain.pole = handle; }, restoreSkinnedMesh: (mesh: THREE.SkinnedMesh, bones: THREE.Bone[], savedSkeleton?: any) => { const inverses = Array.isArray(savedSkeleton?.boneInverses) && savedSkeleton.boneInverses.length === bones.length ? savedSkeleton.boneInverses.map((elements: number[]) => new THREE.Matrix4().fromArray(elements)) : undefined; const skeleton = new THREE.Skeleton(bones, inverses); if (!inverses) skeleton.calculateInverses(); const bindMatrix = Array.isArray(savedSkeleton?.bindMatrix) && savedSkeleton.bindMatrix.length === 16 ? new THREE.Matrix4().fromArray(savedSkeleton.bindMatrix) : mesh.matrixWorld.clone(); mesh.bind(skeleton, bindMatrix); if (savedSkeleton?.bindMode) mesh.bindMode = savedSkeleton.bindMode; const existingChain = rigChains.find(entry => entry.bones[0] === bones[0]); if (!existingChain) { const helper = new THREE.SkeletonHelper(bones[0]); helper.name = mesh.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); } }, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
       raf = requestAnimationFrame(frameLoop);
     };
     let raf = requestAnimationFrame(frameLoop);
@@ -2568,7 +2552,6 @@ export default function App() {
       orbit.dispose();
       activeOrbit.dispose();
       ikOrbit?.dispose();
-      ikTransform?.dispose();
       transform.dispose();
       subObjectPivot.parent?.remove(subObjectPivot);
       clearSubObjectHighlight();
@@ -2601,7 +2584,7 @@ export default function App() {
     const transform = runtime.current?.transform;
     if (transform) {
       transform.setMode(next);
-      runtime.current?.ikTransform?.setMode(next);
+      runtime.current?.transform?.setMode(next);
       const active = runtime.current?.getActiveSubSelection?.();
       const editingSubObject = editModeRef.current !== 'Object' && Boolean(active);
       transform.enabled = Boolean(selectedRef.current) && (editModeRef.current === 'Object' || editingSubObject);
@@ -2615,7 +2598,7 @@ export default function App() {
     spaceRef.current = next;
     setSpace(next);
     runtime.current?.transform.setSpace(next);
-    runtime.current?.ikTransform?.setSpace(next);
+    runtime.current?.transform?.setSpace(next);
     setStatus(next === 'world' ? 'World axis space' : 'Local axis space');
   };
   const add = (kind: string) => { if (!cameraView) runtime.current?.addObject(kind); };
@@ -3152,19 +3135,18 @@ export default function App() {
         r.orbit.enabled = false;
         r.activeOrbit.enabled = false;
         r.riggingView = true;
-        // Prevent two TransformControls instances from listening to the same canvas.
-        r.transform.disconnect();
-        r.ikTransform.connect(r.renderer.domElement);
+        // Keep the single TransformControls instance connected; switch its camera.
+        r.transform.camera = r.ikCamera;
         const ikHost = ikHostRef.current;
         if (!ikHost) throw new Error('IK viewport host is unavailable');
         if (r.renderer.domElement.parentNode !== ikHost) ikHost.appendChild(r.renderer.domElement);
         r.renderer.setSize(Math.max(ikHost.clientWidth, 1), Math.max(ikHost.clientHeight, 1));
         r.ikCamera.aspect = Math.max(ikHost.clientWidth, 1) / Math.max(ikHost.clientHeight, 1);
         r.ikCamera.updateProjectionMatrix();
-        r.ikTransform.enabled = Boolean(selectedRef.current);
-        r.ikTransform.getHelper().visible = Boolean(selectedRef.current);
-        r.ikTransform.setMode(modeRef.current);
-        r.ikTransform.setSpace(spaceRef.current);
+        r.transform.enabled = Boolean(selectedRef.current);
+        r.transform.getHelper().visible = Boolean(selectedRef.current);
+        r.transform.setMode(modeRef.current);
+        r.transform.setSpace(spaceRef.current);
         // Re-apply selection after switching the active camera/controller so the
         // IK gizmo is attached to the current Scene Tree item, never a stale target.
         const activeRigSelection = r.selectable.find((object: THREE.Object3D) => String(object.userData.editorId) === selectedRef.current);
@@ -3186,8 +3168,7 @@ export default function App() {
       } catch (error) {
         r.riggingView = false;
         r.ikOrbit.enabled = false;
-        r.ikTransform.disconnect();
-        r.transform.connect(r.renderer.domElement);
+        r.transform.camera = r.camera;
         r.orbit.enabled = true;
         const mainHost = hostRef.current;
         if (mainHost && r.renderer.domElement.parentNode !== mainHost) mainHost.appendChild(r.renderer.domElement);
@@ -3201,8 +3182,7 @@ export default function App() {
     } else {
       r.riggingView = false;
       r.ikOrbit.enabled = false;
-      r.ikTransform.disconnect();
-      r.transform.connect(r.renderer.domElement);
+      r.transform.camera = r.camera;
       const mainHost = hostRef.current;
       if (mainHost && r.renderer.domElement.parentNode !== mainHost) mainHost.appendChild(r.renderer.domElement);
       if (mainHost) {
@@ -3211,8 +3191,8 @@ export default function App() {
         r.camera.updateProjectionMatrix();
       }
       r.orbit.enabled = true;
-      r.ikTransform.enabled = false;
-      r.ikTransform.getHelper().visible = false;
+      r.transform.enabled = false;
+      r.transform.getHelper().visible = false;
       const mainSelection = r.selectable.find((object: THREE.Object3D) => String(object.userData.editorId) === selectedRef.current);
       r.selectObject(mainSelection);
       r.transform.enabled = Boolean(selectedRef.current) && editModeRef.current === 'Object';
