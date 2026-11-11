@@ -2763,66 +2763,109 @@ export default function App() {
   };
   const toggleRiggingWorkspace = () => {
     const r = runtime.current;
-    if (!r) return;
+    if (!r) {
+      setStatus('3D workspace is still initializing. Please try again.');
+      return;
+    }
     const opening = !riggingView;
     if (opening) {
-      if (cameraView) {
+      if (cameraView || r.cameraView) {
         setStatus('Exit CAM view before opening IK Rigging');
         return;
       }
-      r.riggingView = true;
-      // UserCamera visibility is managed independently by the render loop;
-      // IK Rigging never changes the original CAM/UserCamera switching logic.
-      r.riggingPreviousCamera = {
+
+      // Keep a rollback snapshot. Do not switch the renderer into rig mode until
+      // the camera fit and TransformControls setup have completed successfully.
+      const previous = {
         position: r.camera.position.toArray(),
         target: r.orbit.target.toArray(),
       };
-      // Fit the selected character or object in a true front-facing perspective.
-      const rigSubject = r.selectable.find((object: THREE.Object3D) => object.userData.editorId === selectedRef.current)
-        || r.selectable.find((object: THREE.Object3D) => object.userData.kind !== 'Light' && object.userData.kind !== 'Camera');
-      const rigBounds = rigSubject ? new THREE.Box3().setFromObject(rigSubject) : new THREE.Box3();
-      const rigSize = new THREE.Vector3();
-      const rigCenter = new THREE.Vector3(0, 1.45, 0);
-      let rigDistance = 9;
-      if (rigSubject && !rigBounds.isEmpty()) {
-        rigBounds.getSize(rigSize);
-        rigBounds.getCenter(rigCenter);
-        rigDistance = Math.max(3.5, Math.max(rigSize.x, rigSize.y, rigSize.z) * 2.35);
-      }
-      // MainCamera/UserCamera stays untouched; only the editor perspective camera moves.
-      r.camera.position.set(rigCenter.x, rigCenter.y, rigCenter.z + rigDistance);
-      r.orbit.target.copy(rigCenter);
-      r.orbit.enabled = true;
-      r.activeOrbit.enabled = false;
-      r.orbit.update();
-      r.transform.camera = r.camera;
-      r.transform.enabled = true;
-      r.transform.getHelper().visible = Boolean(selectedRef.current);
-      setRiggingView(true);
-      setRigPanelOpen(true);
-      setPanel(true);
-      setInspectorOpen(false);
-      setMenuOpen(false);
-      setQuickPanel(null);
-      setShapeLibraryOpen(false);
-      setMeshToolsOpen(false);
-      setSkyboxOpen(false);
-      setRenderVideoOpen(false);
-      setStatus('IK Rigging workspace · Front Perspective');
-    } else {
-      r.riggingView = false;
-      const previous = r.riggingPreviousCamera;
-      if (previous?.position && previous?.target) {
+      try {
+        const rigSubject = r.selectable.find((object: THREE.Object3D) => object.userData.editorId === selectedRef.current)
+          || r.selectable.find((object: THREE.Object3D) => object.userData.kind !== 'Light' && object.userData.kind !== 'Camera');
+        const rigBounds = new THREE.Box3();
+        if (rigSubject) {
+          rigSubject.updateWorldMatrix(true, true);
+          rigBounds.setFromObject(rigSubject);
+        }
+        const rigSize = new THREE.Vector3();
+        const rigCenter = new THREE.Vector3(0, 1.45, 0);
+        let rigDistance = 9;
+        if (rigSubject && !rigBounds.isEmpty()) {
+          rigBounds.getSize(rigSize);
+          rigBounds.getCenter(rigCenter);
+          const maxDimension = Math.max(rigSize.x, rigSize.y, rigSize.z);
+          if (Number.isFinite(maxDimension) && maxDimension > 0) {
+            rigDistance = THREE.MathUtils.clamp(maxDimension * 2.35, 3.5, 10000);
+          }
+        }
+        if (![rigCenter.x, rigCenter.y, rigCenter.z, rigDistance].every(Number.isFinite)) {
+          throw new Error('The selected rig has invalid scene bounds');
+        }
+
+        // MainCamera/UserCamera stays untouched; only the editor perspective camera moves.
+        r.camera.position.set(rigCenter.x, rigCenter.y, rigCenter.z + rigDistance);
+        r.orbit.target.copy(rigCenter);
+        r.orbit.enabled = true;
+        r.activeOrbit.enabled = false;
+        r.orbit.update();
+        r.transform.camera = r.camera;
+        r.transform.enabled = true;
+        const transformHelper = r.transform.getHelper?.();
+        if (transformHelper) transformHelper.visible = Boolean(selectedRef.current);
+
+        r.riggingPreviousCamera = previous;
+        r.riggingView = true;
+        setRiggingView(true);
+        setRigPanelOpen(true);
+        setPanel(true);
+        setInspectorOpen(false);
+        setMenuOpen(false);
+        setQuickPanel(null);
+        setShapeLibraryOpen(false);
+        setMeshToolsOpen(false);
+        setSkyboxOpen(false);
+        setRenderVideoOpen(false);
+        setStatus('IK Rigging workspace · Front Perspective');
+      } catch (error) {
+        r.riggingView = false;
+        r.riggingPreviousCamera = null;
         r.camera.position.fromArray(previous.position);
         r.orbit.target.fromArray(previous.target);
+        r.orbit.enabled = true;
+        r.activeOrbit.enabled = false;
         r.orbit.update();
+        r.transform.camera = r.camera;
+        r.transform.enabled = editModeRef.current === 'Object';
+        setRiggingView(false);
+        setRigPanelOpen(false);
+        const detail = error instanceof Error ? error.message : String(error);
+        console.error('[Nexus3D] Could not open IK Rigging workspace:', error);
+        setStatus('IK Rigging could not open · ' + detail);
       }
-      r.riggingPreviousCamera = null;
-      setRiggingView(false);
-      setRigPanelOpen(false);
-      setInspectorOpen(false);
-      setPanel(true);
-      setStatus('User Perspective View restored');
+    } else {
+      try {
+        r.riggingView = false;
+        const previous = r.riggingPreviousCamera;
+        if (previous?.position && previous?.target) {
+          r.camera.position.fromArray(previous.position);
+          r.orbit.target.fromArray(previous.target);
+          r.orbit.update();
+        }
+        r.riggingPreviousCamera = null;
+        r.activeOrbit.enabled = false;
+        r.orbit.enabled = true;
+        r.transform.camera = r.camera;
+        r.transform.enabled = editModeRef.current === 'Object';
+        setRiggingView(false);
+        setRigPanelOpen(false);
+        setInspectorOpen(false);
+        setPanel(true);
+        setStatus('User Perspective View restored');
+      } catch (error) {
+        console.error('[Nexus3D] Could not restore User Perspective:', error);
+        setStatus('Could not restore User Perspective · ' + (error instanceof Error ? error.message : String(error)));
+      }
     }
   };
 
