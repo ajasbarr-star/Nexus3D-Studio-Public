@@ -559,20 +559,20 @@ export default function App() {
     const ensureBoneJoint = (bone: THREE.Bone) => {
       const existing = bone.children.find(child => child.userData.nexusJointVisual) as THREE.Mesh | undefined;
       if (existing) {
-        existing.geometry = existing.geometry instanceof THREE.SphereGeometry ? existing.geometry : new THREE.SphereGeometry(0.035, 12, 10);
+        existing.geometry = existing.geometry instanceof THREE.SphereGeometry && existing.geometry.parameters.radius >= 0.06 ? existing.geometry : new THREE.SphereGeometry(0.06, 14, 10);
         existing.name = bone.name + ' Joint';
         existing.userData.nexusBoneVisual = true;
         existing.userData.nexusBoneOwnerId = String(bone.userData.editorId || '');
         return;
       }
       const color = bone.userData.locked ? '#778391' : bone.userData.detached ? '#b56bdb' : '#39c98a';
-      const joint = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 10), new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.96 }));
+      const joint = new THREE.Mesh(new THREE.SphereGeometry(0.06, 14, 10), new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.96 }));
       joint.name = bone.name + ' Joint';
       joint.userData.nexusJointVisual = true;
       joint.userData.nexusBoneVisual = true;
       joint.userData.nexusBoneOwnerId = String(bone.userData.editorId || '');
       joint.renderOrder = 18;
-      joint.raycast = () => {};
+      // Keep joints raycastable so bones inside parent meshes can be selected.
       bone.add(joint);
     };
     const refreshJointColors = (active?: THREE.Object3D) => {
@@ -1777,7 +1777,12 @@ export default function App() {
       raycaster.setFromCamera(pointer, viewCamera);
       raycaster.params.Line = { threshold: Math.max(0.025, viewCamera.position.length() * 0.0035) };
       const targetRoot = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
-      const roots = editModeRef.current === 'Object' ? selectable.filter(o => o.visible) : (targetRoot ? [targetRoot] : []);
+      // Include visible manual skeleton helpers so their segments can be picked
+      // even when the rig is parented inside a Shape/Character mesh.
+      const visibleRigHelpers = editModeRef.current === 'Object'
+        ? rigChains.filter(chain => chain.shapeRig && chain.displayVisible !== false && chain.helper.visible).map(chain => chain.helper)
+        : [];
+      const roots = editModeRef.current === 'Object' ? [...selectable.filter(o => o.visible), ...visibleRigHelpers] : (targetRoot ? [targetRoot] : []);
       const hits = raycaster.intersectObjects(roots, true);
        if (shapeRigPlacementActive && shapeRigPlacementOwner) {
         const ownerHits = raycaster.intersectObject(shapeRigPlacementOwner, true).filter(hit => hit.object instanceof THREE.Mesh && hit.face);
@@ -1785,13 +1790,27 @@ export default function App() {
         setStatus('Tap directly on the selected Shape to place a bone');
         return;
       }
-      const boneHit = hits.find(hit => hit.object.userData.nexusBoneVisual || hit.object.userData.rigControlMarker);
-       if (boneHit) {
-         const hitObject = boneHit.object;
-         if (hitObject.userData.rigControlMarker) { selectObject(hitObject); setStatus('Selected Control Handle · ' + hitObject.name); }
-         else { const owner = selectable.find(object => object instanceof THREE.Bone && String(object.userData.editorId || '') === String(hitObject.userData.nexusBoneOwnerId || '')) as THREE.Bone | undefined; if (owner) { selectObject(owner); setStatus('Selected Bone · ' + owner.name); } }
-         return;
-       }
+      // Rig controls and joints take priority over enclosing Shape/Character hits.
+      const boneHit = hits.find(hit => hit.object.userData.nexusBoneVisual || hit.object.userData.rigControlMarker || hit.object instanceof THREE.SkeletonHelper);
+      if (boneHit) {
+        const hitObject = boneHit.object;
+        if (hitObject.userData.rigControlMarker) {
+          selectObject(hitObject);
+          setStatus('Selected Control Handle · ' + hitObject.name);
+        } else {
+          let owner: THREE.Bone | undefined;
+          if (hitObject.userData.nexusBoneOwnerId) {
+            owner = selectable.find(object => object instanceof THREE.Bone && String(object.userData.editorId || '') === String(hitObject.userData.nexusBoneOwnerId)) as THREE.Bone | undefined;
+          } else if (hitObject instanceof THREE.SkeletonHelper) {
+            const segmentIndex = Math.floor((boneHit.index ?? 0) / 2);
+            const helperBones = (hitObject as THREE.SkeletonHelper & { bones?: THREE.Object3D[] }).bones;
+            const helperBone = helperBones?.[segmentIndex];
+            owner = helperBone instanceof THREE.Bone ? helperBone : helperBone?.parent instanceof THREE.Bone ? helperBone.parent : undefined;
+          }
+          if (owner) { selectObject(owner); setStatus('Selected Bone · ' + owner.name); }
+        }
+        return;
+      }
       if (hits.length && editModeRef.current !== 'Object' && selectedRef.current) {
         const hit = hits[0];
         const target = targetRoot;
