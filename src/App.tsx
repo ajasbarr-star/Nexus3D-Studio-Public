@@ -231,6 +231,10 @@ export default function App() {
   // Scene Tree and Menu share one dock slot. Drag the right-center handle
   // toward the right to widen whichever panel is currently active.
   const [sharedPanelWidth, setSharedPanelWidth] = useState(172);
+  const [sceneTreeTop, setSceneTreeTop] = useState(52);
+  const treeHeightResizeStart = useRef<{ y: number; top: number; pointerId: number } | null>(null);
+  const treeHeightResizeMoveRef = useRef<((event: PointerEvent) => void) | null>(null);
+  const treeHeightResizeEndRef = useRef<((event: PointerEvent) => void) | null>(null);
   const panelResizeStart = useRef<{ x: number; width: number; pointerId: number } | null>(null);
   const panelResizeMoveRef = useRef<((event: PointerEvent) => void) | null>(null);
   const panelResizeEndRef = useRef<((event: PointerEvent) => void) | null>(null);
@@ -261,6 +265,40 @@ export default function App() {
     };
     panelResizeMoveRef.current = move;
     panelResizeEndRef.current = end;
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  };
+  const beginTreeHeightResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (treeHeightResizeMoveRef.current) window.removeEventListener('pointermove', treeHeightResizeMoveRef.current);
+    if (treeHeightResizeEndRef.current) {
+      window.removeEventListener('pointerup', treeHeightResizeEndRef.current);
+      window.removeEventListener('pointercancel', treeHeightResizeEndRef.current);
+    }
+    const start = { y: event.clientY, top: sceneTreeTop, pointerId: event.pointerId };
+    treeHeightResizeStart.current = start;
+    const move = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== start.pointerId) return;
+      moveEvent.preventDefault();
+      const bottomGap = 54;
+      const minHeight = 150;
+      const maxTop = Math.max(48, window.innerHeight - bottomGap - minHeight);
+      const nextTop = Math.max(42, Math.min(maxTop, start.top + moveEvent.clientY - start.y));
+      setSceneTreeTop(nextTop);
+    };
+    const end = (endEvent: PointerEvent) => {
+      if (endEvent.pointerId !== start.pointerId) return;
+      treeHeightResizeStart.current = null;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      treeHeightResizeMoveRef.current = null;
+      treeHeightResizeEndRef.current = null;
+    };
+    treeHeightResizeMoveRef.current = move;
+    treeHeightResizeEndRef.current = end;
     window.addEventListener('pointermove', move, { passive: false });
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);
@@ -6192,9 +6230,9 @@ export default function App() {
         <div className="panel-bottom-bar" aria-label="Menu Panel resize control"><button type="button" className="panel-resize-handle" aria-label="Resize Menu Panel horizontally" title="Drag right to widen panel" onPointerDown={beginPanelResize} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button></div>
       </aside>}
 
-      {panel && !cameraView && <aside className="hierarchy-panel" style={{ "--nexus-panel-width": sharedPanelWidth + "px" } as React.CSSProperties}>
+      {panel && !cameraView && <aside className="hierarchy-panel" style={{ "--nexus-panel-width": sharedPanelWidth + "px", "--nexus-tree-top": sceneTreeTop + "px" } as React.CSSProperties}>
         <div className="panel-heading"><div><Layers size={13} /><span>Scenes Tree</span></div><div className="tree-manager-tools"><button type="button" title="Duplicate selected object" aria-label="Duplicate selected object" disabled={!selected || cameraView} onClick={() => { const obj = items.find(entry => entry.id === selected)?.object; if (obj) duplicateTreeObject(obj); }}><Copy size={12}/></button><button type="button" title="Group selected object" aria-label="Group selected object" disabled={!selected || cameraView} onClick={() => { const obj = items.find(entry => entry.id === selected)?.object; if (obj) groupTreeObject(obj); }}><FolderPlus size={12}/></button><button type="button" title="Delete selected object" aria-label="Delete selected object" disabled={!selected || cameraView} onClick={() => { const obj = items.find(entry => entry.id === selected)?.object; if (obj) deleteTreeObject(obj); }}><Trash2 size={12}/></button><span className="count">{items.length.toString().padStart(2, '0')}</span></div></div>
-        <div className="tree-search"><Search size={12} /><input aria-label="Search scene tree" value={treeSearch} onChange={e => setTreeSearch(e.target.value)} placeholder="Search scene…" /></div>
+        <div className="tree-search"><Search size={12} /><input aria-label="Search scene tree" value={treeSearch} onChange={e => setTreeSearch(e.target.value)} placeholder="Search scene…" /><button type="button" className="tree-width-resize-handle" aria-label="Resize Scene Tree width" title="Drag right to widen or left to narrow Scene Tree" onPointerDown={beginPanelResize} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button></div>
         <div className={'tree-root ' + (dragTargetId === 'root' ? 'drop-target' : '')} onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragTargetId('root'); }} onDragLeave={() => setDragTargetId('')} onDrop={e => { e.preventDefault(); setDragTargetId(''); const childId = e.dataTransfer.getData('text/nexus3d-object'); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }} title="Drop an object here to move it to the Scene root"><span className="tree-caret">⌄</span><Grid2X2 size={12} /><span>Scene Root</span></div>
         <div className={'tree-list ' + (dragTargetId === 'empty' ? 'drop-target' : '')} onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (e.target === e.currentTarget) setDragTargetId('empty'); }} onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragTargetId(''); }} onDrop={e => { e.preventDefault(); setDragTargetId(''); const childId = e.dataTransfer.getData('text/nexus3d-object'); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }}>
           {items.filter(item => {
@@ -6323,7 +6361,7 @@ export default function App() {
             </div>;
           })}
         </div>
-        <div className="panel-bottom-bar" aria-label="Scene Tree resize control"><button type="button" className="panel-resize-handle" aria-label="Resize Scene Tree panel horizontally" title="Drag right to widen panel" onPointerDown={beginPanelResize} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button></div>
+        <div className="panel-bottom-bar tree-height-bottom-bar" aria-label="Scene Tree height resize control"><button type="button" className="tree-height-resize-handle" aria-label="Resize Scene Tree height" title="Drag up to make Scene Tree taller or down to make it shorter" onPointerDown={beginTreeHeightResize}><span /></button></div>
       </aside>}
 
 
