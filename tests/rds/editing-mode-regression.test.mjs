@@ -191,3 +191,11 @@ test('Unsupported shape topology cancels without creating triangle subdivision l
   assert.match(source, /else if \(tool === 'Subdivide'\) \{[\s\S]*?this mesh does not have verified quad topology[\s\S]*?No triangles were split/);
   assert.match(source, /Subdivide cancelled: this shape has no verified square-quad layout/);
 });
+
+
+test('Primitive quad UV coordinates remain continuous across U and V parameter seams', () => {
+  assert.match(source, /const baseUvU = corners\[0\]\.uv\[0\], baseUvV = corners\[0\]\.uv\[1\]/);
+  assert.match(source, /while \(u - baseUvU > 0\.5\) u -= 1/);
+  assert.match(source, /while \(v - baseUvV > 0\.5\) v -= 1/);
+  assert.match(source, /return \[u, v\]/);
+});
