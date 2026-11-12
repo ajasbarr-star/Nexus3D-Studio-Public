@@ -52,3 +52,18 @@ test('runtime API object is registered once before the render loop', () => {
 test('runtime cleanup releases the renderer reference', () => {
   assert.match(source, /if \(runtime\.current\?\.renderer === renderer\) runtime\.current = null;/);
 });
+
+
+test('Manual rig bone deletion is undoable and rebuilds the SkeletonHelper', () => {
+  const start = source.indexOf('const deleteSelectedBone = () => {');
+  const end = source.indexOf("transform.addEventListener('objectChange'", start);
+  assert.ok(start >= 0 && end > start, 'deleteSelectedBone implementation must exist');
+  const block = source.slice(start, end);
+  assert.match(block, /const chainSnapshots = rigChains\.filter\(chain => chain\.bones\.includes\(bone\)\)/);
+  assert.match(block, /childBones\.forEach\(child => parent\.attach\(child\)\)/);
+  assert.match(block, /childBones\.forEach\(child => bone\.attach\(child\)\)/);
+  assert.match(block, /rebuildRigHelper\(chain\)/);
+  assert.match(block, /recordSceneAction\(/);
+  assert.match(block, /undo: restoreDelete/);
+  assert.match(block, /redo: applyDelete/);
+});
