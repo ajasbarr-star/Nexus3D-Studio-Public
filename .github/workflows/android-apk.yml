@@ -110,6 +110,12 @@ jobs:
           printf '\napply from: rootProject.file("nexus3d-release.gradle")\n' >> android/app/build.gradle
 
       - name: Build signed Test APK
+        env:
+          NEXUS3D_KEYSTORE_PATH: ${{ runner.temp }}/nexus3d-test-release.jks
+          NEXUS3D_KEYSTORE_PASSWORD: ${{ secrets.TEST_ANDROID_KEYSTORE_PASSWORD }}
+          NEXUS3D_KEY_ALIAS: nexus3dtest
+          NEXUS3D_KEY_PASSWORD: ${{ secrets.TEST_ANDROID_KEY_PASSWORD }}
+          NEXUS3D_VERSION_CODE: ${{ github.run_number }}
         working-directory: android
         run: ./gradlew assembleRelease
 
