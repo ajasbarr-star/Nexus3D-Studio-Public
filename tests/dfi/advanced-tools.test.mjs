@@ -75,7 +75,7 @@ test('Geometry commits record before/after counts, bounds, axis and quad verific
 test('Scene Tree has separate compact horizontal and vertical resize handles', () => {
   assert.match(app, /tree-width-resize-handle/);
   assert.match(app, /aria-label="Resize Scene Tree width"/);
-  assert.match(app, /onPointerDown=\{beginPanelResize\}/);
+  assert.match(app, /onPointerDown=\{event => beginPanelResize\(event, 'tree'\)\}/);
   assert.match(app, /tree-height-resize-handle/);
   assert.match(app, /aria-label="Resize Scene Tree height"/);
   assert.match(app, /onPointerDown=\{beginTreeHeightResize\}/);
