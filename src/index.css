@@ -2530,3 +2530,26 @@ button:active { box-shadow:0 0 11px #22cfff44; }
     max-height: calc(100dvh - 90px) !important;
   }
 }
+
+
+/* Nexus3D resize grips: neutral at rest; cyan/violet emphasis only after a real drag begins. */
+.panel-resize-handle {
+  border-color: rgba(121, 157, 202, .34) !important;
+  background: rgba(17, 27, 42, .96) !important;
+  color: #91a7c0 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .22) !important;
+  transition: color .12s ease, border-color .12s ease, background .12s ease, box-shadow .12s ease !important;
+}
+.panel-resize-handle:active {
+  color: #91a7c0 !important;
+  border-color: rgba(121, 157, 202, .34) !important;
+  background: rgba(17, 27, 42, .96) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .22) !important;
+}
+.panel-resize-handle.is-dragging {
+  color: #72e7ff !important;
+  border-color: #62d9f3 !important;
+  background: rgba(13, 43, 59, .98) !important;
+  box-shadow: 0 0 14px rgba(0, 205, 245, .34), 0 0 7px rgba(139, 92, 246, .18) !important;
+  cursor: grabbing !important;
+}
