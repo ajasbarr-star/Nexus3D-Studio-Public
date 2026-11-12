@@ -10,7 +10,8 @@ test('Face Extrude reconstructs canonical quad cells from paired triangles', () 
   assert.match(app, /const triB = \[start \+ 3, start \+ 4, start \+ 5\]/);
   assert.match(app, /if \(shared\.length !== 2\)/);
   assert.match(app, /reorder\.push\(uniqueA, firstShared, uniqueB, uniqueA, uniqueB, secondShared\)/);
-  assert.match(app, /triBMatchesWinding/);
+  assert.match(app, /firstOrderMatches/);
+  assert.match(app, /alternateFirst\.dot\(normalA\)/);
   assert.match(app, /extrudeQuadGridVerified = verified/);
 });
 
