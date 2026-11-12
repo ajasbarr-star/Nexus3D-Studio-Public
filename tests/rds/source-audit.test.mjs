@@ -35,3 +35,15 @@ test('source audit catches TypeScript syntax errors', () => {
   const findings = analyzeSource('const broken = ;');
   assert.equal(findings.some(item => item.rule === 'TYPESCRIPT_PARSE_ERROR'), true);
 });
+
+test('Scene Tree Object Manager keeps its actions and mobile drag protection wired', () => {
+  const app = fs.readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
+  for (const symbol of [
+    'duplicateTreeObject', 'renameTreeObject', 'commitTreeRename',
+    'toggleTreeObjectLock', 'groupTreeObject', 'ungroupTreeObject',
+    'deleteTreeObject', 'tree-row-actions', 'tree-rename-inline',
+    'touchDragActive.current', 'recordSceneAction'
+  ]) {
+    assert.ok(app.includes(symbol), `Missing Scene Tree Object Manager marker: ${symbol}`);
+  }
+});
