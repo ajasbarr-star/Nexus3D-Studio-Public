@@ -67,3 +67,13 @@ test('Manual rig bone deletion is undoable and rebuilds the SkeletonHelper', () 
   assert.match(block, /undo: restoreDelete/);
   assert.match(block, /redo: applyDelete/);
 });
+
+
+test('Deleting a rig owner or root preserves IK handles and rig-chain state for Undo', () => {
+  assert.match(source, /const captureRigStateFor = \(obj: THREE\.Object3D\) => \{/);
+  assert.match(source, /const restoreRigState = \(snapshots: ReturnType<typeof captureRigStateFor>\)/);
+  assert.match(source, /target: chain\.target \|\| null,[\s\S]*pole: chain\.pole \|\| null/);
+  assert.match(source, /if \(!rigChains\.includes\(chain\)\) rigChains\.push\(chain\)/);
+  assert.equal((source.match(/r\.captureRigStateFor\?\.\(obj\)/g) || []).length, 2);
+  assert.equal((source.match(/r\.restoreRigState\?\.\(rigSnapshot\)/g) || []).length, 2);
+});
