@@ -256,5 +256,5 @@ test('Face Mode blocks expensive geometry operations above the mobile vertex saf
 test('Subdivision topology overlay refreshes bounds and keeps quad grid lines visible', () => {
   assert.match(source, /mesh\.geometry\.computeBoundingSphere\(\);[\s\S]*?const bounds = mesh\.geometry\.boundingSphere/);
   assert.match(source, /const lineOffset = Math\.max\(0\.0012, \(bounds\?\.radius \|\| 1\) \* 0\.002\)/);
-  assert.match(source, /color: 0x9aa6b2, transparent: true, opacity: 0\.96, depthTest: true, depthWrite: false/);
+  assert.match(source, /color: 0x000000, transparent: false, opacity: 1, depthTest: true, depthWrite: false/);
 });
