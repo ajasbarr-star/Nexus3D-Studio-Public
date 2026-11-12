@@ -2908,17 +2908,18 @@ export default function App() {
       else delete target.userData.nexusCubeGridDivisions;
     };
 
-    if (tool === 'Subdivide' && target.userData.kind === 'Cube' && (geometry.index || target.userData.nexusQuadGrid === true)) {
+    if (tool === 'Subdivide' && (target.userData.nexusQuadGrid === true || (target.userData.kind === 'Cube' && Boolean(geometry.index)))) {
       // Three.js BoxGeometry stores each original quad as [A,B,D] and [B,C,D].
-      // Reconstruct the perimeter [A,B,C,D] on the first pass. Nexus3D-generated
-      // quads use [A,B,C,A,C,D], so later passes read [0,1,2,5].
+      // Reconstruct the perimeter [A,B,C,D] on the first pass. Any mesh carrying
+      // Nexus3D's verified quad-grid marker (including extruded quad side walls)
+      // uses [A,B,C,A,C,D], so later passes read [0,1,2,5].
       let sourceCornerOffsets: number[] | null = null;
-      if (geometry.index) {
+      if (geometry.index && target.userData.nexusQuadGrid !== true && target.userData.kind === 'Cube') {
         const indexedSource = geometry;
         geometry = indexedSource.toNonIndexed();
         indexedSource.dispose();
         sourceCornerOffsets = [0, 1, 4, 2];
-      } else if (target.userData.nexusQuadGrid === true) {
+      } else if (!geometry.index && target.userData.nexusQuadGrid === true) {
         sourceCornerOffsets = [0, 1, 2, 5];
       } else {
         geometry.dispose(); before.dispose();
