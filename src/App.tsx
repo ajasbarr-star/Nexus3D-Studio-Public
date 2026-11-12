@@ -346,6 +346,10 @@ export default function App() {
   const [rdsScanSummary, setRdsScanSummary] = useState({ checks: 0, passed: 0, warnings: 0, errors: 0 });
   const [rdsLastScanAt, setRdsLastScanAt] = useState('');
   const [rdsSourceAuditReport, setRdsSourceAuditReport] = useState('Build-time source audit has not been loaded yet.');
+  const [dfiPanelOpen, setDfiPanelOpen] = useState(false);
+  const [dfiBusy, setDfiBusy] = useState(false);
+  const [dfiReport, setDfiReport] = useState('No DFI investigation has been run yet.');
+  const [dfiSummary, setDfiSummary] = useState({ findings: 0, errors: 0, warnings: 0, repeatedErrors: 0, invalidMeshes: 0 });
   const rdsResourceBaselineRef = useRef<{ geometries: number; textures: number; time: number } | null>(null);
   const [menuAccordion, setMenuAccordion] = useState('Project & File');
   const [projectName, setProjectName] = useState('Project.nexus');
@@ -4716,6 +4720,135 @@ export default function App() {
       setRdsScanBusy(false);
     }
   };
+  const runDfiInvestigation = async () => {
+    if (dfiBusy) return;
+    setDfiBusy(true);
+    try {
+      const queued = diagnosticQueueRef.current.slice();
+      const logs = [...diagnosticLogs, ...queued].slice(-400);
+      const errorLogs = logs.filter(entry => entry.level === 'ERROR');
+      const warningLogs = logs.filter(entry => entry.level === 'WARN');
+      const errorGroups = new Map<string, DiagnosticEntry[]>();
+      errorLogs.forEach(entry => {
+        const signature = (entry.source + ' :: ' + entry.message).trim().slice(0, 240);
+        const group = errorGroups.get(signature) || [];
+        group.push(entry);
+        errorGroups.set(signature, group);
+      });
+      const repeatedErrors = [...errorGroups.entries()].filter(([, entries]) => entries.length > 1)
+        .sort((a, b) => b[1].length - a[1].length);
+      const rt = runtime.current;
+      const scene = rt?.scene as THREE.Scene | undefined;
+      const geometryFindings: string[] = [];
+      const editorIds = new Map<string, number>();
+      let meshCount = 0, geometryCount = 0, invalidPositionValues = 0, invalidIndices = 0;
+      let nonTriangleElementCounts = 0, degenerateTriangles = 0, trianglesScanned = 0;
+      const maxTrianglesToScan = 250000;
+      scene?.traverse((object: THREE.Object3D) => {
+        const editorId = String(object.userData?.editorId || '');
+        if (editorId) editorIds.set(editorId, (editorIds.get(editorId) || 0) + 1);
+        const mesh = object as THREE.Mesh;
+        if (!mesh.isMesh || !mesh.geometry) return;
+        meshCount += 1;
+        geometryCount += 1;
+        const geometry = mesh.geometry as THREE.BufferGeometry;
+        const position = geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+        if (!position || position.itemSize < 3) {
+          geometryFindings.push(`${object.name || object.uuid}: missing or invalid position attribute`);
+          return;
+        }
+        for (let i = 0; i < position.count; i += 1) {
+          if (!Number.isFinite(position.getX(i)) || !Number.isFinite(position.getY(i)) || !Number.isFinite(position.getZ(i))) invalidPositionValues += 1;
+        }
+        const index = geometry.getIndex();
+        const elementCount = index ? index.count : position.count;
+        if (elementCount % 3 !== 0) nonTriangleElementCounts += 1;
+        const triangleCount = Math.floor(elementCount / 3);
+        for (let t = 0; t < triangleCount && trianglesScanned < maxTrianglesToScan; t += 1, trianglesScanned += 1) {
+          const ia = index ? index.getX(t * 3) : t * 3;
+          const ib = index ? index.getX(t * 3 + 1) : t * 3 + 1;
+          const ic = index ? index.getX(t * 3 + 2) : t * 3 + 2;
+          if (![ia, ib, ic].every(value => Number.isInteger(value) && value >= 0 && value < position.count)) {
+            invalidIndices += 1;
+            continue;
+          }
+          const ax = position.getX(ia), ay = position.getY(ia), az = position.getZ(ia);
+          const bx = position.getX(ib), by = position.getY(ib), bz = position.getZ(ib);
+          const cx = position.getX(ic), cy = position.getY(ic), cz = position.getZ(ic);
+          const abx = bx - ax, aby = by - ay, abz = bz - az;
+          const acx = cx - ax, acy = cy - ay, acz = cz - az;
+          const crossX = aby * acz - abz * acy;
+          const crossY = abz * acx - abx * acz;
+          const crossZ = abx * acy - aby * acx;
+          if (crossX * crossX + crossY * crossY + crossZ * crossZ < 1e-18) degenerateTriangles += 1;
+        }
+      });
+      const duplicateEditorIds = [...editorIds.entries()].filter(([, count]) => count > 1);
+      if (invalidPositionValues) geometryFindings.push(`${invalidPositionValues} non-finite vertex coordinate value(s)`);
+      if (invalidIndices) geometryFindings.push(`${invalidIndices} invalid triangle index reference(s)`);
+      if (nonTriangleElementCounts) geometryFindings.push(`${nonTriangleElementCounts} mesh geometry/ies with element counts not divisible by 3`);
+      if (degenerateTriangles) geometryFindings.push(`${degenerateTriangles} degenerate triangle(s) in scanned geometry`);
+      if (duplicateEditorIds.length) geometryFindings.push(`${duplicateEditorIds.length} duplicate editor ID value(s): ${duplicateEditorIds.slice(0, 8).map(([id, count]) => id + ' ×' + count).join(', ')}`);
+
+      let sourceAudit: { generatedAt?: string; scannedFiles?: number; errors?: number; warnings?: number; findings?: Array<{ severity?: string; file?: string; line?: number; rule?: string; message?: string }>; limitations?: string[] } | null = null;
+      let sourceAuditStatus = 'Build-time DFI source audit unavailable in this build.';
+      try {
+        const response = await fetch('./nexus-dfi-audit.json', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        sourceAudit = await response.json();
+        sourceAuditStatus = `Generated ${sourceAudit.generatedAt || 'unknown'} · ${sourceAudit.scannedFiles ?? 'unknown'} source file(s) · ${sourceAudit.errors ?? 0} error(s) · ${sourceAudit.warnings ?? 0} warning(s)`;
+      } catch (error) {
+        sourceAuditStatus += ' ' + (error instanceof Error ? error.message : String(error));
+      }
+
+      const findings: string[] = [];
+      if (errorLogs.length) findings.push(`RUNTIME ERROR EVIDENCE: ${errorLogs.length} error log(s) captured across ${errorGroups.size} distinct signature(s).`);
+      repeatedErrors.slice(0, 8).forEach(([signature, entries]) => findings.push(`REPEATED ERROR ×${entries.length}: ${signature}. First seen ${entries[0].time}; latest ${entries[entries.length - 1].time}.`));
+      if (warningLogs.length) findings.push(`RUNTIME WARNINGS: ${warningLogs.length} warning log(s) are available for correlation; warnings alone do not prove a failure cause.`);
+      if (geometryFindings.length) findings.push(...geometryFindings.map(item => 'SCENE INTEGRITY: ' + item));
+      if (sourceAudit?.findings?.length) findings.push(...sourceAudit.findings.slice(0, 30).map(item => `SOURCE ${item.severity || 'INFO'}: ${item.file || 'source'}:${item.line || '?'} ${item.rule || ''} — ${item.message || ''}`));
+      if (!findings.length) findings.push('No deterministic failure signature was identified by the currently enabled checks. This is not proof that the project is bug-free.');
+
+      const invalidMeshes = geometryFindings.length;
+      const sourceErrors = sourceAudit?.errors || 0;
+      const sourceWarnings = sourceAudit?.warnings || 0;
+      const totalFindings = errorLogs.length + geometryFindings.length + (sourceAudit?.findings?.length || 0);
+      const report = [
+        'NEXUS3D DFI CORE · DEEP FORENSIC INVESTIGATION',
+        `Scan time: ${new Date().toLocaleString()}`,
+        `Runtime evidence: ${logs.length} log(s) · ${errorLogs.length} error(s) · ${warningLogs.length} warning(s)`,
+        `Repeated error signatures: ${repeatedErrors.length}`,
+        `Scene geometry: ${meshCount} mesh(es) / ${geometryCount} geometry(ies) · ${trianglesScanned}${trianglesScanned >= maxTrianglesToScan ? '+' : ''} triangle(s) inspected`,
+        `Build-time source audit: ${sourceAuditStatus}`,
+        '',
+        'EVIDENCE & FINDINGS',
+        ...findings,
+        '',
+        'MOST RECENT RUNTIME ERROR',
+        ...(errorLogs.length ? [`${errorLogs[errorLogs.length - 1].time} · ${errorLogs[errorLogs.length - 1].source} · ${errorLogs[errorLogs.length - 1].message}`, errorLogs[errorLogs.length - 1].details || 'No stack/details captured.'] : ['No runtime ERROR entry is currently available.']),
+        '',
+        'SOURCE AUDIT LIMITATIONS',
+        ...(sourceAudit?.limitations || ['Build-time DFI audit was not available.']),
+        '',
+        'INVESTIGATION RULES',
+        'Read-only investigation. No scene, mesh, transform, rig, material, or project data was modified.',
+        'A repeated error or integrity warning is evidence, not automatic proof of the original root cause. Confirm the cause by reproducing the same operation and tracing the first failing state transition.',
+        'This APK scan cannot inspect Git history, the complete source dependency graph, or native Android Logcat. Use repository analysis and native crash logs for those layers.',
+      ].join('\\n');
+      setDfiReport(report);
+      setDfiSummary({ findings: totalFindings, errors: errorLogs.length + sourceErrors, warnings: warningLogs.length + sourceWarnings, repeatedErrors: repeatedErrors.length, invalidMeshes });
+      diagnosticSinkRef.current(errorLogs.length || sourceErrors || invalidMeshes ? 'WARN' : 'INFO',
+        'DFI Core', 'Deep forensic investigation completed', report);
+      setStatus('DFI investigation complete · read-only evidence report ready');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setDfiReport('DFI investigation failed safely\\n' + message + '\\nNo repair or scene mutation was attempted.');
+      diagnosticSinkRef.current('ERROR', 'DFI Core', 'Investigation could not complete', message);
+      setStatus('DFI investigation failed · diagnostic captured');
+    } finally {
+      setDfiBusy(false);
+    }
+  };
   const applyCoreOptimization = () => {
     if (!coreOptimizerAnalyzed) { setStatus('Run Analyze before applying optimization'); return; }
     if (!runtime.current?.setPerformanceMode) { setStatus('Renderer is not ready; optimization was not applied'); return; }
@@ -5685,6 +5818,25 @@ export default function App() {
                         <div className="menu-info"><Info size={12}/><span>Live capture stays active even when this panel is collapsed. Monitors JavaScript errors, rejected promises, failed resources, relevant console warnings, WebGL context events, main-thread stalls, FPS drops, memory and WebGL load, plus Nexus3D viewport-control state. Native Android process crashes may not leave a JavaScript log. Maximum 400 recent entries.</span></div>
           
                         </section>}
+        </section>
+        <section className="menu-category dfi-core-section">
+          <button type="button" className={'menu-option diagnostic-toggle-button ' + (dfiPanelOpen ? 'expanded' : '')}
+            aria-expanded={dfiPanelOpen} onClick={() => setDfiPanelOpen(open => !open)}>
+            <ScanEye size={13}/><span>NEXUS DFI CORE · FORENSIC ANALYZER</span>
+            {dfiPanelOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
+          </button>
+          {dfiPanelOpen && <section className="diagnostic-panel-expanded" aria-label="Nexus DFI Core forensic analyzer">
+            <div className="menu-subtitle">DEEP ROOT-CAUSE INVESTIGATION</div>
+            <div className="diagnostic-summary"><span>{dfiSummary.findings} finding(s)</span><span>{dfiSummary.errors} error(s)</span><span>{dfiSummary.warnings} warning(s)</span></div>
+            <div className="diagnostic-summary"><span>{dfiSummary.repeatedErrors} repeated signature(s)</span><span>{dfiSummary.invalidMeshes} integrity finding(s)</span></div>
+            <div className="diagnostic-actions dfi-actions">
+              <button type="button" onClick={() => void runDfiInvestigation()} disabled={dfiBusy}><ScanEye size={12}/> {dfiBusy ? 'INVESTIGATING…' : 'RUN DEEP ANALYSIS'}</button>
+              <button type="button" onClick={() => void copyDiagnosticText([{ id: 'dfi-report', time: new Date().toLocaleTimeString(), level: dfiSummary.errors ? 'ERROR' : dfiSummary.warnings ? 'WARN' : 'INFO', source: 'DFI Core', message: 'Forensic investigation report', details: dfiReport }])} disabled={dfiReport.startsWith('No DFI investigation')}><ClipboardCopy size={12}/> COPY REPORT</button>
+              <button type="button" onClick={() => { setDfiReport('No DFI investigation has been run yet.'); setDfiSummary({ findings: 0, errors: 0, warnings: 0, repeatedErrors: 0, invalidMeshes: 0 }); }}><RefreshCw size={12}/> RESET</button>
+            </div>
+            <pre className="core-optimizer-report dfi-report">{dfiReport}</pre>
+            <div className="menu-info"><Info size={12}/><span>DFI correlates captured RDS errors, repeated failure signatures, live mesh integrity and the build-time source audit. It reports evidence and likely investigation leads, not guaranteed root causes. Git history, full dependency/data-flow analysis and native Android Logcat require repository/build-side tools. Read-only: no automatic fixes.</span></div>
+          </section>}
         </section>
         <section className="menu-category core-optimizer-section">
           <button type="button" className={'menu-option diagnostic-toggle-button ' + (coreOptimizerOpen ? 'expanded' : '')}
