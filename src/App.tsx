@@ -3285,10 +3285,11 @@ export default function App() {
       geometry.deleteAttribute('normal');
       geometry.computeVertexNormals();
       }
-        } else if (tool === 'Subdivide' || tool === 'LoopCut') {
-      // Safe plane-based loop split for compatible planar faces: split each intersected
-      // triangle at the same cut plane and interpolate every existing vertex attribute.
-      if ((tool === 'LoopCut' && editModeRef.current !== 'Face') || selectedPoints.length < 3) { geometry.dispose(); before.dispose(); setStatus(tool === 'LoopCut' ? 'Loop Cut requires a selected face' : 'Subdivide needs a mesh with valid triangles'); return; }
+        } else if (tool === 'LoopCut') {
+      // Loop Cut remains a separate operation. Subdivide is deliberately excluded
+      // from this triangle-clipping path; all Subdivide requests must pass the
+      // verified quad-only branch above or fail closed without changing geometry.
+      if (editModeRef.current !== 'Face' || selectedPoints.length < 3) { geometry.dispose(); before.dispose(); setStatus('Loop Cut requires a selected face'); return; }
       geometry = geometry.toNonIndexed();
       const p = geometry.getAttribute('position');
       const faceNormal = selectedPoints[1].clone().sub(selectedPoints[0]).cross(selectedPoints[2].clone().sub(selectedPoints[0])).normalize();
