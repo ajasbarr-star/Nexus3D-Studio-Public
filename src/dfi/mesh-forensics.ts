@@ -57,6 +57,7 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
     const positionCounts = new Map<string, number>();
     const edgeCounts = new Map<string, number>();
     const adjacency = new Map<number, Set<number>>();
+    const canonicalVertexIds = new Int32Array(position.count);
     const index = geometry.getIndex?.();
     const elementCount = index ? index.count : position.count;
     const triCount = Math.floor(elementCount / 3);
@@ -71,6 +72,7 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
       const key = pointKey(x, y, z, 1e-6);
       positionCounts.set(key, (positionCounts.get(key) || 0) + 1);
       if (!vertexKeyToFirst.has(key)) vertexKeyToFirst.set(key, v);
+      canonicalVertexIds[v] = vertexKeyToFirst.get(key)!;
     }
     result.uniquePositions += positionCounts.size;
     const duplicateGroups = [...positionCounts.values()].filter(count => count > 1).length;
@@ -110,7 +112,7 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
       if (localTriangleKeys.has(triangleKey) || globalTriangleKeys.has(meshName + '|' + triangleKey)) result.duplicateTriangles += 1;
       localTriangleKeys.add(triangleKey);
       globalTriangleKeys.add(meshName + '|' + triangleKey);
-      addEdge(a, b); addEdge(b, c); addEdge(c, a);
+      addEdge(canonicalVertexIds[a], canonicalVertexIds[b]); addEdge(canonicalVertexIds[b], canonicalVertexIds[c]); addEdge(canonicalVertexIds[c], canonicalVertexIds[a]);
     }
     if (elementCount % 3 !== 0) add('WARN', 'NON_TRIANGLE_ELEMENT_COUNT', meshName, objectId, `Geometry element count ${elementCount} is not divisible by three.`);
     if (result.invalidIndices) add('ERROR', 'INVALID_INDEX', meshName, objectId, 'One or more triangle indices reference vertices outside the position buffer.');
