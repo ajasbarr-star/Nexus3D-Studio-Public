@@ -683,7 +683,7 @@ export default function App() {
       } else {
         edges = new THREE.EdgesGeometry(mesh.geometry, 1);
       }
-      const lines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x9aa6b2, transparent: true, opacity: 0.96, depthTest: true, depthWrite: false }));
+      const lines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000, transparent: false, opacity: 1, depthTest: true, depthWrite: false }));
       lines.name = 'Editable Topology Overlay'; lines.renderOrder = 1004;
       topologyOverlay.add(lines);
       // Cut loops still define Face Mode region boundaries. Quad-grid edges are
