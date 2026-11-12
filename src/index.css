@@ -2059,7 +2059,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 /* Landscape dock sizing: extend both left panels close to the bottom screen edge. */
 .hierarchy-panel,
 .menu-panel {
-  top: 52px !important;
+  top: var(--nexus-tree-top, 52px) !important;
   bottom: 54px !important;
   height: auto !important;
   max-height: none !important;
@@ -2116,7 +2116,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   border-radius: 6px !important;
   border-right: 1px solid rgba(72, 174, 207, .58) !important;
   background: rgba(10, 31, 47, .97) !important;
-  cursor: ew-resize !important;
+  cursor: ns-resize !important;
   touch-action: none !important;
 }
 .panel-resize-handle span {
@@ -2157,6 +2157,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   padding-bottom: 6px;
 }
 .menu-panel {
+  top: var(--nexus-menu-top, 52px) !important;
   overflow-y: auto !important;
   scrollbar-width: thin;
   padding-bottom: 42px !important;
