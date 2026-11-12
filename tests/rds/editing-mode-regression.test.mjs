@@ -109,3 +109,19 @@ test('Subdivide blocks skinned and morph-target meshes before geometry mutation'
   assert.match(source, /tool === 'Subdivide' && \(hasSkinning \|\| hasMorphTargets\)/);
   assert.match(source, /No mesh, bones, weights, or animation data was changed/);
 });
+
+
+test('Built-in non-Cube primitives are marked quad-grid only after a complete triangle-pair conversion', () => {
+  assert.match(source, /const buildPrimitiveQuadGrid = \(sourceGeometry: THREE\.BufferGeometry\) => \{/);
+  assert.match(source, /if \(pairedCount !== triangles\.length \|\| !outputPositions\.length\) return null;/);
+  assert.match(source, /if \(kind !== 'Cube'\) \{/);
+  assert.match(source, /if \(kind !== 'Cube' && geometry\.userData\.nexusPrimitiveQuadGrid === true\)/);
+  assert.match(source, /geometry\.userData = \{ \.\.\.\(geometry as THREE\.BufferGeometry\)\.userData, nexusPrimitiveQuadGrid: true \}/);
+});
+
+test('Primitive quad conversion preserves UV coordinates and emits the editor six-vertex quad layout', () => {
+  assert.match(source, /outputUvs\.push\(\.\.\.adjustedUvs\[cornerIndex\]\)/);
+  assert.match(source, /\[0, 1, 2, 0, 2, 3\]\.forEach\(cornerIndex =>/);
+  assert.match(source, /result\.computeVertexNormals\(\)/);
+  assert.match(source, /obj\.userData\.nexusQuadGrid = true/);
+});
