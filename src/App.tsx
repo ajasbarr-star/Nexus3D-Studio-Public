@@ -1219,6 +1219,7 @@ export default function App() {
           const source = sourceGeometry.index ? sourceGeometry.toNonIndexed() : sourceGeometry.clone();
           const position = source.getAttribute('position') as THREE.BufferAttribute | undefined;
           const uv = source.getAttribute('uv') as THREE.BufferAttribute | undefined;
+          const normal = source.getAttribute('normal') as THREE.BufferAttribute | undefined;
           if (!position || position.count < 6 || position.count % 3 !== 0) { source.dispose(); return null; }
           const pointKey = (index: number) => {
             const x = position.getX(index), y = position.getY(index), z = position.getZ(index);
@@ -1241,9 +1242,11 @@ export default function App() {
           });
           const outputPositions: number[] = [];
           const outputUvs: number[] = [];
+          const outputNormals: number[] = [];
           const readVertex = (index: number) => ({
             position: [position.getX(index), position.getY(index), position.getZ(index)],
             uv: uv ? [uv.getX(index), uv.getY(index)] : [0, 0],
+            normal: normal ? [normal.getX(index), normal.getY(index), normal.getZ(index)] : [0, 0, 0],
             key: pointKey(index)
           });
           const pushQuad = (corners: ReturnType<typeof readVertex>[]) => {
@@ -1257,6 +1260,7 @@ export default function App() {
             [0, 1, 2, 0, 2, 3].forEach(cornerIndex => {
               outputPositions.push(...corners[cornerIndex].position);
               outputUvs.push(...adjustedUvs[cornerIndex]);
+              outputNormals.push(...corners[cornerIndex].normal);
             });
           };
           let pairedCount = 0;
@@ -1284,6 +1288,13 @@ export default function App() {
               const opposite = otherIndices.find(index => pointKey(index) !== keyA && pointKey(index) !== keyB);
               const remaining = triangle.indices[(candidate.edge + 2) % 3];
               if (opposite === undefined) continue;
+              if (normal) {
+                const normalA = new THREE.Vector3().fromBufferAttribute(normal, edgeA).normalize();
+                const normalB = new THREE.Vector3().fromBufferAttribute(normal, edgeB).normalize();
+                const otherA = new THREE.Vector3().fromBufferAttribute(normal, otherIndices.find(index => pointKey(index) === keyA)!).normalize();
+                const otherB = new THREE.Vector3().fromBufferAttribute(normal, otherIndices.find(index => pointKey(index) === keyB)!).normalize();
+                if (normalA.dot(otherA) < 0.65 || normalB.dot(otherB) < 0.65) continue;
+              }
               const corners = [edgeA, remaining, edgeB, opposite];
               if (new Set(corners.map(pointKey)).size !== 4) continue;
               const p0 = new THREE.Vector3(...readVertex(corners[0]).position as [number, number, number]);
@@ -1304,7 +1315,8 @@ export default function App() {
           const result = new THREE.BufferGeometry();
           result.setAttribute('position', new THREE.Float32BufferAttribute(outputPositions, 3));
           result.setAttribute('uv', new THREE.Float32BufferAttribute(outputUvs, 2));
-          result.computeVertexNormals();
+          if (normal) result.setAttribute('normal', new THREE.Float32BufferAttribute(outputNormals, 3));
+          else result.computeVertexNormals();
           return result;
         };
         // A UV sphere has triangle fans at its poles, so triangle pairing cannot
