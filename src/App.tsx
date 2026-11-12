@@ -2512,10 +2512,9 @@ export default function App() {
       const heldForMs = performance.now() - pointerStart.startedAt;
       pointerStart = null;
       if (moved > 7 || transform.dragging) return;
-      if (editModeRef.current === 'Face' && heldForMs < 420) {
-        recordInteractionTrace('Face selection ignored · hold to lock', { heldForMs: Math.round(heldForMs), requiredHoldMs: 420 });
-        setStatus('Hold a face for a moment to lock it · then rotate to the opposite side');
-        return;
+      // Face mode uses a normal single tap to lock a face. Camera rotation remains a drag gesture.
+      if (editModeRef.current === 'Face') {
+        recordInteractionTrace('Face tap accepted · selecting face', { heldForMs: Math.round(heldForMs), gesture: 'single-tap' });
       }
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -2835,14 +2834,14 @@ export default function App() {
             activeSubSelection = { mesh, indices: Array.from(new Set(indices)), faceParts: selectedFaceParts, lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() };
             if (editModeRef.current === 'Face') {
               recordInteractionTrace('Face locked', { objectId: String(mesh.userData.editorId || ''), selectedFaceCount: selectedFaceParts?.length || 0, faceVertexCounts: selectedFaceParts?.map(part => part.length) || [], oppositePairLocked: selectedFaceParts?.length === 2, normalDot: previousWorldNormal ? Number(previousWorldNormal.dot(candidateWorldNormal).toFixed(4)) : null });
-              setStatus(selectedFaceParts?.length === 2 ? 'DUAL FACES LOCKED · Extrude is ready' : 'FIRST FACE LOCKED · rotate to the opposite side and hold that face');
+              setStatus(selectedFaceParts?.length === 2 ? 'DUAL FACES LOCKED · Extrude is ready' : 'FIRST FACE LOCKED · rotate the camera and tap the opposite face');
             }
             transform.attach(subObjectPivot);
             transform.setMode(modeRef.current);
             transform.setSpace(spaceRef.current);
             transform.enabled = true;
             transform.getHelper().visible = true;
-            if (editModeRef.current !== 'Face' || selectedFaceParts?.length !== 2) setStatus(editModeRef.current + ' selected · pivot aligned to touch point');
+            if (editModeRef.current !== 'Face') setStatus(editModeRef.current + ' selected · pivot aligned to touch point');
           }
         }
         return;
