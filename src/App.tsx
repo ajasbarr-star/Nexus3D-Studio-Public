@@ -2787,7 +2787,12 @@ export default function App() {
                 }));
                 return [...currentKeys].every(key => previousKeys.has(key));
               });
-              selectedFaceParts = sameFace || previousParts.length >= 2
+              const previousNormal = previous
+                ? new THREE.Vector3(0, 0, 1).applyQuaternion(previous.lastQuaternion).normalize()
+                : null;
+              const currentNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(subObjectPivot.quaternion).normalize();
+              const oppositeFaces = Boolean(previousNormal && previousNormal.dot(currentNormal) < -0.8);
+              selectedFaceParts = sameFace || previousParts.length >= 2 || (previousParts.length === 1 && !oppositeFaces)
                 ? [indices.slice()]
                 : [...previousParts.map(part => part.slice()), indices.slice()];
               const merged = new Set<number>();
@@ -2806,7 +2811,7 @@ export default function App() {
             transform.setSpace(spaceRef.current);
             transform.enabled = true;
             transform.getHelper().visible = true;
-            setStatus(editModeRef.current + ' selected · pivot aligned to touch point');
+            if (editModeRef.current !== 'Face' || selectedFaceParts?.length !== 2) setStatus(editModeRef.current + ' selected · pivot aligned to touch point');
           }
         }
         return;
