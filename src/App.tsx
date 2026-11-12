@@ -5058,6 +5058,65 @@ export default function App() {
       setDfiToolBusy('');
     }
   };
+  const dfiToolSections = [
+    { id: '010', name: 'Shape Core' },
+    { id: '020', name: 'Gizmo Control' },
+    { id: '030', name: 'Face Tools' },
+    { id: '040', name: 'Edge Tools' },
+    { id: '050', name: 'Vertex Tools' },
+    { id: '060', name: 'Extrude & Scale' },
+    { id: '070', name: 'Subdivide + Rotate' },
+    { id: '080', name: 'Post-Smooth' },
+    { id: '090', name: 'Overlap Scan' }
+  ];
+  const buildDfiToolSummary = (name: string, report?: string) => {
+    if (!report) return ['Status: NOT SCANNED', 'No category report has been generated yet. Run this tool to collect evidence.'];
+    const lines = report.split('\\n').map(line => line.trim()).filter(Boolean);
+    const selected = lines.filter(line =>
+      /^(Status:|Scan time:|Mesh Core|Meshes:|Vertices:|Triangles:|Issues:|ERROR|WARN|INFO|Finding|Duplicate|Invalid|Degenerate|Non-manifold|Boundary|Coincident|Operation|No matching|No deterministic|SCOPE NOTE)/i.test(line) ||
+      /\\b(CRASH|FATAL|CONFLICT|ERROR|BUG|DUPLICATE|NON_MANIFOLD|WARNING|SUSPECTED)\\b/i.test(line)
+    );
+    return [
+      'Category: ' + name,
+      'Summary generated: ' + new Date().toLocaleString(),
+      ...selected.slice(0, 24),
+      selected.length > 24 ? 'Additional matching evidence omitted from this summary; use COPY ALL REPORT for the complete record.' : '',
+      'Note: Summary only. Original detailed evidence remains available in COPY ALL REPORT.'
+    ].filter(Boolean);
+  };
+  const copyDfiText = async (value: string, successMessage: string, failureMessage: string) => {
+    try {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(value);
+      else {
+        const field = document.createElement('textarea');
+        field.value = value; field.style.position = 'fixed'; field.style.opacity = '0';
+        document.body.appendChild(field); field.select();
+        const copied = document.execCommand('copy'); field.remove();
+        if (!copied) throw new Error('Clipboard permission unavailable');
+      }
+      setStatus(successMessage);
+    } catch {
+      setStatus(failureMessage);
+    }
+  };
+  const copyDfiToolSummary = (id: string, name: string) => {
+    const summary = buildDfiToolSummary(name, dfiToolReports[name]).join('\\n');
+    void copyDfiText(summary, 'Copied ID No.' + id + ' · ' + name + ' summary', 'COPY SUMMARY failed · allow clipboard permission and try again');
+  };
+  const copyAllDfiSummary = () => {
+    const sections = [
+      'NEXUS3D ADVANCED DFI · COPY SUMMARY REPORT',
+      'Generated: ' + new Date().toLocaleString(),
+      ...dfiToolSections.flatMap(section => [
+        '',
+        '===== ID No.' + section.id + ' · ' + section.name.toUpperCase() + ' =====',
+        ...buildDfiToolSummary(section.name, dfiToolReports[section.name])
+      ]),
+      '',
+      'SUMMARY ONLY: Full logs, timestamps, stack/details and complete evidence are retained in COPY ALL REPORT.'
+    ];
+    void copyDfiText(sections.join('\\n'), 'Copied Advanced DFI summary report', 'COPY SUMMARY REPORT failed · allow clipboard permission and try again');
+  };
   const copyAllDfiReport = async () => {
     const queued = diagnosticQueueRef.current.slice();
     const logs = [...diagnosticLogs, ...queued].slice(-400);
@@ -6086,16 +6145,21 @@ export default function App() {
                 <span>{dfiToolBusy === tool ? 'SCANNING…' : tool}</span>
               </button>)}
             </div>
-            <div className="diagnostic-actions dfi-actions">
-              <button type="button" onClick={copyAllDfiReport} title="Copy every Advanced DFI, RDS, tool and runtime result"><Copy size={13}/> COPY ALL REPORT</button>
+            <div className="diagnostic-actions dfi-actions dfi-report-copy-actions">
+              <button type="button" onClick={copyAllDfiReport} title="Copy complete details: all Advanced DFI, RDS, tool and runtime evidence"><Copy size={13}/> COPY ALL REPORT</button>
+              <button type="button" onClick={copyAllDfiSummary} title="Copy concise summary grouped by diagnostic ID"><ClipboardCopy size={13}/> COPY SUMMARY REPORT</button>
             </div>
-            {Object.entries(dfiToolReports).map(([tool, report]) => <details className="dfi-tool-result" key={tool}>
-              <summary>{tool} · REPORT RESULTS</summary>
+            {dfiToolSections.filter(section => dfiToolReports[section.name]).map(section => {
+              const tool = section.name;
+              const report = dfiToolReports[tool];
+              return <details className="dfi-tool-result" key={tool}>
+              <summary><span className="dfi-result-title">ID No.{section.id} · {tool} · REPORT RESULTS</span><button type="button" className="dfi-summary-copy-icon" title={'Copy ID No.' + section.id + ' summary'} aria-label={'Copy ID No.' + section.id + ' summary'} onClick={event => { event.preventDefault(); event.stopPropagation(); copyDfiToolSummary(section.id, tool); }}><ClipboardCopy size={14}/></button></summary>
               <div className="core-optimizer-report dfi-report dfi-highlight-report">{report.split('\n').map((line, index) => {
                 const tag = /\b(CRASH|FATAL)\b/i.test(line) ? 'crash' : /\b(CONFLICT)\b/i.test(line) ? 'conflict' : /\b(ERROR|BUG|DUPLICATE|NON_MANIFOLD)\b/i.test(line) ? 'error' : /\b(WARN|WARNING|SUSPECTED)\b/i.test(line) ? 'warning' : '';
                 return <div key={index} className={tag ? 'dfi-report-line dfi-' + tag : 'dfi-report-line'}>{line || ' '}</div>;
               })}</div>
-            </details>)}
+            </details>;
+            })}
 
             <div className="diagnostic-summary"><span>{dfiSummary.findings} finding(s)</span><span>{dfiSummary.errors} error(s)</span><span>{dfiSummary.warnings} warning(s)</span></div>
             <div className="diagnostic-summary"><span>{dfiSummary.repeatedErrors} repeated signature(s)</span><span>{dfiSummary.invalidMeshes} integrity finding(s)</span></div>
