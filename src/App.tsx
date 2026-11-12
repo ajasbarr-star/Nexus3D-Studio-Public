@@ -228,19 +228,16 @@ export default function App() {
   const spaceRef = useRef<'world' | 'local'>('world');
   const [panel, setPanel] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
-  // Scene Tree and Menu share one dock slot. Drag the right-center handle
-  // toward the right to widen whichever panel is currently active.
+  // Scene Tree and Menu are independent Mother Panels with fixed top-left anchors.
   const [treePanelWidth, setTreePanelWidth] = useState(172);
   const [menuPanelWidth, setMenuPanelWidth] = useState(172);
-  const [menuPanelTop, setMenuPanelTop] = useState(52);
-  const [sceneTreeTop, setSceneTreeTop] = useState(52);
-  const treeHeightResizeStart = useRef<{ y: number; top: number; pointerId: number } | null>(null);
-  const treeHeightResizeMoveRef = useRef<((event: PointerEvent) => void) | null>(null);
-  const treeHeightResizeEndRef = useRef<((event: PointerEvent) => void) | null>(null);
-  const panelResizeStart = useRef<{ x: number; width: number; pointerId: number } | null>(null);
+  const initialPanelHeight = () => Math.max(220, Math.min(480, window.innerHeight - 120));
+  const [treePanelHeight, setTreePanelHeight] = useState(initialPanelHeight);
+  const [menuPanelHeight, setMenuPanelHeight] = useState(initialPanelHeight);
+  const panelResizeStart = useRef<{ x: number; y: number; width: number; height: number; pointerId: number } | null>(null);
   const panelResizeMoveRef = useRef<((event: PointerEvent) => void) | null>(null);
   const panelResizeEndRef = useRef<((event: PointerEvent) => void) | null>(null);
-  const beginPanelResize = (event: React.PointerEvent<HTMLButtonElement>, targetPanel: 'tree' | 'menu') => {
+  const beginPanelResize = (event: React.PointerEvent<HTMLButtonElement>, targetPanel: 'tree' | 'menu', axis: 'width' | 'height') => {
     event.preventDefault();
     event.stopPropagation();
     if (panelResizeMoveRef.current) window.removeEventListener('pointermove', panelResizeMoveRef.current);
@@ -248,24 +245,27 @@ export default function App() {
       window.removeEventListener('pointerup', panelResizeEndRef.current);
       window.removeEventListener('pointercancel', panelResizeEndRef.current);
     }
-    const start = { x: event.clientX, y: event.clientY, width: targetPanel === 'tree' ? treePanelWidth : menuPanelWidth, top: targetPanel === 'tree' ? sceneTreeTop : menuPanelTop, pointerId: event.pointerId };
+    const start = {
+      x: event.clientX,
+      y: event.clientY,
+      width: targetPanel === 'tree' ? treePanelWidth : menuPanelWidth,
+      height: targetPanel === 'tree' ? treePanelHeight : menuPanelHeight,
+      pointerId: event.pointerId
+    };
     panelResizeStart.current = start;
     const move = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== start.pointerId) return;
       moveEvent.preventDefault();
-      const dx = moveEvent.clientX - start.x;
-      const dy = moveEvent.clientY - start.y;
-      // The bottom grip supports both axes: vertical drag changes panel height,
-      // horizontal drag changes width. Use the dominant axis to avoid jitter.
-      if (Math.abs(dy) > Math.abs(dx)) {
-        const minTop = 42;
-        const maxTop = Math.max(minTop, window.innerHeight - 54 - 150);
-        const nextTop = Math.max(minTop, Math.min(maxTop, start.top + dy));
-        if (targetPanel === 'tree') setSceneTreeTop(nextTop);
-        else setMenuPanelTop(nextTop);
+      if (axis === 'height') {
+        // The top-left anchor stays fixed; only the bottom edge follows the grip.
+        const maxHeight = Math.max(180, window.innerHeight - 52 - 48);
+        const nextHeight = Math.max(180, Math.min(maxHeight, start.height + moveEvent.clientY - start.y));
+        if (targetPanel === 'tree') setTreePanelHeight(nextHeight);
+        else setMenuPanelHeight(nextHeight);
       } else {
-        const maxWidth = Math.max(220, Math.min(420, Math.floor(window.innerWidth * 0.48)));
-        const nextWidth = Math.max(150, Math.min(maxWidth, start.width + dx));
+        // The left edge stays fixed; only the right edge follows the grip.
+        const maxWidth = Math.max(180, Math.min(420, Math.floor(window.innerWidth * 0.48)));
+        const nextWidth = Math.max(150, Math.min(maxWidth, start.width + moveEvent.clientX - start.x));
         if (targetPanel === 'tree') setTreePanelWidth(nextWidth);
         else setMenuPanelWidth(nextWidth);
       }
@@ -284,51 +284,6 @@ export default function App() {
     window.addEventListener('pointermove', move, { passive: false });
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);
-  };
-  const beginTreeHeightResize = (event: React.PointerEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (treeHeightResizeMoveRef.current) window.removeEventListener('pointermove', treeHeightResizeMoveRef.current);
-    if (treeHeightResizeEndRef.current) {
-      window.removeEventListener('pointerup', treeHeightResizeEndRef.current);
-      window.removeEventListener('pointercancel', treeHeightResizeEndRef.current);
-    }
-    const start = { y: event.clientY, top: sceneTreeTop, pointerId: event.pointerId };
-    treeHeightResizeStart.current = start;
-    const move = (moveEvent: PointerEvent) => {
-      if (moveEvent.pointerId !== start.pointerId) return;
-      moveEvent.preventDefault();
-      const bottomGap = 54;
-      const minHeight = 150;
-      const maxTop = Math.max(48, window.innerHeight - bottomGap - minHeight);
-      const nextTop = Math.max(42, Math.min(maxTop, start.top + moveEvent.clientY - start.y));
-      setSceneTreeTop(nextTop);
-    };
-    const end = (endEvent: PointerEvent) => {
-      if (endEvent.pointerId !== start.pointerId) return;
-      treeHeightResizeStart.current = null;
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', end);
-      window.removeEventListener('pointercancel', end);
-      treeHeightResizeMoveRef.current = null;
-      treeHeightResizeEndRef.current = null;
-    };
-    treeHeightResizeMoveRef.current = move;
-    treeHeightResizeEndRef.current = end;
-    window.addEventListener('pointermove', move, { passive: false });
-    window.addEventListener('pointerup', end);
-    window.addEventListener('pointercancel', end);
-  };
-  const movePanelResize = (_event: React.PointerEvent<HTMLButtonElement>) => {};
-  const endPanelResize = (_event: React.PointerEvent<HTMLButtonElement>) => {
-    panelResizeStart.current = null;
-    if (panelResizeMoveRef.current) window.removeEventListener('pointermove', panelResizeMoveRef.current);
-    if (panelResizeEndRef.current) {
-      window.removeEventListener('pointerup', panelResizeEndRef.current);
-      window.removeEventListener('pointercancel', panelResizeEndRef.current);
-    }
-    panelResizeMoveRef.current = null;
-    panelResizeEndRef.current = null;
   };
 
   const [diagnosticLogs, setDiagnosticLogs] = useState<DiagnosticEntry[]>(() => {
@@ -6165,7 +6120,8 @@ export default function App() {
 
       {!panel && !cameraView && !riggingView && <button className={'floating-menu-toggle ' + (menuOpen ? 'active' : '')} id="btn-menu-panel" onClick={() => { const opening = !menuOpen; setMenuOpen(opening); if (opening) { setQuickPanel(null); setInspectorOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); } }} title={menuOpen ? 'Close Menu Panel' : 'Open Menu Panel'}><span className="menu-glyph">☰</span><span>MENU</span></button>}
 
-      {menuOpen && !panel && !cameraView && !riggingView && <aside className="menu-panel" style={{ "--nexus-panel-width": menuPanelWidth + "px", "--nexus-menu-top": menuPanelTop + "px" } as React.CSSProperties}>
+      {menuOpen && !panel && !cameraView && !riggingView && <aside className="menu-panel menu-mother-panel" style={{ "--nexus-panel-width": menuPanelWidth + "px", "--nexus-panel-height": menuPanelHeight + "px" } as React.CSSProperties}>
+        <div className="panel-vertical-box menu-panel-vertical-box">
         <div className="panel-heading"><div><Settings2 size={13} /><span>Menu</span></div><button className="menu-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={13} /></button></div>
         <div className="menu-panel-scroll">
         <section className="menu-category diagnostic-menu-section">
@@ -6389,12 +6345,15 @@ export default function App() {
           </div>}
         </section>)}
         </div>
-        <div className="panel-bottom-bar" aria-label="Menu Panel resize control"><button type="button" className="panel-resize-handle" aria-label="Resize Menu Panel height or width" title="Drag up or down to resize height; drag sideways to resize width" onPointerDown={event => beginPanelResize(event, 'menu')} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button></div>
+        </div>
+        <button type="button" className="panel-resize-handle panel-resize-handle-horizontal" aria-label="Resize Menu Panel width" title="Drag left or right to resize Menu Panel width" onPointerDown={event => beginPanelResize(event, 'menu', 'width')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12 7 8 M3 12 7 16 M3 12H21 M21 12 17 8 M21 12 17 16" /></svg></button>
+        <button type="button" className="panel-resize-handle panel-resize-handle-vertical" aria-label="Resize Menu Panel height" title="Drag up or down to resize Menu Panel height" onPointerDown={event => beginPanelResize(event, 'menu', 'height')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 8 7 M12 3 16 7 M12 3V21 M12 21 8 17 M12 21 16 17" /></svg></button>
       </aside>}
 
-      {panel && !cameraView && <aside className="hierarchy-panel" style={{ "--nexus-panel-width": treePanelWidth + "px", "--nexus-tree-top": sceneTreeTop + "px" } as React.CSSProperties}>
+      {panel && !cameraView && <aside className="hierarchy-panel scene-tree-mother-panel" style={{ "--nexus-panel-width": treePanelWidth + "px", "--nexus-panel-height": treePanelHeight + "px" } as React.CSSProperties}>
+        <div className="panel-vertical-box scene-tree-vertical-box">
         <div className="panel-heading"><div><Layers size={13} /><span>Scenes Tree</span></div><div className="tree-manager-tools"><button type="button" title="Duplicate selected object" aria-label="Duplicate selected object" disabled={!selected || cameraView} onClick={() => { const obj = items.find(entry => entry.id === selected)?.object; if (obj) duplicateTreeObject(obj); }}><Copy size={12}/></button><button type="button" title="Group selected object" aria-label="Group selected object" disabled={!selected || cameraView} onClick={() => { const obj = items.find(entry => entry.id === selected)?.object; if (obj) groupTreeObject(obj); }}><FolderPlus size={12}/></button><button type="button" title="Delete selected object" aria-label="Delete selected object" disabled={!selected || cameraView} onClick={() => { const obj = items.find(entry => entry.id === selected)?.object; if (obj) deleteTreeObject(obj); }}><Trash2 size={12}/></button><span className="count">{items.length.toString().padStart(2, '0')}</span></div></div>
-        <div className="tree-search"><Search size={12} /><input aria-label="Search scene tree" value={treeSearch} onChange={e => setTreeSearch(e.target.value)} placeholder="Search scene…" /><button type="button" className="tree-width-resize-handle" aria-label="Resize Scene Tree width" title="Drag right to widen or left to narrow Scene Tree" onPointerDown={event => beginPanelResize(event, 'tree')} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button></div>
+        <div className="tree-search"><Search size={12} /><input aria-label="Search scene tree" value={treeSearch} onChange={e => setTreeSearch(e.target.value)} placeholder="Search scene…" /></div>
         <div className={'tree-root ' + (dragTargetId === 'root' ? 'drop-target' : '')} onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragTargetId('root'); }} onDragLeave={() => setDragTargetId('')} onDrop={e => { e.preventDefault(); setDragTargetId(''); const childId = e.dataTransfer.getData('text/nexus3d-object'); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }} title="Drop an object here to move it to the Scene root"><span className="tree-caret">⌄</span><Grid2X2 size={12} /><span>Scene Root</span></div>
         <div className={'tree-list ' + (dragTargetId === 'empty' ? 'drop-target' : '')} onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (e.target === e.currentTarget) setDragTargetId('empty'); }} onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragTargetId(''); }} onDrop={e => { e.preventDefault(); setDragTargetId(''); const childId = e.dataTransfer.getData('text/nexus3d-object'); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }}>
           {items.filter(item => {
@@ -6523,7 +6482,9 @@ export default function App() {
             </div>;
           })}
         </div>
-        <div className="panel-bottom-bar tree-height-bottom-bar" aria-label="Scene Tree height resize control"><button type="button" className="tree-height-resize-handle" aria-label="Resize Scene Tree height" title="Drag up to make Scene Tree taller or down to make it shorter" onPointerDown={beginTreeHeightResize}><span /></button></div>
+        </div>
+        <button type="button" className="panel-resize-handle panel-resize-handle-horizontal" aria-label="Resize Scene Tree width" title="Drag left or right to resize Scene Tree width" onPointerDown={event => beginPanelResize(event, 'tree', 'width')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12 7 8 M3 12 7 16 M3 12H21 M21 12 17 8 M21 12 17 16" /></svg></button>
+        <button type="button" className="panel-resize-handle panel-resize-handle-vertical" aria-label="Resize Scene Tree height" title="Drag up or down to resize Scene Tree height" onPointerDown={event => beginPanelResize(event, 'tree', 'height')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 8 7 M12 3 16 7 M12 3V21 M12 21 8 17 M12 21 16 17" /></svg></button>
       </aside>}
 
 
