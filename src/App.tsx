@@ -3228,13 +3228,35 @@ export default function App() {
        const sourcePosition = source.getAttribute('position');
        const kept: number[] = [];
        let removedCaps = 0;
+       const capGroups = [{ center: new THREE.Vector3(), count: 0 }, { center: new THREE.Vector3(), count: 0 }];
+       let referenceCapNormal: THREE.Vector3 | null = null;
        const keyAt = (index: number) => {
          const point = new THREE.Vector3().fromBufferAttribute(sourcePosition, index);
          return [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(',');
        };
        for (let offset = 0; offset + 2 < sourcePosition.count; offset += 3) {
-         if (selectedKeys.has(keyAt(offset)) && selectedKeys.has(keyAt(offset + 1)) && selectedKeys.has(keyAt(offset + 2))) { removedCaps++; continue; }
+         const isSelectedCap = selectedKeys.has(keyAt(offset)) && selectedKeys.has(keyAt(offset + 1)) && selectedKeys.has(keyAt(offset + 2));
+         if (isSelectedCap) {
+           const a = new THREE.Vector3().fromBufferAttribute(sourcePosition, offset);
+           const b = new THREE.Vector3().fromBufferAttribute(sourcePosition, offset + 1);
+           const c = new THREE.Vector3().fromBufferAttribute(sourcePosition, offset + 2);
+           const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize();
+           if (!referenceCapNormal) referenceCapNormal = normal.clone();
+           const group = normal.dot(referenceCapNormal) < 0 ? 1 : 0;
+           capGroups[group].center.add(a).add(b).add(c);
+           capGroups[group].count += 3;
+           removedCaps++;
+           continue;
+         }
          kept.push(offset, offset + 1, offset + 2);
+       }
+       const capCenters = capGroups.filter(group => group.count > 0).map(group => group.center.multiplyScalar(1 / group.count));
+       source.computeBoundingSphere();
+       const capMeetTolerance = Math.max(1e-4, (source.boundingSphere?.radius || 1) * 0.06);
+       if (capCenters.length !== 2 || capCenters[0].distanceTo(capCenters[1]) > capMeetTolerance) {
+         source.dispose(); before.dispose();
+         setStatus('Faces Cut paused: the two extruded faces have not met yet. Continue extruding both faces inward until their caps touch.');
+         return;
        }
        if (removedCaps < 4 || kept.length < 6) {
          source.dispose(); before.dispose();
