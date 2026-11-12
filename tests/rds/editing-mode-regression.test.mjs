@@ -91,11 +91,19 @@ test('New Modeling Workspace replaces the legacy panel presentation without dele
   assert.match(source, /requires a highlighted mesh component/);
 });
 
-test('Subdivide falls back to whole-mesh triangle subdivision after face extrusion', () => {
+test('Subdivide fails closed when the current mesh has no verified quad topology', () => {
   assert.match(source, /target\.userData\.kind === 'Cube' && \(geometry\.index \|\| target\.userData\.nexusQuadGrid === true\)/);
-  assert.match(source, /Generic whole-mesh subdivision fallback|Extrusion turns the regular cube grid into ordinary triangle geometry/);
-  assert.match(source, /const triangleCount = sourcePosition\.count \/ 3/);
-  assert.match(source, /\[\[corners\[0\],ab,ca\],\[ab,corners\[1\],bc\],\[ca,bc,corners\[2\]\],\[ab,bc,ca\]\]/);
-  assert.match(source, /genericSubdivideApplied \? \{ enabled: false, layout: null, bounds: null, divisions: 0 \}/);
-  assert.doesNotMatch(source, /Quad Subdivide is currently supported on Cube meshes only/);
+  assert.match(source, /Fail closed for meshes without a verified quad-cell topology/);
+  assert.match(source, /No triangles were split and the original mesh was preserved/);
+  assert.doesNotMatch(source, /const triangleCount = sourcePosition\.count \/ 3/);
+  assert.doesNotMatch(source, /genericSubdivideApplied/);
+});
+
+test('Subdivide blocks skinned and morph-target meshes before geometry mutation', () => {
+  assert.match(source, /target instanceof THREE\.SkinnedMesh/);
+  assert.match(source, /Boolean\(target\.geometry\.getAttribute\('skinIndex'\)\)/);
+  assert.match(source, /Boolean\(target\.geometry\.getAttribute\('skinWeight'\)\)/);
+  assert.match(source, /Object\.values\(target\.geometry\.morphAttributes\)/);
+  assert.match(source, /tool === 'Subdivide' && \(hasSkinning \|\| hasMorphTargets\)/);
+  assert.match(source, /No mesh, bones, weights, or animation data was changed/);
 });
