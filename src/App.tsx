@@ -3316,17 +3316,20 @@ export default function App() {
          }
          kept.push(offset, offset + 1, offset + 2);
        }
-       const capCenters = capGroups.filter(group => group.count > 0).map(group => group.center.multiplyScalar(1 / group.count));
-       source.computeBoundingSphere();
-       const capMeetTolerance = Math.max(1e-4, (source.boundingSphere?.radius || 1) * 0.06);
-       if (capCenters.length !== 2 || capCenters[0].distanceTo(capCenters[1]) > capMeetTolerance) {
+       // Faces Cut opens a passage by removing the two selected, opposite
+       // extruded cap surfaces. Their centers do NOT need to touch: requiring
+       // coincident caps prevented a through-opening whenever the user had
+       // scaled, moved, or rotated the caps before cutting.
+       const hasBothOpposingCaps = capGroups[0].count >= 6 && capGroups[1].count >= 6;
+       if (!hasBothOpposingCaps || removedCaps < 4 || kept.length < 6) {
          source.dispose(); before.dispose();
-         setStatus('Faces Cut paused: the two extruded faces have not met yet. Continue extruding both faces inward until their caps touch.');
-         return;
-       }
-       if (removedCaps < 4 || kept.length < 6) {
-         source.dispose(); before.dispose();
-         setStatus('Faces Cut cancelled: both extruded face caps were not found. Extrude both faces inward first.');
+         recordInteractionTrace('Faces Cut rejected · opposing cap geometry not found', {
+           removedCapTriangles: removedCaps,
+           positiveNormalCapVertices: capGroups[0].count,
+           oppositeNormalCapVertices: capGroups[1].count,
+           remainingVertices: kept.length,
+         });
+         setStatus('Faces Cut cancelled: select the two opposite extruded cap faces again, then apply Faces Cut.');
          return;
        }
        const cutGeometry = new THREE.BufferGeometry();
