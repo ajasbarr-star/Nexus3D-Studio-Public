@@ -2002,3 +2002,44 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 
 .tree-rename-inline { flex:1; min-width:0; display:flex; align-items:center; height:34px; padding-right:3px; }
 .tree-rename-inline input { width:100%; min-width:0; height:25px; padding:0 5px; border:1px solid #39c9eb; border-radius:4px; outline:none; color:#e5f6ff; background:#081725; font:10px 'DM Mono',monospace; box-shadow:0 0 8px #00cfff22; }
+
+
+/* Shared vertical resize handles for the active Scene Tree / Menu dock. */
+.hierarchy-panel, .menu-panel {
+  bottom: var(--nexus-panel-bottom, 76px) !important;
+  padding-bottom: 30px !important;
+  box-sizing: border-box;
+}
+.panel-resize-handle {
+  position: absolute;
+  z-index: 12;
+  left: 50%;
+  bottom: 3px;
+  transform: translateX(-50%);
+  width: 72px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(72, 174, 207, .55);
+  border-radius: 8px;
+  background: rgba(10, 31, 47, .96);
+  box-shadow: 0 0 12px rgba(0, 196, 235, .12);
+  touch-action: none;
+  cursor: ns-resize;
+}
+.panel-resize-handle span {
+  display: block;
+  width: 30px;
+  height: 4px;
+  border-top: 1px solid #62d9f3;
+  border-bottom: 1px solid #62d9f3;
+  opacity: .9;
+}
+.panel-resize-handle:active {
+  background: #123c52;
+  border-color: #62d9f3;
+  box-shadow: 0 0 14px rgba(0, 205, 245, .28);
+}
+.hierarchy-panel .tree-list { padding-bottom: 30px; }
+.menu-panel { padding-bottom: 34px !important; }
