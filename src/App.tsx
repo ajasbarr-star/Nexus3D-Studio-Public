@@ -3432,16 +3432,17 @@ export default function App() {
        geometry.computeVertexNormals();
        recordInteractionTrace('Faces Cut committed', { removedCapTriangles: removedCaps, remainingTriangles: kept.length / 3, dualFaceCount: selectedFaceParts.length });
      } else if (tool === 'Subdivide') {
-      // Subdivide only verified quad cells, but do not depend on a stale marker.
-      // Faces Cut removes complete cap quads and leaves the remaining canonical
-      // six-vertex triangle pairs intact, including open boundaries around holes.
-      let sourceCornerOffsets: number[] | null = null;
+      // Recover quad perimeters from pairs of render triangles without assuming
+      // their vertex order. The shared render diagonal is never a modeling edge.
+      let sourceQuadCorners: number[][] | null = null;
       if (geometry.index && target.userData.kind === 'Cube' && target.userData.nexusQuadGrid !== true) {
         const indexedSource = geometry;
         geometry = indexedSource.toNonIndexed();
         indexedSource.dispose();
-        // Three.js BoxGeometry uses [A,B,D] + [B,C,D] for each original quad.
-        sourceCornerOffsets = [0, 1, 4, 2];
+        sourceQuadCorners = [];
+        for (let base = 0; base < geometry.getAttribute('position').count; base += 6) {
+          sourceQuadCorners.push([base, base + 1, base + 4, base + 2]);
+        }
       } else {
         if (geometry.index) {
           const indexedSource = geometry;
@@ -3451,28 +3452,49 @@ export default function App() {
         const candidate = geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
         if (candidate && candidate.count >= 6 && candidate.count % 6 === 0) {
           geometry.computeBoundingSphere();
-          const tolerance = Math.max(geometry.boundingSphere?.radius || 1, 1) * 1e-6;
+          const tolerance = Math.max(geometry.boundingSphere?.radius || 1, 1) * 1e-5;
           const close = (a: THREE.Vector3, b: THREE.Vector3) => a.distanceToSquared(b) <= tolerance * tolerance;
-          let canonicalQuadStream = true;
+          const reconstructed: number[][] = [];
+          let invalidPair = -1;
           for (let offset = 0; offset < candidate.count; offset += 6) {
-            const points = Array.from({ length: 6 }, (_value, index) => new THREE.Vector3().fromBufferAttribute(candidate, offset + index));
-            const triangleA = points[1].clone().sub(points[0]).cross(points[2].clone().sub(points[0]));
-            const triangleB = points[4].clone().sub(points[3]).cross(points[5].clone().sub(points[3]));
-            const uniqueCorners = [points[0], points[1], points[2], points[5]];
-            const uniqueKeys = new Set(uniqueCorners.map(point => [point.x, point.y, point.z].map(value => Math.round(value / tolerance)).join(',')));
-            if (!close(points[0], points[3]) || !close(points[2], points[4]) ||
-                uniqueKeys.size !== 4 || triangleA.lengthSq() <= tolerance ** 4 ||
-                triangleB.lengthSq() <= tolerance ** 4) {
-              canonicalQuadStream = false;
-              break;
+            const triA = [offset, offset + 1, offset + 2];
+            const triB = [offset + 3, offset + 4, offset + 5];
+            const point = (index: number) => new THREE.Vector3().fromBufferAttribute(candidate, index);
+            const shared: Array<[number, number]> = [];
+            triA.forEach(a => triB.forEach(b => { if (close(point(a), point(b))) shared.push([a, b]); }));
+            if (shared.length !== 2) { invalidPair = offset / 6; break; }
+            const uniqueA = triA.find(index => !shared.some(pair => pair[0] === index));
+            const uniqueB = triB.find(index => !shared.some(pair => pair[1] === index));
+            if (uniqueA === undefined || uniqueB === undefined) { invalidPair = offset / 6; break; }
+            const uniquePosition = triA.indexOf(uniqueA);
+            const firstShared = triA[(uniquePosition + 1) % 3];
+            const secondShared = triA[(uniquePosition + 2) % 3];
+            const firstMatch = shared.find(pair => pair[0] === firstShared)?.[1];
+            const secondMatch = shared.find(pair => pair[0] === secondShared)?.[1];
+            if (firstMatch === undefined || secondMatch === undefined ||
+                !triB.includes(firstMatch) || !triB.includes(secondMatch) ||
+                point(uniqueA).distanceToSquared(point(uniqueB)) <= tolerance * tolerance) {
+              invalidPair = offset / 6; break;
             }
+            const corners = [uniqueA, firstShared, uniqueB, secondShared];
+            const p = corners.map(point);
+            const areaA = p[1].clone().sub(p[0]).cross(p[2].clone().sub(p[0])).lengthSq();
+            const areaB = p[2].clone().sub(p[0]).cross(p[3].clone().sub(p[0])).lengthSq();
+            if (areaA <= tolerance ** 4 || areaB <= tolerance ** 4) { invalidPair = offset / 6; break; }
+            reconstructed.push(corners);
           }
-          if (canonicalQuadStream) sourceCornerOffsets = [0, 1, 2, 5];
+          if (invalidPair < 0 && reconstructed.length === candidate.count / 6) sourceQuadCorners = reconstructed;
+          else recordInteractionTrace('Subdivide rejected', {
+            reason: 'A render-triangle pair could not be reconstructed as a quad perimeter',
+            failingQuadIndex: invalidPair,
+            renderVertexCount: candidate.count,
+            verifiedQuadCount: reconstructed.length,
+          });
         }
       }
       const source = geometry.getAttribute('position') as THREE.BufferAttribute;
       const sourceUv = geometry.getAttribute('uv') as THREE.BufferAttribute | undefined;
-      if (!sourceCornerOffsets || source.count % 6 !== 0) {
+      if (!sourceQuadCorners || source.count % 6 !== 0 || sourceQuadCorners.length !== source.count / 6) {
         geometry.dispose(); before.dispose();
         setStatus('Subdivide cancelled: this mesh has no verified quad-cell layout. Existing geometry was preserved.');
         diagnosticSinkRef.current('WARN', 'Geometry Safety', 'Quad subdivision unavailable for current topology', JSON.stringify({
@@ -3484,7 +3506,7 @@ export default function App() {
         }));
         return;
       }
-      const cellCount = source.count / 6;
+      const cellCount = sourceQuadCorners!.length;
       // No arbitrary per-operation vertex cap: each quad always becomes four
       // quad cells. Device memory remains the only practical constraint.
       const outputVertexCount = cellCount * 24;
@@ -3514,7 +3536,8 @@ export default function App() {
       const minimumTriangleArea = geometryScale * geometryScale * 1e-10;
       let invalidQuad = false;
       for (let offset = 0; offset < source.count; offset += 6) {
-        const corners = sourceCornerOffsets.map(cornerOffset => readPoint(offset + cornerOffset));
+        const quadCorners = sourceQuadCorners![offset / 6];
+        const corners = quadCorners.map(readPoint);
         const [p00, p10, p11, p01] = corners;
         const areaA = p10.clone().sub(p00).cross(p11.clone().sub(p00)).length();
         const areaB = p11.clone().sub(p00).cross(p01.clone().sub(p00)).length();
@@ -3526,7 +3549,7 @@ export default function App() {
           invalidQuad = true;
           break;
         }
-        const [t00, t10, t11, t01] = sourceCornerOffsets.map(cornerOffset => readUv(offset + cornerOffset));
+        const [t00, t10, t11, t01] = quadCorners.map(readUv);
         const pTop = lerpPoint(p00,p10,p11,p01,0.5,0);
         const pRight = lerpPoint(p00,p10,p11,p01,1,0.5);
         const pBottom = lerpPoint(p00,p10,p11,p01,0.5,1);
@@ -3554,6 +3577,7 @@ export default function App() {
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
       geometry.computeVertexNormals();
+      recordInteractionTrace('Subdivide committed', { sourceQuadCount: cellCount, outputQuadCount: cellCount * 4, outputVertexCount });
     } else if (tool === 'Subdivide') {
       // Fail closed for meshes without a verified quad-cell topology. Splitting
       // arbitrary triangles creates diagonal triangle grids and loses reliable
