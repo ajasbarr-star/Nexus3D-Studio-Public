@@ -404,12 +404,14 @@ export default function App() {
       recordInteraction(active?.mesh && distance <= 8 ? 'SUBOBJECT TAP' : gesture, '3D Viewport',
         selectedObject?.name || 'Viewport interaction', detail);
     };
+    const onCanvasCancel = (event: PointerEvent) => { if (canvasGesture?.pointerId === event.pointerId) canvasGesture = null; };
     document.addEventListener('pointerdown', onCanvasDown, true);
     document.addEventListener('pointerup', onCanvasUp);
-    document.addEventListener('pointercancel', () => { canvasGesture = null; });
+    document.addEventListener('pointercancel', onCanvasCancel);
     return () => {
       document.removeEventListener('pointerdown', onCanvasDown, true);
       document.removeEventListener('pointerup', onCanvasUp);
+      document.removeEventListener('pointercancel', onCanvasCancel);
     };
   }, []);
   const clearInteractionTrace = () => {
