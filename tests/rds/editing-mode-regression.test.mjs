@@ -77,3 +77,16 @@ test('Deleting a rig owner or root preserves IK handles and rig-chain state for 
   assert.equal((source.match(/r\.captureRigStateFor\?\.\(obj\)/g) || []).length, 2);
   assert.equal((source.match(/r\.restoreRigState\?\.\(rigSnapshot\)/g) || []).length, 2);
 });
+
+test('New Modeling Workspace replaces the legacy panel presentation without deleting tool handlers', () => {
+  assert.match(source, /nexus-modeling-workspace/);
+  assert.match(source, /MODELING WORKSPACE/);
+  assert.match(source, /ACTIVE OBJECT/);
+  assert.match(source, /LIVE MESH EDITOR/);
+  assert.match(source, /FACE OPERATIONS/);
+  for (const tool of ['Extrude', 'Subdivide', 'Smooth', 'Loop Cut']) {
+    assert.ok(source.includes("'" + tool + "'") || source.includes('"' + tool + '"'), tool + ' action must remain wired');
+  }
+  assert.match(source, /Select a face before Loop Cut/);
+  assert.match(source, /requires a highlighted mesh component/);
+});
