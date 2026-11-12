@@ -31,3 +31,15 @@ test('Quad reconstruction runs only for Face Extrude after attribute counts are 
   assert.ok(app.includes("tool === 'Extrude' && editModeRef.current === 'Face' && !geometry.index"));
   assert.ok(app.indexOf("if (!geometry.getAttribute('uv'))") < app.indexOf('// Reconstruct each existing pair of triangles as one canonical quad cell'));
 });
+
+
+test('Long UI-thread tasks are reported as performance warnings, not runtime exceptions', () => {
+  assert.match(app, /diagnosticSinkRef\.current\('WARN',[\s\S]{0,120}Main Thread Performance/);
+  assert.match(app, /performance warning, not a runtime exception/);
+});
+
+test('Mesh editing avoids duplicate normal recomputation and reduces Smooth passes on larger mobile meshes', () => {
+  assert.match(app, /const smoothPasses = position\.count > 8000 \? 1 : position\.count > 3000 \? 2 : 3/);
+  assert.match(app, /Final geometry commit below computes normals once/);
+  assert.match(app, /Normals are computed once[\s\S]{0,100}shared finalization block below/);
+});
