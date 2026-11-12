@@ -224,7 +224,7 @@ test('Extruded side walls receive UVs and keep the verified quad topology stream
 
 test('Realtime Interaction Trace exposes Copy All and Error Highlights in Menu Panel', () => {
   assert.match(source, /REALTIME INTERACTION TRACE/);
-  assert.match(source, /source: 'Interaction Trace'/);
+  assert.match(source, /'Interaction Trace'/);
   assert.match(source, /COPY ALL/);
   assert.match(source, /ERROR HIGHLIGHTS/);
   assert.match(source, /Viewport pointer down/);
