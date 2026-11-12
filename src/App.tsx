@@ -378,11 +378,39 @@ export default function App() {
     const captureControlTouch = (event: PointerEvent) => {
       const target = event.target instanceof Element ? event.target.closest('button,[role="button"]') : null;
       if (!target || target.closest('.diagnostic-panel-expanded')) return;
-      const label = (target.getAttribute('aria-label') || target.getAttribute('title') || target.textContent || 'Unnamed control').replace(/\\s+/g, ' ').trim().slice(0, 120);
+      const label = (target.getAttribute('aria-label') || target.getAttribute('title') || target.textContent || 'Unnamed control').replace(/\s+/g, ' ').trim().slice(0, 120);
       if (label) recordInteraction('CONTROL TOUCH', 'UI Control', label, `Pointer type: ${event.pointerType || 'unknown'}`);
     };
     document.addEventListener('pointerdown', captureControlTouch, true);
     return () => document.removeEventListener('pointerdown', captureControlTouch, true);
+  }, []);
+  useEffect(() => {
+    let canvasGesture: { x: number; y: number; pointerId: number; pointerType: string } | null = null;
+    const onCanvasDown = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target.closest('.viewport canvas') : null;
+      if (!target) return;
+      canvasGesture = { x: event.clientX, y: event.clientY, pointerId: event.pointerId, pointerType: event.pointerType || 'unknown' };
+    };
+    const onCanvasUp = (event: PointerEvent) => {
+      const start = canvasGesture;
+      if (!start || start.pointerId !== event.pointerId) return;
+      canvasGesture = null;
+      const distance = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+      const selectedObject = runtime.current?.selectable?.find((object: THREE.Object3D) => String(object.userData.editorId || '') === selectedRef.current);
+      const active = runtime.current?.getActiveSubSelection?.();
+      const subSelection = active?.mesh ? ` · sub-selection: ${editModeRef.current} · ${active.indices?.length || 0} vertex reference(s)` : '';
+      const gesture = distance <= 8 ? 'VIEWPORT TAP' : 'VIEWPORT DRAG';
+      const detail = `Pointer: ${start.pointerType}; distance: ${distance.toFixed(1)} px; edit mode: ${editModeRef.current}; selected: ${selectedObject?.name || 'none'}${subSelection}`;
+      recordInteraction(active?.mesh && distance <= 8 ? 'SUBOBJECT TAP' : gesture, '3D Viewport',
+        selectedObject?.name || 'Viewport interaction', detail);
+    };
+    document.addEventListener('pointerdown', onCanvasDown, true);
+    document.addEventListener('pointerup', onCanvasUp);
+    document.addEventListener('pointercancel', () => { canvasGesture = null; });
+    return () => {
+      document.removeEventListener('pointerdown', onCanvasDown, true);
+      document.removeEventListener('pointerup', onCanvasUp);
+    };
   }, []);
   const clearInteractionTrace = () => {
     interactionTraceQueueRef.current = [];
