@@ -5103,7 +5103,102 @@ export default function App() {
     const summary = buildDfiToolSummary(name, dfiToolReports[name]).join('\\n');
     void copyDfiText(summary, 'Copied ID No.' + id + ' · ' + name + ' summary', 'COPY SUMMARY failed · allow clipboard permission and try again');
   };
+  const buildSceneWorkflowSummary = () => {
+    const queued = diagnosticQueueRef.current.slice();
+    const logs = [...diagnosticLogs, ...queued].slice(-400);
+    const traceLogs = logs.filter(entry => entry.source === 'Interaction Trace');
+    const parsedTrace = traceLogs.map(entry => {
+      let data: Record<string, any> = {};
+      try { data = entry.details ? JSON.parse(entry.details) : {}; } catch { /* retain raw trace text below */ }
+      return { entry, data };
+    });
+    const operationEvents = parsedTrace.filter(({ entry }) =>
+      /Geometry operation requested|Geometry operation committed|Geometry tool requested|Face Pull|Subdivide|Faces Cut|Extrude|Gizmo transform sample|Transform gizmo drag (started|ended)|Scene Tree selection|Face tap accepted|Face locked|Viewport pointer/i.test(entry.message)
+    );
+    const objectNames = new Map<string, { count: number; events: string[] }>();
+    for (const { entry, data } of parsedTrace) {
+      const objectName = String(data.objectName || data.object || data.name || data.selectedObject || '');
+      const objectId = String(data.objectId || data.selectedId || data.editorId || '');
+      const label = objectName ? objectName + (objectId ? ' [' + objectId + ']' : '') : objectId ? 'Object [' + objectId + ']' : '';
+      if (!label) continue;
+      const current = objectNames.get(label) || { count: 0, events: [] };
+      current.count += 1;
+      if (current.events.length < 12 && !current.events.includes(entry.message)) current.events.push(entry.message);
+      objectNames.set(label, current);
+    }
+    const eventCounts = new Map<string, number>();
+    for (const { entry } of parsedTrace) eventCounts.set(entry.message, (eventCounts.get(entry.message) || 0) + 1);
+    const runtimeScene = runtime.current?.scene as THREE.Scene | undefined;
+    const meshScan = runtimeScene ? scanMeshCore(runtimeScene) : null;
+    const currentObjects = (runtime.current?.selectable || []).map((object: THREE.Object3D) => {
+      const mesh = object as THREE.Mesh;
+      const geometry = mesh.geometry instanceof THREE.BufferGeometry ? mesh.geometry : null;
+      const position = geometry?.getAttribute('position');
+      const triangleCount = geometry ? Math.floor((geometry.index?.count || position?.count || 0) / 3) : 0;
+      return {
+        name: object.name || object.type,
+        id: object.userData.editorId || 'no-editor-id',
+        kind: object.userData.kind || object.type,
+        vertices: position?.count ?? null,
+        triangles: geometry ? triangleCount : null,
+        indexed: geometry ? Boolean(geometry.index) : null,
+        position: object.position.toArray().map(value => Number(value.toFixed(4))),
+        rotation: [object.rotation.x, object.rotation.y, object.rotation.z].map(value => Number(value.toFixed(4))),
+        scale: object.scale.toArray().map(value => Number(value.toFixed(4)))
+      };
+    });
+    const workflowLines = operationEvents.slice(-100).map(({ entry, data }) => {
+      const detailKeys = [
+        'operation','editMode','objectName','objectId','selectedId','axis','transformAxis','mode','transformMode','space','axisSpace',
+        'selectionVertexCount','selectedFaceCount','geometryVertexCountBefore','vertexCountBefore','vertexCountAfter',
+        'triangleCountBefore','triangleCountAfter','indexedBefore','indexedAfter','quadGridVerified','position','rotation','scale',
+        'objectPosition','objectRotation','objectScale','pointerType','gesture','heldForMs'
+      ];
+      const evidence = detailKeys.filter(key => data[key] !== undefined && data[key] !== null)
+        .map(key => key + '=' + (typeof data[key] === 'object' ? JSON.stringify(data[key]) : String(data[key])));
+      return '[' + entry.time + '] ' + entry.message + (evidence.length ? ' · ' + evidence.join(' | ') : entry.details ? ' · ' + entry.details : '');
+    });
+    const severity = logs.filter(entry => entry.level !== 'INFO');
+    const summary = [
+      'NEXUS3D · 3D SCENE + SHAPE WORKFLOW SUMMARY',
+      'Generated: ' + new Date().toLocaleString(),
+      'Capture window: latest ' + logs.length + ' retained diagnostic event(s); ' + traceLogs.length + ' Interaction Trace event(s).',
+      'Current scene objects: ' + currentObjects.length + ' · recorded workflow events: ' + operationEvents.length + ' · ERROR/WARN entries: ' + severity.length,
+      '',
+      '1. CURRENT 3D SCENE / SHAPE STATE',
+      'Edit mode: ' + editModeRef.current + ' · Active tool: ' + (activeEditToolRef.current || 'none') + ' · Transform mode: ' + (runtime.current?.transform?.getMode?.() || modeRef.current) + ' · Axis space: ' + spaceRef.current,
+      'Selected editor ID: ' + (selectedRef.current || 'none'),
+      ...(currentObjects.length ? currentObjects.map(object => '- ' + object.name + ' [' + object.id + '] · ' + object.kind +
+        (object.vertices !== null ? ' · vertices=' + object.vertices + ' · triangles=' + object.triangles + ' · indexed=' + object.indexed : '') +
+        ' · position=' + JSON.stringify(object.position) + ' · rotation=' + JSON.stringify(object.rotation) + ' · scale=' + JSON.stringify(object.scale))
+        : ['No selectable scene objects are currently available.']),
+      '',
+      '2. WORKFLOW COUNTS BY CAPTURED EVENT',
+      ...(eventCounts.size ? Array.from(eventCounts.entries()).sort((a,b) => b[1]-a[1]).map(([name,count]) => '- ' + name + ': ' + count) : ['No Interaction Trace events captured in the retained window.']),
+      '',
+      '3. OBJECT / SHAPE ACTIVITY',
+      ...(objectNames.size ? Array.from(objectNames.entries()).map(([name,value]) => '- ' + name + ' · ' + value.count + ' event(s) · ' + value.events.join(' → ')) : ['No object-specific names or IDs were present in captured trace data.']),
+      '',
+      '4. OPERATION WORKFLOW TIMELINE (latest 100 matching events)',
+      ...(workflowLines.length ? workflowLines : ['No matching modeling, selection or gizmo workflow events were captured.']),
+      '',
+      '5. CURRENT MESH TOPOLOGY / INTEGRITY SCAN',
+      ...(meshScan ? [formatMeshForensicReport(meshScan)] : ['Scene mesh scanner unavailable because the runtime scene is not ready.']),
+      '',
+      '6. ERROR / WARNING EVIDENCE',
+      ...(severity.length ? severity.slice(-30).map(entry => '[' + entry.time + '] [' + entry.level + '] [' + entry.source + '] ' + entry.message + (entry.details ? ' · ' + entry.details : '')) : ['No ERROR or WARN entries in the retained diagnostic window.']),
+      '',
+      '7. CAPTURE LIMITATIONS',
+      'This is a consolidated summary of events actually captured by Nexus3D. It includes the current scene snapshot and current mesh scan, but it cannot recreate geometry states from before an operation unless that operation recorded a before/after snapshot. Events outside the retained diagnostic window, cleared logs, uninstrumented gestures, and native Android crashes not surfaced to JavaScript may be absent.',
+      'Use COPY ALL REPORT for every retained raw log, full stack/details, all individual tool reports, RDS reports and source-audit evidence.'
+    ];
+    return summary.join('\\n');
+  };
   const copyAllDfiSummary = () => {
+    const report = buildSceneWorkflowSummary();
+    void copyDfiText(report, 'Copied complete 3D Scene + Shape workflow summary · one paste-ready report', 'COPY SUMMARY REPORT failed · allow clipboard permission and try again');
+  };
+
     const sections = [
       'NEXUS3D ADVANCED DFI · COPY SUMMARY REPORT',
       'Generated: ' + new Date().toLocaleString(),
