@@ -1295,7 +1295,9 @@ export default function App() {
                 const otherB = new THREE.Vector3().fromBufferAttribute(normal, otherIndices.find(index => pointKey(index) === keyB)!).normalize();
                 if (normalA.dot(otherA) < 0.65 || normalB.dot(otherB) < 0.65) continue;
               }
-              const corners = [edgeA, remaining, edgeB, opposite];
+              // Order the four perimeter corners (not the two triangle tips); the
+              // previous A-C-B-D order crossed the quad diagonally and produced a bow-tie.
+              const corners = [edgeA, edgeB, opposite, remaining];
               if (new Set(corners.map(pointKey)).size !== 4) continue;
               const p0 = new THREE.Vector3(...readVertex(corners[0]).position as [number, number, number]);
               const p1 = new THREE.Vector3(...readVertex(corners[1]).position as [number, number, number]);
