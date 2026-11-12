@@ -1263,7 +1263,6 @@ export default function App() {
           for (let triangleIndex = 0; triangleIndex < triangles.length; triangleIndex++) {
             const triangle = triangles[triangleIndex];
             if (triangle.paired) continue;
-            const [a, b, c] = triangle.indices;
             const candidates: Array<{ other: number; edge: number }> = [];
             for (let edge = 0; edge < 3; edge++) {
               const ka = pointKey(triangle.indices[edge]), kb = pointKey(triangle.indices[(edge + 1) % 3]);
@@ -1308,12 +1307,54 @@ export default function App() {
           result.computeVertexNormals();
           return result;
         };
+        // A UV sphere has triangle fans at its poles, so triangle pairing cannot
+        // produce a complete quad grid there. Build it as six projected cube faces
+        // instead; every cell is a real quad and the poles have no degenerate faces.
+        const buildSphereQuadGrid = (radius: number, divisions = 16) => {
+          const faces = [
+            { n: [1, 0, 0], u: [0, 0, -1], v: [0, 1, 0] },
+            { n: [-1, 0, 0], u: [0, 0, 1], v: [0, 1, 0] },
+            { n: [0, 1, 0], u: [1, 0, 0], v: [0, 0, -1] },
+            { n: [0, -1, 0], u: [1, 0, 0], v: [0, 0, 1] },
+            { n: [0, 0, 1], u: [1, 0, 0], v: [0, 1, 0] },
+            { n: [0, 0, -1], u: [-1, 0, 0], v: [0, 1, 0] }
+          ];
+          const positions: number[] = [], uvs: number[] = [];
+          const point = (face: typeof faces[number], u: number, v: number) => {
+            const cube = new THREE.Vector3(
+              face.n[0] + face.u[0] * u + face.v[0] * v,
+              face.n[1] + face.u[1] * u + face.v[1] * v,
+              face.n[2] + face.u[2] * u + face.v[2] * v
+            ).normalize().multiplyScalar(radius);
+            return cube;
+          };
+          faces.forEach(face => {
+            for (let y = 0; y < divisions; y++) for (let x = 0; x < divisions; x++) {
+              const u0 = -1 + 2 * x / divisions, u1 = -1 + 2 * (x + 1) / divisions;
+              const v0 = -1 + 2 * y / divisions, v1 = -1 + 2 * (y + 1) / divisions;
+              let corners = [point(face, u0, v0), point(face, u1, v0), point(face, u1, v1), point(face, u0, v1)];
+              const outward = corners[1].clone().sub(corners[0]).cross(corners[3].clone().sub(corners[0])).dot(corners[0]);
+              if (outward < 0) corners = [corners[0], corners[3], corners[2], corners[1]];
+              const tex = [[x / divisions, y / divisions], [(x + 1) / divisions, y / divisions], [(x + 1) / divisions, (y + 1) / divisions], [x / divisions, (y + 1) / divisions]];
+              [0, 1, 2, 0, 2, 3].forEach(cornerIndex => {
+                const p = corners[cornerIndex], uv = tex[cornerIndex];
+                positions.push(p.x, p.y, p.z);
+                uvs.push(uv[0], uv[1]);
+              });
+            }
+          });
+          const result = new THREE.BufferGeometry();
+          result.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+          result.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+          result.computeVertexNormals();
+          result.userData.nexusPrimitiveQuadGrid = true;
+          return result;
+        };
         if (kind !== 'Cube') {
-          const quadGeometry = buildPrimitiveQuadGrid(geometry);
+          const quadGeometry = kind === 'Sphere' ? buildSphereQuadGrid(0.68) : buildPrimitiveQuadGrid(geometry);
           if (quadGeometry) {
             geometry.dispose();
             geometry = quadGeometry;
-            (geometry as THREE.BufferGeometry).userData = { ...(geometry as THREE.BufferGeometry).userData, nexusPrimitiveQuadGrid: true };
           }
         }
         obj = new THREE.Mesh(geometry, material);
