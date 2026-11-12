@@ -141,3 +141,11 @@ test('Primitive quad pairing respects hard-normal seams and preserves source nor
   assert.match(source, /outputNormals\.push\(\.\.\.corners\[cornerIndex\]\.normal\)/);
   assert.match(source, /if \(normal\) result\.setAttribute\('normal', new THREE\.Float32BufferAttribute\(outputNormals, 3\)\)/);
 });
+
+
+test('Generated Sphere quad grid uses radial smooth normals for non-indexed cells', () => {
+  assert.match(source, /const positions: number\[\] = \[\], uvs: number\[\] = \[\], normals: number\[\] = \[\]/);
+  assert.match(source, /const smoothNormal = p\.clone\(\)\.normalize\(\)/);
+  assert.match(source, /normals\.push\(smoothNormal\.x, smoothNormal\.y, smoothNormal\.z\)/);
+  assert.match(source, /result\.setAttribute\('normal', new THREE\.Float32BufferAttribute\(normals, 3\)\)/);
+});
