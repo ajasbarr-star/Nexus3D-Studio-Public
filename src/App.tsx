@@ -3359,6 +3359,43 @@ export default function App() {
     });
     setStatus(obj.name + ' placed inside a new Group');
   };
+  const addTreeObjectToExistingGroup = (obj: THREE.Object3D, targetGroup: THREE.Object3D) => {
+    const r = runtime.current;
+    if (!r || !targetGroup || targetGroup.userData.kind !== 'Group' || obj === targetGroup ||
+        obj === r.camBody || obj.userData.kind === 'Camera' || obj instanceof THREE.Bone || obj.userData.rigControlMarker) return;
+    // Never allow parenting an object into one of its own descendants.
+    let ancestor: THREE.Object3D | null = targetGroup;
+    while (ancestor) {
+      if (ancestor === obj) {
+        setStatus('Cannot add an object to a Group inside itself');
+        return;
+      }
+      ancestor = ancestor.parent;
+    }
+    if (obj.parent === targetGroup) {
+      setStatus(obj.name + ' is already inside ' + targetGroup.name);
+      return;
+    }
+    const previousParent = obj.parent || r.scene;
+    r.scene.updateMatrixWorld(true);
+    targetGroup.attach(obj); // Preserve the object's world transform.
+    r.syncItems?.();
+    r.selectObject(obj);
+    recordSceneAction({
+      label: 'Add ' + obj.name + ' to ' + targetGroup.name,
+      undo: () => {
+        previousParent.attach(obj);
+        r.syncItems?.();
+        r.selectObject(obj);
+      },
+      redo: () => {
+        targetGroup.attach(obj);
+        r.syncItems?.();
+        r.selectObject(obj);
+      },
+    });
+    setStatus(obj.name + ' added to ' + targetGroup.name + ' · transform preserved');
+  };
   const ungroupTreeObject = (group: THREE.Object3D) => {
     const r = runtime.current;
     if (!r || group.userData.kind !== 'Group') return;
@@ -5021,7 +5058,12 @@ export default function App() {
                 <button type="button" className={'tree-row-action ' + (treeActionId === item.id ? 'active' : '')} aria-label={'More actions for ' + item.name} title="More object actions" onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setTreeActionId(current => current === item.id ? '' : item.id); }}><MoreHorizontal size={13}/></button>
                 {treeActionId === item.id && <div className="tree-more-menu" onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
                   <button type="button" onClick={() => { renameTreeObject(item.object); setTreeActionId(''); }}><Pencil size={11}/> Rename</button>
-                  {item.object.userData.kind === 'Group' ? <button type="button" onClick={() => { ungroupTreeObject(item.object); setTreeActionId(''); }}><Folder size={11}/> Ungroup</button> : <button type="button" disabled={item.object.userData.kind === 'Camera' || item.object instanceof THREE.Bone || Boolean(item.object.userData.rigControlMarker)} onClick={() => { groupTreeObject(item.object); setTreeActionId(''); }}><FolderPlus size={11}/> Group</button>}
+                  {item.object.userData.kind === 'Group' ? <button type="button" onClick={() => { ungroupTreeObject(item.object); setTreeActionId(''); }}><Folder size={11}/> Ungroup</button> : <>
+                    <button type="button" disabled={item.object.userData.kind === 'Camera' || item.object instanceof THREE.Bone || Boolean(item.object.userData.rigControlMarker)} onClick={() => { groupTreeObject(item.object); setTreeActionId(''); }}><FolderPlus size={11}/> Create Group</button>
+                    {items.some(entry => entry.object.userData.kind === 'Group' && entry.object !== item.object && !(() => { let p: THREE.Object3D | null = entry.object.parent; while (p) { if (p === item.object) return true; p = p.parent; } return false; })()) && <div className="tree-group-targets"><span>Add to existing Group</span>
+                      {items.filter(entry => entry.object.userData.kind === 'Group' && entry.object !== item.object && entry.object !== item.object.parent && !(() => { let p: THREE.Object3D | null = entry.object; while (p) { if (p === item.object) return true; p = p.parent; } return false; })()).map(entry => <button type="button" key={entry.id} onClick={() => { addTreeObjectToExistingGroup(item.object, entry.object); setTreeActionId(''); }}><Folder size={11}/> {entry.name}</button>)}
+                    </div>}
+                  </>}
                   <button type="button" className="danger" disabled={item.object.userData.kind === 'Camera'} onClick={() => { deleteTreeObject(item.object); setTreeActionId(''); }}><Trash2 size={11}/> Delete</button>
                 </div>}
               </div>
