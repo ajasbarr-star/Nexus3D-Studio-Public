@@ -2049,3 +2049,41 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   width: var(--nexus-panel-width, 172px) !important;
   max-width: min(48vw, 420px) !important;
 }
+
+
+/* Landscape dock sizing: extend both left panels close to the bottom screen edge. */
+.hierarchy-panel,
+.menu-panel {
+  top: 52px !important;
+  bottom: 54px !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Compact visible grip with a finger-friendly touch target. */
+.panel-resize-handle {
+  right: -1px !important;
+  width: 28px !important;
+  height: 58px !important;
+  min-width: 28px !important;
+  min-height: 58px !important;
+  border-radius: 7px 0 0 7px !important;
+  touch-action: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+.panel-resize-handle span {
+  width: 3px !important;
+  height: 23px !important;
+  border-left-width: 1px !important;
+  border-right-width: 1px !important;
+  opacity: .85 !important;
+}
+@media (max-height: 430px) {
+  .hierarchy-panel,
+  .menu-panel {
+    top: 48px !important;
+    bottom: 48px !important;
+  }
+}
