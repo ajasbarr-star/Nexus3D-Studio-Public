@@ -2251,3 +2251,10 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   .mesh-edit-panel.nexus-modeling-workspace .shape-edit-modes button { min-height:40px; font-size:9px; }
   .mesh-edit-panel.nexus-modeling-workspace .shape-edit-actions button { min-height:38px; font-size:9px; }
 }
+
+
+/* Dedicated horizontal RIT control inside the RDS panel. */
+.rds-rit-toolbar{display:flex;flex-direction:row;align-items:center;width:100%;gap:5px;margin:2px 0}
+.rds-rit-toggle{width:100%;min-height:32px;margin:0;justify-content:flex-start}
+.rds-rit-panel{display:flex;flex-direction:column;gap:5px;margin:0 0 5px;padding:7px;border:1px solid #28536a;border-top:2px solid #32c5e8;border-radius:0 0 6px 6px;background:rgba(3,11,20,.96);animation:diagnosticPanelIn .16s ease-out}
+.rds-rit-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
