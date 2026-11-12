@@ -692,7 +692,7 @@ export default function App() {
       if (!isQuadGrid) cutLoops.forEach((loop, loopIndex) => {
         if (!Array.isArray(loop) || loop.length < 2) return;
         const points = loop.map(point => new THREE.Vector3(point[0], point[1], point[2]));
-        const cut = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: 0x05070a, transparent: true, opacity: 1, depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
+        const cut = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 1, depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
         cut.name = 'Committed Cut Loop ' + (loopIndex + 1);
         cut.renderOrder = 1010;
         topologyOverlay.add(cut);
@@ -2595,7 +2595,7 @@ export default function App() {
                 face.renderOrder = 1000;
                 subObjectHighlight.add(face);
                 const outlineGeometry = new THREE.BufferGeometry().setFromPoints([...worldCorners, worldCorners[0]]);
-                const outline = new THREE.Line(outlineGeometry, new THREE.LineBasicMaterial({ color: 0x05070a, depthTest: false }));
+                const outline = new THREE.Line(outlineGeometry, new THREE.LineBasicMaterial({ color: 0x000000, depthTest: false }));
                 outline.renderOrder = 1001;
                 subObjectHighlight.add(outline);
               } else {
@@ -2722,7 +2722,7 @@ export default function App() {
                 if (edge.count === 1) edgePoints.push(mesh.localToWorld(localVertex(edge.a)), mesh.localToWorld(localVertex(edge.b)));
               });
               const edgeGeometry = new THREE.BufferGeometry().setFromPoints(edgePoints);
-              const outline = new THREE.LineSegments(edgeGeometry, new THREE.LineBasicMaterial({ color: 0x05070a, depthTest: false }));
+              const outline = new THREE.LineSegments(edgeGeometry, new THREE.LineBasicMaterial({ color: 0x000000, depthTest: false }));
               outline.renderOrder = 1001; subObjectHighlight.add(outline);
               if (activeEditToolRef.current === 'Cutting') {
                 const triPoints = tri.map(localVertex);
