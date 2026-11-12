@@ -205,7 +205,7 @@ test('Primitive quad pairing rejects folded and non-convex triangle pairs', () =
 });
 
 test('Unsupported shape topology cancels without creating triangle subdivision lines', () => {
-  assert.match(source, /else if \(tool === 'Subdivide'\) \{[\s\S]*?this mesh does not have verified quad topology[\s\S]*?No triangles were split/);
+  assert.match(source, /else if \(tool === 'Subdivide'\) \{[\s\S]*?this mesh has no verified quad-cell layout[\s\S]*?Existing geometry was preserved/);
   assert.match(source, /Subdivide cancelled: this shape has no verified square-quad layout/);
 });
 
