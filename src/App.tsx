@@ -344,6 +344,8 @@ export default function App() {
   });
   const [treeSearch, setTreeSearch] = useState('');
   const [treeActionId, setTreeActionId] = useState('');
+  const [renamingTreeId, setRenamingTreeId] = useState('');
+  const [renameTreeDraft, setRenameTreeDraft] = useState('');
   const [dragTargetId, setDragTargetId] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -3207,11 +3209,14 @@ export default function App() {
     runtime.current?.selectObject(obj);
   };
   const renameTreeObject = (obj: THREE.Object3D) => {
-    if (obj === runtime.current?.camBody) return;
+    if (obj === runtime.current?.camBody || obj.userData.kind === 'Camera') return;
+    setRenameTreeDraft(obj.name);
+    setRenamingTreeId(String(obj.userData.editorId || ''));
+  };
+  const commitTreeRename = (obj: THREE.Object3D) => {
     const previousName = obj.name;
-    const nextName = window.prompt('Rename object', previousName);
-    if (nextName === null) return;
-    const name = nextName.trim();
+    const name = renameTreeDraft.trim();
+    setRenamingTreeId('');
     if (!name || name === previousName) return;
     obj.name = name;
     runtime.current?.syncItems?.();
@@ -4876,7 +4881,7 @@ export default function App() {
               onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragTargetId(''); }}
               onDrop={e => { e.preventDefault(); e.stopPropagation(); setDragTargetId(''); const childId = e.dataTransfer.getData('text/nexus3d-object'); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (!child || child === item.object) return; const rect = e.currentTarget.getBoundingClientRect(); const ratio = (e.clientY - rect.top) / Math.max(rect.height, 1); runtime.current?.reorderObject(child, item.object, ratio < 0.28 ? 'before' : ratio > 0.72 ? 'after' : 'inside'); }}
               onTouchStart={e => {
-                if ((e.target as HTMLElement).closest('.tree-row-actions, .tree-eye, .tree-item-action')) {
+                if ((e.target as HTMLElement).closest('.tree-row-actions, .tree-eye, .tree-item-action, .tree-rename-inline')) {
                   if (touchDragTimer.current) clearTimeout(touchDragTimer.current);
                   touchDragTimer.current = null;
                   touchDragOrigin.current = null;
@@ -4952,11 +4957,13 @@ export default function App() {
                 touchDragOrigin.current = null;
                 setDragTargetId('');
               }}>
-              <button className={'tree-item ' + (selected === item.id ? 'selected' : '')} style={{ paddingLeft: 5 + depth * 12 }} onTouchEndCapture={e => { if (!touchDragOrigin.current || touchDragActive.current || cameraView) return; setSelected(item.id); runtime.current?.selectObject(item.object); }} onPointerDown={e => { e.stopPropagation(); if (!cameraView) { setSelected(item.id); runtime.current?.selectObject(item.object); } }} onClick={e => { e.stopPropagation(); if (!cameraView) { setSelected(item.id); runtime.current?.selectObject(item.object); } }} disabled={cameraView}>
+              {renamingTreeId === item.id ? <div className="tree-rename-inline" style={{ paddingLeft: 5 + depth * 12 }}>
+                <input aria-label={'Rename ' + item.name} autoFocus value={renameTreeDraft} onChange={e => setRenameTreeDraft(e.target.value)} onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); (e.currentTarget as HTMLInputElement).blur(); } }} onBlur={() => commitTreeRename(item.object)} />
+              </div> : <button className={'tree-item ' + (selected === item.id ? 'selected' : '')} style={{ paddingLeft: 5 + depth * 12 }} onTouchEndCapture={e => { if (!touchDragOrigin.current || touchDragActive.current || cameraView) return; setSelected(item.id); runtime.current?.selectObject(item.object); }} onPointerDown={e => { e.stopPropagation(); if (!cameraView) { setSelected(item.id); runtime.current?.selectObject(item.object); } }} onClick={e => { e.stopPropagation(); if (!cameraView) { setSelected(item.id); runtime.current?.selectObject(item.object); } }} disabled={cameraView}>
                 {hasChildren ? <span className="tree-expand" onClick={e => { e.stopPropagation(); setExpanded(prev => ({ ...prev, [item.id]: prev[item.id] === false })); }}>{expanded[item.id] === false ? <ChevronRight size={11} /> : <ChevronDown size={11} />}</span> : <span className="tree-expand empty" />}
                 {item.kind === 'Group' ? <Folder size={13} /> : item.kind === 'Sphere' ? <Circle size={13} /> : item.kind === 'Cylinder' ? <Cylinder size={13} /> : item.kind === 'Cone' ? <Cone size={13} /> : item.kind === 'Torus' ? <Circle size={13} /> : item.kind === 'Camera' ? <Film size={13} /> : <Box size={13} />}
                 <span className="tree-name">{item.name}</span>{selected === item.id && <span className="tree-selected-dot" />}
-              </button>
+              </button>}
               <button type="button" className="tree-eye" aria-label={(item.object.visible ? 'Hide ' : 'Show ') + item.name} title={item.object.visible ? 'Hide object' : 'Show object'} onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); item.object instanceof THREE.Bone ? runtime.current?.toggleBoneDisplay(item.object) : runtime.current?.toggleVisibility(item.object); }}>{(item.object instanceof THREE.Bone ? runtime.current?.isBoneDisplayVisible(item.object) : item.object.visible) ? <Eye size={12} /> : <EyeOff size={12} />}</button>
               <div className="tree-row-actions">
                 <button type="button" className={'tree-row-action ' + (item.object.userData.objectManagerLocked ? 'locked' : '')} aria-label={(item.object.userData.objectManagerLocked ? 'Unlock ' : 'Lock ') + item.name} title={item.object.userData.objectManagerLocked ? 'Unlock transforms' : 'Lock transforms'} onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); toggleTreeObjectLock(item.object); }}>{item.object.userData.objectManagerLocked ? <Lock size={11}/> : <Unlock size={11}/>}</button>
