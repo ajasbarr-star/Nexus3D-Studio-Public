@@ -71,3 +71,18 @@ test('Geometry commits record before/after counts, bounds, axis and quad verific
   assert.match(app, /boundsMin: target\.geometry\.boundingBox\?\.min\.toArray\(\)/);
   assert.match(app, /quadGridVerified: Boolean\(afterQuadGridState\.enabled\)/);
 });
+
+test('Scene Tree has separate compact horizontal and vertical resize handles', () => {
+  assert.match(app, /tree-width-resize-handle/);
+  assert.match(app, /aria-label="Resize Scene Tree width"/);
+  assert.match(app, /onPointerDown=\{beginPanelResize\}/);
+  assert.match(app, /tree-height-resize-handle/);
+  assert.match(app, /aria-label="Resize Scene Tree height"/);
+  assert.match(app, /onPointerDown=\{beginTreeHeightResize\}/);
+  assert.match(app, /const \[sceneTreeTop, setSceneTreeTop\] = useState\(52\)/);
+  assert.match(app, /--nexus-tree-top": sceneTreeTop \+ "px"/);
+  assert.match(app, /start\.top \+ moveEvent\.clientY - start\.y/);
+  assert.match(styles, /\.tree-width-resize-handle/);
+  assert.match(styles, /\.tree-height-resize-handle/);
+  assert.match(styles, /top: var\(--nexus-tree-top, 52px\) !important/);
+});
