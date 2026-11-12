@@ -63,3 +63,11 @@ test('DFI diagnostic actions do not automatically repair or mutate scene geometr
   assert.match(app, /No geometry repair or mutation was attempted/);
   assert.match(scanner, /no mesh, transform, material, selection, or project data was modified/i);
 });
+
+test('Geometry commits record before/after counts, bounds, axis and quad verification', () => {
+  assert.match(app, /Geometry operation committed/);
+  assert.match(app, /vertexCountBefore: before\.getAttribute\('position'\)\?\.count/);
+  assert.match(app, /vertexCountAfter: committedPosition\?\.count/);
+  assert.match(app, /boundsMin: target\.geometry\.boundingBox\?\.min\.toArray\(\)/);
+  assert.match(app, /quadGridVerified: Boolean\(afterQuadGridState\.enabled\)/);
+});
