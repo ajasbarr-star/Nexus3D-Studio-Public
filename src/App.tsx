@@ -4105,7 +4105,7 @@ export default function App() {
       indexedBefore: Boolean(before.index),
       indexedAfter: Boolean(target.geometry.index),
       materialGroupCount: target.geometry.groups.length,
-      quadGridVerified: Boolean(target.userData.nexusQuadGrid),
+      quadGridVerified: Boolean(afterQuadGridState.enabled),
       boundsMin: target.geometry.boundingBox?.min.toArray() || null,
       boundsMax: target.geometry.boundingBox?.max.toArray() || null,
       axis: runtime.current?.transform?.axis ?? null,
