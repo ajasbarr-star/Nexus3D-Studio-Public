@@ -91,6 +91,8 @@ test('Scene Tree and Menu use independent Mother Panels with fixed top-left anch
   assert.match(styles, /\.panel-resize-handle-vertical/);
   assert.match(styles, /top: 52px !important/);
   assert.match(styles, /left: 8px !important/);
+  assert.match(styles, /right: 0 !important/);
+  assert.match(styles, /bottom: 0 !important/);
 });
 
 
