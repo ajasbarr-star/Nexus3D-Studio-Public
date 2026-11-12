@@ -28,6 +28,6 @@ test('Every vertex attribute is reordered with the canonical quad vertex order',
 });
 
 test('Quad reconstruction runs only for Face Extrude after attribute counts are aligned', () => {
-  assert.match(app, /tool === 'Extrude' && editModeRef\\.current === 'Face' && !geometry\\.index/);
+  assert.ok(app.includes("tool === 'Extrude' && editModeRef.current === 'Face' && !geometry.index"));
   assert.ok(app.indexOf("if (!geometry.getAttribute('uv'))") < app.indexOf('// Reconstruct each existing pair of triangles as one canonical quad cell'));
 });
