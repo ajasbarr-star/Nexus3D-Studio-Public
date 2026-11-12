@@ -227,22 +227,22 @@ export default function App() {
   const spaceRef = useRef<'world' | 'local'>('world');
   const [panel, setPanel] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
-  // Scene Tree and Menu share one vertical footprint; the active panel can be resized
-  // from its lower-center handle without changing hierarchy drag interactions.
-  const [panelBottomInset, setPanelBottomInset] = useState(76);
-  const panelResizeStart = useRef<{ y: number; bottom: number } | null>(null);
+  // Scene Tree and Menu share one dock slot. Drag the right-center handle
+  // toward the right to widen whichever panel is currently active.
+  const [sharedPanelWidth, setSharedPanelWidth] = useState(172);
+  const panelResizeStart = useRef<{ x: number; width: number } | null>(null);
   const beginPanelResize = (event: React.PointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    panelResizeStart.current = { y: event.clientY, bottom: panelBottomInset };
+    panelResizeStart.current = { x: event.clientX, width: sharedPanelWidth };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const movePanelResize = (event: React.PointerEvent<HTMLButtonElement>) => {
     const start = panelResizeStart.current;
     if (!start) return;
     event.preventDefault();
-    const next = Math.max(30, Math.min(190, start.bottom - (event.clientY - start.y)));
-    setPanelBottomInset(next);
+    const maxWidth = Math.max(220, Math.min(420, Math.floor(window.innerWidth * 0.48)));
+    setSharedPanelWidth(Math.max(150, Math.min(maxWidth, start.width + event.clientX - start.x)));
   };
   const endPanelResize = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (panelResizeStart.current) {
@@ -4728,7 +4728,7 @@ export default function App() {
 
       {!panel && !cameraView && !riggingView && <button className={'floating-menu-toggle ' + (menuOpen ? 'active' : '')} id="btn-menu-panel" onClick={() => { const opening = !menuOpen; setMenuOpen(opening); if (opening) { setQuickPanel(null); setInspectorOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); } }} title={menuOpen ? 'Close Menu Panel' : 'Open Menu Panel'}><span className="menu-glyph">☰</span><span>MENU</span></button>}
 
-      {menuOpen && !panel && !cameraView && !riggingView && <aside className="menu-panel" style={{ "--nexus-panel-bottom": panelBottomInset + "px" } as React.CSSProperties}>
+      {menuOpen && !panel && !cameraView && !riggingView && <aside className="menu-panel" style={{ width: sharedPanelWidth + "px" }}>
         <div className="panel-heading"><div><Settings2 size={13} /><span>Menu</span></div><button className="menu-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={13} /></button></div>
         <section className="menu-category diagnostic-menu-section">
           <button type="button" className={'menu-option diagnostic-toggle-button ' + (diagnosticPanelOpen ? 'expanded' : '')}
@@ -4874,7 +4874,7 @@ export default function App() {
             </>}
           </div>}
         </section>)}
-        <button type="button" className="panel-resize-handle" aria-label="Resize Menu Panel vertically" title="Drag down to extend panel" onPointerDown={beginPanelResize} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button>
+        <button type="button" className="panel-resize-handle" aria-label="Resize Menu Panel horizontally" title="Drag right to widen panel" onPointerDown={beginPanelResize} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button>
       </aside>}
 
       {panel && !cameraView && <aside className="hierarchy-panel" style={{ "--nexus-panel-bottom": panelBottomInset + "px" } as React.CSSProperties}>
@@ -5004,7 +5004,7 @@ export default function App() {
           })}
         </div>
         <div className="panel-footer"><span className="live-dot" /> {objectCount} objects in scene</div>
-        <button type="button" className="panel-resize-handle" aria-label="Resize Scene Tree panel vertically" title="Drag down to extend panel" onPointerDown={beginPanelResize} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button>
+        <button type="button" className="panel-resize-handle" aria-label="Resize Scene Tree panel horizontally" title="Drag right to widen panel" onPointerDown={beginPanelResize} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button>
       </aside>}
 
 
