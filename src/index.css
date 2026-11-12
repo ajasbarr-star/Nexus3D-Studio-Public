@@ -905,7 +905,9 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .floating-menu-toggle { top:56px; left:8px; width:176px; height:35px; justify-content:flex-start; }
 .menu-glyph { font-size:15px; line-height:1; }
 .hierarchy-panel { width:176px; animation:menu-panel-in .18s ease-out; }
-.menu-panel { position:absolute; z-index:6; top:56px; left:8px; bottom:92px; width:176px; max-height:calc(100vh - 148px); display:flex; flex-direction:column; overflow-x:hidden; overflow-y:auto; scrollbar-width:thin; scrollbar-color:#2a526b #0b1420; color:#dce7f7; background:rgba(12,19,31,.97); border:1px solid rgba(106,143,190,.24); border-radius:8px; box-shadow:0 14px 45px #0005; backdrop-filter:blur(18px); animation:menu-panel-in .18s ease-out; }
+.menu-panel { position:absolute; z-index:6; top:56px; left:8px; bottom:92px; width:176px; max-height:calc(100vh - 148px); display:flex; flex-direction:column; overflow:hidden; color:#dce7f7; background:rgba(12,19,31,.97); border:1px solid rgba(106,143,190,.24); border-radius:8px; box-shadow:0 14px 45px #0005; backdrop-filter:blur(18px); animation:menu-panel-in .18s ease-out; }
+.menu-panel-scroll { flex:1 1 auto; min-height:0; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#2a526b #0b1420; }
+.menu-panel > .panel-bottom-bar { position:relative; z-index:2; flex:0 0 24px; display:flex; align-items:center; justify-content:center; width:100%; margin-top:auto; background:rgba(12,19,31,.98); border-top:1px solid rgba(106,143,190,.2); }
 .menu-panel .panel-heading { flex-shrink:0; }
 .menu-close { display:grid; place-items:center; width:25px; height:25px; border:0; border-radius:5px; background:transparent; color:#8ca6c4; }
 .menu-category { flex-shrink:0; border-bottom:1px solid #1d2d41; }
