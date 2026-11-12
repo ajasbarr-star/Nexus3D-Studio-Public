@@ -206,3 +206,28 @@ test('Legacy triangle-clipping code is reserved for Loop Cut and cannot run for 
   assert.doesNotMatch(source, /else if \(tool === 'Subdivide' \|\| tool === 'LoopCut'\)/);
   assert.doesNotMatch(source, /Subdivide needs a mesh with valid triangles/);
 });
+
+test('Cube Extrude rebuilds a canonical six-corner quad stream before adding side walls', () => {
+  assert.match(source, /const canonicalFaceOrder = \[0, 1, 4, 0, 4, 2\]/);
+  assert.match(source, /canonicalGeometry\.setAttribute\(name, new THREE\.BufferAttribute\(values, rawAttribute\.itemSize, rawAttribute\.normalized\)\)/);
+  assert.match(source, /canonicalCubeExtrude = true/);
+  assert.match(source, /target\.userData\.nexusQuadGrid = true/);
+  assert.match(source, /target\.userData\.nexusQuadGridLayout = 'canonical-v1'/);
+  assert.match(source, /sourceCornerOffsets = \[0, 1, 2, 5\]/);
+});
+
+test('Extruded side walls receive UVs and keep the verified quad topology stream', () => {
+  assert.match(source, /const uvData: number\[\] \| null = uvAttribute \? Array\.from\(uvAttribute\.array as ArrayLike<number>\) : null/);
+  assert.match(source, /if \(uvData\) geometry\.setAttribute\('uv', new THREE\.Float32BufferAttribute\(uvData, 2\)\)/);
+  assert.match(source, /\[a, b, bn, a, bn, an\]\.forEach\(v => data\.push\(v\.x, v\.y, v\.z\)\)/);
+});
+
+test('Realtime Interaction Trace exposes Copy All and Error Highlights in Menu Panel', () => {
+  assert.match(source, /REALTIME INTERACTION TRACE/);
+  assert.match(source, /source: 'Interaction Trace'/);
+  assert.match(source, /COPY ALL/);
+  assert.match(source, /ERROR HIGHLIGHTS/);
+  assert.match(source, /Viewport pointer down/);
+  assert.match(source, /Scene Tree selection/);
+  assert.match(source, /Geometry tool requested/);
+});
