@@ -2987,10 +2987,9 @@ export default function App() {
       geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
       geometry.computeVertexNormals();
     } else if (tool === 'Subdivide') {
-      // Generic whole-mesh subdivision fallback. Extrusion converts the original
-      // cube-quad layout into ordinary triangle geometry, so the legacy cube-grid
-      // path above no longer applies. Split EVERY triangle in the current mesh into
-      // four while interpolating all vertex attributes and preserving material groups.
+      // Extrusion turns the regular cube grid into ordinary triangle geometry.
+      // This fallback subdivides the ENTIRE current mesh, including every extruded
+      // cap and side wall, and remains repeatable on every subsequent press.
       const sourceGeometry = geometry.toNonIndexed();
       const sourcePosition = sourceGeometry.getAttribute('position') as THREE.BufferAttribute | undefined;
       if (!sourcePosition || sourcePosition.count < 3 || sourcePosition.count % 3 !== 0) {
@@ -3001,17 +3000,16 @@ export default function App() {
       const triangleCount = sourcePosition.count / 3;
       const deviceMemoryGb = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory || 4);
       const safeVertexBudget = Math.min(1_200_000, Math.max(180_000, Math.floor(deviceMemoryGb * 180_000)));
-      const outputVertexCount = triangleCount * 12;
-      if (outputVertexCount > safeVertexBudget) {
+      if (triangleCount * 12 > safeVertexBudget) {
         sourceGeometry.dispose(); geometry.dispose(); before.dispose();
         setStatus('Subdivide paused before the device memory budget; current mesh was preserved.');
         return;
       }
       const attributeNames = Object.keys(sourceGeometry.attributes);
       const sourceGroups = [...sourceGeometry.groups];
+      const buckets = new Map<number, { attributes: Record<string, number[]>; vertexCount: number }>();
       const materialForTriangle = (triangleOffset: number) =>
         sourceGroups.find(group => triangleOffset >= group.start && triangleOffset < group.start + group.count)?.materialIndex ?? 0;
-      const outputByMaterial = new Map<number, number[]>();
       const readAttribute = (name: string, index: number) => {
         const attribute = sourceGeometry.getAttribute(name) as THREE.BufferAttribute;
         return Array.from({ length: attribute.itemSize }, (_value, component) => attribute.getComponent(index, component));
@@ -3019,55 +3017,40 @@ export default function App() {
       const midpoint = (a: number[], b: number[]) => a.map((value, component) => (value + b[component]) * 0.5);
       for (let triangle = 0; triangle < triangleCount; triangle++) {
         const start = triangle * 3;
-        const corners = [0, 1, 2].map(corner => Object.fromEntries(attributeNames.map(name => [name, readAttribute(name, start + corner)])) as Record<string, number[]>);
+        const corners = [0, 1, 2].map(corner =>
+          Object.fromEntries(attributeNames.map(name => [name, readAttribute(name, start + corner)])) as Record<string, number[]>
+        );
         const ab = Object.fromEntries(attributeNames.map(name => [name, midpoint(corners[0][name], corners[1][name])])) as Record<string, number[]>;
         const bc = Object.fromEntries(attributeNames.map(name => [name, midpoint(corners[1][name], corners[2][name])])) as Record<string, number[]>;
         const ca = Object.fromEntries(attributeNames.map(name => [name, midpoint(corners[2][name], corners[0][name])])) as Record<string, number[]>;
-        const triangles = [
-          [corners[0], ab, ca],
-          [ab, corners[1], bc],
-          [ca, bc, corners[2]],
-          [ab, bc, ca],
-        ];
         const materialIndex = materialForTriangle(start);
-        const bucket = outputByMaterial.get(materialIndex) || [];
-        triangles.forEach(tri => tri.forEach(vertex => attributeNames.forEach(name => bucket.push(...vertex[name]))));
-        outputByMaterial.set(materialIndex, bucket);
+        let bucket = buckets.get(materialIndex);
+        if (!bucket) {
+          bucket = { attributes: Object.fromEntries(attributeNames.map(name => [name, [] as number[]])), vertexCount: 0 };
+          buckets.set(materialIndex, bucket);
+        }
+        [[corners[0],ab,ca],[ab,corners[1],bc],[ca,bc,corners[2]],[ab,bc,ca]].forEach(tri => {
+          tri.forEach(vertex => attributeNames.forEach(name => bucket!.attributes[name].push(...vertex[name])));
+          bucket!.vertexCount += 3;
+        });
       }
       const subdivided = new THREE.BufferGeometry();
       attributeNames.forEach(name => {
         const sourceAttribute = sourceGeometry.getAttribute(name) as THREE.BufferAttribute;
         const values: number[] = [];
-        outputByMaterial.forEach(bucket => {
-          const itemSize = sourceAttribute.itemSize;
-          const attributeOffset = attributeNames.slice(0, attributeNames.indexOf(name)).reduce((total, prior) => total + (sourceGeometry.getAttribute(prior)?.itemSize || 0) * triangleCount * 12, 0);
-          void attributeOffset;
-          // Buckets are stored interleaved by attribute below; rebuild this attribute
-          // directly from the generated per-triangle records to avoid cross-attribute offsets.
-        });
-        // Attribute output is accumulated separately in a stable triangle/material order.
-        for (let triangle = 0; triangle < triangleCount; triangle++) {
-          const start = triangle * 3;
-          const corners = [0, 1, 2].map(corner => readAttribute(name, start + corner));
-          const ab = midpoint(corners[0], corners[1]), bc = midpoint(corners[1], corners[2]), ca = midpoint(corners[2], corners[0]);
-          [[corners[0],ab,ca],[ab,corners[1],bc],[ca,bc,corners[2]],[ab,bc,ca]].forEach(tri => tri.forEach(vertex => values.push(...vertex)));
-        }
+        buckets.forEach(bucket => values.push(...bucket.attributes[name]));
         subdivided.setAttribute(name, new THREE.Float32BufferAttribute(values, sourceAttribute.itemSize, sourceAttribute.normalized));
       });
       let groupStart = 0;
-      outputByMaterial.forEach((bucket, materialIndex) => {
-        const count = bucket.length / attributeNames.reduce((total, name) => total + (sourceGeometry.getAttribute(name)?.itemSize || 0), 0);
-        if (count) subdivided.addGroup(groupStart, count, materialIndex);
-        groupStart += count;
+      buckets.forEach((bucket, materialIndex) => {
+        if (bucket.vertexCount) subdivided.addGroup(groupStart, bucket.vertexCount, materialIndex);
+        groupStart += bucket.vertexCount;
       });
       subdivided.computeVertexNormals();
       sourceGeometry.dispose();
       geometry.dispose();
       geometry = subdivided;
       generatedCutLoops = [];
-      // The new topology is generic triangle geometry, not the original regular
-      // cube grid. Clear only its grid-layout hints so subsequent presses take this
-      // same repeatable path instead of attempting stale quad indexing.
       delete target.userData.nexusQuadGrid;
       delete target.userData.nexusQuadGridLayout;
       delete target.userData.nexusCubeGridBounds;
