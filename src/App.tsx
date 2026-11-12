@@ -648,6 +648,12 @@ export default function App() {
       clearOverlayGroup(topologyOverlay);
       const position = mesh.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
       const isQuadGrid = Boolean(mesh.userData.nexusQuadGrid && !mesh.geometry.index && position && position.count % 6 === 0);
+      // Refresh bounds before deriving a scale-aware overlay offset. This is
+      // shared by quad-grid and EdgesGeometry paths so freshly extruded edges
+      // never sit exactly on the surface and disappear from depth-buffer z-fighting.
+      mesh.geometry.computeBoundingSphere();
+      const bounds = mesh.geometry.boundingSphere;
+      const lineOffset = Math.max(0.0012, (bounds?.radius || 1) * 0.002);
       let edges: THREE.BufferGeometry;
       if (isQuadGrid && position) {
         // The mesh stores each quad as two triangles [0,1,2, 0,2,3].
@@ -656,11 +662,6 @@ export default function App() {
         const seen = new Set<string>();
         const pointAt = (index: number) => new THREE.Vector3().fromBufferAttribute(position, index);
         const pointKey = (point: THREE.Vector3) => [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(',');
-        // Geometry bounds can be stale after repeated Subdivide / Extrude edits.
-        // Recompute them before choosing outward normals and the overlay offset.
-        mesh.geometry.computeBoundingSphere();
-        const bounds = mesh.geometry.boundingSphere;
-        const lineOffset = Math.max(0.0012, (bounds?.radius || 1) * 0.002);
         const boundsCenter = bounds?.center || new THREE.Vector3();
         for (let base = 0; base < position.count; base += 6) {
           const corners = [base, base + 1, base + 2, base + 5].map(pointAt);
@@ -682,8 +683,39 @@ export default function App() {
         edges.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
       } else {
         edges = new THREE.EdgesGeometry(mesh.geometry, 1);
+        // EdgesGeometry emits only boundaries and hard edges, but its vertices
+        // are otherwise exactly coincident with the surface. Offset each edge
+        // endpoint along the averaged source vertex normal to keep black lines
+        // visible after Face Extrude / Scale without exposing hidden back edges.
+        const edgePosition = edges.getAttribute('position') as THREE.BufferAttribute;
+        let sourceNormals = mesh.geometry.getAttribute('normal') as THREE.BufferAttribute | undefined;
+        if (!sourceNormals && position) {
+          mesh.geometry.computeVertexNormals();
+          sourceNormals = mesh.geometry.getAttribute('normal') as THREE.BufferAttribute | undefined;
+        }
+        if (edgePosition && sourceNormals && position) {
+          const normalSums = new Map<string, { normal: THREE.Vector3; count: number }>();
+          const keyAt = (x: number, y: number, z: number) =>
+            [x, y, z].map(value => Math.round(value * 1e5)).join(',');
+          for (let vertex = 0; vertex < position.count && vertex < sourceNormals.count; vertex++) {
+            const key = keyAt(position.getX(vertex), position.getY(vertex), position.getZ(vertex));
+            const entry = normalSums.get(key) || { normal: new THREE.Vector3(), count: 0 };
+            entry.normal.add(new THREE.Vector3().fromBufferAttribute(sourceNormals, vertex));
+            entry.count++;
+            normalSums.set(key, entry);
+          }
+          for (let vertex = 0; vertex < edgePosition.count; vertex++) {
+            const x = edgePosition.getX(vertex), y = edgePosition.getY(vertex), z = edgePosition.getZ(vertex);
+            const entry = normalSums.get(keyAt(x, y, z));
+            if (!entry) continue;
+            const normal = entry.normal.normalize();
+            edgePosition.setXYZ(vertex, x + normal.x * lineOffset, y + normal.y * lineOffset, z + normal.z * lineOffset);
+          }
+          edgePosition.needsUpdate = true;
+          edges.computeBoundingSphere();
+        }
       }
-      const lines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000, transparent: false, opacity: 1, depthTest: true, depthWrite: false }));
+      const lines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000, transparent: false, opacity: 1, depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
       lines.name = 'Editable Topology Overlay'; lines.renderOrder = 1004;
       topologyOverlay.add(lines);
       // Cut loops still define Face Mode region boundaries. Quad-grid edges are
