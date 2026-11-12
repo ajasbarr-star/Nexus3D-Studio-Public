@@ -72,19 +72,25 @@ test('Geometry commits record before/after counts, bounds, axis and quad verific
   assert.match(app, /quadGridVerified: Boolean\(afterQuadGridState\.enabled\)/);
 });
 
-test('Scene Tree has separate compact horizontal and vertical resize handles', () => {
-  assert.match(app, /tree-width-resize-handle/);
-  assert.match(app, /aria-label="Resize Scene Tree width"/);
-  assert.match(app, /onPointerDown=\{event => beginPanelResize\(event, 'tree'\)\}/);
-  assert.match(app, /tree-height-resize-handle/);
-  assert.match(app, /aria-label="Resize Scene Tree height"/);
-  assert.match(app, /onPointerDown=\{beginTreeHeightResize\}/);
-  assert.match(app, /const \[sceneTreeTop, setSceneTreeTop\] = useState\(52\)/);
-  assert.match(app, /--nexus-tree-top": sceneTreeTop \+ "px"/);
-  assert.match(app, /start\.top \+ moveEvent\.clientY - start\.y/);
-  assert.match(styles, /\.tree-width-resize-handle/);
-  assert.match(styles, /\.tree-height-resize-handle/);
-  assert.match(styles, /top: var\(--nexus-tree-top, 52px\) !important/);
+test('Scene Tree and Menu use independent Mother Panels with fixed top-left anchors and nested VerticalBox containers', () => {
+  assert.match(app, /className="hierarchy-panel scene-tree-mother-panel"/);
+  assert.match(app, /className="panel-vertical-box scene-tree-vertical-box"/);
+  assert.match(app, /className="menu-panel menu-mother-panel"/);
+  assert.match(app, /className="panel-vertical-box menu-panel-vertical-box"/);
+  assert.match(app, /const \[treePanelHeight, setTreePanelHeight\] = useState\(initialPanelHeight\)/);
+  assert.match(app, /const \[menuPanelHeight, setMenuPanelHeight\] = useState\(initialPanelHeight\)/);
+  assert.match(app, /beginPanelResize\(event, 'tree', 'height'\)/);
+  assert.match(app, /beginPanelResize\(event, 'tree', 'width'\)/);
+  assert.match(app, /beginPanelResize\(event, 'menu', 'height'\)/);
+  assert.match(app, /beginPanelResize\(event, 'menu', 'width'\)/);
+  assert.match(app, /start\.height \+ moveEvent\.clientY - start\.y/);
+  assert.match(app, /--nexus-panel-height": treePanelHeight \+ "px"/);
+  assert.match(app, /--nexus-panel-height": menuPanelHeight \+ "px"/);
+  assert.doesNotMatch(app, /sceneTreeTop|menuPanelTop|beginTreeHeightResize/);
+  assert.match(styles, /\.panel-resize-handle-horizontal/);
+  assert.match(styles, /\.panel-resize-handle-vertical/);
+  assert.match(styles, /top: 52px !important/);
+  assert.match(styles, /left: 8px !important/);
 });
 
 
