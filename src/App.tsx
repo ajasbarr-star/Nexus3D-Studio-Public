@@ -25,6 +25,7 @@ import {
   Sparkles, Waves, Aperture, SlidersHorizontal, CloudFog, ScanEye, Lock, Unlock, Scissors, GitBranch,
   Plus, Target, Link2, Unlink, RefreshCw, GitMerge, Activity, Code2, Folder, FolderPlus, MoreHorizontal, Pencil,
 } from 'lucide-react';
+import { scanMeshCore, formatMeshForensicReport } from './dfi/mesh-forensics';
 import './index.css';
 
 type NexusProjectFilesPlugin = {
@@ -350,6 +351,8 @@ export default function App() {
   const [dfiBusy, setDfiBusy] = useState(false);
   const [dfiReport, setDfiReport] = useState('No DFI investigation has been run yet.');
   const [dfiSummary, setDfiSummary] = useState({ findings: 0, errors: 0, warnings: 0, repeatedErrors: 0, invalidMeshes: 0 });
+  const [dfiToolReports, setDfiToolReports] = useState<Record<string, string>>({});
+  const [dfiToolBusy, setDfiToolBusy] = useState('');
   const rdsResourceBaselineRef = useRef<{ geometries: number; textures: number; time: number } | null>(null);
   const [menuAccordion, setMenuAccordion] = useState('Project & File');
   const [projectName, setProjectName] = useState('Project.nexus');
@@ -3027,15 +3030,30 @@ export default function App() {
     // gizmo drag is active, and transform snapshots are captured consistently.
     transform.addEventListener('mouseDown', () => {
       controlDiag('transform:mouseDown');
-      recordInteractionTrace('Transform gizmo drag started', { axis: transform.axis ?? null, mode: transform.getMode(), selectedId: selectedRef.current });
+      recordInteractionTrace('Transform gizmo drag started', { axis: transform.axis ?? null, mode: transform.getMode(), space: spaceRef.current, selectedId: selectedRef.current, position: transform.object ? transform.object.position.toArray() : null, rotation: transform.object ? [transform.object.rotation.x, transform.object.rotation.y, transform.object.rotation.z] : null, scale: transform.object ? transform.object.scale.toArray() : null });
       syncViewportControls(true);
       const object = transform.object;
       if (object === subObjectPivot && activeSubSelection) subGeometryBefore = activeSubSelection.mesh.geometry.clone();
       else transformBefore = object ? { object, state: snapshot(object) } : null;
     });
+    let lastDfiGizmoSampleAt = 0;
+    transform.addEventListener('objectChange', () => {
+      const now = Date.now();
+      if (now - lastDfiGizmoSampleAt < 120) return;
+      lastDfiGizmoSampleAt = now;
+      const object = transform.object;
+      if (!object) return;
+      recordInteractionTrace('Gizmo transform sample', {
+        axis: transform.axis ?? null, mode: transform.getMode(), space: spaceRef.current,
+        selectedId: selectedRef.current, objectName: object.name || null,
+        position: object.position.toArray(),
+        rotation: [object.rotation.x, object.rotation.y, object.rotation.z],
+        scale: object.scale.toArray()
+      });
+    });
     transform.addEventListener('mouseUp', () => {
       controlDiag('transform:mouseUp');
-      recordInteractionTrace('Transform gizmo drag ended', { axis: transform.axis ?? null, mode: transform.getMode(), selectedId: selectedRef.current });
+      recordInteractionTrace('Transform gizmo drag ended', { axis: transform.axis ?? null, mode: transform.getMode(), space: spaceRef.current, selectedId: selectedRef.current, position: transform.object ? transform.object.position.toArray() : null, rotation: transform.object ? [transform.object.rotation.x, transform.object.rotation.y, transform.object.rotation.z] : null, scale: transform.object ? transform.object.scale.toArray() : null });
       syncViewportControls(false);
       if (subGeometryBefore && activeSubSelection && editModeRef.current === 'Face' && transform.getMode() === 'translate' && activeSubSelection.faceParts?.length) {
         // Face Pull: when a face is moved with the Move gizmo, bridge its
@@ -4916,6 +4934,94 @@ export default function App() {
       setDfiBusy(false);
     }
   };
+  const runDfiToolScan = (tool: string) => {
+    if (dfiToolBusy) return;
+    setDfiToolBusy(tool);
+    try {
+      const rt = runtime.current;
+      const scene = rt?.scene as THREE.Scene | undefined;
+      const logs = [...diagnosticLogs, ...diagnosticQueueRef.current].slice(-400);
+      const allText = (entry: DiagnosticEntry) => [entry.source, entry.message, entry.details || ''].join(' ').toLowerCase();
+      const patterns: Record<string, RegExp> = {
+        'Gizmo Control': /transform|gizmo|axis|dragging|objectchange/,
+        'Face Tools': /face|extrude|face pull|faces cut/,
+        'Edge Tools': /edge|loop cut|bevel/,
+        'Vertex Tools': /vertex|vertices|merge|split/,
+        'Extrude & Scale': /extrude|scale|face pull/,
+        'Subdivide + Rotate': /subdivide|rotate|rotation/,
+        'Post-Smooth': /smooth/,
+        'Overlap Scan': /duplicate|overlap|intersect|coplanar|surface/
+      };
+      const matching = patterns[tool] ? logs.filter(entry => patterns[tool].test(allText(entry))) : [];
+      const meshSummary = scene && ['Shape Core', 'Face Tools', 'Edge Tools', 'Vertex Tools', 'Extrude & Scale', 'Subdivide + Rotate', 'Post-Smooth', 'Overlap Scan'].includes(tool)
+        ? scanMeshCore(scene) : null;
+      const sections = [
+        'NEXUS3D ADVANCED DFI · ' + tool.toUpperCase(),
+        'Scan time: ' + new Date().toLocaleString(),
+        'Status: ' + (tool === 'Gizmo Control' || patterns[tool] ? (matching.length ? 'RECORDED EVIDENCE AVAILABLE' : 'NOT RECORDED — perform the corresponding operation, then scan again') : 'SCANNED'),
+        '',
+        meshSummary ? formatMeshForensicReport(meshSummary) : 'Mesh topology scan not applicable to this tool.',
+        '',
+        'OPERATION / EVENT TRACE',
+        ...(matching.length ? matching.slice(-120).map(entry => '[' + entry.time + '] [' + entry.level + '] [' + entry.source + '] ' + entry.message + (entry.details ? '\\n' + entry.details : '')) : ['No matching operation event is currently captured. This is not evidence that the operation is defect-free.']),
+        '',
+        'SCOPE NOTE',
+        'This button scans current read-only scene geometry and correlates captured runtime events. Historical before/after geometry snapshots are only available for operations explicitly instrumented in the current session.'
+      ];
+      const report = sections.join('\\n');
+      setDfiToolReports(previous => ({ ...previous, [tool]: report }));
+      const level: DiagnosticEntry['level'] = meshSummary?.issues.some(issue => issue.severity === 'ERROR') ? 'ERROR' : meshSummary?.issues.some(issue => issue.severity === 'WARN') ? 'WARN' : 'INFO';
+      diagnosticSinkRef.current(level, 'Advanced DFI · ' + tool, 'Tool scan completed', report);
+      setStatus(tool + ' scan complete · ' + (matching.length ? matching.length + ' trace event(s)' : 'no operation trace captured'));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const report = 'SCAN ERROR\\n' + message + '\\nNo geometry repair or mutation was attempted.';
+      setDfiToolReports(previous => ({ ...previous, [tool]: report }));
+      diagnosticSinkRef.current('ERROR', 'Advanced DFI · ' + tool, 'Tool scan failed safely', message);
+      setStatus(tool + ' scan failed · diagnostic captured');
+    } finally {
+      setDfiToolBusy('');
+    }
+  };
+  const copyAllDfiReport = async () => {
+    const queued = diagnosticQueueRef.current.slice();
+    const logs = [...diagnosticLogs, ...queued].slice(-400);
+    const sections = [
+      'NEXUS3D ADVANCED DFI · COPY ALL REPORT',
+      'Generated: ' + new Date().toLocaleString(),
+      '',
+      'UNIFIED DEEP FORENSIC REPORT',
+      dfiReport,
+      '',
+      'INDIVIDUAL TOOL REPORTS',
+      ...Object.entries(dfiToolReports).flatMap(([name, report]) => ['', '===== ' + name.toUpperCase() + ' =====', report]),
+      '',
+      'RDS FULL CORE REPORT',
+      rdsScanReport,
+      '',
+      'RDS BUILD-TIME SOURCE AUDIT',
+      rdsSourceAuditReport,
+      '',
+      'ALL CAPTURED RUNTIME DIAGNOSTICS',
+      ...logs.map(entry => '[' + entry.time + '] [' + entry.level + '] [' + entry.source + '] ' + entry.message + (entry.details ? '\\n' + entry.details : '')),
+      '',
+      'CLASSIFICATION RULE: ERROR/CONFLICT/BUG/CRASH labels are based on recorded evidence and source text; warnings and suspected causes are not automatically confirmed root causes.'
+    ];
+    const report = sections.join('\\n');
+    try {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(report);
+      else {
+        const field = document.createElement('textarea');
+        field.value = report; field.style.position = 'fixed'; field.style.opacity = '0';
+        document.body.appendChild(field); field.select();
+        const copied = document.execCommand('copy'); field.remove();
+        if (!copied) throw new Error('Clipboard permission unavailable');
+      }
+      setStatus('Copied complete Advanced DFI report · ' + logs.length + ' runtime log(s)');
+    } catch {
+      setStatus('COPY ALL REPORT failed · allow clipboard permission and try again');
+    }
+  };
   const applyCoreOptimization = () => {
     if (!coreOptimizerAnalyzed) { setStatus('Run Analyze before applying optimization'); return; }
     if (!runtime.current?.setPerformanceMode) { setStatus('Renderer is not ready; optimization was not applied'); return; }
@@ -5894,6 +6000,25 @@ export default function App() {
           </button>
           {dfiPanelOpen && <section className="diagnostic-panel-expanded" aria-label="Nexus DFI Core forensic analyzer">
             <div className="menu-subtitle">DEEP ROOT-CAUSE INVESTIGATION</div>
+            <div className="menu-subtitle">ADVANCED FORENSIC TOOLS · READ-ONLY</div>
+            <div className="diagnostic-actions dfi-tool-grid" aria-label="Advanced DFI clickable tools">
+              {[
+                ['Shape Core','box'],['Gizmo Control','move'],['Face Tools','scan-eye'],
+                ['Edge Tools','git-branch'],['Vertex Tools','crosshair'],['Extrude & Scale','scaling'],
+                ['Subdivide + Rotate','rotate-3d'],['Post-Smooth','waves'],['Overlap Scan','layers']
+              ].map(([tool, icon]) => <button key={tool} type="button" className="dfi-tool-button" title={'Scan ' + tool} aria-label={'Scan ' + tool} onClick={() => runDfiToolScan(tool)} disabled={Boolean(dfiToolBusy)}>
+                {tool === 'Shape Core' ? <Box size={14}/> : tool === 'Gizmo Control' ? <Move size={14}/> : tool === 'Face Tools' ? <ScanEye size={14}/> : tool === 'Edge Tools' ? <GitBranch size={14}/> : tool === 'Vertex Tools' ? <Target size={14}/> : tool === 'Extrude & Scale' ? <Scaling size={14}/> : tool === 'Subdivide + Rotate' ? <Rotate3D size={14}/> : tool === 'Post-Smooth' ? <Waves size={14}/> : <Layers size={14}/>}
+                <span>{dfiToolBusy === tool ? 'SCANNING…' : tool}</span>
+              </button>)}
+            </div>
+            <div className="diagnostic-actions dfi-actions">
+              <button type="button" onClick={copyAllDfiReport} title="Copy every Advanced DFI, RDS, tool and runtime result"><Copy size={13}/> COPY ALL REPORT</button>
+            </div>
+            {Object.entries(dfiToolReports).map(([tool, report]) => <details className="dfi-tool-result" key={tool}>
+              <summary>{tool} · REPORT RESULTS</summary>
+              <pre className="core-optimizer-report dfi-report">{report}</pre>
+            </details>)}
+
             <div className="diagnostic-summary"><span>{dfiSummary.findings} finding(s)</span><span>{dfiSummary.errors} error(s)</span><span>{dfiSummary.warnings} warning(s)</span></div>
             <div className="diagnostic-summary"><span>{dfiSummary.repeatedErrors} repeated signature(s)</span><span>{dfiSummary.invalidMeshes} integrity finding(s)</span></div>
             <div className="diagnostic-actions dfi-actions">
@@ -5901,7 +6026,10 @@ export default function App() {
               <button type="button" onClick={() => void copyDiagnosticText([{ id: 'dfi-report', time: new Date().toLocaleTimeString(), level: dfiSummary.errors ? 'ERROR' : dfiSummary.warnings ? 'WARN' : 'INFO', source: 'DFI Core', message: 'Forensic investigation report', details: dfiReport }])} disabled={dfiReport.startsWith('No DFI investigation')}><ClipboardCopy size={12}/> COPY REPORT</button>
               <button type="button" onClick={() => { setDfiReport('No DFI investigation has been run yet.'); setDfiSummary({ findings: 0, errors: 0, warnings: 0, repeatedErrors: 0, invalidMeshes: 0 }); }}><RefreshCw size={12}/> RESET</button>
             </div>
-            <pre className="core-optimizer-report dfi-report">{dfiReport}</pre>
+            <div className="core-optimizer-report dfi-report dfi-highlight-report">{dfiReport.split('\\n').map((line, index) => {
+              const tag = /\\b(CRASH|FATAL)\\b/i.test(line) ? 'crash' : /\\b(CONFLICT)\\b/i.test(line) ? 'conflict' : /\\b(ERROR|BUG|DUPLICATE|NON_MANIFOLD)\\b/i.test(line) ? 'error' : /\\b(WARN|WARNING|SUSPECTED)\\b/i.test(line) ? 'warning' : '';
+              return <div key={index} className={tag ? 'dfi-report-line dfi-' + tag : 'dfi-report-line'}>{line || ' '}</div>;
+            })}</div>
             <div className="menu-info"><Info size={12}/><span>DFI correlates captured RDS errors, repeated failure signatures, live mesh integrity and the build-time source audit. It reports evidence and likely investigation leads, not guaranteed root causes. Git history, full dependency/data-flow analysis and native Android Logcat require repository/build-side tools. Read-only: no automatic fixes.</span></div>
           </section>}
         </section>
