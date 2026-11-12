@@ -90,3 +90,12 @@ test('New Modeling Workspace replaces the legacy panel presentation without dele
   assert.match(source, /Select a face before Loop Cut/);
   assert.match(source, /requires a highlighted mesh component/);
 });
+
+test('Subdivide falls back to whole-mesh triangle subdivision after face extrusion', () => {
+  assert.match(source, /target\.userData\.kind === 'Cube' && \(geometry\.index \|\| target\.userData\.nexusQuadGrid === true\)/);
+  assert.match(source, /Generic whole-mesh subdivision fallback|Extrusion turns the regular cube grid into ordinary triangle geometry/);
+  assert.match(source, /const triangleCount = sourcePosition\.count \/ 3/);
+  assert.match(source, /\[\[corners\[0\],ab,ca\],\[ab,corners\[1\],bc\],\[ca,bc,corners\[2\]\],\[ab,bc,ca\]\]/);
+  assert.match(source, /genericSubdivideApplied \? \{ enabled: false, layout: null, bounds: null, divisions: 0 \}/);
+  assert.doesNotMatch(source, /Quad Subdivide is currently supported on Cube meshes only/);
+});
