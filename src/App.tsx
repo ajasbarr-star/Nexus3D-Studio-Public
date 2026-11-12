@@ -2802,6 +2802,8 @@ export default function App() {
                 pivotLocal.set(0, 0, 0);
                 indices.forEach(index => pivotLocal.add(localVertex(index)));
                 pivotLocal.multiplyScalar(1 / Math.max(indices.length, 1));
+                worldPivot.copy(mesh.localToWorld(pivotLocal.clone()));
+                subObjectPivot.position.copy(worldPivot);
                 setStatus('Dual Faces selected · both faces share one transform pivot');
               } else setStatus('Face selected · tap the opposite face to enable Dual Faces');
             }
