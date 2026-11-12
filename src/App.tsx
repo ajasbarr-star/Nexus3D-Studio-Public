@@ -298,6 +298,15 @@ export default function App() {
     setDiagnosticLogs([]);
     try { localStorage.removeItem('nexus3d_realtime_diagnostics_v1'); } catch { /* ignore unavailable storage */ }
   };
+  const clearInteractionTraceLogs = () => {
+    diagnosticQueueRef.current = diagnosticQueueRef.current.filter(entry => entry.source !== 'Interaction Trace');
+    setDiagnosticLogs(previous => {
+      const next = previous.filter(entry => entry.source !== 'Interaction Trace');
+      try { localStorage.setItem('nexus3d_realtime_diagnostics_v1', JSON.stringify(next)); } catch { /* storage may be unavailable or full */ }
+      return next;
+    });
+    setStatus('Cleared all RIT interaction events');
+  };
   diagnosticSinkRef.current = pushDiagnostic;
   const recordInteractionTrace = (action: string, details: Record<string, unknown> = {}) => {
     diagnosticSinkRef.current('INFO', 'Interaction Trace', action, JSON.stringify(details));
@@ -5263,17 +5272,18 @@ export default function App() {
                         {diagnosticPanelOpen && <section className="diagnostic-panel-expanded" aria-label="Realtime Diagnostic System Panel">
                         <div className="diagnostic-summary"><span>{diagnosticLogs.length} captured log(s)</span><span>{diagnosticLogs.filter(entry => entry.level === 'ERROR').length} error(s)</span></div>
                         <div className="rds-rit-toolbar">
-                          <button type="button" className={'diagnostic-toggle-button rds-rit-toggle ' + (interactionTraceOpen ? 'expanded' : '')}
+                          <button type="button" className={'diagnostic-toggle-button rds-rit-toggle rds-icon-button ' + (interactionTraceOpen ? 'expanded' : '')}
+                            aria-label="Realtime Interaction Trace" title="Realtime Interaction Trace · toggle panel"
                             aria-expanded={interactionTraceOpen} onClick={() => setInteractionTraceOpen(open => !open)}>
-                            <Activity size={13}/><span>REALTIME INTERACTION TRACE (RIT)</span>
+                            <Activity size={15}/>
                             {interactionTraceOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
                           </button>
                         </div>
                         {interactionTraceOpen && <section className="rds-rit-panel" aria-label="Realtime Interaction Trace results">
                           <div className="diagnostic-summary"><span>{diagnosticLogs.filter(entry => entry.source === 'Interaction Trace').length} interaction event(s)</span><span>{diagnosticLogs.filter(entry => entry.source === 'Interaction Trace' && entry.level === 'ERROR').length} trace error(s)</span></div>
-                          <div className="diagnostic-actions rds-rit-actions">
-                            <button type="button" onClick={() => void copyDiagnosticText([...diagnosticLogs.filter(entry => entry.source === 'Interaction Trace'), ...diagnosticQueueRef.current.filter(entry => entry.source === 'Interaction Trace')])} disabled={!diagnosticLogs.some(entry => entry.source === 'Interaction Trace') && !diagnosticQueueRef.current.some(entry => entry.source === 'Interaction Trace')}><ClipboardCopy size={12}/> COPY RIT</button>
-                            <button type="button" onClick={() => { setDiagnosticFilter('ERROR'); setInteractionTraceOpen(false); }}><ScanEye size={12}/> ERROR FILTER</button>
+                          <div className="diagnostic-actions rds-rit-actions rds-icon-actions" aria-label="RIT actions">
+                            <button type="button" aria-label="Copy all RIT logs" title="Copy all RIT logs" onClick={() => void copyDiagnosticText([...diagnosticLogs.filter(entry => entry.source === 'Interaction Trace'), ...diagnosticQueueRef.current.filter(entry => entry.source === 'Interaction Trace')])} disabled={!diagnosticLogs.some(entry => entry.source === 'Interaction Trace') && !diagnosticQueueRef.current.some(entry => entry.source === 'Interaction Trace')}><ClipboardCopy size={15}/></button>
+                            <button type="button" aria-label="Clear all RIT logs" title="Clear all RIT logs" onClick={clearInteractionTraceLogs} disabled={!diagnosticLogs.some(entry => entry.source === 'Interaction Trace') && !diagnosticQueueRef.current.some(entry => entry.source === 'Interaction Trace')}><Trash2 size={15}/></button>
                           </div>
                           <div className="diagnostic-log-list" role="log" aria-live="polite" aria-label="Nexus3D interaction trace">
                             {!diagnosticLogs.some(entry => entry.source === 'Interaction Trace') && <div className="diagnostic-empty">No interaction events captured yet. Tap the viewport, Scene Tree, or a modeling tool to begin tracing.</div>}
@@ -5285,13 +5295,16 @@ export default function App() {
                           </div>
                           <div className="menu-info"><Info size={12}/><span>RIT captures viewport taps, gizmo drags, Scene Tree selections and modeling-tool requests. Live capture continues while this panel is closed.</span></div>
                         </section>}
-                        <div className="diagnostic-actions">
-                          <button type="button" onClick={() => void copyDiagnosticText(visibleDiagnosticLogs)} disabled={!visibleDiagnosticLogs.length}><ClipboardCopy size={12}/> COPY VIEW</button>
-                          <button type="button" onClick={() => void copyDiagnosticText(diagnosticLogs)} disabled={!diagnosticLogs.length}><ClipboardCopy size={12}/> COPY ALL</button>
-                          <button type="button" onClick={clearDiagnosticLogs} disabled={!diagnosticLogs.length}><Trash2 size={12}/> CLEAR</button>
+                        <div className="diagnostic-actions rds-icon-actions" aria-label="RDS actions">
+                          <button type="button" aria-label="Copy filtered RDS logs" title="Copy filtered RDS logs" onClick={() => void copyDiagnosticText(visibleDiagnosticLogs)} disabled={!visibleDiagnosticLogs.length}><ClipboardCopy size={15}/></button>
+                          <button type="button" aria-label="Copy all RDS logs" title="Copy all RDS logs" onClick={() => void copyDiagnosticText(diagnosticLogs)} disabled={!diagnosticLogs.length}><Copy size={15}/></button>
+                          <button type="button" aria-label="Clear all RDS logs" title="Clear all RDS logs" onClick={clearDiagnosticLogs} disabled={!diagnosticLogs.length}><Trash2 size={15}/></button>
                         </div>
-                        <div className="diagnostic-filters" role="group" aria-label="Diagnostic log filter">
-                          {(['ALL','ERROR','WARN','INFO'] as const).map(filter => <button type="button" key={filter} className={diagnosticFilter === filter ? 'active' : ''} onClick={() => setDiagnosticFilter(filter)}>{filter}</button>)}
+                        <div className="diagnostic-filters rds-icon-filters" role="group" aria-label="Diagnostic log filter">
+                          <button type="button" title="Show all logs" aria-label="Show all logs" className={diagnosticFilter === 'ALL' ? 'active' : ''} onClick={() => setDiagnosticFilter('ALL')}><Layers size={14}/></button>
+                          <button type="button" title="Show errors" aria-label="Show errors" className={diagnosticFilter === 'ERROR' ? 'active' : ''} onClick={() => setDiagnosticFilter('ERROR')}><ScanEye size={14}/></button>
+                          <button type="button" title="Show warnings" aria-label="Show warnings" className={diagnosticFilter === 'WARN' ? 'active' : ''} onClick={() => setDiagnosticFilter('WARN')}><Gauge size={14}/></button>
+                          <button type="button" title="Show info logs" aria-label="Show info logs" className={diagnosticFilter === 'INFO' ? 'active' : ''} onClick={() => setDiagnosticFilter('INFO')}><Info size={14}/></button>
                         </div>
                         <div className="diagnostic-log-list" role="log" aria-live="polite" aria-label="Nexus3D runtime diagnostics">
                           {!visibleDiagnosticLogs.length && <div className="diagnostic-empty">No {diagnosticFilter === 'ALL' ? '' : diagnosticFilter.toLowerCase() + ' '}logs captured yet. Reproduce the problem, then open this panel again.</div>}
