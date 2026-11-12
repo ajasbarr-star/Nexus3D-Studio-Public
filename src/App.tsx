@@ -3777,10 +3777,12 @@ export default function App() {
         const sourceIndex = geometry.index;
         const pointKey = (v: THREE.Vector3) =>
           [v.x, v.y, v.z].map(n => Math.round(n * 1e5)).join(',');
-        const triangleKey = (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3) =>
-          [pointKey(a), pointKey(b), pointKey(c)].sort().join('|');
-        const selectedTriangleKeys = new Set<string>();
-        const selectedFacePointKeySets = selectedFaceParts.map(facePart => new Set(facePart.map(index => pointKey(pt(index)))));
+        // Match selected faces by their original triangle identity, never by
+        // coordinates alone. Coincident/overlapping triangles can occupy the
+        // same positions while belonging to different source faces; a position
+        // key would incorrectly extrude every such duplicate and pull its
+        // surrounding plane geometry along with the intended selection.
+        const selectedTriangleOffsets = new Set<number>();
         selectedExtrudedFaceParts = selectedFaceParts.map(() => []);
         const sourceCount = sourceIndex ? sourceIndex.count : (sourcePosition?.count || 0);
         const sourceVertex = (offset: number) =>
@@ -3789,13 +3791,10 @@ export default function App() {
           for (let start = 0; start + 2 < sourceCount; start += 3) {
             const vertexIds = [sourceVertex(start), sourceVertex(start + 1), sourceVertex(start + 2)];
             if (!vertexIds.every(index => selectedVertexIds.has(index))) continue;
-            const points = vertexIds.map(index =>
-              new THREE.Vector3().fromBufferAttribute(sourcePosition, index)
-            );
-            selectedTriangleKeys.add(triangleKey(points[0], points[1], points[2]));
+            selectedTriangleOffsets.add(Math.floor(start / 3));
           }
         }
-        if (!selectedTriangleKeys.size) {
+        if (!selectedTriangleOffsets.size) {
           geometry.dispose(); before.dispose();
           setStatus('Extrude cancelled: selected face region has no matching triangles');
           return;
@@ -3810,10 +3809,15 @@ export default function App() {
         const boundary = new Map<string, { count: number; a: THREE.Vector3; b: THREE.Vector3 }>();
         let movedTriangles = 0;
         for (let start = 0; start + 2 < p.count; start += 3) {
+          const triangleOffset = Math.floor(start / 3);
+          if (!selectedTriangleOffsets.has(triangleOffset)) continue;
           const tri = [0, 1, 2].map(k => new THREE.Vector3().fromBufferAttribute(p, start + k));
-          if (!selectedTriangleKeys.has(triangleKey(tri[0], tri[1], tri[2]))) continue;
           movedTriangles++;
-          const selectedPartIndex = selectedFacePointKeySets.findIndex(keys => tri.every(vertex => keys.has(pointKey(vertex))));
+          const sourceTriangleVertexIds = [0, 1, 2].map(k => sourceVertex(start + k));
+          const selectedPartIndex = selectedFaceParts.findIndex(facePart => {
+            const faceVertexIds = new Set(facePart);
+            return sourceTriangleVertexIds.every(index => faceVertexIds.has(index));
+          });
           if (selectedPartIndex >= 0) tri.forEach((_vertex, corner) => selectedExtrudedFaceParts[selectedPartIndex].push(start + corner));
           const faceOffset = dualFaceExtrude && inwardCenter
             ? inwardCenter.clone().sub(tri[0].clone().add(tri[1]).add(tri[2]).multiplyScalar(1 / 3)).normalize().multiplyScalar(depth)
