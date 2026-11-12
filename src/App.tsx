@@ -5031,7 +5031,7 @@ export default function App() {
       dfiReport,
       '',
       'INDIVIDUAL TOOL REPORTS',
-      ...Object.entries(dfiToolReports).flatMap(([name, report]) => ['', '===== ' + name.toUpperCase() + ' =====', report]),
+      ...['Shape Core','Gizmo Control','Face Tools','Edge Tools','Vertex Tools','Extrude & Scale','Subdivide + Rotate','Post-Smooth','Overlap Scan'].flatMap(name => ['', '===== ' + name.toUpperCase() + ' =====', dfiToolReports[name] || 'NOT SCANNED — no report exists yet; run this tool to collect evidence.']),
       '',
       'RDS FULL CORE REPORT',
       rdsScanReport,
@@ -6053,7 +6053,10 @@ export default function App() {
             </div>
             {Object.entries(dfiToolReports).map(([tool, report]) => <details className="dfi-tool-result" key={tool}>
               <summary>{tool} · REPORT RESULTS</summary>
-              <pre className="core-optimizer-report dfi-report">{report}</pre>
+              <div className="core-optimizer-report dfi-report dfi-highlight-report">{report.split('\\n').map((line, index) => {
+                const tag = /\\b(CRASH|FATAL)\\b/i.test(line) ? 'crash' : /\\b(CONFLICT)\\b/i.test(line) ? 'conflict' : /\\b(ERROR|BUG|DUPLICATE|NON_MANIFOLD)\\b/i.test(line) ? 'error' : /\\b(WARN|WARNING|SUSPECTED)\\b/i.test(line) ? 'warning' : '';
+                return <div key={index} className={tag ? 'dfi-report-line dfi-' + tag : 'dfi-report-line'}>{line || ' '}</div>;
+              })}</div>
             </details>)}
 
             <div className="diagnostic-summary"><span>{dfiSummary.findings} finding(s)</span><span>{dfiSummary.errors} error(s)</span><span>{dfiSummary.warnings} warning(s)</span></div>
