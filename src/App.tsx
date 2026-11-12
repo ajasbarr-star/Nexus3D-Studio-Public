@@ -4806,7 +4806,7 @@ export default function App() {
       repeatedErrors.slice(0, 8).forEach(([signature, entries]) => findings.push(`REPEATED ERROR ×${entries.length}: ${signature}. First seen ${entries[0].time}; latest ${entries[entries.length - 1].time}.`));
       if (warningLogs.length) findings.push(`RUNTIME WARNINGS: ${warningLogs.length} warning log(s) are available for correlation; warnings alone do not prove a failure cause.`);
       if (geometryFindings.length) findings.push(...geometryFindings.map(item => 'SCENE INTEGRITY: ' + item));
-      if (sourceAudit?.findings?.length) findings.push(...sourceAudit.findings.slice(0, 30).map(item => `SOURCE ${item.severity || 'INFO'}: ${item.file || 'source'}:${item.line || '?'} ${item.rule || ''} — ${item.message || ''}`));
+      if (sourceAudit?.findings?.length) findings.push(...(sourceAudit.findings || []).slice(0, 30).map(item => `SOURCE ${item.severity || 'INFO'}: ${item.file || 'source'}:${item.line || '?'} ${item.rule || ''} — ${item.message || ''}`));
       if (!findings.length) findings.push('No deterministic failure signature was identified by the currently enabled checks. This is not proof that the project is bug-free.');
 
       const invalidMeshes = geometryFindings.length;
@@ -4834,7 +4834,7 @@ export default function App() {
         'Read-only investigation. No scene, mesh, transform, rig, material, or project data was modified.',
         'A repeated error or integrity warning is evidence, not automatic proof of the original root cause. Confirm the cause by reproducing the same operation and tracing the first failing state transition.',
         'This APK scan cannot inspect Git history, the complete source dependency graph, or native Android Logcat. Use repository analysis and native crash logs for those layers.',
-      ].join('\\n');
+      ].join('\n');
       setDfiReport(report);
       setDfiSummary({ findings: totalFindings, errors: errorLogs.length + sourceErrors, warnings: warningLogs.length + sourceWarnings, repeatedErrors: repeatedErrors.length, invalidMeshes });
       diagnosticSinkRef.current(errorLogs.length || sourceErrors || invalidMeshes ? 'WARN' : 'INFO',
@@ -4842,7 +4842,7 @@ export default function App() {
       setStatus('DFI investigation complete · read-only evidence report ready');
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setDfiReport('DFI investigation failed safely\\n' + message + '\\nNo repair or scene mutation was attempted.');
+      setDfiReport('DFI investigation failed safely\n' + message + '\nNo repair or scene mutation was attempted.');
       diagnosticSinkRef.current('ERROR', 'DFI Core', 'Investigation could not complete', message);
       setStatus('DFI investigation failed · diagnostic captured');
     } finally {
