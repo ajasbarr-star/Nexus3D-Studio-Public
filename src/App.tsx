@@ -1256,12 +1256,14 @@ export default function App() {
             key: pointKey(index)
           });
           const pushQuad = (corners: ReturnType<typeof readVertex>[]) => {
-            const baseUv = corners[0].uv[0];
+            const baseUvU = corners[0].uv[0], baseUvV = corners[0].uv[1];
             const adjustedUvs = corners.map(corner => {
-              let u = corner.uv[0];
-              while (u - baseUv > 0.5) u -= 1;
-              while (u - baseUv < -0.5) u += 1;
-              return [u, corner.uv[1]];
+              let u = corner.uv[0], v = corner.uv[1];
+              while (u - baseUvU > 0.5) u -= 1;
+              while (u - baseUvU < -0.5) u += 1;
+              while (v - baseUvV > 0.5) v -= 1;
+              while (v - baseUvV < -0.5) v += 1;
+              return [u, v];
             });
             [0, 1, 2, 0, 2, 3].forEach(cornerIndex => {
               outputPositions.push(...corners[cornerIndex].position);
