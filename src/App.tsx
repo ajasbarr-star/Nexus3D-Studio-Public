@@ -2855,6 +2855,27 @@ export default function App() {
       setStatus('Select a vertex, edge, or face before using a geometry tool');
       return;
     }
+    // Character safety: the generic triangle subdivision path interpolates every
+    // attribute as floating-point data. That is not valid for skinIndex (integer
+    // bone references), and can also invalidate skin weights and morph targets.
+    // Until a dedicated rig-aware quad subdivision path is available, fail closed
+    // before cloning or mutating any skinned/deformation-driven character mesh.
+    const hasSkinning = target instanceof THREE.SkinnedMesh ||
+      Boolean((target as THREE.Mesh & { isSkinnedMesh?: boolean }).isSkinnedMesh) ||
+      Boolean((target as THREE.Mesh & { skeleton?: THREE.Skeleton }).skeleton) ||
+      Boolean(target.geometry.getAttribute('skinIndex')) ||
+      Boolean(target.geometry.getAttribute('skinWeight'));
+    const hasMorphTargets = Object.values(target.geometry.morphAttributes).some(attributes => Boolean(attributes?.length));
+    if (tool === 'Subdivide' && (hasSkinning || hasMorphTargets)) {
+      setStatus('Subdivide protected this character: rigged or morph-target meshes need the character-safe quad subdivision path. No mesh, bones, weights, or animation data was changed.');
+      diagnosticSinkRef.current('WARN', 'Geometry Safety', 'Character subdivision blocked', JSON.stringify({
+        object: target.name,
+        skinning: hasSkinning,
+        morphTargets: hasMorphTargets,
+        vertexCount: target.geometry.getAttribute('position')?.count || 0,
+      }));
+      return;
+    }
     // Extrude depth adjustments always rebuild from the pre-extrusion face snapshot.
     const useExtrudeBaseline = tool === 'Extrude' && rebuildExtrudeFromBase && extrudeBaseGeometry.current;
     let geometry = useExtrudeBaseline ? extrudeBaseGeometry.current!.clone() : target.geometry.clone();
