@@ -3207,16 +3207,6 @@ export default function App() {
       return;
     }
     const currentVertexCount = target.geometry.getAttribute('position')?.count || 0;
-    const mobileGeometryVertexLimit = 65_536;
-    if ((tool === 'Subdivide' || tool === 'Smooth') && currentVertexCount > mobileGeometryVertexLimit) {
-      setStatus(tool + ' paused: this mesh exceeds the mobile geometry safety limit (65,536 vertices). Reduce the mesh or undo earlier subdivisions first.');
-      diagnosticSinkRef.current('WARN', 'Geometry Safety', tool + ' blocked above mobile vertex limit', JSON.stringify({
-        object: target.name,
-        vertexCount: currentVertexCount,
-        limit: mobileGeometryVertexLimit,
-      }));
-      return;
-    }
     // Character safety: the generic triangle subdivision path interpolates every
     // attribute as floating-point data. That is not valid for skinIndex (integer
     // bone references), and can also invalidate skin weights and morph targets.
@@ -3371,14 +3361,9 @@ export default function App() {
         return;
       }
       const cellCount = source.count / 6;
-      // Keep repeated 4x quad subdivision within a conservative mobile-device budget.
-      const safeVertexBudget = 65_536;
+      // No arbitrary per-operation vertex cap: each quad always becomes four
+      // quad cells. Device memory remains the only practical constraint.
       const outputVertexCount = cellCount * 24;
-      if (outputVertexCount > safeVertexBudget) {
-        geometry.dispose(); before.dispose();
-        setStatus('Subdivide paused before the device memory budget; current mesh was preserved.');
-        return;
-      }
       const positions = new Float32Array(outputVertexCount * 3);
       const uvs = new Float32Array(outputVertexCount * 2);
       let positionCursor = 0;
@@ -3754,9 +3739,9 @@ export default function App() {
     }
 // Reconstruct each existing pair of triangles as one canonical quad cell.
       // BoxGeometry commonly stores [A,B,D,B,C,D], while the quad Subdivide path
-      // expects [A,B,C,A,C,D]. Pair only triangles that share exactly one diagonal,
-      // have consistent winding, and form a planar, non-degenerate quad. Any
-      // ambiguous/unsupported triangle stream stays unmarked (fail closed).
+      // expects [A,B,C,A,C,D]. Pair triangles that share exactly one diagonal
+      // and consistent winding. A rotated extrusion may form a warped quad; it
+      // remains valid and is subdivided bilinearly rather than rejected.
       if (tool === 'Extrude' && editModeRef.current === 'Face' && !geometry.index) {
         const position = geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
         geometry.computeBoundingSphere();
@@ -3813,10 +3798,13 @@ export default function App() {
               const q = Array.from({ length: 6 }, (_value, index) => new THREE.Vector3().fromBufferAttribute(canonical, start + index));
               const normalA = q[1].clone().sub(q[0]).cross(q[2].clone().sub(q[0]));
               const normalB = q[4].clone().sub(q[3]).cross(q[5].clone().sub(q[3]));
+              // A rotated/scaled extruded cap can make its connecting wall a
+              // non-planar (twisted) quad. That is still valid quad topology:
+              // bilinear subdivision handles it. Verify only the shared corners
+              // and non-degenerate triangle areas; never discard the whole mesh
+              // merely because the four corners are not coplanar.
               if (!closePoint(q[0], q[3]) || !closePoint(q[2], q[4]) ||
-                  normalA.lengthSq() <= tolerance ** 4 || normalB.lengthSq() <= tolerance ** 4 ||
-                  normalA.clone().normalize().dot(normalB.clone().normalize()) < 0.999 ||
-                  Math.abs(q[5].clone().sub(q[0]).dot(normalA.clone().normalize())) > tolerance * 4) {
+                  normalA.lengthSq() <= tolerance ** 4 || normalB.lengthSq() <= tolerance ** 4) {
                 verified = false; break;
               }
             }
@@ -3827,7 +3815,7 @@ export default function App() {
           diagnosticSinkRef.current('WARN', 'Geometry Safety', 'Extrude quad topology handoff unavailable', JSON.stringify({
             object: target.name,
             vertexCount: position?.count || 0,
-            reason: 'Triangle pairs could not be reconstructed as verified planar quads; Subdivide remains safely disabled for this mesh.'
+            reason: 'Triangle pairs could not be reconstructed as verified quad cells; Subdivide remains disabled for ambiguous topology.'
           }));
         }
       }
