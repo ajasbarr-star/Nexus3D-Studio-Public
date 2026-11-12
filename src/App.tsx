@@ -2573,7 +2573,7 @@ export default function App() {
             if (previousLocalNormal) previousWorldNormal = previousLocalNormal.applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize();
           }
           const isOppositeLockedFace = Boolean(editModeRef.current === 'Face' && previousWorldNormal && previousWorldNormal.dot(candidateWorldNormal) < -0.8);
-          const faceHighlightColor = isOppositeLockedFace ? 0x00ffff : 0x00e5ff;
+          const faceHighlightColor = 0x00e5ff; // Both locked faces use the same cyan highlight.
           if (!isOppositeLockedFace) clearSubObjectHighlight();
           const mesh = hit.object as THREE.Mesh;
           const geometry = mesh.geometry as THREE.BufferGeometry;
