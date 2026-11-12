@@ -234,3 +234,10 @@ test('Realtime Interaction Trace exposes Copy All and Error Highlights in Menu P
   assert.match(source, /Scene Tree selection/);
   assert.match(source, /Geometry tool requested/);
 });
+
+\ntest('Face Mode blocks expensive geometry operations above the mobile vertex safety limit', () => {
+  assert.match(source, /const mobileGeometryVertexLimit = 65_536/);
+  assert.match(source, /\(tool === 'Subdivide' \|\| tool === 'Smooth'\) && currentVertexCount > mobileGeometryVertexLimit/);
+  assert.match(source, /blocked above mobile vertex limit/);
+  assert.match(source, /const safeVertexBudget = 65_536/);
+});
