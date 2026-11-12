@@ -3223,9 +3223,18 @@ export default function App() {
     setStatus('Renamed object to ' + name);
   };
   const toggleTreeObjectLock = (obj: THREE.Object3D) => {
-    obj.userData.objectManagerLocked = !obj.userData.objectManagerLocked;
-    runtime.current?.syncItems?.();
-    if (String(obj.userData.editorId) === selectedRef.current) runtime.current?.selectObject(obj);
+    const previous = Boolean(obj.userData.objectManagerLocked);
+    const applyLock = (locked: boolean) => {
+      obj.userData.objectManagerLocked = locked;
+      runtime.current?.syncItems?.();
+      if (String(obj.userData.editorId) === selectedRef.current) runtime.current?.selectObject(obj);
+    };
+    applyLock(!previous);
+    recordSceneAction({
+      label: (previous ? 'Unlock ' : 'Lock ') + obj.name,
+      undo: () => applyLock(previous),
+      redo: () => applyLock(!previous),
+    });
     setStatus(obj.name + (obj.userData.objectManagerLocked ? ' locked against transforms' : ' unlocked'));
   };
   const duplicateTreeObject = (obj: THREE.Object3D) => {
@@ -3249,7 +3258,9 @@ export default function App() {
         if (parent === r.scene) r.scene.add(obj); else parent.add(obj);
         removedNodes.forEach(node => { if (!r.selectable.includes(node)) r.selectable.push(node); });
         r.syncItems?.();
-        r.selectObject(obj);
+        const restoredRigRoot = removedNodes.find(node => node instanceof THREE.Bone && node.userData.shapeRig && node.userData.rigRole === 'root');
+        if (restoredRigRoot) { r.selectObject(restoredRigRoot); r.selectObject(obj); }
+        else r.selectObject(obj);
       },
       redo: () => r.removeObject(obj, true),
     });
@@ -3267,7 +3278,9 @@ export default function App() {
     group.userData.kind = 'Group';
     r.scene.updateMatrixWorld(true);
     group.position.copy(obj.getWorldPosition(new THREE.Vector3()));
-    r.scene.add(group);
+    group.quaternion.copy(obj.getWorldQuaternion(new THREE.Quaternion()));
+    group.scale.copy(obj.getWorldScale(new THREE.Vector3()));
+    previousParent.attach(group);
     group.attach(obj);
     r.selectable.push(group);
     r.syncItems?.();
@@ -3283,7 +3296,7 @@ export default function App() {
         r.selectObject(obj);
       },
       redo: () => {
-        r.scene.add(group);
+        previousParent.add(group);
         group.attach(obj);
         if (!r.selectable.includes(group)) r.selectable.push(group);
         r.syncItems?.();
