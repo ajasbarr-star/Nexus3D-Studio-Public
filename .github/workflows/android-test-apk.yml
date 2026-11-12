@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - test/nexus3d-test-apk
+      - feature/test-interaction-monitor
 
 permissions:
   contents: read
