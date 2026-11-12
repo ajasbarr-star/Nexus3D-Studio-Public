@@ -1999,3 +1999,6 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   .tree-eye { flex-basis:21px; width:21px; }
   .tree-row-actions { gap:0; }
 }
+
+.tree-rename-inline { flex:1; min-width:0; display:flex; align-items:center; height:34px; padding-right:3px; }
+.tree-rename-inline input { width:100%; min-width:0; height:25px; padding:0 5px; border:1px solid #39c9eb; border-radius:4px; outline:none; color:#e5f6ff; background:#081725; font:10px 'DM Mono',monospace; box-shadow:0 0 8px #00cfff22; }
