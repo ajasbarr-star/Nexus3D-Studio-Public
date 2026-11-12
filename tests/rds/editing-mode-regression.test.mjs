@@ -92,7 +92,9 @@ test('New Modeling Workspace replaces the legacy panel presentation without dele
 });
 
 test('Subdivide fails closed when the current mesh has no verified quad topology', () => {
-  assert.match(source, /target\.userData\.kind === 'Cube' && \(geometry\.index \|\| target\.userData\.nexusQuadGrid === true\)/);
+  assert.match(source, /target\.userData\.nexusQuadGrid === true \|\| \(target\.userData\.kind === 'Cube' && Boolean\(geometry\.index\)\)/);
+  assert.match(source, /including extruded quad side walls/);
+  assert.match(source, /!geometry\.index && target\.userData\.nexusQuadGrid === true/);
   assert.match(source, /Fail closed for meshes without a verified quad-cell topology/);
   assert.match(source, /No triangles were split and the original mesh was preserved/);
   assert.doesNotMatch(source, /const triangleCount = sourcePosition\.count \/ 3/);
