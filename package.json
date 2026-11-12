@@ -13,7 +13,10 @@
     "android:build": "npm run build && cap sync android",
     "test:rds": "node --test tests/rds/*.test.mjs",
     "rds:audit": "node scripts/rds-source-audit.mjs",
-    "verify:rds": "npm run test:rds && npm run rds:audit"
+    "verify:rds": "npm run test:rds && npm run rds:audit",
+    "dfi:audit": "node scripts/dfi-source-audit.mjs",
+    "test:dfi": "node --test tests/dfi/*.test.mjs",
+    "verify:dfi": "npm run test:dfi && npm run dfi:audit"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
