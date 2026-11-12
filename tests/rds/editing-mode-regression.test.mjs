@@ -258,3 +258,11 @@ test('Subdivision topology overlay refreshes bounds and keeps quad grid lines vi
   assert.match(source, /const lineOffset = Math\.max\(0\.0012, \(bounds\?\.radius \|\| 1\) \* 0\.002\)/);
   assert.match(source, /color: 0x000000, transparent: false, opacity: 1, depthTest: true, depthWrite: false/);
 });
+
+test('Topology overlay offsets fallback hard edges outward after Extrude and keeps them depth-tested', () => {
+  assert.match(source, /mesh\.geometry\.computeBoundingSphere\(\);[\s\S]*?const lineOffset = Math\.max\(0\.0012, \(bounds\?\.radius \|\| 1\) \* 0\.002\)/);
+  assert.match(source, /new THREE\.EdgesGeometry\(mesh\.geometry, 1\)/);
+  assert.match(source, /const normalSums = new Map<string, \{ normal: THREE\.Vector3; count: number \}>\(\)/);
+  assert.match(source, /edgePosition\.setXYZ\(vertex, x \+ normal\.x \* lineOffset, y \+ normal\.y \* lineOffset, z \+ normal\.z \* lineOffset\)/);
+  assert.match(source, /depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1/);
+});
