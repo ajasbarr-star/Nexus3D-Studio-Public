@@ -2274,3 +2274,21 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .dfi-actions { grid-template-columns:repeat(3,minmax(0,1fr)); }
 .dfi-report { max-height:min(34vh,260px); border-color:#28647a; color:#c4e9f5; }
 .dfi-core-section .diagnostic-summary { flex-wrap:wrap; }
+
+
+/* Advanced DFI: compact icon dashboard, unified reports and evidence severity highlighting. */
+.dfi-tool-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.dfi-tool-button{display:flex;min-width:0;min-height:44px;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:5px 3px;border:1px solid #28536a;border-radius:6px;background:rgba(8,25,39,.96);color:#bfefff;font-size:8px;line-height:1.2;text-align:center;cursor:pointer}
+.dfi-tool-button svg{color:#51d9f5}
+.dfi-tool-button:active{border-color:#55dff8;background:rgba(13,67,86,.98)}
+.dfi-tool-button:disabled{opacity:.45;cursor:wait}
+.dfi-tool-result{border:1px solid #28536a;border-radius:5px;background:rgba(4,15,25,.9);overflow:hidden}
+.dfi-tool-result summary{padding:8px;color:#aeeaff;font:700 9px 'DM Mono',monospace;cursor:pointer}
+.dfi-tool-result .dfi-report{max-height:220px;margin:0;border:0;border-top:1px solid #23495d;border-radius:0}
+.dfi-highlight-report{display:flex;flex-direction:column;gap:2px;white-space:pre-wrap;overflow-wrap:anywhere}
+.dfi-report-line{min-height:1em}
+.dfi-report-line.dfi-error,.dfi-report-line.dfi-conflict{padding:2px 5px;border-left:3px solid #ff5c70;background:rgba(120,25,43,.22);color:#ff9aa7;font-weight:700}
+.dfi-report-line.dfi-crash{padding:2px 5px;border-left:3px solid #ff2f52;background:rgba(150,12,40,.3);color:#ff7389;font-weight:800}
+.dfi-report-line.dfi-warning{padding:2px 5px;border-left:3px solid #e6ae4e;background:rgba(112,75,20,.2);color:#ffd28a}
+.dfi-actions button{min-height:38px}
+@media(max-width:760px){.dfi-tool-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.dfi-tool-button{min-height:46px;font-size:8px}}
