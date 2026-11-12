@@ -23,7 +23,7 @@ import {
   Film, Lightbulb, X, Check, Eye, EyeOff, Search, ChevronDown, ChevronRight, Download,
   Save, FolderOpen, FileJson, Settings2, Info, Keyboard, Sun, Flashlight, Palette, Upload,
   Sparkles, Waves, Aperture, SlidersHorizontal, CloudFog, ScanEye, Lock, Unlock, Scissors, GitBranch,
-  Plus, Target, Link2, Unlink, RefreshCw, GitMerge, Activity, Code2,
+  Plus, Target, Link2, Unlink, RefreshCw, GitMerge, Activity, Code2, Folder, FolderPlus, MoreHorizontal, Pencil,
 } from 'lucide-react';
 import './index.css';
 
@@ -343,6 +343,7 @@ export default function App() {
     lightColor: '#ffffff', mirrorTint: '#d9f3ff', textureColor: '#b6d8ff',
   });
   const [treeSearch, setTreeSearch] = useState('');
+  const [treeActionId, setTreeActionId] = useState('');
   const [dragTargetId, setDragTargetId] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -1112,7 +1113,7 @@ export default function App() {
       }
       const movableLockedRoot = obj instanceof THREE.Bone && obj.userData.shapeRig && obj.userData.rigRole === 'root' && obj.userData.locked;
       const objectMode = editModeRef.current === 'Object';
-      const selectionLocked = (obj instanceof THREE.Bone && obj.userData.locked && !movableLockedRoot) || (obj.userData.rigControlMarker && obj.userData.controlLocked);
+      const selectionLocked = Boolean(obj.userData.objectManagerLocked) || (obj instanceof THREE.Bone && obj.userData.locked && !movableLockedRoot) || (obj.userData.rigControlMarker && obj.userData.controlLocked);
 
       // One controller owns selection in both workspaces. The active camera is
       // switched by the workspace toggle; attachment never changes controllers.
@@ -3199,6 +3200,133 @@ export default function App() {
     if (obj && !cameraView) r.addObject(obj.userData.kind || obj.name.split(' ')[0], obj.name + ' copy', obj);
     else setStatus('Select an object to duplicate');
   };
+
+  const selectTreeObject = (obj: THREE.Object3D) => {
+    const id = String(obj.userData.editorId || '');
+    setSelected(id);
+    runtime.current?.selectObject(obj);
+  };
+  const renameTreeObject = (obj: THREE.Object3D) => {
+    if (obj === runtime.current?.camBody) return;
+    const previousName = obj.name;
+    const nextName = window.prompt('Rename object', previousName);
+    if (nextName === null) return;
+    const name = nextName.trim();
+    if (!name || name === previousName) return;
+    obj.name = name;
+    runtime.current?.syncItems?.();
+    recordSceneAction({
+      label: 'Rename ' + previousName,
+      undo: () => { obj.name = previousName; runtime.current?.syncItems?.(); },
+      redo: () => { obj.name = name; runtime.current?.syncItems?.(); },
+    });
+    setStatus('Renamed object to ' + name);
+  };
+  const toggleTreeObjectLock = (obj: THREE.Object3D) => {
+    obj.userData.objectManagerLocked = !obj.userData.objectManagerLocked;
+    runtime.current?.syncItems?.();
+    if (String(obj.userData.editorId) === selectedRef.current) runtime.current?.selectObject(obj);
+    setStatus(obj.name + (obj.userData.objectManagerLocked ? ' locked against transforms' : ' unlocked'));
+  };
+  const duplicateTreeObject = (obj: THREE.Object3D) => {
+    if (obj === runtime.current?.camBody || obj.userData.kind === 'Camera') return;
+    selectTreeObject(obj);
+    runtime.current?.addObject(obj.userData.kind || obj.name.split(' ')[0], obj.name + ' copy', obj);
+  };
+  const deleteTreeObject = (obj: THREE.Object3D) => {
+    const r = runtime.current;
+    if (!r || obj === r.camBody || obj.userData.kind === 'Camera') {
+      setStatus('MainCamera is protected from deletion');
+      return;
+    }
+    const parent = obj.parent || r.scene;
+    const removedNodes: THREE.Object3D[] = [];
+    obj.traverse((node: THREE.Object3D) => { if (r.selectable.includes(node)) removedNodes.push(node); });
+    r.removeObject(obj, true);
+    recordSceneAction({
+      label: 'Delete ' + obj.name,
+      undo: () => {
+        if (parent === r.scene) r.scene.add(obj); else parent.add(obj);
+        removedNodes.forEach(node => { if (!r.selectable.includes(node)) r.selectable.push(node); });
+        r.syncItems?.();
+        r.selectObject(obj);
+      },
+      redo: () => r.removeObject(obj, true),
+    });
+  };
+  const groupTreeObject = (obj: THREE.Object3D) => {
+    const r = runtime.current;
+    if (!r || obj === r.camBody || obj instanceof THREE.Bone || obj.userData.rigControlMarker || obj.userData.kind === 'Camera') {
+      setStatus('This object type cannot be grouped');
+      return;
+    }
+    const previousParent = obj.parent || r.scene;
+    const group = new THREE.Group();
+    group.name = obj.name + ' Group';
+    group.userData.editorId = uid();
+    group.userData.kind = 'Group';
+    r.scene.updateMatrixWorld(true);
+    group.position.copy(obj.getWorldPosition(new THREE.Vector3()));
+    r.scene.add(group);
+    group.attach(obj);
+    r.selectable.push(group);
+    r.syncItems?.();
+    r.selectObject(group);
+    recordSceneAction({
+      label: 'Group ' + obj.name,
+      undo: () => {
+        previousParent.attach(obj);
+        group.parent?.remove(group);
+        const index = r.selectable.indexOf(group);
+        if (index >= 0) r.selectable.splice(index, 1);
+        r.syncItems?.();
+        r.selectObject(obj);
+      },
+      redo: () => {
+        r.scene.add(group);
+        group.attach(obj);
+        if (!r.selectable.includes(group)) r.selectable.push(group);
+        r.syncItems?.();
+        r.selectObject(group);
+      },
+    });
+    setStatus(obj.name + ' placed inside a new Group');
+  };
+  const ungroupTreeObject = (group: THREE.Object3D) => {
+    const r = runtime.current;
+    if (!r || group.userData.kind !== 'Group') return;
+    const parent = group.parent || r.scene;
+    const children = [...group.children];
+    r.scene.updateMatrixWorld(true);
+    children.forEach(child => parent.attach(child));
+    parent.remove(group);
+    const index = r.selectable.indexOf(group);
+    if (index >= 0) r.selectable.splice(index, 1);
+    r.syncItems?.();
+    if (children.length) r.selectObject(children.find(child => r.selectable.includes(child)) || children[0]);
+    else r.selectObject();
+    recordSceneAction({
+      label: 'Ungroup ' + group.name,
+      undo: () => {
+        parent.add(group);
+        children.forEach(child => group.attach(child));
+        if (!r.selectable.includes(group)) r.selectable.push(group);
+        r.syncItems?.();
+        r.selectObject(group);
+      },
+      redo: () => {
+        r.scene.updateMatrixWorld(true);
+        children.forEach(child => parent.attach(child));
+        parent.remove(group);
+        const at = r.selectable.indexOf(group);
+        if (at >= 0) r.selectable.splice(at, 1);
+        r.syncItems?.();
+        if (children.length) r.selectObject(children.find(child => r.selectable.includes(child)) || children[0]);
+        else r.selectObject();
+      },
+    });
+    setStatus(group.name + ' ungrouped · child transforms preserved');
+  };
   const toggleRiggingWorkspace = () => {
     const r = runtime.current;
     if (!r || !r.renderer || !r.ikCamera || !r.ikOrbit || !ikHostRef.current) {
@@ -4707,7 +4835,7 @@ export default function App() {
       </aside>}
 
       {panel && !cameraView && <aside className="hierarchy-panel">
-        <div className="panel-heading"><div><Layers size={13} /><span>Scenes Tree</span></div><span className="count">{items.length.toString().padStart(2, '0')}</span></div>
+        <div className="panel-heading"><div><Layers size={13} /><span>Scenes Tree</span></div><div className="tree-manager-tools"><button type="button" title="Duplicate selected object" aria-label="Duplicate selected object" disabled={!selected || cameraView} onClick={() => { const obj = items.find(entry => entry.id === selected)?.object; if (obj) duplicateTreeObject(obj); }}><Copy size={12}/></button><button type="button" title="Group selected object" aria-label="Group selected object" disabled={!selected || cameraView} onClick={() => { const obj = items.find(entry => entry.id === selected)?.object; if (obj) groupTreeObject(obj); }}><FolderPlus size={12}/></button><button type="button" title="Delete selected object" aria-label="Delete selected object" disabled={!selected || cameraView} onClick={() => { const obj = items.find(entry => entry.id === selected)?.object; if (obj) deleteTreeObject(obj); }}><Trash2 size={12}/></button><span className="count">{items.length.toString().padStart(2, '0')}</span></div></div>
         <div className="tree-search"><Search size={12} /><input aria-label="Search scene tree" value={treeSearch} onChange={e => setTreeSearch(e.target.value)} placeholder="Search scene…" /></div>
         <div className={'tree-root ' + (dragTargetId === 'root' ? 'drop-target' : '')} onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragTargetId('root'); }} onDragLeave={() => setDragTargetId('')} onDrop={e => { e.preventDefault(); setDragTargetId(''); const childId = e.dataTransfer.getData('text/nexus3d-object'); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }} title="Drop an object here to move it to the Scene root"><span className="tree-caret">⌄</span><Grid2X2 size={12} /><span>Scene Root</span></div>
         <div className={'tree-list ' + (dragTargetId === 'empty' ? 'drop-target' : '')} onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (e.target === e.currentTarget) setDragTargetId('empty'); }} onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragTargetId(''); }} onDrop={e => { e.preventDefault(); setDragTargetId(''); const childId = e.dataTransfer.getData('text/nexus3d-object'); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }}>
@@ -4735,6 +4863,12 @@ export default function App() {
               onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragTargetId(''); }}
               onDrop={e => { e.preventDefault(); e.stopPropagation(); setDragTargetId(''); const childId = e.dataTransfer.getData('text/nexus3d-object'); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (!child || child === item.object) return; const rect = e.currentTarget.getBoundingClientRect(); const ratio = (e.clientY - rect.top) / Math.max(rect.height, 1); runtime.current?.reorderObject(child, item.object, ratio < 0.28 ? 'before' : ratio > 0.72 ? 'after' : 'inside'); }}
               onTouchStart={e => {
+                if ((e.target as HTMLElement).closest('.tree-row-actions, .tree-eye, .tree-item-action')) {
+                  if (touchDragTimer.current) clearTimeout(touchDragTimer.current);
+                  touchDragTimer.current = null;
+                  touchDragOrigin.current = null;
+                  return;
+                }
                 const touch = e.touches[0];
                 if (!touch) return;
                 touchDragActive.current = false;
@@ -4810,7 +4944,18 @@ export default function App() {
                 {item.kind === 'Sphere' ? <Circle size={13} /> : item.kind === 'Cylinder' ? <Cylinder size={13} /> : item.kind === 'Cone' ? <Cone size={13} /> : item.kind === 'Torus' ? <Circle size={13} /> : item.kind === 'Camera' ? <Film size={13} /> : <Box size={13} />}
                 <span className="tree-name">{item.name}</span>{selected === item.id && <span className="tree-selected-dot" />}
               </button>
-              <button className="tree-eye" aria-label={(item.object.visible ? 'Hide ' : 'Show ') + item.name} title={item.object.visible ? 'Hide object' : 'Show object'} onClick={() => item.object instanceof THREE.Bone ? runtime.current?.toggleBoneDisplay(item.object) : runtime.current?.toggleVisibility(item.object)}>{(item.object instanceof THREE.Bone ? runtime.current?.isBoneDisplayVisible(item.object) : item.object.visible) ? <Eye size={12} /> : <EyeOff size={12} />}</button>
+              <button type="button" className="tree-eye" aria-label={(item.object.visible ? 'Hide ' : 'Show ') + item.name} title={item.object.visible ? 'Hide object' : 'Show object'} onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); item.object instanceof THREE.Bone ? runtime.current?.toggleBoneDisplay(item.object) : runtime.current?.toggleVisibility(item.object); }}>{(item.object instanceof THREE.Bone ? runtime.current?.isBoneDisplayVisible(item.object) : item.object.visible) ? <Eye size={12} /> : <EyeOff size={12} />}</button>
+              <div className="tree-row-actions">
+                <button type="button" className={'tree-row-action ' + (item.object.userData.objectManagerLocked ? 'locked' : '')} aria-label={(item.object.userData.objectManagerLocked ? 'Unlock ' : 'Lock ') + item.name} title={item.object.userData.objectManagerLocked ? 'Unlock transforms' : 'Lock transforms'} onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); toggleTreeObjectLock(item.object); }}><Lock size={11}/></button>
+                <button type="button" className="tree-row-action" aria-label={'Duplicate ' + item.name} title="Duplicate object" disabled={item.object.userData.kind === 'Camera'} onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); duplicateTreeObject(item.object); }}><Copy size={11}/></button>
+                <button type="button" className={'tree-row-action ' + (treeActionId === item.id ? 'active' : '')} aria-label={'More actions for ' + item.name} title="More object actions" onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setTreeActionId(current => current === item.id ? '' : item.id); }}><MoreHorizontal size={13}/></button>
+                {treeActionId === item.id && <div className="tree-more-menu" onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+                  <button type="button" onClick={() => { renameTreeObject(item.object); setTreeActionId(''); }}><Pencil size={11}/> Rename</button>
+                  {item.object.userData.kind === 'Group' ? <button type="button" onClick={() => { ungroupTreeObject(item.object); setTreeActionId(''); }}><Folder size={11}/> Ungroup</button> : <button type="button" disabled={item.object.userData.kind === 'Camera' || item.object instanceof THREE.Bone || Boolean(item.object.userData.rigControlMarker)} onClick={() => { groupTreeObject(item.object); setTreeActionId(''); }}><FolderPlus size={11}/> Group</button>}
+                  <button type="button" className="danger" disabled={item.object.userData.kind === 'Camera'} onClick={() => { deleteTreeObject(item.object); setTreeActionId(''); }}><Trash2 size={11}/> Delete</button>
+                </div>}
+              </div>
+              </div>
             </div>;
           })}
         </div>
