@@ -6,6 +6,7 @@ on:
     branches:
       - test/nexus3d-test-apk
       - feature/test-interaction-monitor
+      - fix/extrude-quad-topology-handoff
 
 permissions:
   contents: read
