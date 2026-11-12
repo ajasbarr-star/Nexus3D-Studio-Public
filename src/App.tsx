@@ -230,25 +230,50 @@ export default function App() {
   // Scene Tree and Menu share one dock slot. Drag the right-center handle
   // toward the right to widen whichever panel is currently active.
   const [sharedPanelWidth, setSharedPanelWidth] = useState(172);
-  const panelResizeStart = useRef<{ x: number; width: number } | null>(null);
+  const panelResizeStart = useRef<{ x: number; width: number; pointerId: number } | null>(null);
+  const panelResizeMoveRef = useRef<((event: PointerEvent) => void) | null>(null);
+  const panelResizeEndRef = useRef<((event: PointerEvent) => void) | null>(null);
   const beginPanelResize = (event: React.PointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    panelResizeStart.current = { x: event.clientX, width: sharedPanelWidth };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-  const movePanelResize = (event: React.PointerEvent<HTMLButtonElement>) => {
-    const start = panelResizeStart.current;
-    if (!start) return;
-    event.preventDefault();
-    const maxWidth = Math.max(220, Math.min(420, Math.floor(window.innerWidth * 0.48)));
-    setSharedPanelWidth(Math.max(150, Math.min(maxWidth, start.width + event.clientX - start.x)));
-  };
-  const endPanelResize = (event: React.PointerEvent<HTMLButtonElement>) => {
-    if (panelResizeStart.current) {
-      panelResizeStart.current = null;
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (panelResizeMoveRef.current) window.removeEventListener('pointermove', panelResizeMoveRef.current);
+    if (panelResizeEndRef.current) {
+      window.removeEventListener('pointerup', panelResizeEndRef.current);
+      window.removeEventListener('pointercancel', panelResizeEndRef.current);
     }
+    const start = { x: event.clientX, width: sharedPanelWidth, pointerId: event.pointerId };
+    panelResizeStart.current = start;
+    const move = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== start.pointerId) return;
+      moveEvent.preventDefault();
+      const maxWidth = Math.max(220, Math.min(420, Math.floor(window.innerWidth * 0.48)));
+      setSharedPanelWidth(Math.max(150, Math.min(maxWidth, start.width + moveEvent.clientX - start.x)));
+    };
+    const end = (endEvent: PointerEvent) => {
+      if (endEvent.pointerId !== start.pointerId) return;
+      panelResizeStart.current = null;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      panelResizeMoveRef.current = null;
+      panelResizeEndRef.current = null;
+    };
+    panelResizeMoveRef.current = move;
+    panelResizeEndRef.current = end;
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  };
+  const movePanelResize = (_event: React.PointerEvent<HTMLButtonElement>) => {};
+  const endPanelResize = (_event: React.PointerEvent<HTMLButtonElement>) => {
+    panelResizeStart.current = null;
+    if (panelResizeMoveRef.current) window.removeEventListener('pointermove', panelResizeMoveRef.current);
+    if (panelResizeEndRef.current) {
+      window.removeEventListener('pointerup', panelResizeEndRef.current);
+      window.removeEventListener('pointercancel', panelResizeEndRef.current);
+    }
+    panelResizeMoveRef.current = null;
+    panelResizeEndRef.current = null;
   };
 
   const [diagnosticLogs, setDiagnosticLogs] = useState<DiagnosticEntry[]>(() => {
