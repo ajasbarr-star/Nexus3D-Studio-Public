@@ -3030,6 +3030,94 @@ export default function App() {
       controlDiag('transform:mouseUp');
       recordInteractionTrace('Transform gizmo drag ended', { axis: transform.axis ?? null, mode: transform.getMode(), selectedId: selectedRef.current });
       syncViewportControls(false);
+      if (subGeometryBefore && activeSubSelection && editModeRef.current === 'Face' && transform.getMode() === 'translate' && activeSubSelection.faceParts?.length) {
+        // Face Pull: when a face is moved with the Move gizmo, bridge its
+        // original perimeter to its new perimeter with real quad side walls.
+        // The wall vertices share the exact old/new boundary coordinates with
+        // the body and pulled cap, so the result remains one connected shell.
+        const mesh = activeSubSelection.mesh;
+        const beforeGeometry = subGeometryBefore;
+        const liveGeometry = mesh.geometry;
+        const beforePosition = beforeGeometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+        const livePosition = liveGeometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+        const selectedVertexIds = new Set(activeSubSelection.faceParts.flat());
+        if (beforePosition && livePosition && beforePosition.count === livePosition.count) {
+          const sourceIndex = beforeGeometry.index;
+          const triangleCount = sourceIndex ? sourceIndex.count : beforePosition.count;
+          const vertexAt = (offset: number) => sourceIndex ? sourceIndex.getX(offset) : offset;
+          const pointKey = (index: number) => {
+            const point = new THREE.Vector3().fromBufferAttribute(beforePosition, index);
+            return [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(',');
+          };
+          const boundary = new Map<string, { a: number; b: number; count: number }>();
+          for (let offset = 0; offset + 2 < triangleCount; offset += 3) {
+            const tri = [vertexAt(offset), vertexAt(offset + 1), vertexAt(offset + 2)];
+            if (!tri.every(index => selectedVertexIds.has(index))) continue;
+            for (let edge = 0; edge < 3; edge++) {
+              const a = tri[edge], b = tri[(edge + 1) % 3];
+              const ka = pointKey(a), kb = pointKey(b);
+              const key = ka < kb ? ka + '|' + kb : kb + '|' + ka;
+              const entry = boundary.get(key);
+              if (entry) entry.count++;
+              else boundary.set(key, { a, b, count: 1 });
+            }
+          }
+          const perimeter = Array.from(boundary.values()).filter(edge => edge.count === 1);
+          const moved = perimeter.filter(edge => {
+            const oldA = new THREE.Vector3().fromBufferAttribute(beforePosition, edge.a);
+            const oldB = new THREE.Vector3().fromBufferAttribute(beforePosition, edge.b);
+            const newA = new THREE.Vector3().fromBufferAttribute(livePosition, edge.a);
+            const newB = new THREE.Vector3().fromBufferAttribute(livePosition, edge.b);
+            return oldA.distanceToSquared(newA) > 1e-12 || oldB.distanceToSquared(newB) > 1e-12;
+          });
+          if (moved.length) {
+            const source = liveGeometry.index ? liveGeometry.toNonIndexed() : liveGeometry.clone();
+            const oldAttributes = Object.entries(source.attributes) as Array<[string, THREE.BufferAttribute]>;
+            const append: Record<string, number[]> = {};
+            oldAttributes.forEach(([name]) => { append[name] = []; });
+            const addVertex = (sourceIndex: number, point: THREE.Vector3) => {
+              oldAttributes.forEach(([name, attribute]) => {
+                if (name === 'position') append[name].push(point.x, point.y, point.z);
+                else {
+                  for (let component = 0; component < attribute.itemSize; component++) {
+                    append[name].push(attribute.getComponent(sourceIndex, component));
+                  }
+                }
+              });
+            };
+            moved.forEach(edge => {
+              const oldA = new THREE.Vector3().fromBufferAttribute(beforePosition, edge.a);
+              const oldB = new THREE.Vector3().fromBufferAttribute(beforePosition, edge.b);
+              const newA = new THREE.Vector3().fromBufferAttribute(livePosition, edge.a);
+              const newB = new THREE.Vector3().fromBufferAttribute(livePosition, edge.b);
+              // [oldA, oldB, newB, oldA, newB, newA] is one quad.
+              const center = mesh.geometry.boundingBox?.getCenter(new THREE.Vector3()) || new THREE.Vector3();
+              const wallNormal = oldB.clone().sub(oldA).cross(newB.clone().sub(oldA));
+              const wallCenter = oldA.clone().add(oldB).add(newA).add(newB).multiplyScalar(0.25);
+              const order = wallNormal.dot(wallCenter.sub(center)) >= 0
+                ? [[edge.a, oldA], [edge.b, oldB], [edge.b, newB], [edge.a, oldA], [edge.b, newB], [edge.a, newA]] as Array<[number, THREE.Vector3]>
+                : [[edge.b, oldB], [edge.a, oldA], [edge.a, newA], [edge.b, oldB], [edge.a, newA], [edge.b, newB]] as Array<[number, THREE.Vector3]>;
+              order.forEach(([sourceVertex, point]) => addVertex(sourceVertex, point));
+            });
+            oldAttributes.forEach(([name, attribute]) => {
+              const extra = append[name];
+              const values = new Float32Array(attribute.array.length + extra.length);
+              values.set(attribute.array as unknown as ArrayLike<number>);
+              values.set(extra, attribute.array.length);
+              source.setAttribute(name, new THREE.Float32BufferAttribute(values, attribute.itemSize, attribute.normalized));
+            });
+            source.clearGroups();
+            if (source.getAttribute('position').count % 6 === 0) mesh.userData.nexusQuadGrid = true;
+            source.computeVertexNormals();
+            source.computeBoundingBox();
+            source.computeBoundingSphere();
+            if (liveGeometry !== source) liveGeometry.dispose();
+            mesh.geometry = source;
+            refreshTopologyOverlay(mesh);
+            recordInteractionTrace('Face Pull side walls committed', { boundaryEdges: moved.length, connectedQuadWalls: moved.length, closedShellBridge: true });
+          } else recordInteractionTrace('Face Pull skipped · no moved face perimeter', { selectedVertexCount: selectedVertexIds.size });
+        }
+      }
       if (subGeometryBefore && activeSubSelection) {
         const mesh = activeSubSelection.mesh;
         const beforeGeometry = subGeometryBefore.clone();
