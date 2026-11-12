@@ -4980,19 +4980,19 @@ export default function App() {
         meshSummary ? formatMeshForensicReport(meshSummary) : 'Mesh topology scan not applicable to this tool.',
         '',
         'OPERATION / EVENT TRACE',
-        ...(matching.length ? matching.slice(-120).map(entry => '[' + entry.time + '] [' + entry.level + '] [' + entry.source + '] ' + entry.message + (entry.details ? '\\n' + entry.details : '')) : ['No matching operation event is currently captured. This is not evidence that the operation is defect-free.']),
+        ...(matching.length ? matching.slice(-120).map(entry => '[' + entry.time + '] [' + entry.level + '] [' + entry.source + '] ' + entry.message + (entry.details ? '\n' + entry.details : '')) : ['No matching operation event is currently captured. This is not evidence that the operation is defect-free.']),
         '',
         'SCOPE NOTE',
         'This button scans current read-only scene geometry and correlates captured runtime events. Historical before/after geometry snapshots are only available for operations explicitly instrumented in the current session.'
       ];
-      const report = sections.join('\\n');
+      const report = sections.join('\n');
       setDfiToolReports(previous => ({ ...previous, [tool]: report }));
       const level: DiagnosticEntry['level'] = meshSummary?.issues.some(issue => issue.severity === 'ERROR') ? 'ERROR' : meshSummary?.issues.some(issue => issue.severity === 'WARN') ? 'WARN' : 'INFO';
       diagnosticSinkRef.current(level, 'Advanced DFI · ' + tool, 'Tool scan completed', report);
       setStatus(tool + ' scan complete · ' + (matching.length ? matching.length + ' trace event(s)' : 'no operation trace captured'));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const report = 'SCAN ERROR\\n' + message + '\\nNo geometry repair or mutation was attempted.';
+      const report = 'SCAN ERROR\n' + message + '\nNo geometry repair or mutation was attempted.';
       setDfiToolReports(previous => ({ ...previous, [tool]: report }));
       diagnosticSinkRef.current('ERROR', 'Advanced DFI · ' + tool, 'Tool scan failed safely', message);
       setStatus(tool + ' scan failed · diagnostic captured');
@@ -5020,11 +5020,11 @@ export default function App() {
       rdsSourceAuditReport,
       '',
       'ALL CAPTURED RUNTIME DIAGNOSTICS',
-      ...logs.map(entry => '[' + entry.time + '] [' + entry.level + '] [' + entry.source + '] ' + entry.message + (entry.details ? '\\n' + entry.details : '')),
+      ...logs.map(entry => '[' + entry.time + '] [' + entry.level + '] [' + entry.source + '] ' + entry.message + (entry.details ? '\n' + entry.details : '')),
       '',
       'CLASSIFICATION RULE: ERROR/CONFLICT/BUG/CRASH labels are based on recorded evidence and source text; warnings and suspected causes are not automatically confirmed root causes.'
     ];
-    const report = sections.join('\\n');
+    const report = sections.join('\n');
     try {
       if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(report);
       else {
@@ -6043,8 +6043,8 @@ export default function App() {
               <button type="button" onClick={() => void copyDiagnosticText([{ id: 'dfi-report', time: new Date().toLocaleTimeString(), level: dfiSummary.errors ? 'ERROR' : dfiSummary.warnings ? 'WARN' : 'INFO', source: 'DFI Core', message: 'Forensic investigation report', details: dfiReport }])} disabled={dfiReport.startsWith('No DFI investigation')}><ClipboardCopy size={12}/> COPY REPORT</button>
               <button type="button" onClick={() => { setDfiReport('No DFI investigation has been run yet.'); setDfiSummary({ findings: 0, errors: 0, warnings: 0, repeatedErrors: 0, invalidMeshes: 0 }); }}><RefreshCw size={12}/> RESET</button>
             </div>
-            <div className="core-optimizer-report dfi-report dfi-highlight-report">{dfiReport.split('\\n').map((line, index) => {
-              const tag = /\\b(CRASH|FATAL)\\b/i.test(line) ? 'crash' : /\\b(CONFLICT)\\b/i.test(line) ? 'conflict' : /\\b(ERROR|BUG|DUPLICATE|NON_MANIFOLD)\\b/i.test(line) ? 'error' : /\\b(WARN|WARNING|SUSPECTED)\\b/i.test(line) ? 'warning' : '';
+            <div className="core-optimizer-report dfi-report dfi-highlight-report">{dfiReport.split('\n').map((line, index) => {
+              const tag = /\b(CRASH|FATAL)\b/i.test(line) ? 'crash' : /\b(CONFLICT)\b/i.test(line) ? 'conflict' : /\b(ERROR|BUG|DUPLICATE|NON_MANIFOLD)\b/i.test(line) ? 'error' : /\b(WARN|WARNING|SUSPECTED)\b/i.test(line) ? 'warning' : '';
               return <div key={index} className={tag ? 'dfi-report-line dfi-' + tag : 'dfi-report-line'}>{line || ' '}</div>;
             })}</div>
             <div className="menu-info"><Info size={12}/><span>DFI correlates captured RDS errors, repeated failure signatures, live mesh integrity and the build-time source audit. It reports evidence and likely investigation leads, not guaranteed root causes. Git history, full dependency/data-flow analysis and native Android Logcat require repository/build-side tools. Read-only: no automatic fixes.</span></div>
