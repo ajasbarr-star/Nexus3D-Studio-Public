@@ -3568,6 +3568,26 @@ export default function App() {
         p.needsUpdate = true;
       }
       geometry.computeVertexNormals();
+
+    }
+    // Re-weld coincident vertices after topology-changing operations so adjacent faces share indices.
+    // UVs are regenerated safely if topology changes; normals and bounds are always rebuilt below.
+    if (tool === 'Extrude') {
+      // Keep UV and material seams as authored; the new side walls receive interpolated
+      // fallback UVs only when no usable UV attribute exists.
+      geometry.computeVertexNormals();
+    }
+    const finalPosition = geometry.getAttribute('position');
+    if (finalPosition) {
+      Object.entries(geometry.attributes).forEach(([name, rawAttribute]: [string, any]) => {
+        if (name === 'position' || rawAttribute.count === finalPosition.count) return;
+        if (name === 'normal') { geometry.deleteAttribute('normal'); return; }
+        const values = new Float32Array(finalPosition.count * rawAttribute.itemSize);
+        values.set(Array.from(rawAttribute.array as ArrayLike<number>).slice(0, values.length));
+        geometry.setAttribute(name, new THREE.Float32BufferAttribute(values, rawAttribute.itemSize, rawAttribute.normalized));
+      });
+      if (!geometry.getAttribute('uv')) geometry.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(finalPosition.count * 2), 2));
+    }
       // Reconstruct each existing pair of triangles as one canonical quad cell.
       // BoxGeometry commonly stores [A,B,D,B,C,D], while the quad Subdivide path
       // expects [A,B,C,A,C,D]. Pair only triangles that share exactly one diagonal,
@@ -3646,25 +3666,6 @@ export default function App() {
           }));
         }
       }
-    }
-    // Re-weld coincident vertices after topology-changing operations so adjacent faces share indices.
-    // UVs are regenerated safely if topology changes; normals and bounds are always rebuilt below.
-    if (tool === 'Extrude') {
-      // Keep UV and material seams as authored; the new side walls receive interpolated
-      // fallback UVs only when no usable UV attribute exists.
-      geometry.computeVertexNormals();
-    }
-    const finalPosition = geometry.getAttribute('position');
-    if (finalPosition) {
-      Object.entries(geometry.attributes).forEach(([name, rawAttribute]: [string, any]) => {
-        if (name === 'position' || rawAttribute.count === finalPosition.count) return;
-        if (name === 'normal') { geometry.deleteAttribute('normal'); return; }
-        const values = new Float32Array(finalPosition.count * rawAttribute.itemSize);
-        values.set(Array.from(rawAttribute.array as ArrayLike<number>).slice(0, values.length));
-        geometry.setAttribute(name, new THREE.Float32BufferAttribute(values, rawAttribute.itemSize, rawAttribute.normalized));
-      });
-      if (!geometry.getAttribute('uv')) geometry.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(finalPosition.count * 2), 2));
-    }
     const finalPositions = geometry.getAttribute('position');
     if (finalPositions) finalPositions.needsUpdate = true;
     geometry.computeVertexNormals();
