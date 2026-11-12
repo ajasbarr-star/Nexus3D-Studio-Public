@@ -1972,3 +1972,30 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 
 /* Menu panel visual breathing room: slightly taller without touching the bottom dock. */
 .menu-panel { padding-bottom: 30px !important; }
+
+
+/* Scene Tree Object Manager: compact touch-first row controls. */
+.panel-heading .tree-manager-tools { display:flex; align-items:center; gap:3px; }
+.tree-manager-tools button { width:23px; height:25px; display:grid; place-items:center; padding:0; border:1px solid transparent; border-radius:5px; color:#8da9c7; background:transparent; }
+.tree-manager-tools button:active, .tree-manager-tools button:hover:not(:disabled) { color:#9feaff; border-color:#24516b; background:#102d40; }
+.tree-manager-tools button:disabled { opacity:.32; }
+.tree-manager-tools .count { margin-left:2px; }
+.tree-row { position:relative; }
+.tree-row.menu-open { z-index:14; }
+.tree-row-actions { display:flex; flex:0 0 auto; align-items:center; gap:1px; }
+.tree-row-action { width:20px; height:27px; flex:0 0 20px; display:grid; place-items:center; padding:0; border:0; border-radius:4px; color:#7895b5; background:transparent; touch-action:manipulation; user-select:none; -webkit-user-select:none; }
+.tree-row-action:active, .tree-row-action:hover, .tree-row-action.active { color:#9feaff; background:#12364b; }
+.tree-row-action.locked { color:#ffca78; background:#382b18; }
+.tree-row-action:disabled { opacity:.28; }
+.tree-more-menu { position:absolute; z-index:20; top:27px; right:1px; width:112px; display:flex; flex-direction:column; gap:2px; padding:5px; border:1px solid #31506c; border-radius:7px; background:rgba(8,17,29,.98); box-shadow:0 8px 24px #0009; }
+.tree-more-menu button { min-height:29px; display:flex; align-items:center; gap:7px; padding:0 7px; border:0; border-radius:4px; color:#b6cce3; background:transparent; text-align:left; font-size:9px; white-space:nowrap; }
+.tree-more-menu button:active, .tree-more-menu button:hover:not(:disabled) { color:#a6efff; background:#12364b; }
+.tree-more-menu button.danger { color:#f49b9b; }
+.tree-more-menu button:disabled { opacity:.3; }
+.tree-row .tree-item { gap:5px; padding-right:3px; }
+.tree-row .tree-name { flex:1; min-width:0; }
+@media (max-width: 570px) {
+  .tree-row-action { width:19px; flex-basis:19px; }
+  .tree-eye { flex-basis:21px; width:21px; }
+  .tree-row-actions { gap:0; }
+}
