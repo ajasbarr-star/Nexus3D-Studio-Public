@@ -4854,7 +4854,7 @@ export default function App() {
             let parent = item.object.parent;
             while (parent) { if (parent.userData.editorId) depth += 1; parent = parent.parent; }
             const hasChildren = items.some(other => other.object.parent === item.object);
-            return <div key={item.id} data-tree-id={item.id} className={'tree-row ' + (selected === item.id ? 'selected' : '') + (dragTargetId === item.id ? ' drop-target' : '')}
+            return <div key={item.id} data-tree-id={item.id} className={'tree-row ' + (selected === item.id ? 'selected ' : '') + (dragTargetId === item.id ? 'drop-target ' : '') + (treeActionId === item.id ? 'menu-open' : '')}
               draggable={!('ontouchstart' in window)}
               onContextMenu={e => { if ('ontouchstart' in window) e.preventDefault(); }}
               onSelectStart={e => { if ('ontouchstart' in window) e.preventDefault(); }}
