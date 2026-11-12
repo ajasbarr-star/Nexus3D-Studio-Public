@@ -2,9 +2,6 @@ name: Nexus3D Test Android APK
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - test/nexus3d-test-apk
 
 permissions:
   contents: read
