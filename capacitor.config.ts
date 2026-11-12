@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.nexus3d.studio',
+  appId: 'com.nexus3d.studio.test',
   appName: 'Nexus3D',
   webDir: 'dist',
   android: {
