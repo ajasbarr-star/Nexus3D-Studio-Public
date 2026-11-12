@@ -199,3 +199,10 @@ test('Primitive quad UV coordinates remain continuous across U and V parameter s
   assert.match(source, /while \(v - baseUvV > 0\.5\) v -= 1/);
   assert.match(source, /return \[u, v\]/);
 });
+
+
+test('Legacy triangle-clipping code is reserved for Loop Cut and cannot run for Subdivide', () => {
+  assert.match(source, /else if \(tool === 'LoopCut'\) \{[\s\S]*?Loop Cut remains a separate operation/);
+  assert.doesNotMatch(source, /else if \(tool === 'Subdivide' \|\| tool === 'LoopCut'\)/);
+  assert.doesNotMatch(source, /Subdivide needs a mesh with valid triangles/);
+});
