@@ -8,7 +8,7 @@ const testWorkflow = fs.readFileSync('.github/workflows/android-test-apk.yml', '
 const originalWorkflow = fs.readFileSync('.github/workflows/android-apk.yml', 'utf8');
 
 test('Test APK has a separate Android application ID', () => {
-  assert.match(capacitor, /appId:\s*'com\\.nexus3d\\.studio\\.test'/);
+  assert.match(capacitor, /appId:\s*'com\.nexus3d\.studio\.test'/);
   assert.match(testWorkflow, /com\/nexus3d\/studio\/test/);
 });
 
