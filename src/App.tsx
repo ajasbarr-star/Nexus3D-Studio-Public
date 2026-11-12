@@ -3431,29 +3431,57 @@ export default function App() {
        geometry = cutGeometry;
        geometry.computeVertexNormals();
        recordInteractionTrace('Faces Cut committed', { removedCapTriangles: removedCaps, remainingTriangles: kept.length / 3, dualFaceCount: selectedFaceParts.length });
-     } else if (tool === 'Subdivide' && (target.userData.nexusQuadGrid === true || (target.userData.kind === 'Cube' && Boolean(geometry.index)))) {
-      // Three.js BoxGeometry stores each original quad as [A,B,D] and [B,C,D].
-      // Reconstruct the perimeter [A,B,C,D] on the first pass. Any mesh carrying
-      // Nexus3D's verified quad-grid marker (including extruded quad side walls)
-      // uses [A,B,C,A,C,D], so later passes read [0,1,2,5].
+     } else if (tool === 'Subdivide') {
+      // Subdivide only verified quad cells, but do not depend on a stale marker.
+      // Faces Cut removes complete cap quads and leaves the remaining canonical
+      // six-vertex triangle pairs intact, including open boundaries around holes.
       let sourceCornerOffsets: number[] | null = null;
-      if (geometry.index && target.userData.nexusQuadGrid !== true && target.userData.kind === 'Cube') {
+      if (geometry.index && target.userData.kind === 'Cube' && target.userData.nexusQuadGrid !== true) {
         const indexedSource = geometry;
         geometry = indexedSource.toNonIndexed();
         indexedSource.dispose();
+        // Three.js BoxGeometry uses [A,B,D] + [B,C,D] for each original quad.
         sourceCornerOffsets = [0, 1, 4, 2];
-      } else if (!geometry.index && target.userData.nexusQuadGrid === true) {
-        sourceCornerOffsets = [0, 1, 2, 5];
       } else {
-        geometry.dispose(); before.dispose();
-        setStatus('Subdivide cancelled: this shape has no verified square-quad layout. Existing geometry was preserved.');
-        return;
+        if (geometry.index) {
+          const indexedSource = geometry;
+          geometry = indexedSource.toNonIndexed();
+          indexedSource.dispose();
+        }
+        const candidate = geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+        if (candidate && candidate.count >= 6 && candidate.count % 6 === 0) {
+          geometry.computeBoundingSphere();
+          const tolerance = Math.max(geometry.boundingSphere?.radius || 1, 1) * 1e-6;
+          const close = (a: THREE.Vector3, b: THREE.Vector3) => a.distanceToSquared(b) <= tolerance * tolerance;
+          let canonicalQuadStream = true;
+          for (let offset = 0; offset < candidate.count; offset += 6) {
+            const points = Array.from({ length: 6 }, (_value, index) => new THREE.Vector3().fromBufferAttribute(candidate, offset + index));
+            const triangleA = points[1].clone().sub(points[0]).cross(points[2].clone().sub(points[0]));
+            const triangleB = points[4].clone().sub(points[3]).cross(points[5].clone().sub(points[3]));
+            const uniqueCorners = [points[0], points[1], points[2], points[5]];
+            const uniqueKeys = new Set(uniqueCorners.map(point => [point.x, point.y, point.z].map(value => Math.round(value / tolerance)).join(',')));
+            if (!close(points[0], points[3]) || !close(points[2], points[4]) ||
+                uniqueKeys.size !== 4 || triangleA.lengthSq() <= tolerance ** 4 ||
+                triangleB.lengthSq() <= tolerance ** 4) {
+              canonicalQuadStream = false;
+              break;
+            }
+          }
+          if (canonicalQuadStream) sourceCornerOffsets = [0, 1, 2, 5];
+        }
       }
       const source = geometry.getAttribute('position') as THREE.BufferAttribute;
       const sourceUv = geometry.getAttribute('uv') as THREE.BufferAttribute | undefined;
       if (!sourceCornerOffsets || source.count % 6 !== 0) {
         geometry.dispose(); before.dispose();
-        setStatus('Quad Subdivide could not identify the current square-quad layout; existing geometry was preserved.');
+        setStatus('Subdivide cancelled: this mesh has no verified quad-cell layout. Existing geometry was preserved.');
+        diagnosticSinkRef.current('WARN', 'Geometry Safety', 'Quad subdivision unavailable for current topology', JSON.stringify({
+          object: target.name,
+          kind: target.userData.kind || 'Imported Mesh',
+          vertexCount: source.count,
+          indexed: Boolean(geometry.index),
+          quadGridMarker: Boolean(target.userData.nexusQuadGrid),
+        }));
         return;
       }
       const cellCount = source.count / 6;
