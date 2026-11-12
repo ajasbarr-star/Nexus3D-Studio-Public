@@ -5253,29 +5253,6 @@ export default function App() {
 
       {menuOpen && !panel && !cameraView && !riggingView && <aside className="menu-panel" style={{ "--nexus-panel-width": sharedPanelWidth + "px" } as React.CSSProperties}>
         <div className="panel-heading"><div><Settings2 size={13} /><span>Menu</span></div><button className="menu-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={13} /></button></div>
-        <section className="menu-category interaction-trace-section">
-          <button type="button" className={'menu-option diagnostic-toggle-button ' + (interactionTraceOpen ? 'expanded' : '')}
-            aria-expanded={interactionTraceOpen} onClick={() => setInteractionTraceOpen(open => !open)}>
-            <Activity size={13}/><span>REALTIME INTERACTION TRACE</span>
-            {interactionTraceOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
-          </button>
-          {interactionTraceOpen && <section className="diagnostic-panel-expanded" aria-label="Realtime Interaction Trace">
-            <div className="diagnostic-summary"><span>{diagnosticLogs.filter(entry => entry.source === 'Interaction Trace').length} interaction event(s)</span><span>{diagnosticLogs.filter(entry => entry.level === 'ERROR').length} error(s)</span></div>
-            <div className="diagnostic-actions">
-              <button type="button" onClick={() => void copyDiagnosticText([...diagnosticLogs, ...diagnosticQueueRef.current])} disabled={!diagnosticLogs.length && !diagnosticQueueRef.current.length}><ClipboardCopy size={12}/> COPY ALL</button>
-              <button type="button" onClick={() => { setDiagnosticFilter('ERROR'); setDiagnosticPanelOpen(true); setInteractionTraceOpen(false); }}><ScanEye size={12}/> ERROR HIGHLIGHTS</button>
-            </div>
-            <div className="diagnostic-log-list" role="log" aria-live="polite" aria-label="Nexus3D interaction trace">
-              {!diagnosticLogs.some(entry => entry.source === 'Interaction Trace') && <div className="diagnostic-empty">No interaction events captured yet. Tap the viewport, Scene Tree, or a modeling tool to begin tracing.</div>}
-              {diagnosticLogs.filter(entry => entry.source === 'Interaction Trace').slice(-120).reverse().map(entry => <article className={'diagnostic-entry diagnostic-' + entry.level.toLowerCase()} key={entry.id}>
-                <div><strong>{entry.level}</strong><time>{entry.time}</time></div>
-                <b>{entry.source}</b><p>{entry.message}</p>
-                {entry.details && <pre>{entry.details}</pre>}
-              </article>)}
-            </div>
-            <div className="menu-info"><Info size={12}/><span>Records viewport taps, transform-gizmo drags, Scene Tree selections and geometry-tool requests. Events are correlated with runtime errors and warnings in the Realtime Diagnostic System below.</span></div>
-          </section>}
-        </section>
         <section className="menu-category diagnostic-menu-section">
           <button type="button" className={'menu-option diagnostic-toggle-button ' + (diagnosticPanelOpen ? 'expanded' : '')}
                           aria-expanded={diagnosticPanelOpen}
@@ -5285,6 +5262,29 @@ export default function App() {
                         </button>
                         {diagnosticPanelOpen && <section className="diagnostic-panel-expanded" aria-label="Realtime Diagnostic System Panel">
                         <div className="diagnostic-summary"><span>{diagnosticLogs.length} captured log(s)</span><span>{diagnosticLogs.filter(entry => entry.level === 'ERROR').length} error(s)</span></div>
+                        <div className="rds-rit-toolbar">
+                          <button type="button" className={'diagnostic-toggle-button rds-rit-toggle ' + (interactionTraceOpen ? 'expanded' : '')}
+                            aria-expanded={interactionTraceOpen} onClick={() => setInteractionTraceOpen(open => !open)}>
+                            <Activity size={13}/><span>REALTIME INTERACTION TRACE (RIT)</span>
+                            {interactionTraceOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
+                          </button>
+                        </div>
+                        {interactionTraceOpen && <section className="rds-rit-panel" aria-label="Realtime Interaction Trace results">
+                          <div className="diagnostic-summary"><span>{diagnosticLogs.filter(entry => entry.source === 'Interaction Trace').length} interaction event(s)</span><span>{diagnosticLogs.filter(entry => entry.source === 'Interaction Trace' && entry.level === 'ERROR').length} trace error(s)</span></div>
+                          <div className="diagnostic-actions rds-rit-actions">
+                            <button type="button" onClick={() => void copyDiagnosticText([...diagnosticLogs.filter(entry => entry.source === 'Interaction Trace'), ...diagnosticQueueRef.current.filter(entry => entry.source === 'Interaction Trace')])} disabled={!diagnosticLogs.some(entry => entry.source === 'Interaction Trace') && !diagnosticQueueRef.current.some(entry => entry.source === 'Interaction Trace')}><ClipboardCopy size={12}/> COPY RIT</button>
+                            <button type="button" onClick={() => { setDiagnosticFilter('ERROR'); setInteractionTraceOpen(false); }}><ScanEye size={12}/> ERROR FILTER</button>
+                          </div>
+                          <div className="diagnostic-log-list" role="log" aria-live="polite" aria-label="Nexus3D interaction trace">
+                            {!diagnosticLogs.some(entry => entry.source === 'Interaction Trace') && <div className="diagnostic-empty">No interaction events captured yet. Tap the viewport, Scene Tree, or a modeling tool to begin tracing.</div>}
+                            {diagnosticLogs.filter(entry => entry.source === 'Interaction Trace').slice(-120).reverse().map(entry => <article className={'diagnostic-entry diagnostic-' + entry.level.toLowerCase()} key={entry.id}>
+                              <div><strong>{entry.level}</strong><time>{entry.time}</time></div>
+                              <b>{entry.source}</b><p>{entry.message}</p>
+                              {entry.details && <pre>{entry.details}</pre>}
+                            </article>)}
+                          </div>
+                          <div className="menu-info"><Info size={12}/><span>RIT captures viewport taps, gizmo drags, Scene Tree selections and modeling-tool requests. Live capture continues while this panel is closed.</span></div>
+                        </section>}
                         <div className="diagnostic-actions">
                           <button type="button" onClick={() => void copyDiagnosticText(visibleDiagnosticLogs)} disabled={!visibleDiagnosticLogs.length}><ClipboardCopy size={12}/> COPY VIEW</button>
                           <button type="button" onClick={() => void copyDiagnosticText(diagnosticLogs)} disabled={!diagnosticLogs.length}><ClipboardCopy size={12}/> COPY ALL</button>
