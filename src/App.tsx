@@ -1275,9 +1275,14 @@ export default function App() {
             let chosen: { other: number; corners: number[] } | null = null;
             for (const candidate of candidates) {
               const otherIndices = triangles[candidate.other].indices;
-              const sharedKeys = new Set([pointKey(triangle.indices[candidate.edge]), pointKey(triangle.indices[(candidate.edge + 1) % 3])]);
-              const opposite = otherIndices.find(index => !sharedKeys.has(pointKey(index)));
               const edgeA = triangle.indices[candidate.edge], edgeB = triangle.indices[(candidate.edge + 1) % 3];
+              const keyA = pointKey(edgeA), keyB = pointKey(edgeB);
+              // A valid manifold triangle pair traverses the shared edge in opposite directions.
+              const reverseEdge = otherIndices.some((index, edgeIndex) =>
+                pointKey(index) === keyB && pointKey(otherIndices[(edgeIndex + 1) % 3]) === keyA
+              );
+              if (!reverseEdge) continue;
+              const opposite = otherIndices.find(index => pointKey(index) !== keyA && pointKey(index) !== keyB);
               const remaining = triangle.indices[(candidate.edge + 2) % 3];
               if (opposite === undefined) continue;
               const corners = [edgeA, remaining, edgeB, opposite];
