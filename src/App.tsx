@@ -3896,7 +3896,7 @@ export default function App() {
       runtime.current?.refreshTopologyOverlay?.(target);
     } else { runtime.current?.clearSubSelection?.(); const gizmo = runtime.current?.transform; if (gizmo) { gizmo.detach(); gizmo.enabled = false; gizmo.getHelper().visible = false; } }
     if (tool !== 'LoopCut') loopCutContext.current = null;
-    if (tool !== 'Extrude') extrudeContext.current = null;
+    extrudeContext.current = null;
     if (tool === 'LoopCut' || tool === 'FacesCut') setEditTool('');
     setStatus(tool === 'Extrude' ? 'Face extruded · gizmo stays on the raised face; edge loops are visible' : tool === 'LoopCut' ? 'Loop Cut committed to mesh geometry' : tool + ' applied to actual mesh geometry · reselect the edited face to continue');
   };
