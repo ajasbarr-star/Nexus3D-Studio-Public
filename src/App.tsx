@@ -3186,6 +3186,7 @@ export default function App() {
     const depth = Math.max(0.01, rawAmount / 100) * 0.8;
     let extrudedCapIndices: number[] = [];
     let generatedCutLoops: number[][][] = [];
+    let extrudeQuadGridVerified = false;
     const previousCutLoops = useExtrudeBaseline ? extrudeBaseCutLoops.current.map(loop => loop.map(point => [...point])) : Array.isArray(target.userData.cutLoops) ? (target.userData.cutLoops as number[][][]).map(loop => loop.map(point => [...point])) : [];
     const captureQuadGridState = () => ({
       enabled: Boolean(target.userData.nexusQuadGrid),
@@ -3567,6 +3568,30 @@ export default function App() {
         p.needsUpdate = true;
       }
       geometry.computeVertexNormals();
+      // Extrude converts face geometry to a non-indexed triangle stream. Only
+      // promote it to the quad-grid path when EVERY consecutive pair is an
+      // explicitly encoded quad [A,B,C,A,C,D]. Arbitrary triangle meshes remain
+      // unmarked and are rejected by the quad-only Subdivide path.
+      if (editModeRef.current === 'Face' && !geometry.index) {
+        const position = geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+        const tolerance = Math.max(1e-6, (geometry.boundingSphere?.radius || 1) * 1e-5);
+        const closePoint = (a: THREE.Vector3, b: THREE.Vector3) => a.distanceToSquared(b) <= tolerance * tolerance;
+        let verified = Boolean(position && position.count >= 6 && position.count % 6 === 0);
+        if (position && verified) {
+          for (let start = 0; start < position.count; start += 6) {
+            const q = Array.from({ length: 6 }, (_value, index) => new THREE.Vector3().fromBufferAttribute(position, start + index));
+            if (!closePoint(q[0], q[3]) || !closePoint(q[2], q[4])) { verified = false; break; }
+            const normalA = q[1].clone().sub(q[0]).cross(q[2].clone().sub(q[0]));
+            const normalB = q[4].clone().sub(q[3]).cross(q[5].clone().sub(q[3]));
+            if (normalA.lengthSq() <= tolerance ** 4 || normalB.lengthSq() <= tolerance ** 4 ||
+                normalA.clone().normalize().dot(normalB.clone().normalize()) < 0.999 ||
+                Math.abs(q[5].clone().sub(q[0]).dot(normalA.clone().normalize())) > tolerance * 4) {
+              verified = false; break;
+            }
+          }
+        }
+        extrudeQuadGridVerified = verified;
+      }
     }
     // Re-weld coincident vertices after topology-changing operations so adjacent faces share indices.
     // UVs are regenerated safely if topology changes; normals and bounds are always rebuilt below.
@@ -3599,6 +3624,8 @@ export default function App() {
     const after = geometry.clone();
     const afterQuadGridState = tool === 'Subdivide'
       ? { enabled: true, layout: 'canonical-v1', bounds: null, divisions: 0 }
+      : tool === 'Extrude' && extrudeQuadGridVerified
+        ? { enabled: true, layout: 'canonical-v1', bounds: null, divisions: 0 }
       : tool === 'LoopCut'
         ? { enabled: false, layout: null, bounds: null, divisions: 0 }
         : captureQuadGridState();
