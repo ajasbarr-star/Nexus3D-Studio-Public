@@ -1312,7 +1312,7 @@ export default function App() {
           }
         }
         obj = new THREE.Mesh(geometry, material);
-        if (kind === 'Cube' || geometry.userData.nexusPrimitiveQuadGrid === true) {
+        if (kind !== 'Cube' && geometry.userData.nexusPrimitiveQuadGrid === true) {
           obj.userData.nexusQuadGrid = true;
           obj.userData.nexusQuadGridLayout = 'triangle-paired-primitive';
         }
