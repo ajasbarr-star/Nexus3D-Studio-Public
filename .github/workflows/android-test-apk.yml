@@ -1,0 +1,72 @@
+name: Nexus3D Test Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - test/nexus3d-test-apk
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Nexus3D
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          # The legacy "tools" SDK package no longer exists in current repositories.
+          packages: platform-tools
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run RDS source audit and regression tests
+        run: npm run verify:rds
+
+      - name: Build bundled Nexus3D editor
+        run: npm run build
+
+      - name: Generate native Android project
+        run: npx cap add android
+
+      - name: Apply Nexus3D immersive Android activity
+        run: |
+          mkdir -p android/app/src/main/java/com/nexus3d/studio/test
+          cp native/android/MainActivity.java android/app/src/main/java/com/nexus3d/studio/test/MainActivity.java
+          cp native/android/NexusProjectFilesPlugin.java android/app/src/main/java/com/nexus3d/studio/test/NexusProjectFilesPlugin.java
+
+      - name: Sync bundled editor and native plugins
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug
+
+      - name: Rename APK with GitHub Actions build number
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk "android/app/build/outputs/apk/debug/Nexus3D_Test_${GITHUB_RUN_NUMBER}.apk"
+
+      - name: Upload Nexus3D APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexus3D_Test_${{ github.run_number }}
+          path: android/app/build/outputs/apk/debug/Nexus3D_Test_${{ github.run_number }}.apk
+          if-no-files-found: error
+          retention-days: 14
