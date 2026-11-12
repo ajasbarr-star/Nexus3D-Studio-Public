@@ -348,3 +348,17 @@ test('Main Viewport camera orbit can inspect the underside without crossing unst
   assert.match(source, /orbit\.maxPolarAngle = Math\.PI - 0\.01/);
   assert.doesNotMatch(source, /orbit\.maxPolarAngle = Math\.PI \* 0\.49/);
 });
+
+test('Face Extrude matches selected triangles by source identity, not coincident positions', () => {
+  const start = source.indexOf("} else if (tool === 'Extrude') {");
+  const end = source.indexOf("// Re-weld coincident vertices", start);
+  assert.ok(start >= 0 && end > start, 'Face Extrude implementation must exist');
+  const block = source.slice(start, end);
+  assert.match(block, /const selectedTriangleOffsets = new Set<number>\(\)/);
+  assert.match(block, /selectedTriangleOffsets\.add\(Math\.floor\(start \/ 3\)\)/);
+  assert.match(block, /selectedTriangleOffsets\.has\(triangleOffset\)/);
+  assert.match(block, /const sourceTriangleVertexIds = \[0, 1, 2\]\.map\(k => sourceVertex\(start \+ k\)\)/);
+  assert.match(block, /sourceTriangleVertexIds\.every\(index => faceVertexIds\.has\(index\)\)/);
+  assert.doesNotMatch(block, /selectedTriangleKeys/);
+  assert.doesNotMatch(block, /triangleKey\(tri\[0\], tri\[1\], tri\[2\]\)/);
+});
