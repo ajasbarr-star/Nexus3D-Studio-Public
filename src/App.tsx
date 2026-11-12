@@ -622,8 +622,8 @@ export default function App() {
     try {
       if (typeof PerformanceObserver !== 'undefined') {
         longTaskObserver = new PerformanceObserver(list => {
-          list.getEntries().forEach(entry => diagnosticSinkRef.current(entry.duration >= 250 ? 'ERROR' : 'WARN',
-            'Main Thread', 'Long task blocked UI thread', `${Math.round(entry.duration)} ms`));
+          list.getEntries().forEach(entry => diagnosticSinkRef.current('WARN',
+            'Main Thread Performance', 'UI thread was blocked by a long task (performance warning, not a runtime exception)', `${Math.round(entry.duration)} ms`));
         });
         longTaskObserver.observe({ entryTypes: ['longtask'] });
       }
@@ -3186,6 +3186,7 @@ export default function App() {
     const depth = Math.max(0.01, rawAmount / 100) * 0.8;
     let extrudedCapIndices: number[] = [];
     let generatedCutLoops: number[][][] = [];
+    let extrudeQuadGridVerified = false;
     const previousCutLoops = useExtrudeBaseline ? extrudeBaseCutLoops.current.map(loop => loop.map(point => [...point])) : Array.isArray(target.userData.cutLoops) ? (target.userData.cutLoops as number[][][]).map(loop => loop.map(point => [...point])) : [];
     const captureQuadGridState = () => ({
       enabled: Boolean(target.userData.nexusQuadGrid),
@@ -3304,7 +3305,7 @@ export default function App() {
       geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-      geometry.computeVertexNormals();
+      // Final geometry commit below computes normals once after all topology edits.
     } else if (tool === 'Subdivide') {
       // Fail closed for meshes without a verified quad-cell topology. Splitting
       // arbitrary triangles creates diagonal triangle grids and loses reliable
@@ -3359,7 +3360,9 @@ export default function App() {
       groups.forEach((group, key) => smoothed.set(key, group.point.clone()));
       // Apply multiple positive passes on ALL connected mesh vertices. Each press
       // compounds on the latest geometry, making the object progressively rounder.
-      const smoothPasses = position.count > 36000 ? 1 : 3;
+      // Smoothing allocates adjacency and vector snapshots; reduce passes on mobile meshes.
+      // Repeated Smooth presses still compound progressively on the latest geometry.
+      const smoothPasses = position.count > 8000 ? 1 : position.count > 3000 ? 2 : 3;
       for (let pass = 0; pass < smoothPasses; pass++) {
         const next = new Map<string, THREE.Vector3>();
         smoothed.forEach((point, key) => {
@@ -3380,7 +3383,6 @@ export default function App() {
       });
       position.needsUpdate = true;
       geometry.deleteAttribute('normal');
-      geometry.computeVertexNormals();
       }
         } else if (tool === 'LoopCut') {
       // Loop Cut remains a separate operation. Subdivide is deliberately excluded
@@ -3566,14 +3568,15 @@ export default function App() {
         ids.forEach(i => { if (i>=0 && i<p.count) p.setXYZ(i,p.getX(i)+offset.x,p.getY(i)+offset.y,p.getZ(i)+offset.z); });
         p.needsUpdate = true;
       }
-      geometry.computeVertexNormals();
+      // Final geometry commit below computes normals once after the extrusion is complete.
+
     }
     // Re-weld coincident vertices after topology-changing operations so adjacent faces share indices.
     // UVs are regenerated safely if topology changes; normals and bounds are always rebuilt below.
     if (tool === 'Extrude') {
       // Keep UV and material seams as authored; the new side walls receive interpolated
-      // fallback UVs only when no usable UV attribute exists.
-      geometry.computeVertexNormals();
+      // fallback UVs only when no usable UV attribute exists. Normals are computed once
+      // in the shared finalization block below.
     }
     const finalPosition = geometry.getAttribute('position');
     if (finalPosition) {
@@ -3586,6 +3589,96 @@ export default function App() {
       });
       if (!geometry.getAttribute('uv')) geometry.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(finalPosition.count * 2), 2));
     }
+      // Reconstruct each existing pair of triangles as one canonical quad cell.
+      // BoxGeometry commonly stores [A,B,D,B,C,D], while the quad Subdivide path
+      // expects [A,B,C,A,C,D]. Pair only triangles that share exactly one diagonal,
+      // have consistent winding, and form a planar, non-degenerate quad. Any
+      // ambiguous/unsupported triangle stream stays unmarked (fail closed).
+      if (tool === 'Extrude' && editModeRef.current === 'Face' && !geometry.index) {
+        const position = geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+        geometry.computeBoundingSphere();
+        const tolerance = Math.max(1e-6, (geometry.boundingSphere?.radius || 1) * 1e-5);
+        const closePoint = (a: THREE.Vector3, b: THREE.Vector3) => a.distanceToSquared(b) <= tolerance * tolerance;
+        let verified = Boolean(position && position.count >= 6 && position.count % 6 === 0);
+        const reorder: number[] = [];
+        if (position && verified) {
+          for (let start = 0; start < position.count; start += 6) {
+            const triA = [start, start + 1, start + 2];
+            const triB = [start + 3, start + 4, start + 5];
+            const point = (index: number) => new THREE.Vector3().fromBufferAttribute(position, index);
+            const shared: Array<[number, number]> = [];
+            triA.forEach(indexA => triB.forEach(indexB => {
+              if (closePoint(point(indexA), point(indexB))) shared.push([indexA, indexB]);
+            }));
+            if (shared.length !== 2) { verified = false; break; }
+            const uniqueA = triA.find(index => !shared.some(pair => pair[0] === index));
+            const uniqueB = triB.find(index => !shared.some(pair => pair[1] === index));
+            if (uniqueA === undefined || uniqueB === undefined) { verified = false; break; }
+            const uniquePosition = triA.indexOf(uniqueA);
+            const firstShared = triA[(uniquePosition + 1) % 3];
+            const secondShared = triA[(uniquePosition + 2) % 3];
+            const normalA = point(triA[1]).sub(point(triA[0])).cross(point(triA[2]).sub(point(triA[0]))).normalize();
+            const triBPoints = triB.map(point);
+            const normalB = triBPoints[1].clone().sub(triBPoints[0]).cross(triBPoints[2].clone().sub(triBPoints[0])).normalize();
+            const candidateNormal = (b: number, c: number) =>
+              point(b).sub(point(uniqueA)).cross(point(c).sub(point(uniqueA))).normalize();
+            const firstNormal = candidateNormal(firstShared, uniqueB);
+            const secondNormal = candidateNormal(uniqueB, secondShared);
+            const firstOrderMatches = firstNormal.dot(normalA) > 0.999 && secondNormal.dot(normalB) > 0.999;
+            if (firstOrderMatches) {
+              reorder.push(uniqueA, firstShared, uniqueB, uniqueA, uniqueB, secondShared);
+            } else {
+              const alternateFirst = candidateNormal(secondShared, uniqueB);
+              const alternateSecond = candidateNormal(uniqueB, firstShared);
+              if (alternateFirst.dot(normalA) <= 0.999 || alternateSecond.dot(normalB) <= 0.999) {
+                verified = false; break;
+              }
+              reorder.push(uniqueA, secondShared, uniqueB, uniqueA, uniqueB, firstShared);
+            }
+          }
+        }
+        if (verified && position && reorder.length === position.count) {
+          // Reorder every vertex attribute together so UVs, colors and integer
+          // skin attributes remain attached to their original vertices.
+          for (const [name, rawAttribute] of Object.entries(geometry.attributes)) {
+            const attribute = rawAttribute as THREE.BufferAttribute;
+            if (attribute.count !== position.count) { verified = false; break; }
+          }
+          if (verified) {
+            for (const [name, rawAttribute] of Object.entries(geometry.attributes)) {
+              const attribute = rawAttribute as THREE.BufferAttribute;
+              const TypedArray = attribute.array.constructor as new (length: number) => typeof attribute.array;
+              const values = new TypedArray(reorder.length * attribute.itemSize);
+              reorder.forEach((sourceIndex, outputIndex) => {
+                for (let component = 0; component < attribute.itemSize; component++) {
+                  values[outputIndex * attribute.itemSize + component] = attribute.array[sourceIndex * attribute.itemSize + component];
+                }
+              });
+              geometry.setAttribute(name, new THREE.BufferAttribute(values, attribute.itemSize, attribute.normalized));
+            }
+            const canonical = geometry.getAttribute('position') as THREE.BufferAttribute;
+            for (let start = 0; start < canonical.count; start += 6) {
+              const q = Array.from({ length: 6 }, (_value, index) => new THREE.Vector3().fromBufferAttribute(canonical, start + index));
+              const normalA = q[1].clone().sub(q[0]).cross(q[2].clone().sub(q[0]));
+              const normalB = q[4].clone().sub(q[3]).cross(q[5].clone().sub(q[3]));
+              if (!closePoint(q[0], q[3]) || !closePoint(q[2], q[4]) ||
+                  normalA.lengthSq() <= tolerance ** 4 || normalB.lengthSq() <= tolerance ** 4 ||
+                  normalA.clone().normalize().dot(normalB.clone().normalize()) < 0.999 ||
+                  Math.abs(q[5].clone().sub(q[0]).dot(normalA.clone().normalize())) > tolerance * 4) {
+                verified = false; break;
+              }
+            }
+          }
+        }
+        extrudeQuadGridVerified = verified;
+        if (!verified) {
+          diagnosticSinkRef.current('WARN', 'Geometry Safety', 'Extrude quad topology handoff unavailable', JSON.stringify({
+            object: target.name,
+            vertexCount: position?.count || 0,
+            reason: 'Triangle pairs could not be reconstructed as verified planar quads; Subdivide remains safely disabled for this mesh.'
+          }));
+        }
+      }
     const finalPositions = geometry.getAttribute('position');
     if (finalPositions) finalPositions.needsUpdate = true;
     geometry.computeVertexNormals();
@@ -3599,6 +3692,8 @@ export default function App() {
     const after = geometry.clone();
     const afterQuadGridState = tool === 'Subdivide'
       ? { enabled: true, layout: 'canonical-v1', bounds: null, divisions: 0 }
+      : tool === 'Extrude'
+        ? { enabled: extrudeQuadGridVerified, layout: extrudeQuadGridVerified ? 'canonical-v1' : null, bounds: null, divisions: 0 }
       : tool === 'LoopCut'
         ? { enabled: false, layout: null, bounds: null, divisions: 0 }
         : captureQuadGridState();
