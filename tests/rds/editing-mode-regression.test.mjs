@@ -225,11 +225,20 @@ test('Extruded side walls receive UVs and keep the verified quad topology stream
   assert.match(source, /\[a, b, bn, a, bn, an\]\.forEach\(v => data\.push\(v\.x, v\.y, v\.z\)\)/);
 });
 
-test('Realtime Interaction Trace exposes Copy All and Error Highlights in Menu Panel', () => {
-  assert.match(source, /REALTIME INTERACTION TRACE/);
+test('RDS and RIT expose clickable icon-only actions while preserving live trace capture', () => {
+  assert.match(source, /aria-label="Realtime Interaction Trace"/);
   assert.match(source, /'Interaction Trace'/);
-  assert.match(source, /COPY ALL/);
-  assert.match(source, /ERROR HIGHLIGHTS/);
+  assert.match(source, /aria-label="Copy all RIT logs"/);
+  assert.match(source, /aria-label="Clear all RIT logs"/);
+  assert.match(source, /const clearInteractionTraceLogs = \(\) =>/);
+  assert.match(source, /previous\.filter\(entry => entry\.source !== 'Interaction Trace'\)/);
+  assert.match(source, /aria-label="Copy filtered RDS logs"/);
+  assert.match(source, /aria-label="Copy all RDS logs"/);
+  assert.match(source, /aria-label="Clear all RDS logs"/);
+  assert.match(source, /aria-label="Show all logs"/);
+  assert.match(source, /aria-label="Show errors"/);
+  assert.match(source, /aria-label="Show warnings"/);
+  assert.match(source, /aria-label="Show info logs"/);
   assert.match(source, /Viewport pointer down/);
   assert.match(source, /Scene Tree selection/);
   assert.match(source, /Geometry tool requested/);
