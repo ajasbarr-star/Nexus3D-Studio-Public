@@ -5199,19 +5199,6 @@ export default function App() {
     void copyDfiText(report, 'Copied complete 3D Scene + Shape workflow summary · one paste-ready report', 'COPY SUMMARY REPORT failed · allow clipboard permission and try again');
   };
 
-    const sections = [
-      'NEXUS3D ADVANCED DFI · COPY SUMMARY REPORT',
-      'Generated: ' + new Date().toLocaleString(),
-      ...dfiToolSections.flatMap(section => [
-        '',
-        '===== ID No.' + section.id + ' · ' + section.name.toUpperCase() + ' =====',
-        ...buildDfiToolSummary(section.name, dfiToolReports[section.name])
-      ]),
-      '',
-      'SUMMARY ONLY: Full logs, timestamps, stack/details and complete evidence are retained in COPY ALL REPORT.'
-    ];
-    void copyDfiText(sections.join('\\n'), 'Copied Advanced DFI summary report', 'COPY SUMMARY REPORT failed · allow clipboard permission and try again');
-  };
   const copyAllDfiReport = async () => {
     const queued = diagnosticQueueRef.current.slice();
     const logs = [...diagnosticLogs, ...queued].slice(-400);
