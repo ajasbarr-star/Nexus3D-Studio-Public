@@ -1229,6 +1229,12 @@ export default function App() {
             indices: [triangleIndex * 3, triangleIndex * 3 + 1, triangleIndex * 3 + 2],
             paired: false
           }));
+          const edgeLength = (a: number, b: number) => {
+            const dx = position.getX(a) - position.getX(b);
+            const dy = position.getY(a) - position.getY(b);
+            const dz = position.getZ(a) - position.getZ(b);
+            return dx * dx + dy * dy + dz * dz;
+          };
           const edgeMap = new Map<string, number[]>();
           triangles.forEach((triangle, triangleIndex) => {
             for (let edge = 0; edge < 3; edge++) {
@@ -1267,14 +1273,18 @@ export default function App() {
           for (let triangleIndex = 0; triangleIndex < triangles.length; triangleIndex++) {
             const triangle = triangles[triangleIndex];
             if (triangle.paired) continue;
-            const candidates: Array<{ other: number; edge: number }> = [];
+            const candidates: Array<{ other: number; edge: number; sharedLength: number }> = [];
             for (let edge = 0; edge < 3; edge++) {
               const ka = pointKey(triangle.indices[edge]), kb = pointKey(triangle.indices[(edge + 1) % 3]);
               const key = ka < kb ? ka + '|' + kb : kb + '|' + ka;
               (edgeMap.get(key) || []).forEach(other => {
-                if (other !== triangleIndex && !triangles[other].paired) candidates.push({ other, edge });
+                if (other !== triangleIndex && !triangles[other].paired) candidates.push({ other, edge, sharedLength: edgeLength(triangle.indices[edge], triangle.indices[(edge + 1) % 3]) });
               });
             }
+            // Pair across the triangle's longest shared edge first. For standard
+            // triangulated primitive cells this is the internal diagonal, not a
+            // shorter boundary edge that would merge neighboring cells together.
+            candidates.sort((a, b) => b.sharedLength - a.sharedLength);
             let chosen: { other: number; corners: number[] } | null = null;
             for (const candidate of candidates) {
               const otherIndices = triangles[candidate.other].indices;
