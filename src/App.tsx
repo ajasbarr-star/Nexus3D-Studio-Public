@@ -3121,7 +3121,7 @@ export default function App() {
         sourceCornerOffsets = [0, 1, 2, 5];
       } else {
         geometry.dispose(); before.dispose();
-        setStatus('Subdivide cancelled: this Cube has no verified square-quad layout. Existing geometry was preserved.');
+        setStatus('Subdivide cancelled: this shape has no verified square-quad layout. Existing geometry was preserved.');
         return;
       }
       const source = geometry.getAttribute('position') as THREE.BufferAttribute;
