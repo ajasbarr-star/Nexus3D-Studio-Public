@@ -212,16 +212,16 @@ test('Legacy triangle-clipping code is reserved for Loop Cut and cannot run for 
   assert.doesNotMatch(source, /Subdivide needs a mesh with valid triangles/);
 });
 
-test('Face Extrude reconstructs and verifies each triangle pair as a planar quad before enabling Subdivide', () => {
+test('Face Extrude preserves quad topology for rotated and non-planar connecting walls', () => {
   assert.match(source, /let extrudeQuadGridVerified = false/);
   assert.match(source, /Reconstruct each existing pair of triangles as one canonical quad cell/);
   assert.match(source, /const triBMatchesWinding = triB\.some/);
   assert.match(source, /if \(!triBMatchesWinding\) \{ verified = false; break; \}/);
+  assert.match(source, /bilinear subdivision handles it/);
+  assert.doesNotMatch(source, /Math\.abs\(q\[5\]\.clone\(\)\.sub\(q\[0\]\)\.dot/);
   assert.match(source, /extrudeQuadGridVerified = verified/);
   assert.match(source, /tool === 'Extrude'[\s\S]*enabled: extrudeQuadGridVerified/);
-  assert.match(source, /Triangle pairs could not be reconstructed as verified planar quads/);
-  assert.doesNotMatch(source, /canonicalFaceOrder/);
-  assert.doesNotMatch(source, /canonicalCubeExtrude/);
+  assert.match(source, /Triangle pairs could not be reconstructed as verified quad cells/);
 });
 
 test('Extruded side walls receive UVs and keep the verified quad topology stream', () => {
@@ -250,11 +250,11 @@ test('RDS and RIT expose clickable icon-only actions while preserving live trace
 });
 
 
-test('Face Mode blocks expensive geometry operations above the mobile vertex safety limit', () => {
-  assert.match(source, /const mobileGeometryVertexLimit = 65_536/);
-  assert.match(source, /\(tool === 'Subdivide' \|\| tool === 'Smooth'\) && currentVertexCount > mobileGeometryVertexLimit/);
-  assert.match(source, /blocked above mobile vertex limit/);
-  assert.match(source, /const safeVertexBudget = 65_536/);
+test('Subdivide and Smooth have no arbitrary fixed vertex-count cap', () => {
+  assert.doesNotMatch(source, /const mobileGeometryVertexLimit = 65_536/);
+  assert.doesNotMatch(source, /const safeVertexBudget = 65_536/);
+  assert.match(source, /No arbitrary per-operation vertex cap/);
+  assert.match(source, /const outputVertexCount = cellCount \* 24/);
 });
 
 
