@@ -88,9 +88,11 @@ test('New Modeling Workspace replaces the legacy panel presentation without dele
     assert.ok(source.includes("'" + tool + "'") || source.includes('"' + tool + '"'), tool + ' action must remain wired');
   }
   assert.match(source, /Select a face before Loop Cut/);
-  assert.match(source, /Hold a face for a moment to lock it/);
+  assert.match(source, /Face tap accepted · selecting face/);
   assert.match(source, /FIRST FACE LOCKED/);
   assert.match(source, /DUAL FACES LOCKED/);
+  assert.match(source, /tap the opposite face/);
+  assert.doesNotMatch(source, /heldForMs < 420/);
 });
 
 test('Subdivide fails closed when the current mesh has no verified quad topology', () => {
