@@ -241,3 +241,10 @@ test('Realtime Interaction Trace exposes Copy All and Error Highlights in Menu P
   assert.match(source, /blocked above mobile vertex limit/);
   assert.match(source, /const safeVertexBudget = 65_536/);
 });
+
+
+test('Subdivision topology overlay refreshes bounds and keeps quad grid lines visible', () => {
+  assert.match(source, /mesh\.geometry\.computeBoundingSphere\(\);[\s\S]*?const bounds = mesh\.geometry\.boundingSphere/);
+  assert.match(source, /const lineOffset = Math\.max\(0\.0012, \(bounds\?\.radius \|\| 1\) \* 0\.002\)/);
+  assert.match(source, /color: 0x9aa6b2, transparent: true, opacity: 0\.96, depthTest: true, depthWrite: false/);
+});
