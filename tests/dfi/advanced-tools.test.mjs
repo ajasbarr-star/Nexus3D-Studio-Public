@@ -100,3 +100,19 @@ test('Advanced DFI exposes per-ID summary copy icons and separate full/summary r
   assert.match(styles, /\.dfi-summary-copy-icon/);
   assert.match(styles, /\.dfi-report-copy-actions/);
 });
+
+
+test('COPY SUMMARY REPORT consolidates captured 3D scene and shape workflows into one paste-ready report', () => {
+  assert.match(app, /const buildSceneWorkflowSummary = \(\) =>/);
+  assert.match(app, /3D SCENE \+ SHAPE WORKFLOW SUMMARY/);
+  assert.match(app, /CURRENT 3D SCENE \/ SHAPE STATE/);
+  assert.match(app, /WORKFLOW COUNTS BY CAPTURED EVENT/);
+  assert.match(app, /OBJECT \/ SHAPE ACTIVITY/);
+  assert.match(app, /OPERATION WORKFLOW TIMELINE/);
+  assert.match(app, /CURRENT MESH TOPOLOGY \/ INTEGRITY SCAN/);
+  assert.match(app, /geometryVertexCountBefore/);
+  assert.match(app, /triangleCountAfter/);
+  assert.match(app, /before an operation unless that operation recorded a before\/after snapshot/);
+  assert.match(app, /const copyAllDfiSummary = \(\) => \{/);
+  assert.match(app, /const report = buildSceneWorkflowSummary\(\)/);
+});
