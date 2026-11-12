@@ -285,6 +285,7 @@ export default function App() {
   });
   const [diagnosticFilter, setDiagnosticFilter] = useState<'ALL' | 'ERROR' | 'WARN' | 'INFO'>('ALL');
   const [diagnosticPanelOpen, setDiagnosticPanelOpen] = useState(false);
+  const [interactionTraceOpen, setInteractionTraceOpen] = useState(false);
   const diagnosticSinkRef = useRef<(level: DiagnosticEntry['level'], source: string, message: string, details?: string) => void>(() => {});
   const diagnosticQueueRef = useRef<DiagnosticEntry[]>([]);
   const pushDiagnostic = (level: DiagnosticEntry['level'], source: string, message: string, details?: string) => {
@@ -298,6 +299,9 @@ export default function App() {
     try { localStorage.removeItem('nexus3d_realtime_diagnostics_v1'); } catch { /* ignore unavailable storage */ }
   };
   diagnosticSinkRef.current = pushDiagnostic;
+  const recordInteractionTrace = (action: string, details: Record<string, unknown> = {}) => {
+    diagnosticSinkRef.current('INFO', 'Interaction Trace', action, JSON.stringify(details));
+  };
   useEffect(() => {
     const flush = () => {
       if (!diagnosticQueueRef.current.length) return;
@@ -2422,6 +2426,7 @@ export default function App() {
     const onPointerDown = (event: PointerEvent) => {
       if (runtime.current?.riggingView) return;
       pointerStart = { x: event.clientX, y: event.clientY, id: event.pointerId };
+      recordInteractionTrace('Viewport pointer down', { pointerId: event.pointerId, pointerType: event.pointerType, x: Math.round(event.clientX), y: Math.round(event.clientY), editMode: editModeRef.current, activeTool: activeEditToolRef.current });
       const active = runtime.current?.getActiveSubSelection?.();
       if (!runtime.current?.loopCutActive || editModeRef.current !== 'Face' || !active?.mesh || active.mesh !== selectable.find(o => String(o.userData.editorId) === selectedRef.current)) return;
       const mesh = active.mesh as THREE.Mesh;
@@ -2448,6 +2453,7 @@ export default function App() {
     const onPointerMove = (event: PointerEvent) => { if (runtime.current?.riggingView) return; if (loopCutGesture?.pointerId === event.pointerId) { updateLoopCutPreview(event); event.preventDefault(); } };
     const onPointerUp = (event: PointerEvent) => {
       if (runtime.current?.riggingView) return;
+      recordInteractionTrace('Viewport pointer up', { pointerId: event.pointerId, pointerType: event.pointerType, x: Math.round(event.clientX), y: Math.round(event.clientY), editMode: editModeRef.current, activeTool: activeEditToolRef.current, selectedId: selectedRef.current });
       if (loopCutGesture?.pointerId === event.pointerId) {
         const gesture = loopCutGesture;
         const amount = THREE.MathUtils.clamp((gesture.projection-gesture.min)/Math.max(1e-8,gesture.max-gesture.min)*100, 1, 99);
@@ -2871,6 +2877,7 @@ export default function App() {
     // gizmo drag is active, and transform snapshots are captured consistently.
     transform.addEventListener('mouseDown', () => {
       controlDiag('transform:mouseDown');
+      recordInteractionTrace('Transform gizmo drag started', { axis: transform.axis ?? null, mode: transform.getMode(), selectedId: selectedRef.current });
       syncViewportControls(true);
       const object = transform.object;
       if (object === subObjectPivot && activeSubSelection) subGeometryBefore = activeSubSelection.mesh.geometry.clone();
@@ -2878,6 +2885,7 @@ export default function App() {
     });
     transform.addEventListener('mouseUp', () => {
       controlDiag('transform:mouseUp');
+      recordInteractionTrace('Transform gizmo drag ended', { axis: transform.axis ?? null, mode: transform.getMode(), selectedId: selectedRef.current });
       syncViewportControls(false);
       if (subGeometryBefore && activeSubSelection) {
         const mesh = activeSubSelection.mesh;
@@ -3080,6 +3088,7 @@ export default function App() {
     const useExtrudeBaseline = tool === 'Extrude' && rebuildExtrudeFromBase && extrudeBaseGeometry.current;
     let geometry = useExtrudeBaseline ? extrudeBaseGeometry.current!.clone() : target.geometry.clone();
     const before = useExtrudeBaseline ? extrudeBaseGeometry.current!.clone() : target.geometry.clone();
+    recordInteractionTrace('Geometry tool requested', { tool, amount: rawAmount, editMode: editModeRef.current, object: target.name, vertexCount: target.geometry.getAttribute('position')?.count ?? 0, indexed: Boolean(target.geometry.index) });
     const ids = Array.from(new Set(part.indices as number[]));
     const original = geometry.getAttribute('position');
     if (!original || !ids.length) { geometry.dispose(); before.dispose(); return; }
@@ -3089,6 +3098,7 @@ export default function App() {
     const depth = Math.max(0.01, rawAmount / 100) * 0.8;
     let extrudedCapIndices: number[] = [];
     let generatedCutLoops: number[][][] = [];
+    let canonicalCubeExtrude = false;
     const previousCutLoops = useExtrudeBaseline ? extrudeBaseCutLoops.current.map(loop => loop.map(point => [...point])) : Array.isArray(target.userData.cutLoops) ? (target.userData.cutLoops as number[][][]).map(loop => loop.map(point => [...point])) : [];
     const captureQuadGridState = () => ({
       enabled: Boolean(target.userData.nexusQuadGrid),
@@ -3418,9 +3428,40 @@ export default function App() {
           setStatus('Extrude cancelled: selected face region has no matching triangles');
           return;
         }
+        const indexedGeometry = geometry;
         geometry = geometry.toNonIndexed();
+        indexedGeometry.dispose();
+        // Editor Cubes start as indexed BoxGeometry. Convert each original quad from
+        // BoxGeometry's [A,B,D,B,C,D] triangle order into the canonical
+        // [A,B,C,A,C,D] six-corner stream before appending extruded side-wall quads.
+        // This makes the complete post-Extrude mesh readable by the verified Quad Subdivide path.
+        if (target.userData.kind === 'Cube' && sourceIndex) {
+          const sourcePositionCount = geometry.getAttribute('position')?.count || 0;
+          const attributesMatch = Object.values(geometry.attributes).every((attribute: any) => attribute.count === sourcePositionCount);
+          if (sourcePositionCount > 0 && sourcePositionCount % 6 === 0 && attributesMatch) {
+            const canonicalGeometry = new THREE.BufferGeometry();
+            const canonicalFaceOrder = [0, 1, 4, 0, 4, 2];
+            Object.entries(geometry.attributes).forEach(([name, rawAttribute]: [string, any]) => {
+              const values = new Float32Array(sourcePositionCount * rawAttribute.itemSize);
+              for (let base = 0; base < sourcePositionCount; base += 6) {
+                canonicalFaceOrder.forEach((sourceCorner, outputCorner) => {
+                  for (let component = 0; component < rawAttribute.itemSize; component++) {
+                    values[(base + outputCorner) * rawAttribute.itemSize + component] = rawAttribute.getComponent(base + sourceCorner, component);
+                  }
+                });
+              }
+              canonicalGeometry.setAttribute(name, new THREE.BufferAttribute(values, rawAttribute.itemSize, rawAttribute.normalized));
+            });
+            geometry.groups.forEach(group => canonicalGeometry.addGroup(group.start, group.count, group.materialIndex));
+            geometry.dispose();
+            geometry = canonicalGeometry;
+            canonicalCubeExtrude = true;
+          }
+        }
         const p = geometry.getAttribute('position');
         const data: number[] = Array.from(p.array as ArrayLike<number>);
+        const uvAttribute = geometry.getAttribute('uv');
+        const uvData: number[] | null = uvAttribute ? Array.from(uvAttribute.array as ArrayLike<number>) : null;
         const boundary = new Map<string, { count: number; a: THREE.Vector3; b: THREE.Vector3 }>();
         let movedTriangles = 0;
         for (let start = 0; start + 2 < p.count; start += 3) {
@@ -3448,11 +3489,16 @@ export default function App() {
             if (edge.count !== 1) return;
             const a = edge.a, b = edge.b, an = a.clone().add(offset), bn = b.clone().add(offset);
             [a, b, bn, a, bn, an].forEach(v => data.push(v.x, v.y, v.z));
+            if (uvData) {
+              const edgeLength = a.distanceTo(b), wallDepth = offset.length();
+              [[0,0],[edgeLength,0],[edgeLength,wallDepth],[0,0],[edgeLength,wallDepth],[0,wallDepth]].forEach(([u,v]) => uvData.push(u,v));
+            }
             // Commit each extruded side-wall perimeter as explicit topology lines.
             // This keeps the raised cell outline visible even where faces are coplanar.
             generatedCutLoops.push([a, b, bn, an, a].map(point => point.toArray()));
           });
           geometry.setAttribute('position', new THREE.Float32BufferAttribute(data, 3));
+          if (uvData) geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvData, 2));
         } else {
           geometry.dispose(); before.dispose();
           setStatus('Extrude cancelled: selected face region could not be matched after triangulation');
@@ -3500,6 +3546,10 @@ export default function App() {
     }
     const afterCutLoops = Array.isArray(target.userData.cutLoops) ? (target.userData.cutLoops as number[][][]).map(loop => loop.map(point => [...point])) : [];
     const after = geometry.clone();
+    if (tool === 'Extrude' && canonicalCubeExtrude) {
+      target.userData.nexusQuadGrid = true;
+      target.userData.nexusQuadGridLayout = 'canonical-v1';
+    }
     const afterQuadGridState = tool === 'Subdivide'
       ? { enabled: true, layout: 'canonical-v1', bounds: null, divisions: 0 }
       : tool === 'LoopCut'
@@ -3598,6 +3648,7 @@ export default function App() {
 
   const selectTreeObject = (obj: THREE.Object3D) => {
     const id = String(obj.userData.editorId || '');
+    recordInteractionTrace('Scene Tree selection', { object: obj.name, editorId: id, kind: obj.userData.kind || obj.type });
     setSelected(id);
     runtime.current?.selectObject(obj);
   };
@@ -5138,6 +5189,29 @@ export default function App() {
 
       {menuOpen && !panel && !cameraView && !riggingView && <aside className="menu-panel" style={{ "--nexus-panel-width": sharedPanelWidth + "px" } as React.CSSProperties}>
         <div className="panel-heading"><div><Settings2 size={13} /><span>Menu</span></div><button className="menu-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={13} /></button></div>
+        <section className="menu-category interaction-trace-section">
+          <button type="button" className={'menu-option diagnostic-toggle-button ' + (interactionTraceOpen ? 'expanded' : '')}
+            aria-expanded={interactionTraceOpen} onClick={() => setInteractionTraceOpen(open => !open)}>
+            <Activity size={13}/><span>REALTIME INTERACTION TRACE</span>
+            {interactionTraceOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
+          </button>
+          {interactionTraceOpen && <section className="diagnostic-panel-expanded" aria-label="Realtime Interaction Trace">
+            <div className="diagnostic-summary"><span>{diagnosticLogs.filter(entry => entry.source === 'Interaction Trace').length} interaction event(s)</span><span>{diagnosticLogs.filter(entry => entry.level === 'ERROR').length} error(s)</span></div>
+            <div className="diagnostic-actions">
+              <button type="button" onClick={() => void copyDiagnosticText([...diagnosticLogs, ...diagnosticQueueRef.current])} disabled={!diagnosticLogs.length && !diagnosticQueueRef.current.length}><ClipboardCopy size={12}/> COPY ALL</button>
+              <button type="button" onClick={() => { setDiagnosticFilter('ERROR'); setDiagnosticPanelOpen(true); setInteractionTraceOpen(false); }}><ScanEye size={12}/> ERROR HIGHLIGHTS</button>
+            </div>
+            <div className="diagnostic-log-list" role="log" aria-live="polite" aria-label="Nexus3D interaction trace">
+              {!diagnosticLogs.some(entry => entry.source === 'Interaction Trace') && <div className="diagnostic-empty">No interaction events captured yet. Tap the viewport, Scene Tree, or a modeling tool to begin tracing.</div>}
+              {diagnosticLogs.filter(entry => entry.source === 'Interaction Trace').slice(-120).reverse().map(entry => <article className={'diagnostic-entry diagnostic-' + entry.level.toLowerCase()} key={entry.id}>
+                <div><strong>{entry.level}</strong><time>{entry.time}</time></div>
+                <b>{entry.source}</b><p>{entry.message}</p>
+                {entry.details && <pre>{entry.details}</pre>}
+              </article>)}
+            </div>
+            <div className="menu-info"><Info size={12}/><span>Records viewport taps, transform-gizmo drags, Scene Tree selections and geometry-tool requests. Events are correlated with runtime errors and warnings in the Realtime Diagnostic System below.</span></div>
+          </section>}
+        </section>
         <section className="menu-category diagnostic-menu-section">
           <button type="button" className={'menu-option diagnostic-toggle-button ' + (diagnosticPanelOpen ? 'expanded' : '')}
                           aria-expanded={diagnosticPanelOpen}
