@@ -266,3 +266,21 @@ test('Topology overlay offsets fallback hard edges outward after Extrude and kee
   assert.match(source, /edgePosition\.setXYZ\(vertex, x \+ normal\.x \* lineOffset, y \+ normal\.y \* lineOffset, z \+ normal\.z \* lineOffset\)/);
   assert.match(source, /depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1/);
 });
+
+
+test('Dual Faces selection requires opposite faces and shares one transform pivot', () => {
+  assert.match(source, /selectedFaceParts: number\[\]\[\]/);
+  assert.match(source, /previousNormal\.dot\(currentNormal\) < -0\.8/);
+  assert.match(source, /both faces share one transform pivot/);
+  assert.match(source, /worldPivot\.copy\(mesh\.localToWorld\(pivotLocal\.clone\(\)\)\)/);
+});
+
+test('Dual Faces extrude inward together and Faces Cut removes only touching caps', () => {
+  assert.match(source, /dualFaceExtrude = editModeRef\.current === 'Face' && selectedFaceParts\.length === 2/);
+  assert.match(source, /inwardCenter\.clone\(\)\.sub\(tri\[0\]\.clone\(\)\.add\(tri\[1\]\)\.add\(tri\[2\]\)/);
+  assert.match(source, /tool === 'FacesCut'/);
+  assert.match(source, /capMeetTolerance/);
+  assert.match(source, /the two extruded faces have not met yet/);
+  assert.match(source, /Faces Cut committed/);
+  assert.match(source, /\['Extrude', 'Subdivide', 'Smooth', 'Loop Cut', 'Faces Cut'\]/);
+});
