@@ -29,3 +29,26 @@ test('Pointer cancellation and window blur restore both orbit controllers', () =
 test('Geometry operations detach the gizmo when the active sub-selection is cleared', () => {
   assert.match(source, /runtime\.current\?\.clearSubSelection\?\.\(\); const gizmo = runtime\.current\?\.transform; if \(gizmo\) \{ gizmo\.detach\(\); gizmo\.enabled = false; gizmo\.getHelper\(\)\.visible = false; \}/);
 });
+
+
+test('IK viewport selection handler is isolated from MainViewport taps', () => {
+  assert.match(source, /const onIKPointerDown = \(event: PointerEvent\) => \{ if \(!runtime\.current\?\.riggingView \|\| !ikOrbit\.enabled\)/);
+  assert.match(source, /const onIKPointerUp = \(event: PointerEvent\) => \{\s*if \(!runtime\.current\?\.riggingView \|\| !ikOrbit\.enabled\)/);
+});
+
+test('IK pointercancel listener is named and removed during runtime cleanup', () => {
+  assert.match(source, /const onIKPointerCancel = \(\) => \{ ikTapStart = null; \}/);
+  assert.match(source, /removeEventListener\('pointercancel', onIKPointerCancel\)/);
+  assert.doesNotMatch(source, /addEventListener\('pointercancel', \(\) => \{ ikTapStart = null; \}\)/);
+});
+
+test('runtime API object is registered once before the render loop', () => {
+  const registration = source.indexOf('runtime.current = { ...(runtime.current || {}), scene, camera');
+  const loop = source.indexOf('const frameLoop = () => {');
+  assert.ok(registration >= 0 && loop > registration, 'runtime API must be registered before the RAF callback');
+  assert.doesNotMatch(source.slice(loop), /runtime.current = \{ \...\(runtime.current \|\| \{\}\), scene, camera/);
+});
+
+test('runtime cleanup releases the renderer reference', () => {
+  assert.match(source, /if \(runtime\.current\?\.renderer === renderer\) runtime\.current = null;/);
+});
