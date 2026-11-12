@@ -1331,7 +1331,7 @@ export default function App() {
             { n: [0, 0, 1], u: [1, 0, 0], v: [0, 1, 0] },
             { n: [0, 0, -1], u: [-1, 0, 0], v: [0, 1, 0] }
           ];
-          const positions: number[] = [], uvs: number[] = [];
+          const positions: number[] = [], uvs: number[] = [], normals: number[] = [];
           const point = (face: typeof faces[number], u: number, v: number) => {
             const cube = new THREE.Vector3(
               face.n[0] + face.u[0] * u + face.v[0] * v,
@@ -1352,13 +1352,17 @@ export default function App() {
                 const p = corners[cornerIndex], uv = tex[cornerIndex];
                 positions.push(p.x, p.y, p.z);
                 uvs.push(uv[0], uv[1]);
+                const smoothNormal = p.clone().normalize();
+                normals.push(smoothNormal.x, smoothNormal.y, smoothNormal.z);
               });
             }
           });
           const result = new THREE.BufferGeometry();
           result.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
           result.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-          result.computeVertexNormals();
+          // Radial normals keep the cube-projected sphere visually smooth; computing
+          // normals from duplicated non-indexed triangles would create faceted shading.
+          result.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
           result.userData.nexusPrimitiveQuadGrid = true;
           return result;
         };
