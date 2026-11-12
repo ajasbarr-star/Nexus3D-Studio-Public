@@ -149,3 +149,9 @@ test('Generated Sphere quad grid uses radial smooth normals for non-indexed cell
   assert.match(source, /normals\.push\(smoothNormal\.x, smoothNormal\.y, smoothNormal\.z\)/);
   assert.match(source, /result\.setAttribute\('normal', new THREE\.Float32BufferAttribute\(normals, 3\)\)/);
 });
+
+
+test('Primitive triangle pairing builds the perimeter quad in non-crossing order', () => {
+  assert.match(source, /const corners = \[edgeA, edgeB, opposite, remaining\]/);
+  assert.doesNotMatch(source, /const corners = \[edgeA, remaining, edgeB, opposite\]/);
+});
