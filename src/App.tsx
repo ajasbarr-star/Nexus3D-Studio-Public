@@ -1212,7 +1212,110 @@ export default function App() {
         else if (kind === 'Cylinder') geometry = new THREE.CylinderGeometry(0.62, 0.62, 1.25, 32);
         else if (kind === 'Torus') geometry = new THREE.TorusGeometry(0.62, 0.22, 14, 36);
         else geometry = new THREE.BoxGeometry(1.25, 1.25, 1.25);
+        // Convert built-in primitive triangle pairs into an explicit quad-cell stream.
+        // The conversion is intentionally restricted to editor-generated primitives;
+        // arbitrary imported meshes and deforming character meshes never enter this path.
+        const buildPrimitiveQuadGrid = (sourceGeometry: THREE.BufferGeometry) => {
+          const source = sourceGeometry.index ? sourceGeometry.toNonIndexed() : sourceGeometry.clone();
+          const position = source.getAttribute('position') as THREE.BufferAttribute | undefined;
+          const uv = source.getAttribute('uv') as THREE.BufferAttribute | undefined;
+          if (!position || position.count < 6 || position.count % 3 !== 0) { source.dispose(); return null; }
+          const pointKey = (index: number) => {
+            const x = position.getX(index), y = position.getY(index), z = position.getZ(index);
+            return [x, y, z].map(value => Math.round(value * 1e6)).join(',');
+          };
+          const triangles = Array.from({ length: position.count / 3 }, (_value, triangleIndex) => ({
+            indices: [triangleIndex * 3, triangleIndex * 3 + 1, triangleIndex * 3 + 2],
+            paired: false
+          }));
+          const edgeMap = new Map<string, number[]>();
+          triangles.forEach((triangle, triangleIndex) => {
+            for (let edge = 0; edge < 3; edge++) {
+              const a = pointKey(triangle.indices[edge]), b = pointKey(triangle.indices[(edge + 1) % 3]);
+              if (a === b) continue;
+              const key = a < b ? a + '|' + b : b + '|' + a;
+              const owners = edgeMap.get(key) || [];
+              owners.push(triangleIndex);
+              edgeMap.set(key, owners);
+            }
+          });
+          const outputPositions: number[] = [];
+          const outputUvs: number[] = [];
+          const readVertex = (index: number) => ({
+            position: [position.getX(index), position.getY(index), position.getZ(index)],
+            uv: uv ? [uv.getX(index), uv.getY(index)] : [0, 0],
+            key: pointKey(index)
+          });
+          const pushQuad = (corners: ReturnType<typeof readVertex>[]) => {
+            const baseUv = corners[0].uv[0];
+            const adjustedUvs = corners.map(corner => {
+              let u = corner.uv[0];
+              while (u - baseUv > 0.5) u -= 1;
+              while (u - baseUv < -0.5) u += 1;
+              return [u, corner.uv[1]];
+            });
+            [0, 1, 2, 0, 2, 3].forEach(cornerIndex => {
+              outputPositions.push(...corners[cornerIndex].position);
+              outputUvs.push(...adjustedUvs[cornerIndex]);
+            });
+          };
+          let pairedCount = 0;
+          for (let triangleIndex = 0; triangleIndex < triangles.length; triangleIndex++) {
+            const triangle = triangles[triangleIndex];
+            if (triangle.paired) continue;
+            const [a, b, c] = triangle.indices;
+            const candidates: Array<{ other: number; edge: number }> = [];
+            for (let edge = 0; edge < 3; edge++) {
+              const ka = pointKey(triangle.indices[edge]), kb = pointKey(triangle.indices[(edge + 1) % 3]);
+              const key = ka < kb ? ka + '|' + kb : kb + '|' + ka;
+              (edgeMap.get(key) || []).forEach(other => {
+                if (other !== triangleIndex && !triangles[other].paired) candidates.push({ other, edge });
+              });
+            }
+            let chosen: { other: number; corners: number[] } | null = null;
+            for (const candidate of candidates) {
+              const otherIndices = triangles[candidate.other].indices;
+              const sharedKeys = new Set([pointKey(triangle.indices[candidate.edge]), pointKey(triangle.indices[(candidate.edge + 1) % 3])]);
+              const opposite = otherIndices.find(index => !sharedKeys.has(pointKey(index)));
+              const edgeA = triangle.indices[candidate.edge], edgeB = triangle.indices[(candidate.edge + 1) % 3];
+              const remaining = triangle.indices[(candidate.edge + 2) % 3];
+              if (opposite === undefined) continue;
+              const corners = [edgeA, remaining, edgeB, opposite];
+              if (new Set(corners.map(pointKey)).size !== 4) continue;
+              const p0 = new THREE.Vector3(...readVertex(corners[0]).position as [number, number, number]);
+              const p1 = new THREE.Vector3(...readVertex(corners[1]).position as [number, number, number]);
+              const p2 = new THREE.Vector3(...readVertex(corners[2]).position as [number, number, number]);
+              const p3 = new THREE.Vector3(...readVertex(corners[3]).position as [number, number, number]);
+              const area = p1.clone().sub(p0).cross(p2.clone().sub(p0)).length() + p2.clone().sub(p0).cross(p3.clone().sub(p0)).length();
+              if (area > 1e-10) { chosen = { other: candidate.other, corners }; break; }
+            }
+            if (!chosen) { source.dispose(); return null; }
+            triangle.paired = true;
+            triangles[chosen.other].paired = true;
+            pushQuad(chosen.corners.map(readVertex));
+            pairedCount += 2;
+          }
+          source.dispose();
+          if (pairedCount !== triangles.length || !outputPositions.length) return null;
+          const result = new THREE.BufferGeometry();
+          result.setAttribute('position', new THREE.Float32BufferAttribute(outputPositions, 3));
+          result.setAttribute('uv', new THREE.Float32BufferAttribute(outputUvs, 2));
+          result.computeVertexNormals();
+          return result;
+        };
+        if (kind !== 'Cube') {
+          const quadGeometry = buildPrimitiveQuadGrid(geometry);
+          if (quadGeometry) {
+            geometry.dispose();
+            geometry = quadGeometry;
+            (geometry as THREE.BufferGeometry).userData = { ...(geometry as THREE.BufferGeometry).userData, nexusPrimitiveQuadGrid: true };
+          }
+        }
         obj = new THREE.Mesh(geometry, material);
+        if (kind === 'Cube' || geometry.userData.nexusPrimitiveQuadGrid === true) {
+          obj.userData.nexusQuadGrid = true;
+          obj.userData.nexusQuadGridLayout = 'triangle-paired-primitive';
+        }
         // Non-shape editor objects must not push new primitives outside the active camera view.
         const shapeKinds = new Set(['Cube', 'Sphere', 'Cylinder', 'Cone', 'Torus']);
         const n = selectable.filter(object => shapeKinds.has(String(object.userData.kind)) && object.parent === scene).length;
