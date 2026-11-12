@@ -3063,6 +3063,17 @@ export default function App() {
       setStatus('Select a vertex, edge, or face before using a geometry tool');
       return;
     }
+    const currentVertexCount = target.geometry.getAttribute('position')?.count || 0;
+    const mobileGeometryVertexLimit = 65_536;
+    if ((tool === 'Subdivide' || tool === 'Smooth') && currentVertexCount > mobileGeometryVertexLimit) {
+      setStatus(tool + ' paused: this mesh exceeds the mobile geometry safety limit (65,536 vertices). Reduce the mesh or undo earlier subdivisions first.');
+      diagnosticSinkRef.current('WARN', 'Geometry Safety', tool + ' blocked above mobile vertex limit', JSON.stringify({
+        object: target.name,
+        vertexCount: currentVertexCount,
+        limit: mobileGeometryVertexLimit,
+      }));
+      return;
+    }
     // Character safety: the generic triangle subdivision path interpolates every
     // attribute as floating-point data. That is not valid for skinIndex (integer
     // bone references), and can also invalidate skin weights and morph targets.
@@ -3144,8 +3155,8 @@ export default function App() {
         return;
       }
       const cellCount = source.count / 6;
-      const deviceMemoryGb = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory || 4);
-      const safeVertexBudget = Math.min(1_200_000, Math.max(180_000, Math.floor(deviceMemoryGb * 180_000)));
+      // Keep repeated 4x quad subdivision within a conservative mobile-device budget.
+      const safeVertexBudget = 65_536;
       const outputVertexCount = cellCount * 24;
       if (outputVertexCount > safeVertexBudget) {
         geometry.dispose(); before.dispose();
