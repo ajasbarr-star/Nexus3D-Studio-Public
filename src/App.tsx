@@ -4092,6 +4092,26 @@ export default function App() {
           ? { enabled: false, layout: null, bounds: null, divisions: 0 }
           : captureQuadGridState();
     target.geometry.dispose(); target.geometry = geometry;
+    const committedPosition = target.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+    recordInteractionTrace('Geometry operation committed', {
+      operation: tool,
+      editMode: editModeRef.current,
+      objectName: target.name || null,
+      objectId: target.userData.editorId || null,
+      vertexCountBefore: before.getAttribute('position')?.count || 0,
+      vertexCountAfter: committedPosition?.count || 0,
+      triangleCountBefore: Math.floor((before.index?.count || before.getAttribute('position')?.count || 0) / 3),
+      triangleCountAfter: Math.floor((target.geometry.index?.count || committedPosition?.count || 0) / 3),
+      indexedBefore: Boolean(before.index),
+      indexedAfter: Boolean(target.geometry.index),
+      materialGroupCount: target.geometry.groups.length,
+      quadGridVerified: Boolean(target.userData.nexusQuadGrid),
+      boundsMin: target.geometry.boundingBox?.min.toArray() || null,
+      boundsMax: target.geometry.boundingBox?.max.toArray() || null,
+      axis: runtime.current?.transform?.axis ?? null,
+      transformMode: runtime.current?.transform?.getMode?.() || modeRef.current,
+      axisSpace: spaceRef.current
+    });
     restoreQuadGridState(afterQuadGridState);
     // Keep the working snapshot synchronized with the committed live mesh.
     editBaseGeometry.current?.dispose();
