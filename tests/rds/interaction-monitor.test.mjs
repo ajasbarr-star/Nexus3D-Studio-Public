@@ -25,6 +25,8 @@ test('Interaction trace is a separate panel from RDS diagnostics', () => {
   assert.match(app, /interactionTraceQueueRef/);
   assert.match(app, /OBJECT SELECTED/);
   assert.match(app, /CONTROL TOUCH/);
+  assert.match(app, /VIEWPORT TAP/);
+  assert.match(app, /SUBOBJECT TAP/);
 });
 
 test('Runtime errors and warnings are mirrored for interaction correlation', () => {
