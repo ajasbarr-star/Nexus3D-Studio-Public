@@ -3080,6 +3080,7 @@ export default function App() {
             return oldA.distanceToSquared(newA) > 1e-12 || oldB.distanceToSquared(newB) > 1e-12;
           });
           if (moved.length) {
+            let removedDuplicateSurfaceTriangles = 0;
             const source = liveGeometry.index ? liveGeometry.toNonIndexed() : liveGeometry.clone();
             const oldAttributes = Object.entries(source.attributes) as Array<[string, THREE.BufferAttribute]>;
             const originalAttributes = liveGeometry.attributes as Record<string, THREE.BufferAttribute>;
@@ -3156,6 +3157,7 @@ export default function App() {
                 }
               }
               if (removedDuplicateTriangles.size) {
+                removedDuplicateSurfaceTriangles = removedDuplicateTriangles.size;
                 const originalGroups = source.groups.map(group => ({ ...group }));
                 const keptIndices: number[] = [];
                 const rebuiltGroups: Array<{ start: number; count: number; materialIndex: number }> = [];
@@ -3187,7 +3189,7 @@ export default function App() {
             if (liveGeometry !== source) liveGeometry.dispose();
             mesh.geometry = source;
             refreshTopologyOverlay(mesh);
-            recordInteractionTrace('Face Pull side walls committed', { boundaryEdges: moved.length, connectedQuadWalls: moved.length, closedShellBridge: true });
+            recordInteractionTrace('Face Pull side walls committed', { boundaryEdges: moved.length, connectedQuadWalls: moved.length, duplicateSurfaceTrianglesRemoved: removedDuplicateSurfaceTriangles });
           } else recordInteractionTrace('Face Pull skipped · no moved face perimeter', { selectedVertexCount: selectedVertexIds.size });
         }
       }
