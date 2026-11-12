@@ -116,7 +116,7 @@ test('Built-in non-Cube primitives are marked quad-grid only after a complete tr
   assert.match(source, /if \(pairedCount !== triangles\.length \|\| !outputPositions\.length\) return null;/);
   assert.match(source, /if \(kind !== 'Cube'\) \{/);
   assert.match(source, /if \(kind !== 'Cube' && geometry\.userData\.nexusPrimitiveQuadGrid === true\)/);
-  assert.match(source, /geometry\.userData = \{ \.\.\.\(geometry as THREE\.BufferGeometry\)\.userData, nexusPrimitiveQuadGrid: true \}/);
+  assert.match(source, /result\.userData\.nexusPrimitiveQuadGrid = true/);
 });
 
 test('Primitive quad conversion preserves UV coordinates and emits the editor six-vertex quad layout', () => {
@@ -124,4 +124,12 @@ test('Primitive quad conversion preserves UV coordinates and emits the editor si
   assert.match(source, /\[0, 1, 2, 0, 2, 3\]\.forEach\(cornerIndex =>/);
   assert.match(source, /result\.computeVertexNormals\(\)/);
   assert.match(source, /obj\.userData\.nexusQuadGrid = true/);
+});
+
+
+test('Sphere primitives use a pole-safe six-face quad grid instead of triangle-fan pairing', () => {
+  assert.match(source, /const buildSphereQuadGrid = \(radius: number, divisions = 16\)/);
+  assert.match(source, /kind === 'Sphere' \? buildSphereQuadGrid\(0\.68\) : buildPrimitiveQuadGrid\(geometry\)/);
+  assert.match(source, /result\.userData\.nexusPrimitiveQuadGrid = true/);
+  assert.match(source, /const outward = corners\[1\]\.clone\(\)\.sub\(corners\[0\]\)\.cross\(corners\[3\]\.clone\(\)\.sub\(corners\[0\]\)\)\.dot\(corners\[0\]\)/);
 });
