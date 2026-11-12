@@ -162,3 +162,19 @@ test('Primitive quad reconstruction prefers the longest shared diagonal over out
   assert.match(source, /sharedLength: edgeLength\(triangle\.indices\[edge\], triangle\.indices\[\(edge \+ 1\) % 3\]\)/);
   assert.match(source, /candidates\.sort\(\(a, b\) => b\.sharedLength - a\.sharedLength\)/);
 });
+
+
+test('Repeated Extrude preserves the verified quad-grid marker and emits six-vertex side-wall cells', () => {
+  assert.match(source, /const beforeQuadGridState = captureQuadGridState\(\)/);
+  assert.match(source, /const afterQuadGridState = tool === 'Subdivide'[\s\S]*: captureQuadGridState\(\)/);
+  assert.match(source, /restoreQuadGridState\(afterQuadGridState\)/);
+  assert.match(source, /\[a, b, bn, a, bn, an\]\.forEach\(v => data\.push\(v\.x, v\.y, v\.z\)\)/);
+  assert.match(source, /source\.count % 6 !== 0/);
+});
+
+test('Quad topology marker and layout survive Nexus project save and load', () => {
+  assert.match(source, /quadGrid: Boolean\(obj\.userData\.nexusQuadGrid\)/);
+  assert.match(source, /quadGridLayout: obj\.userData\.nexusQuadGridLayout \|\| null/);
+  assert.match(source, /if \(saved\.meshTopology\.quadGrid === true\)/);
+  assert.match(source, /obj\.userData\.nexusQuadGridLayout = saved\.meshTopology\.quadGridLayout/);
+});
