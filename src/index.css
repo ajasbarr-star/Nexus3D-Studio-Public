@@ -2292,3 +2292,5 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .dfi-report-line.dfi-warning{padding:2px 5px;border-left:3px solid #e6ae4e;background:rgba(112,75,20,.2);color:#ffd28a}
 .dfi-actions button{min-height:38px}
 @media(max-width:760px){.dfi-tool-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.dfi-tool-button{min-height:46px;font-size:8px}}
+
+.dfi-actions button:only-child{grid-column:1/-1;justify-content:center;}
