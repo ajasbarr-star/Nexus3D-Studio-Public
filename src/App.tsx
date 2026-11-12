@@ -5113,7 +5113,7 @@ export default function App() {
       return { entry, data };
     });
     const operationEvents = parsedTrace.filter(({ entry }) =>
-      /Geometry operation requested|Geometry operation committed|Geometry tool requested|Face Pull|Subdivide|Faces Cut|Extrude|Gizmo transform sample|Transform gizmo drag (started|ended)|Scene Tree selection|Face tap accepted|Face locked|Viewport pointer/i.test(entry.message)
+      /Geometry operation requested|Geometry operation committed|Geometry tool requested|Face Pull|Subdivide|Faces Cut|Extrude|Gizmo transform sample|Transform gizmo drag (started|ended)|Scene Tree selection|Face tap accepted|Face locked/i.test(entry.message)
     );
     const objectNames = new Map<string, { count: number; events: string[] }>();
     for (const { entry, data } of parsedTrace) {
@@ -5147,7 +5147,7 @@ export default function App() {
         scale: object.scale.toArray().map(value => Number(value.toFixed(4)))
       };
     });
-    const workflowLines = operationEvents.slice(-100).map(({ entry, data }) => {
+    const workflowLines = operationEvents.slice(-60).map(({ entry, data }) => {
       const detailKeys = [
         'operation','editMode','objectName','objectId','selectedId','axis','transformAxis','mode','transformMode','space','axisSpace',
         'selectionVertexCount','selectedFaceCount','geometryVertexCountBefore','vertexCountBefore','vertexCountAfter',
@@ -5179,7 +5179,7 @@ export default function App() {
       '3. OBJECT / SHAPE ACTIVITY',
       ...(objectNames.size ? Array.from(objectNames.entries()).map(([name,value]) => '- ' + name + ' · ' + value.count + ' event(s) · ' + value.events.join(' → ')) : ['No object-specific names or IDs were present in captured trace data.']),
       '',
-      '4. OPERATION WORKFLOW TIMELINE (latest 100 matching events)',
+      '4. OPERATION WORKFLOW TIMELINE (latest 60 meaningful events)',
       ...(workflowLines.length ? workflowLines : ['No matching modeling, selection or gizmo workflow events were captured.']),
       '',
       '5. CURRENT MESH TOPOLOGY / INTEGRITY SCAN',
