@@ -2412,3 +2412,121 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .dfi-summary-copy-icon{display:grid;place-items:center;flex:0 0 36px;width:36px;height:32px;min-height:32px;padding:0;border:1px solid #28647a;border-radius:5px;background:rgba(8,35,51,.96);color:#62dff8;cursor:pointer;touch-action:manipulation}
 .dfi-summary-copy-icon:active{background:#12445a;border-color:#62dff8}
 @media(max-width:420px){.dfi-report-copy-actions{grid-template-columns:1fr}.dfi-summary-copy-icon{flex-basis:40px;width:40px;height:36px}}
+
+
+/* Independent Scene Tree and Menu Mother Panels with fixed top-left anchors. */
+.hierarchy-panel.scene-tree-mother-panel,
+.menu-panel.menu-mother-panel {
+  position: absolute !important;
+  top: 52px !important;
+  left: 8px !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: var(--nexus-panel-width, 172px) !important;
+  height: var(--nexus-panel-height, 420px) !important;
+  min-width: 150px !important;
+  min-height: 180px !important;
+  max-width: min(48vw, 420px) !important;
+  max-height: calc(100dvh - 100px) !important;
+  display: block !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 14px 45px #0005 !important;
+}
+.hierarchy-panel.scene-tree-mother-panel {
+  border-color: rgba(106, 143, 190, .2) !important;
+}
+.menu-panel.menu-mother-panel {
+  border-color: rgba(106, 143, 190, .24) !important;
+}
+.panel-vertical-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.scene-tree-vertical-box .tree-list {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+.menu-panel-vertical-box .menu-panel-scroll {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+.panel-resize-handle {
+  position: absolute !important;
+  z-index: 40 !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border: 1px solid rgba(167, 139, 250, .86) !important;
+  border-radius: 8px !important;
+  background: rgba(13, 19, 34, .97) !important;
+  color: #b69aff !important;
+  box-shadow: 0 0 10px rgba(139, 92, 246, .24), 0 0 7px rgba(0, 205, 245, .12) !important;
+  touch-action: none !important;
+  -webkit-tap-highlight-color: transparent;
+  cursor: grab !important;
+}
+.panel-resize-handle:active {
+  color: #72e7ff !important;
+  border-color: #62d9f3 !important;
+  background: rgba(13, 43, 59, .98) !important;
+  box-shadow: 0 0 14px rgba(0, 205, 245, .34) !important;
+  cursor: grabbing !important;
+}
+.panel-resize-handle svg {
+  display: block;
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.panel-resize-handle-horizontal {
+  top: 50% !important;
+  right: -11px !important;
+  left: auto !important;
+  bottom: auto !important;
+  width: 24px !important;
+  min-width: 24px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  transform: translate(50%, -50%) !important;
+  cursor: ew-resize !important;
+}
+.panel-resize-handle-vertical {
+  top: auto !important;
+  right: auto !important;
+  left: 50% !important;
+  bottom: -11px !important;
+  width: 42px !important;
+  min-width: 42px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  transform: translate(-50%, 50%) !important;
+  cursor: ns-resize !important;
+}
+@media (max-height: 430px) {
+  .hierarchy-panel.scene-tree-mother-panel,
+  .menu-panel.menu-mother-panel {
+    top: 48px !important;
+    max-height: calc(100dvh - 90px) !important;
+  }
+}
