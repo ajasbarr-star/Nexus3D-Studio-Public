@@ -96,16 +96,17 @@ test('New Modeling Workspace replaces the legacy panel presentation without dele
   assert.doesNotMatch(source, /heldForMs < 420/);
 });
 
-test('Subdivide verifies canonical quad cells even after Extrude and Faces Cut remove caps', () => {
+test('Subdivide reconstructs quad cells from triangle pairs after Extrude and Faces Cut', () => {
   assert.match(source, /else if \(tool === 'Subdivide'\)/);
-  assert.match(source, /Faces Cut removes complete cap quads and leaves the remaining canonical/);
+  assert.match(source, /sourceQuadCorners: number\[\]\[\] \| null/);
   assert.match(source, /candidate\.count % 6 === 0/);
-  assert.match(source, /close\(points\[0\], points\[3\]\)/);
-  assert.match(source, /close\(points\[2\], points\[4\]\)/);
-  assert.match(source, /uniqueKeys\.size !== 4/);
-  assert.match(source, /sourceCornerOffsets = \[0, 1, 2, 5\]/);
-  assert.match(source, /Fail closed for meshes without a verified quad-cell topology/);
-  assert.match(source, /No triangles were split and the original mesh was preserved/);
+  assert.match(source, /firstShared/);
+  assert.match(source, /secondShared/);
+  assert.match(source, /sourceQuadCorners\.push\(/);
+  assert.match(source, /verifiedQuadCount/);
+  assert.match(source, /Subdivide rejected/);
+  assert.match(source, /Subdivide committed/);
+  assert.match(source, /sourceQuadCorners!\[offset \/ 6\]/);
   assert.doesNotMatch(source, /const triangleCount = sourcePosition\.count \/ 3/);
   assert.doesNotMatch(source, /genericSubdivideApplied/);
 });
