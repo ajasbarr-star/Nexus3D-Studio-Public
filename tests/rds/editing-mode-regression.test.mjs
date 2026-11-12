@@ -96,14 +96,26 @@ test('New Modeling Workspace replaces the legacy panel presentation without dele
   assert.doesNotMatch(source, /heldForMs < 420/);
 });
 
-test('Subdivide fails closed when the current mesh has no verified quad topology', () => {
-  assert.match(source, /target\.userData\.nexusQuadGrid === true \|\| \(target\.userData\.kind === 'Cube' && Boolean\(geometry\.index\)\)/);
-  assert.match(source, /including extruded quad side walls/);
-  assert.match(source, /!geometry\.index && target\.userData\.nexusQuadGrid === true/);
+test('Subdivide verifies canonical quad cells even after Extrude and Faces Cut remove caps', () => {
+  assert.match(source, /else if \(tool === 'Subdivide'\)/);
+  assert.match(source, /Faces Cut removes complete cap quads and leaves the remaining canonical/);
+  assert.match(source, /candidate\.count % 6 === 0/);
+  assert.match(source, /close\(points\[0\], points\[3\]\)/);
+  assert.match(source, /close\(points\[2\], points\[4\]\)/);
+  assert.match(source, /uniqueKeys\.size !== 4/);
+  assert.match(source, /sourceCornerOffsets = \[0, 1, 2, 5\]/);
   assert.match(source, /Fail closed for meshes without a verified quad-cell topology/);
   assert.match(source, /No triangles were split and the original mesh was preserved/);
   assert.doesNotMatch(source, /const triangleCount = sourcePosition\.count \/ 3/);
   assert.doesNotMatch(source, /genericSubdivideApplied/);
+});
+
+test('Faces Cut keeps complete quad-cell pairs eligible for later Subdivide', () => {
+  assert.match(source, /const source = geometry\.index \? geometry\.toNonIndexed\(\) : geometry/);
+  assert.match(source, /kept\.push\(offset, offset \+ 1, offset \+ 2\)/);
+  assert.match(source, /const cutGeometry = new THREE\.BufferGeometry\(\)/);
+  assert.match(source, /geometry = cutGeometry/);
+  assert.match(source, /candidate\.count % 6 === 0/);
 });
 
 test('Subdivide blocks skinned and morph-target meshes before geometry mutation', () => {
