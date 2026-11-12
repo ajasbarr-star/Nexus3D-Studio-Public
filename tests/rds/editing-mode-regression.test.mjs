@@ -207,13 +207,16 @@ test('Legacy triangle-clipping code is reserved for Loop Cut and cannot run for 
   assert.doesNotMatch(source, /Subdivide needs a mesh with valid triangles/);
 });
 
-test('Cube Extrude rebuilds a canonical six-corner quad stream before adding side walls', () => {
-  assert.match(source, /const canonicalFaceOrder = \[0, 1, 4, 0, 4, 2\]/);
-  assert.match(source, /canonicalGeometry\.setAttribute\(name, new THREE\.BufferAttribute\(values, rawAttribute\.itemSize, rawAttribute\.normalized\)\)/);
-  assert.match(source, /canonicalCubeExtrude = true/);
-  assert.match(source, /target\.userData\.nexusQuadGrid = true/);
-  assert.match(source, /target\.userData\.nexusQuadGridLayout = 'canonical-v1'/);
-  assert.match(source, /sourceCornerOffsets = \[0, 1, 2, 5\]/);
+test('Face Extrude reconstructs and verifies each triangle pair as a planar quad before enabling Subdivide', () => {
+  assert.match(source, /let extrudeQuadGridVerified = false/);
+  assert.match(source, /Reconstruct each existing pair of triangles as one canonical quad cell/);
+  assert.match(source, /const triBMatchesWinding = triB\.some/);
+  assert.match(source, /if \(!triBMatchesWinding\) \{ verified = false; break; \}/);
+  assert.match(source, /extrudeQuadGridVerified = verified/);
+  assert.match(source, /tool === 'Extrude'[\s\S]*enabled: extrudeQuadGridVerified/);
+  assert.match(source, /Triangle pairs could not be reconstructed as verified planar quads/);
+  assert.doesNotMatch(source, /canonicalFaceOrder/);
+  assert.doesNotMatch(source, /canonicalCubeExtrude/);
 });
 
 test('Extruded side walls receive UVs and keep the verified quad topology stream', () => {
