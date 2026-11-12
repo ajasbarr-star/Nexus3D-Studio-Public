@@ -125,6 +125,7 @@ jobs:
           NEXUS3D_KEY_ALIAS: nexus3dtest
           NEXUS3D_KEY_PASSWORD: ${{ secrets.TEST_ANDROID_KEY_PASSWORD }}
           NEXUS3D_VERSION_CODE: ${{ github.run_number }}
+          NEXUS3D_VERSION_PATCH: ${{ env.NEXUS3D_VERSION_PATCH }}
         working-directory: android
         run: ./gradlew assembleRelease
 
