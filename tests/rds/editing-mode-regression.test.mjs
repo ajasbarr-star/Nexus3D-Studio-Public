@@ -342,3 +342,9 @@ test('Face Pull with the Move gizmo creates connected quad side walls and preser
   assert.match(source, /const originalAttribute = originalAttributes\[name\]/);
   assert.doesNotMatch(source, /source\.clearGroups\(\)/);
 });
+
+test('Main Viewport camera orbit can inspect the underside without crossing unstable poles', () => {
+  assert.match(source, /orbit\.minPolarAngle = 0\.01/);
+  assert.match(source, /orbit\.maxPolarAngle = Math\.PI - 0\.01/);
+  assert.doesNotMatch(source, /orbit\.maxPolarAngle = Math\.PI \* 0\.49/);
+});
