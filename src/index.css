@@ -2102,10 +2102,10 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   left: 50% !important;
   bottom: 4px !important;
   transform: translateX(-50%) !important;
-  width: 42px !important;
-  min-width: 42px !important;
-  height: 20px !important;
-  min-height: 20px !important;
+  width: 26px !important;
+  min-width: 26px !important;
+  height: 24px !important;
+  min-height: 24px !important;
   padding: 0 !important;
   border: 1px solid rgba(72, 174, 207, .58) !important;
   border-radius: 6px !important;
@@ -2115,7 +2115,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   touch-action: none !important;
 }
 .panel-resize-handle span {
-  width: 16px !important;
+  width: 12px !important;
   height: 2px !important;
   border: 0 !important;
   border-top: 1px solid #62d9f3 !important;
