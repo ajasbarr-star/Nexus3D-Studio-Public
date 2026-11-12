@@ -1686,13 +1686,49 @@ export default function App() {
       if (!(bone instanceof THREE.Bone) || !bone.parent) { setStatus('Select a bone to delete'); return false; }
       if (!(bone.parent instanceof THREE.Bone)) { setStatus('Root bones are protected to preserve the rig hierarchy'); return false; }
       const parent = bone.parent;
-      [...bone.children].filter(child => child instanceof THREE.Bone).forEach(child => parent.attach(child));
-      parent.remove(bone);
-      const index = selectable.indexOf(bone); if (index >= 0) selectable.splice(index,1);
-      rigChains.forEach(chain => { chain.bones = chain.bones.filter(entry => entry !== bone); chain.helper.updateMatrixWorld(true); });
-      syncItems();
-      if (parent instanceof THREE.Bone) selectObject(parent); else selectObject();
-      setStatus('Bone deleted · child bones preserved'); return true;
+      const childBones = [...bone.children].filter(child => child instanceof THREE.Bone) as THREE.Bone[];
+      const originalSelectableIndex = selectable.indexOf(bone);
+      const chainSnapshots = rigChains.filter(chain => chain.bones.includes(bone)).map(chain => ({
+        chain,
+        bones: [...chain.bones],
+      }));
+      const applyDelete = () => {
+        scene.updateMatrixWorld(true);
+        childBones.forEach(child => parent.attach(child));
+        parent.remove(bone);
+        const index = selectable.indexOf(bone);
+        if (index >= 0) selectable.splice(index, 1);
+        chainSnapshots.forEach(({ chain, bones }) => {
+          chain.bones = bones.filter(entry => entry !== bone);
+          rebuildRigHelper(chain);
+        });
+        syncItems();
+        selectObject(parent);
+        setStatus('Bone deleted · child bones preserved · Undo available');
+      };
+      const restoreDelete = () => {
+        scene.updateMatrixWorld(true);
+        parent.add(bone);
+        childBones.forEach(child => bone.attach(child));
+        if (!selectable.includes(bone)) {
+          selectable.splice(Math.max(0, Math.min(originalSelectableIndex, selectable.length)), 0, bone);
+        }
+        chainSnapshots.forEach(({ chain, bones }) => {
+          chain.bones = [...bones];
+          rebuildRigHelper(chain);
+        });
+        scene.updateMatrixWorld(true);
+        syncItems();
+        selectObject(bone);
+        setStatus('Bone restored · skeleton hierarchy and helper rebuilt');
+      };
+      applyDelete();
+      recordSceneAction({
+        label: 'Delete Bone ' + bone.name,
+        undo: restoreDelete,
+        redo: applyDelete,
+      });
+      return true;
     };
     transform.addEventListener('objectChange', () => {
       if (!mirrorEnabledRef.current) return;
