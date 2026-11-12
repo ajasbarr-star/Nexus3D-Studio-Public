@@ -317,3 +317,15 @@ test('Extruded Single and Dual Face highlights follow the newly created cap geom
   assert.match(source, /selection\.faceParts\.forEach\(part =>/);
   assert.match(source, /color: 0x00e5ff, side: THREE\.DoubleSide, transparent: true, opacity: 0\.42/);
 });
+
+test('Face Pull with the Move gizmo creates connected quad side walls and preserves source attributes', () => {
+  assert.match(source, /Face Pull: when a face is moved with the Move gizmo/);
+  assert.match(source, /const selectedVertexIds = new Set\(activeSubSelection\.faceParts\.flat\(\)\)/);
+  assert.match(source, /const perimeter = Array\.from\(boundary\.values\(\)\)\.filter\(edge => edge\.count === 1\)/);
+  assert.match(source, /const moved = perimeter\.filter\(edge =>/);
+  assert.match(source, /const source = liveGeometry\.index \? liveGeometry\.toNonIndexed\(\) : liveGeometry\.clone\(\)/);
+  assert.match(source, /connectedQuadWalls: moved\.length, closedShellBridge: true/);
+  assert.match(source, /refreshTopologyOverlay\(mesh\)/);
+  assert.match(source, /const originalAttribute = originalAttributes\[name\]/);
+  assert.doesNotMatch(source, /source\.clearGroups\(\)/);
+});
