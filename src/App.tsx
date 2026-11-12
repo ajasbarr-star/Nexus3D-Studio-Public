@@ -4936,7 +4936,7 @@ export default function App() {
             </>}
           </div>}
         </section>)}
-        <button type="button" className="panel-resize-handle" aria-label="Resize Menu Panel horizontally" title="Drag right to widen panel" onPointerDown={beginPanelResize} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button>
+        <div className="panel-bottom-bar" aria-label="Menu Panel resize control"><button type="button" className="panel-resize-handle" aria-label="Resize Menu Panel horizontally" title="Drag right to widen panel" onPointerDown={beginPanelResize} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button></div>
       </aside>}
 
       {panel && !cameraView && <aside className="hierarchy-panel" style={{ "--nexus-panel-width": sharedPanelWidth + "px" } as React.CSSProperties}>
@@ -5070,8 +5070,7 @@ export default function App() {
             </div>;
           })}
         </div>
-        <div className="panel-footer"><span className="live-dot" /> {objectCount} objects in scene</div>
-        <button type="button" className="panel-resize-handle" aria-label="Resize Scene Tree panel horizontally" title="Drag right to widen panel" onPointerDown={beginPanelResize} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button>
+        <div className="panel-bottom-bar" aria-label="Scene Tree resize control"><button type="button" className="panel-resize-handle" aria-label="Resize Scene Tree panel horizontally" title="Drag right to widen panel" onPointerDown={beginPanelResize} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button></div>
       </aside>}
 
 
