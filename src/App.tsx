@@ -1310,12 +1310,32 @@ export default function App() {
               // Keeping this order avoids putting the internal diagonal on the quad boundary.
               const corners = [edgeA, opposite, edgeB, remaining];
               if (new Set(corners.map(pointKey)).size !== 4) continue;
-              const p0 = new THREE.Vector3(...readVertex(corners[0]).position as [number, number, number]);
-              const p1 = new THREE.Vector3(...readVertex(corners[1]).position as [number, number, number]);
-              const p2 = new THREE.Vector3(...readVertex(corners[2]).position as [number, number, number]);
-              const p3 = new THREE.Vector3(...readVertex(corners[3]).position as [number, number, number]);
-              const area = p1.clone().sub(p0).cross(p2.clone().sub(p0)).length() + p2.clone().sub(p0).cross(p3.clone().sub(p0)).length();
-              if (area > 1e-10) { chosen = { other: candidate.other, corners }; break; }
+              const points = corners.map(index => new THREE.Vector3().fromBufferAttribute(position, index));
+              const [p0, p1, p2, p3] = points;
+              const perimeterNormal = p1.clone().sub(p0).cross(p2.clone().sub(p1))
+                .add(p2.clone().sub(p1).cross(p3.clone().sub(p2)))
+                .add(p3.clone().sub(p2).cross(p0.clone().sub(p3)))
+                .add(p0.clone().sub(p3).cross(p1.clone().sub(p0)));
+              const triangleNormal = (indices: number[]) => {
+                const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]);
+                const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]);
+                const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]);
+                return b.sub(a).cross(c.sub(a)).normalize();
+              };
+              const currentNormal = triangleNormal(triangle.indices);
+              const pairedNormal = triangleNormal(otherIndices);
+              const convexTurns = [
+                p1.clone().sub(p0).cross(p2.clone().sub(p1)),
+                p2.clone().sub(p1).cross(p3.clone().sub(p2)),
+                p3.clone().sub(p2).cross(p0.clone().sub(p3)),
+                p0.clone().sub(p3).cross(p1.clone().sub(p0))
+              ];
+              const isConvex = perimeterNormal.lengthSq() > 1e-10 &&
+                convexTurns.every(turn => turn.dot(perimeterNormal) > 1e-10);
+              if (isConvex && currentNormal.dot(pairedNormal) > 0.65) {
+                chosen = { other: candidate.other, corners };
+                break;
+              }
             }
             if (!chosen) { source.dispose(); return null; }
             triangle.paired = true;
