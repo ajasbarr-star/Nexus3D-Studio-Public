@@ -133,3 +133,11 @@ test('Sphere primitives use a pole-safe six-face quad grid instead of triangle-f
   assert.match(source, /result\.userData\.nexusPrimitiveQuadGrid = true/);
   assert.match(source, /const outward = corners\[1\]\.clone\(\)\.sub\(corners\[0\]\)\.cross\(corners\[3\]\.clone\(\)\.sub\(corners\[0\]\)\)\.dot\(corners\[0\]\)/);
 });
+
+
+test('Primitive quad pairing respects hard-normal seams and preserves source normals', () => {
+  assert.match(source, /const normal = source\.getAttribute\('normal'\)/);
+  assert.match(source, /normalA\.dot\(otherA\) < 0\.65 \|\| normalB\.dot\(otherB\) < 0\.65/);
+  assert.match(source, /outputNormals\.push\(\.\.\.corners\[cornerIndex\]\.normal\)/);
+  assert.match(source, /if \(normal\) result\.setAttribute\('normal', new THREE\.Float32BufferAttribute\(outputNormals, 3\)\)/);
+});
