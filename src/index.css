@@ -1968,3 +1968,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   color:#b8d8e8; font:7px/1.55 'DM Mono',monospace; white-space:pre-wrap;
   overflow-wrap:anywhere;
 }
+
+
+/* Menu panel visual breathing room: slightly taller without touching the bottom dock. */
+.menu-panel { padding-bottom: 30px !important; }
