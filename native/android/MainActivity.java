@@ -1,10 +1,8 @@
-package com.nexus3d.studio;
+package com.nexus3d.studio.test;
 
 import android.os.Bundle;
 import android.view.View;
 import com.getcapacitor.BridgeActivity;
-import com.getcapacitor.Plugin;
-import com.nexus3d.studio.NexusProjectFilesPlugin;
 
 /**
  * Keep Nexus3D immersive on Android: hide both the status and navigation bars.
