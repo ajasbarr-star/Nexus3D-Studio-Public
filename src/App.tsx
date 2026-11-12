@@ -3593,8 +3593,9 @@ export default function App() {
       // expects [A,B,C,A,C,D]. Pair only triangles that share exactly one diagonal,
       // have consistent winding, and form a planar, non-degenerate quad. Any
       // ambiguous/unsupported triangle stream stays unmarked (fail closed).
-      if (editModeRef.current === 'Face' && !geometry.index) {
+      if (tool === 'Extrude' && editModeRef.current === 'Face' && !geometry.index) {
         const position = geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+        geometry.computeBoundingSphere();
         const tolerance = Math.max(1e-6, (geometry.boundingSphere?.radius || 1) * 1e-5);
         const closePoint = (a: THREE.Vector3, b: THREE.Vector3) => a.distanceToSquared(b) <= tolerance * tolerance;
         let verified = Boolean(position && position.count >= 6 && position.count % 6 === 0);
