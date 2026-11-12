@@ -178,3 +178,16 @@ test('Quad topology marker and layout survive Nexus project save and load', () =
   assert.match(source, /if \(saved\.meshTopology\.quadGrid === true\)/);
   assert.match(source, /obj\.userData\.nexusQuadGridLayout = saved\.meshTopology\.quadGridLayout/);
 });
+
+
+test('Primitive quad pairing rejects folded and non-convex triangle pairs', () => {
+  assert.match(source, /const convexTurns = \[/);
+  assert.match(source, /const isConvex = perimeterNormal\.lengthSq\(\) > 1e-10/);
+  assert.match(source, /convexTurns\.every\(turn => turn\.dot\(perimeterNormal\) > 1e-10\)/);
+  assert.match(source, /currentNormal\.dot\(pairedNormal\) > 0\.65/);
+});
+
+test('Unsupported shape topology cancels without creating triangle subdivision lines', () => {
+  assert.match(source, /else if \(tool === 'Subdivide'\) \{[\s\S]*?this mesh does not have verified quad topology[\s\S]*?No triangles were split/);
+  assert.match(source, /Subdivide cancelled: this shape has no verified square-quad layout/);
+});
