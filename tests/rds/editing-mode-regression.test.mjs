@@ -338,10 +338,21 @@ test('Face Pull with the Move gizmo creates connected quad side walls and preser
   assert.match(source, /const perimeter = Array\.from\(boundary\.values\(\)\)\.filter\(edge => edge\.count === 1\)/);
   assert.match(source, /const moved = perimeter\.filter\(edge =>/);
   assert.match(source, /const source = liveGeometry\.index \? liveGeometry\.toNonIndexed\(\) : liveGeometry\.clone\(\)/);
-  assert.match(source, /connectedQuadWalls: moved\.length, closedShellBridge: true/);
+  assert.match(source, /connectedQuadWalls: moved\.length, duplicateSurfaceTrianglesRemoved: removedDuplicateSurfaceTriangles/);
   assert.match(source, /refreshTopologyOverlay\(mesh\)/);
   assert.match(source, /const originalAttribute = originalAttributes\[name\]/);
   assert.doesNotMatch(source, /source\.clearGroups\(\)/);
+});
+
+test('Face Pull removes exact stale duplicate cap triangles without deleting adjacent side faces', () => {
+  assert.match(source, /const selectedTriangleOffsets = new Set<number>\(\)/);
+  assert.match(source, /selectedTriangleOffsets\.add\(offset \/ 3\)/);
+  assert.match(source, /const movedSourceFaceKeys = new Set<string>\(\)/);
+  assert.match(source, /movedSourceFaceKeys\.has\(triangleKeyFrom\(sourcePosition, liveStart\)\)/);
+  assert.match(source, /removedDuplicateTriangles\.add\(triangleOffset\)/);
+  assert.match(source, /source\.setIndex\(keptIndices\)/);
+  assert.match(source, /Face Pull stale duplicate surface removed/);
+  assert.match(source, /duplicateSurfaceTrianglesRemoved: removedDuplicateSurfaceTriangles/);
 });
 
 test('Main Viewport camera orbit can inspect the underside without crossing unstable poles', () => {
