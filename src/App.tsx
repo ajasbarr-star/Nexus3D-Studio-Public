@@ -231,6 +231,7 @@ export default function App() {
   // Scene Tree and Menu share one dock slot. Drag the right-center handle
   // toward the right to widen whichever panel is currently active.
   const [sharedPanelWidth, setSharedPanelWidth] = useState(172);
+  const [menuPanelTop, setMenuPanelTop] = useState(52);
   const [sceneTreeTop, setSceneTreeTop] = useState(52);
   const treeHeightResizeStart = useRef<{ y: number; top: number; pointerId: number } | null>(null);
   const treeHeightResizeMoveRef = useRef<((event: PointerEvent) => void) | null>(null);
@@ -246,13 +247,23 @@ export default function App() {
       window.removeEventListener('pointerup', panelResizeEndRef.current);
       window.removeEventListener('pointercancel', panelResizeEndRef.current);
     }
-    const start = { x: event.clientX, width: sharedPanelWidth, pointerId: event.pointerId };
+    const start = { x: event.clientX, y: event.clientY, width: sharedPanelWidth, top: menuPanelTop, pointerId: event.pointerId };
     panelResizeStart.current = start;
     const move = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== start.pointerId) return;
       moveEvent.preventDefault();
-      const maxWidth = Math.max(220, Math.min(420, Math.floor(window.innerWidth * 0.48)));
-      setSharedPanelWidth(Math.max(150, Math.min(maxWidth, start.width + moveEvent.clientX - start.x)));
+      const dx = moveEvent.clientX - start.x;
+      const dy = moveEvent.clientY - start.y;
+      // The bottom grip supports both axes: vertical drag changes panel height,
+      // horizontal drag changes width. Use the dominant axis to avoid jitter.
+      if (Math.abs(dy) > Math.abs(dx)) {
+        const minTop = 42;
+        const maxTop = Math.max(minTop, window.innerHeight - 54 - 150);
+        setMenuPanelTop(Math.max(minTop, Math.min(maxTop, start.top + dy)));
+      } else {
+        const maxWidth = Math.max(220, Math.min(420, Math.floor(window.innerWidth * 0.48)));
+        setSharedPanelWidth(Math.max(150, Math.min(maxWidth, start.width + dx)));
+      }
     };
     const end = (endEvent: PointerEvent) => {
       if (endEvent.pointerId !== start.pointerId) return;
@@ -6149,7 +6160,7 @@ export default function App() {
 
       {!panel && !cameraView && !riggingView && <button className={'floating-menu-toggle ' + (menuOpen ? 'active' : '')} id="btn-menu-panel" onClick={() => { const opening = !menuOpen; setMenuOpen(opening); if (opening) { setQuickPanel(null); setInspectorOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); } }} title={menuOpen ? 'Close Menu Panel' : 'Open Menu Panel'}><span className="menu-glyph">☰</span><span>MENU</span></button>}
 
-      {menuOpen && !panel && !cameraView && !riggingView && <aside className="menu-panel" style={{ "--nexus-panel-width": sharedPanelWidth + "px" } as React.CSSProperties}>
+      {menuOpen && !panel && !cameraView && !riggingView && <aside className="menu-panel" style={{ "--nexus-panel-width": sharedPanelWidth + "px", "--nexus-menu-top": menuPanelTop + "px" } as React.CSSProperties}>
         <div className="panel-heading"><div><Settings2 size={13} /><span>Menu</span></div><button className="menu-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={13} /></button></div>
         <div className="menu-panel-scroll">
         <section className="menu-category diagnostic-menu-section">
@@ -6373,7 +6384,7 @@ export default function App() {
           </div>}
         </section>)}
         </div>
-        <div className="panel-bottom-bar" aria-label="Menu Panel resize control"><button type="button" className="panel-resize-handle" aria-label="Resize Menu Panel horizontally" title="Drag right to widen panel" onPointerDown={beginPanelResize} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button></div>
+        <div className="panel-bottom-bar" aria-label="Menu Panel resize control"><button type="button" className="panel-resize-handle" aria-label="Resize Menu Panel height or width" title="Drag up or down to resize height; drag sideways to resize width" onPointerDown={beginPanelResize} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button></div>
       </aside>}
 
       {panel && !cameraView && <aside className="hierarchy-panel" style={{ "--nexus-panel-width": sharedPanelWidth + "px", "--nexus-tree-top": sceneTreeTop + "px" } as React.CSSProperties}>
