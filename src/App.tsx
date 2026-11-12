@@ -3568,25 +3568,72 @@ export default function App() {
         p.needsUpdate = true;
       }
       geometry.computeVertexNormals();
-      // Extrude converts face geometry to a non-indexed triangle stream. Only
-      // promote it to the quad-grid path when EVERY consecutive pair is an
-      // explicitly encoded quad [A,B,C,A,C,D]. Arbitrary triangle meshes remain
-      // unmarked and are rejected by the quad-only Subdivide path.
+      // Reconstruct each existing pair of triangles as one canonical quad cell.
+      // BoxGeometry commonly stores [A,B,D,B,C,D], while the quad Subdivide path
+      // expects [A,B,C,A,C,D]. Pair only triangles that share exactly one diagonal,
+      // have consistent winding, and form a planar, non-degenerate quad. Any
+      // ambiguous/unsupported triangle stream stays unmarked (fail closed).
       if (editModeRef.current === 'Face' && !geometry.index) {
         const position = geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
         const tolerance = Math.max(1e-6, (geometry.boundingSphere?.radius || 1) * 1e-5);
         const closePoint = (a: THREE.Vector3, b: THREE.Vector3) => a.distanceToSquared(b) <= tolerance * tolerance;
         let verified = Boolean(position && position.count >= 6 && position.count % 6 === 0);
+        const reorder: number[] = [];
         if (position && verified) {
           for (let start = 0; start < position.count; start += 6) {
-            const q = Array.from({ length: 6 }, (_value, index) => new THREE.Vector3().fromBufferAttribute(position, start + index));
-            if (!closePoint(q[0], q[3]) || !closePoint(q[2], q[4])) { verified = false; break; }
-            const normalA = q[1].clone().sub(q[0]).cross(q[2].clone().sub(q[0]));
-            const normalB = q[4].clone().sub(q[3]).cross(q[5].clone().sub(q[3]));
-            if (normalA.lengthSq() <= tolerance ** 4 || normalB.lengthSq() <= tolerance ** 4 ||
-                normalA.clone().normalize().dot(normalB.clone().normalize()) < 0.999 ||
-                Math.abs(q[5].clone().sub(q[0]).dot(normalA.clone().normalize())) > tolerance * 4) {
-              verified = false; break;
+            const triA = [start, start + 1, start + 2];
+            const triB = [start + 3, start + 4, start + 5];
+            const point = (index: number) => new THREE.Vector3().fromBufferAttribute(position, index);
+            const shared: Array<[number, number]> = [];
+            triA.forEach(indexA => triB.forEach(indexB => {
+              if (closePoint(point(indexA), point(indexB))) shared.push([indexA, indexB]);
+            }));
+            if (shared.length !== 2) { verified = false; break; }
+            const uniqueA = triA.find(index => !shared.some(pair => pair[0] === index));
+            const uniqueB = triB.find(index => !shared.some(pair => pair[1] === index));
+            if (uniqueA === undefined || uniqueB === undefined) { verified = false; break; }
+            const uniquePosition = triA.indexOf(uniqueA);
+            const firstShared = triA[(uniquePosition + 1) % 3];
+            const secondShared = triA[(uniquePosition + 2) % 3];
+            const triBMatchesWinding = triB.some((value, index) =>
+              value === shared.find(pair => pair[0] === firstShared)?.[1] &&
+              triB[(index + 1) % 3] === uniqueB &&
+              triB[(index + 2) % 3] === shared.find(pair => pair[0] === secondShared)?.[1]
+            );
+            if (!triBMatchesWinding) { verified = false; break; }
+            reorder.push(uniqueA, firstShared, uniqueB, uniqueA, uniqueB, secondShared);
+          }
+        }
+        if (verified && position && reorder.length === position.count) {
+          // Reorder every vertex attribute together so UVs, colors and integer
+          // skin attributes remain attached to their original vertices.
+          for (const [name, rawAttribute] of Object.entries(geometry.attributes)) {
+            const attribute = rawAttribute as THREE.BufferAttribute;
+            if (attribute.count !== position.count) { verified = false; break; }
+          }
+          if (verified) {
+            for (const [name, rawAttribute] of Object.entries(geometry.attributes)) {
+              const attribute = rawAttribute as THREE.BufferAttribute;
+              const TypedArray = attribute.array.constructor as new (length: number) => typeof attribute.array;
+              const values = new TypedArray(reorder.length * attribute.itemSize);
+              reorder.forEach((sourceIndex, outputIndex) => {
+                for (let component = 0; component < attribute.itemSize; component++) {
+                  values[outputIndex * attribute.itemSize + component] = attribute.array[sourceIndex * attribute.itemSize + component];
+                }
+              });
+              geometry.setAttribute(name, new THREE.BufferAttribute(values, attribute.itemSize, attribute.normalized));
+            }
+            const canonical = geometry.getAttribute('position') as THREE.BufferAttribute;
+            for (let start = 0; start < canonical.count; start += 6) {
+              const q = Array.from({ length: 6 }, (_value, index) => new THREE.Vector3().fromBufferAttribute(canonical, start + index));
+              const normalA = q[1].clone().sub(q[0]).cross(q[2].clone().sub(q[0]));
+              const normalB = q[4].clone().sub(q[3]).cross(q[5].clone().sub(q[3]));
+              if (!closePoint(q[0], q[3]) || !closePoint(q[2], q[4]) ||
+                  normalA.lengthSq() <= tolerance ** 4 || normalB.lengthSq() <= tolerance ** 4 ||
+                  normalA.clone().normalize().dot(normalB.clone().normalize()) < 0.999 ||
+                  Math.abs(q[5].clone().sub(q[0]).dot(normalA.clone().normalize())) > tolerance * 4) {
+                verified = false; break;
+              }
             }
           }
         }
