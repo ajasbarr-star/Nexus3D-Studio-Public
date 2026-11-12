@@ -86,3 +86,17 @@ test('Scene Tree has separate compact horizontal and vertical resize handles', (
   assert.match(styles, /\.tree-height-resize-handle/);
   assert.match(styles, /top: var\(--nexus-tree-top, 52px\) !important/);
 });
+
+
+test('Advanced DFI exposes per-ID summary copy icons and separate full/summary report actions', () => {
+  for (const id of ['010','020','030','040','050','060','070','080','090']) {
+    assert.ok(app.includes("id: '" + id + "'"), 'missing DFI category ID ' + id);
+  }
+  assert.match(app, /copyDfiToolSummary\(section\.id, tool\)/);
+  assert.match(app, /aria-label=\{'Copy ID No\.' \+ section\.id \+ ' summary'\}/);
+  assert.match(app, /COPY SUMMARY REPORT/);
+  assert.match(app, /COPY ALL REPORT/);
+  assert.match(app, /buildDfiToolSummary/);
+  assert.match(styles, /\.dfi-summary-copy-icon/);
+  assert.match(styles, /\.dfi-report-copy-actions/);
+});
