@@ -1305,9 +1305,10 @@ export default function App() {
                 const otherB = new THREE.Vector3().fromBufferAttribute(normal, otherIndices.find(index => pointKey(index) === keyB)!).normalize();
                 if (normalA.dot(otherA) < 0.65 || normalB.dot(otherB) < 0.65) continue;
               }
-              // Order the four perimeter corners (not the two triangle tips); the
-              // previous A-C-B-D order crossed the quad diagonally and produced a bow-tie.
-              const corners = [edgeA, edgeB, opposite, remaining];
+              // Shared diagonal is A-B. The outer perimeter is A-D-B-C:
+              // A -> opposite (D) -> shared endpoint B -> remaining (C).
+              // Keeping this order avoids putting the internal diagonal on the quad boundary.
+              const corners = [edgeA, opposite, edgeB, remaining];
               if (new Set(corners.map(pointKey)).size !== 4) continue;
               const p0 = new THREE.Vector3(...readVertex(corners[0]).position as [number, number, number]);
               const p1 = new THREE.Vector3(...readVertex(corners[1]).position as [number, number, number]);
