@@ -6149,9 +6149,9 @@ export default function App() {
               <button type="button" onClick={copyAllDfiReport} title="Copy complete details: all Advanced DFI, RDS, tool and runtime evidence"><Copy size={13}/> COPY ALL REPORT</button>
               <button type="button" onClick={copyAllDfiSummary} title="Copy concise summary grouped by diagnostic ID"><ClipboardCopy size={13}/> COPY SUMMARY REPORT</button>
             </div>
-            {dfiToolSections.filter(section => dfiToolReports[section.name]).map(section => {
+            {dfiToolSections.map(section => {
               const tool = section.name;
-              const report = dfiToolReports[tool];
+              const report = dfiToolReports[tool] || 'NOT SCANNED — run this tool to collect evidence.';
               return <details className="dfi-tool-result" key={tool}>
               <summary><span className="dfi-result-title">ID No.{section.id} · {tool} · REPORT RESULTS</span><button type="button" className="dfi-summary-copy-icon" title={'Copy ID No.' + section.id + ' summary'} aria-label={'Copy ID No.' + section.id + ' summary'} onClick={event => { event.preventDefault(); event.stopPropagation(); copyDfiToolSummary(section.id, tool); }}><ClipboardCopy size={14}/></button></summary>
               <div className="core-optimizer-report dfi-report dfi-highlight-report">{report.split('\n').map((line, index) => {
