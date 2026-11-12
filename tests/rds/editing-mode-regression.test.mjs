@@ -306,6 +306,7 @@ test('Extruded cap and side-wall upper corners follow Move, Rotate and Scale wit
   assert.match(source, /const isolatedTransformIndices = selection\.linkedIndices/);
   assert.match(source, /extrudedWallCapIndices\.push\(wallStartIndex \+ 2, wallStartIndex \+ 4, wallStartIndex \+ 5\)/);
   assert.match(source, /restoreExtrudedFaceSelection\?\.\(target, extrudedCapIndices, selectedExtrudedFaceParts, extrudedWallCapIndices\)/);
+  assert.match(source, /extrudeContext\.current = null/);
 });
 
 test('Extruded Single and Dual Face highlights follow the newly created cap geometry', () => {
