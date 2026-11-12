@@ -1987,7 +1987,10 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .tree-row-action:active, .tree-row-action:hover, .tree-row-action.active { color:#9feaff; background:#12364b; }
 .tree-row-action.locked { color:#ffca78; background:#382b18; }
 .tree-row-action:disabled { opacity:.28; }
-.tree-more-menu { position:absolute; z-index:20; top:27px; right:1px; width:112px; display:flex; flex-direction:column; gap:2px; padding:5px; border:1px solid #31506c; border-radius:7px; background:rgba(8,17,29,.98); box-shadow:0 8px 24px #0009; }
+.tree-more-menu { position:absolute; z-index:20; top:27px; right:1px; width:176px; max-width:min(70vw,240px); max-height:min(55vh,320px); overflow-y:auto; display:flex; flex-direction:column; gap:2px; padding:5px; border:1px solid #31506c; border-radius:7px; background:rgba(8,17,29,.98); box-shadow:0 8px 24px #0009; }
+.tree-group-targets { display:flex; flex-direction:column; gap:2px; padding:4px 0 3px 7px; border-top:1px solid #263e55; border-bottom:1px solid #263e55; }
+.tree-group-targets > span { padding:3px 5px; color:#6f9bb8; font-size:8px; letter-spacing:.04em; text-transform:uppercase; }
+.tree-group-targets button { min-height:27px; overflow:hidden; text-overflow:ellipsis; }
 .tree-more-menu button { min-height:29px; display:flex; align-items:center; gap:7px; padding:0 7px; border:0; border-radius:4px; color:#b6cce3; background:transparent; text-align:left; font-size:9px; white-space:nowrap; }
 .tree-more-menu button:active, .tree-more-menu button:hover:not(:disabled) { color:#a6efff; background:#12364b; }
 .tree-more-menu button.danger { color:#f49b9b; }
