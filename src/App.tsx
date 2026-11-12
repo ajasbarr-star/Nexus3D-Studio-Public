@@ -3388,6 +3388,23 @@ export default function App() {
       return;
     }
     const currentVertexCount = target.geometry.getAttribute('position')?.count || 0;
+    recordInteractionTrace('Geometry operation requested', {
+      operation: tool,
+      editMode: editModeRef.current,
+      objectName: target.name || null,
+      objectId: target.userData.editorId || null,
+      selectionVertexCount: part.indices.length,
+      selectedFaceCount: part.faceParts?.length || 0,
+      geometryVertexCountBefore: currentVertexCount,
+      triangleCountBefore: Math.floor((target.geometry.index?.count || currentVertexCount) / 3),
+      indexedBefore: Boolean(target.geometry.index),
+      transformMode: runtime.current?.transform?.getMode?.() || modeRef.current,
+      transformAxis: runtime.current?.transform?.axis ?? null,
+      axisSpace: spaceRef.current,
+      objectPosition: target.position.toArray(),
+      objectRotation: [target.rotation.x, target.rotation.y, target.rotation.z],
+      objectScale: target.scale.toArray()
+    });
     // Character safety: the generic triangle subdivision path interpolates every
     // attribute as floating-point data. That is not valid for skinIndex (integer
     // bone references), and can also invalidate skin weights and morph targets.
