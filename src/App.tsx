@@ -230,7 +230,8 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   // Scene Tree and Menu share one dock slot. Drag the right-center handle
   // toward the right to widen whichever panel is currently active.
-  const [sharedPanelWidth, setSharedPanelWidth] = useState(172);
+  const [treePanelWidth, setTreePanelWidth] = useState(172);
+  const [menuPanelWidth, setMenuPanelWidth] = useState(172);
   const [menuPanelTop, setMenuPanelTop] = useState(52);
   const [sceneTreeTop, setSceneTreeTop] = useState(52);
   const treeHeightResizeStart = useRef<{ y: number; top: number; pointerId: number } | null>(null);
@@ -239,7 +240,7 @@ export default function App() {
   const panelResizeStart = useRef<{ x: number; width: number; pointerId: number } | null>(null);
   const panelResizeMoveRef = useRef<((event: PointerEvent) => void) | null>(null);
   const panelResizeEndRef = useRef<((event: PointerEvent) => void) | null>(null);
-  const beginPanelResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+  const beginPanelResize = (event: React.PointerEvent<HTMLButtonElement>, targetPanel: 'tree' | 'menu') => {
     event.preventDefault();
     event.stopPropagation();
     if (panelResizeMoveRef.current) window.removeEventListener('pointermove', panelResizeMoveRef.current);
@@ -247,7 +248,7 @@ export default function App() {
       window.removeEventListener('pointerup', panelResizeEndRef.current);
       window.removeEventListener('pointercancel', panelResizeEndRef.current);
     }
-    const start = { x: event.clientX, y: event.clientY, width: sharedPanelWidth, top: menuPanelTop, pointerId: event.pointerId };
+    const start = { x: event.clientX, y: event.clientY, width: targetPanel === 'tree' ? treePanelWidth : menuPanelWidth, top: targetPanel === 'tree' ? sceneTreeTop : menuPanelTop, pointerId: event.pointerId };
     panelResizeStart.current = start;
     const move = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== start.pointerId) return;
@@ -259,10 +260,14 @@ export default function App() {
       if (Math.abs(dy) > Math.abs(dx)) {
         const minTop = 42;
         const maxTop = Math.max(minTop, window.innerHeight - 54 - 150);
-        setMenuPanelTop(Math.max(minTop, Math.min(maxTop, start.top + dy)));
+        const nextTop = Math.max(minTop, Math.min(maxTop, start.top + dy));
+        if (targetPanel === 'tree') setSceneTreeTop(nextTop);
+        else setMenuPanelTop(nextTop);
       } else {
         const maxWidth = Math.max(220, Math.min(420, Math.floor(window.innerWidth * 0.48)));
-        setSharedPanelWidth(Math.max(150, Math.min(maxWidth, start.width + dx)));
+        const nextWidth = Math.max(150, Math.min(maxWidth, start.width + dx));
+        if (targetPanel === 'tree') setTreePanelWidth(nextWidth);
+        else setMenuPanelWidth(nextWidth);
       }
     };
     const end = (endEvent: PointerEvent) => {
@@ -6160,7 +6165,7 @@ export default function App() {
 
       {!panel && !cameraView && !riggingView && <button className={'floating-menu-toggle ' + (menuOpen ? 'active' : '')} id="btn-menu-panel" onClick={() => { const opening = !menuOpen; setMenuOpen(opening); if (opening) { setQuickPanel(null); setInspectorOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); } }} title={menuOpen ? 'Close Menu Panel' : 'Open Menu Panel'}><span className="menu-glyph">☰</span><span>MENU</span></button>}
 
-      {menuOpen && !panel && !cameraView && !riggingView && <aside className="menu-panel" style={{ "--nexus-panel-width": sharedPanelWidth + "px", "--nexus-menu-top": menuPanelTop + "px" } as React.CSSProperties}>
+      {menuOpen && !panel && !cameraView && !riggingView && <aside className="menu-panel" style={{ "--nexus-panel-width": menuPanelWidth + "px", "--nexus-menu-top": menuPanelTop + "px" } as React.CSSProperties}>
         <div className="panel-heading"><div><Settings2 size={13} /><span>Menu</span></div><button className="menu-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={13} /></button></div>
         <div className="menu-panel-scroll">
         <section className="menu-category diagnostic-menu-section">
@@ -6384,12 +6389,12 @@ export default function App() {
           </div>}
         </section>)}
         </div>
-        <div className="panel-bottom-bar" aria-label="Menu Panel resize control"><button type="button" className="panel-resize-handle" aria-label="Resize Menu Panel height or width" title="Drag up or down to resize height; drag sideways to resize width" onPointerDown={beginPanelResize} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button></div>
+        <div className="panel-bottom-bar" aria-label="Menu Panel resize control"><button type="button" className="panel-resize-handle" aria-label="Resize Menu Panel height or width" title="Drag up or down to resize height; drag sideways to resize width" onPointerDown={event => beginPanelResize(event, 'menu')} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button></div>
       </aside>}
 
-      {panel && !cameraView && <aside className="hierarchy-panel" style={{ "--nexus-panel-width": sharedPanelWidth + "px", "--nexus-tree-top": sceneTreeTop + "px" } as React.CSSProperties}>
+      {panel && !cameraView && <aside className="hierarchy-panel" style={{ "--nexus-panel-width": treePanelWidth + "px", "--nexus-tree-top": sceneTreeTop + "px" } as React.CSSProperties}>
         <div className="panel-heading"><div><Layers size={13} /><span>Scenes Tree</span></div><div className="tree-manager-tools"><button type="button" title="Duplicate selected object" aria-label="Duplicate selected object" disabled={!selected || cameraView} onClick={() => { const obj = items.find(entry => entry.id === selected)?.object; if (obj) duplicateTreeObject(obj); }}><Copy size={12}/></button><button type="button" title="Group selected object" aria-label="Group selected object" disabled={!selected || cameraView} onClick={() => { const obj = items.find(entry => entry.id === selected)?.object; if (obj) groupTreeObject(obj); }}><FolderPlus size={12}/></button><button type="button" title="Delete selected object" aria-label="Delete selected object" disabled={!selected || cameraView} onClick={() => { const obj = items.find(entry => entry.id === selected)?.object; if (obj) deleteTreeObject(obj); }}><Trash2 size={12}/></button><span className="count">{items.length.toString().padStart(2, '0')}</span></div></div>
-        <div className="tree-search"><Search size={12} /><input aria-label="Search scene tree" value={treeSearch} onChange={e => setTreeSearch(e.target.value)} placeholder="Search scene…" /><button type="button" className="tree-width-resize-handle" aria-label="Resize Scene Tree width" title="Drag right to widen or left to narrow Scene Tree" onPointerDown={beginPanelResize} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button></div>
+        <div className="tree-search"><Search size={12} /><input aria-label="Search scene tree" value={treeSearch} onChange={e => setTreeSearch(e.target.value)} placeholder="Search scene…" /><button type="button" className="tree-width-resize-handle" aria-label="Resize Scene Tree width" title="Drag right to widen or left to narrow Scene Tree" onPointerDown={event => beginPanelResize(event, 'tree')} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><span /></button></div>
         <div className={'tree-root ' + (dragTargetId === 'root' ? 'drop-target' : '')} onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragTargetId('root'); }} onDragLeave={() => setDragTargetId('')} onDrop={e => { e.preventDefault(); setDragTargetId(''); const childId = e.dataTransfer.getData('text/nexus3d-object'); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }} title="Drop an object here to move it to the Scene root"><span className="tree-caret">⌄</span><Grid2X2 size={12} /><span>Scene Root</span></div>
         <div className={'tree-list ' + (dragTargetId === 'empty' ? 'drop-target' : '')} onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (e.target === e.currentTarget) setDragTargetId('empty'); }} onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragTargetId(''); }} onDrop={e => { e.preventDefault(); setDragTargetId(''); const childId = e.dataTransfer.getData('text/nexus3d-object'); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }}>
           {items.filter(item => {
