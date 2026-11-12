@@ -2889,7 +2889,6 @@ export default function App() {
     const depth = Math.max(0.01, rawAmount / 100) * 0.8;
     let extrudedCapIndices: number[] = [];
     let generatedCutLoops: number[][][] = [];
-    let genericSubdivideApplied = false;
     const previousCutLoops = useExtrudeBaseline ? extrudeBaseCutLoops.current.map(loop => loop.map(point => [...point])) : Array.isArray(target.userData.cutLoops) ? (target.userData.cutLoops as number[][][]).map(loop => loop.map(point => [...point])) : [];
     const captureQuadGridState = () => ({
       enabled: Boolean(target.userData.nexusQuadGrid),
@@ -3009,75 +3008,19 @@ export default function App() {
       geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
       geometry.computeVertexNormals();
     } else if (tool === 'Subdivide') {
-      // Extrusion turns the regular cube grid into ordinary triangle geometry.
-      // This fallback subdivides the ENTIRE current mesh, including every extruded
-      // cap and side wall, and remains repeatable on every subsequent press.
-      const sourceGeometry = geometry.toNonIndexed();
-      const sourcePosition = sourceGeometry.getAttribute('position') as THREE.BufferAttribute | undefined;
-      if (!sourcePosition || sourcePosition.count < 3 || sourcePosition.count % 3 !== 0) {
-        sourceGeometry.dispose(); geometry.dispose(); before.dispose();
-        setStatus('Subdivide cancelled: mesh has no valid triangle topology; existing mesh was preserved.');
-        return;
-      }
-      const triangleCount = sourcePosition.count / 3;
-      const deviceMemoryGb = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory || 4);
-      const safeVertexBudget = Math.min(1_200_000, Math.max(180_000, Math.floor(deviceMemoryGb * 180_000)));
-      if (triangleCount * 12 > safeVertexBudget) {
-        sourceGeometry.dispose(); geometry.dispose(); before.dispose();
-        setStatus('Subdivide paused before the device memory budget; current mesh was preserved.');
-        return;
-      }
-      const attributeNames = Object.keys(sourceGeometry.attributes);
-      const sourceGroups = [...sourceGeometry.groups];
-      const buckets = new Map<number, { attributes: Record<string, number[]>; vertexCount: number }>();
-      const materialForTriangle = (triangleOffset: number) =>
-        sourceGroups.find(group => triangleOffset >= group.start && triangleOffset < group.start + group.count)?.materialIndex ?? 0;
-      const readAttribute = (name: string, index: number) => {
-        const attribute = sourceGeometry.getAttribute(name) as THREE.BufferAttribute;
-        return Array.from({ length: attribute.itemSize }, (_value, component) => attribute.getComponent(index, component));
-      };
-      const midpoint = (a: number[], b: number[]) => a.map((value, component) => (value + b[component]) * 0.5);
-      for (let triangle = 0; triangle < triangleCount; triangle++) {
-        const start = triangle * 3;
-        const corners = [0, 1, 2].map(corner =>
-          Object.fromEntries(attributeNames.map(name => [name, readAttribute(name, start + corner)])) as Record<string, number[]>
-        );
-        const ab = Object.fromEntries(attributeNames.map(name => [name, midpoint(corners[0][name], corners[1][name])])) as Record<string, number[]>;
-        const bc = Object.fromEntries(attributeNames.map(name => [name, midpoint(corners[1][name], corners[2][name])])) as Record<string, number[]>;
-        const ca = Object.fromEntries(attributeNames.map(name => [name, midpoint(corners[2][name], corners[0][name])])) as Record<string, number[]>;
-        const materialIndex = materialForTriangle(start);
-        let bucket = buckets.get(materialIndex);
-        if (!bucket) {
-          bucket = { attributes: Object.fromEntries(attributeNames.map(name => [name, [] as number[]])), vertexCount: 0 };
-          buckets.set(materialIndex, bucket);
-        }
-        [[corners[0],ab,ca],[ab,corners[1],bc],[ca,bc,corners[2]],[ab,bc,ca]].forEach(tri => {
-          tri.forEach(vertex => attributeNames.forEach(name => bucket!.attributes[name].push(...vertex[name])));
-          bucket!.vertexCount += 3;
-        });
-      }
-      const subdivided = new THREE.BufferGeometry();
-      attributeNames.forEach(name => {
-        const sourceAttribute = sourceGeometry.getAttribute(name) as THREE.BufferAttribute;
-        const values: number[] = [];
-        buckets.forEach(bucket => values.push(...bucket.attributes[name]));
-        subdivided.setAttribute(name, new THREE.Float32BufferAttribute(values, sourceAttribute.itemSize, sourceAttribute.normalized));
-      });
-      let groupStart = 0;
-      buckets.forEach((bucket, materialIndex) => {
-        if (bucket.vertexCount) subdivided.addGroup(groupStart, bucket.vertexCount, materialIndex);
-        groupStart += bucket.vertexCount;
-      });
-      subdivided.computeVertexNormals();
-      sourceGeometry.dispose();
-      geometry.dispose();
-      geometry = subdivided;
-      genericSubdivideApplied = true;
-      generatedCutLoops = [];
-      delete target.userData.nexusQuadGrid;
-      delete target.userData.nexusQuadGridLayout;
-      delete target.userData.nexusCubeGridBounds;
-      delete target.userData.nexusCubeGridDivisions;
+      // Fail closed for meshes without a verified quad-cell topology. Splitting
+      // arbitrary triangles creates diagonal triangle grids and loses reliable
+      // face/edge identity. Extruded and non-Cube meshes remain untouched until
+      // their quad topology is explicitly represented by the editor.
+      geometry.dispose(); before.dispose();
+      setStatus('Subdivide paused: this mesh does not have verified quad topology yet. No triangles were split and the original mesh was preserved.');
+      diagnosticSinkRef.current('WARN', 'Geometry Safety', 'Quad subdivision unavailable for current topology', JSON.stringify({
+        object: target.name,
+        kind: target.userData.kind || 'Imported Mesh',
+        vertexCount: target.geometry.getAttribute('position')?.count || 0,
+        indexed: Boolean(target.geometry.index),
+      }));
+      return;
     } else if (tool === 'Smooth') {
       if (target.userData.nexusQuadGrid === true && smoothQuadGridGeometry(geometry)) {
         geometry.deleteAttribute('normal');
@@ -3356,7 +3299,7 @@ export default function App() {
     const afterCutLoops = Array.isArray(target.userData.cutLoops) ? (target.userData.cutLoops as number[][][]).map(loop => loop.map(point => [...point])) : [];
     const after = geometry.clone();
     const afterQuadGridState = tool === 'Subdivide'
-      ? (genericSubdivideApplied ? { enabled: false, layout: null, bounds: null, divisions: 0 } : { enabled: true, layout: 'canonical-v1', bounds: null, divisions: 0 })
+      ? { enabled: true, layout: 'canonical-v1', bounds: null, divisions: 0 }
       : tool === 'LoopCut'
         ? { enabled: false, layout: null, bounds: null, divisions: 0 }
         : captureQuadGridState();
