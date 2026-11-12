@@ -13,7 +13,8 @@ test('Extrude depth is rebuilt from its pre-extrusion geometry snapshot', () => 
   assert.match(source, /extrudeBaseGeometry\.current = target\.geometry\.clone\(\)/);
   assert.match(source, /useExtrudeBaseline \? extrudeBaseGeometry\.current!\.clone\(\)/);
   assert.match(source, /extrudeHistoryUpdate\.current\(after, afterCutLoops\)/);
-  assert.match(source, /onPointerUp=\{\(\) => applyGeometryTool\('Extrude', editAmount, undefined, true\)\}/);
+  assert.match(source, /applyGeometryTool\(tool, tool === 'Extrude' \? 0 : cutAmount\)/);
+  assert.match(source, /Extrude ready · use Move \/ Rotate \/ Scale on the selected cap/);
 });
 
 test('Loop Cut slider commits once on release rather than every input tick', () => {
@@ -290,4 +291,26 @@ test('Dual Faces extrude inward together and Faces Cut removes only touching cap
   assert.match(source, /the two extruded faces have not met yet/);
   assert.match(source, /Faces Cut committed/);
   assert.match(source, /\['Extrude', 'Subdivide', 'Smooth', 'Loop Cut', 'Faces Cut'\]/);
+});
+
+
+test('Face Extrude is available for one face and begins without automatic displacement', () => {
+  assert.match(source, /faceParts\?\.length \|\| 0\) < 1/);
+  assert.match(source, /applyGeometryTool\(tool, tool === 'Extrude' \? 0 : cutAmount\)/);
+  assert.match(source, /const depth = Math\.max\(0, rawAmount \/ 100\) \* 0\.8/);
+  assert.doesNotMatch(source, /Extrude is locked · hold and lock two opposite faces first/);
+});
+
+test('Extruded cap and side-wall upper corners follow Move, Rotate and Scale without moving the perimeter base', () => {
+  assert.match(source, /linkedIndices\?: number\[\]/);
+  assert.match(source, /const isolatedTransformIndices = selection\.linkedIndices/);
+  assert.match(source, /extrudedWallCapIndices\.push\(wallStartIndex \+ 2, wallStartIndex \+ 4, wallStartIndex \+ 5\)/);
+  assert.match(source, /restoreExtrudedFaceSelection\?\.\(target, extrudedCapIndices, selectedExtrudedFaceParts, extrudedWallCapIndices\)/);
+});
+
+test('Extruded Single and Dual Face highlights follow the newly created cap geometry', () => {
+  assert.match(source, /selectedFacePointKeySets = selectedFaceParts\.map/);
+  assert.match(source, /selectedExtrudedFaceParts\[selectedPartIndex\]\.push/);
+  assert.match(source, /selection\.faceParts\.forEach\(part =>/);
+  assert.match(source, /color: 0x00e5ff, side: THREE\.DoubleSide, transparent: true, opacity: 0\.42/);
 });
