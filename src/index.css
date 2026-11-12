@@ -2043,3 +2043,9 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   border-color: #62d9f3;
   box-shadow: 0 0 14px rgba(0, 205, 245, .3);
 }
+
+/* Shared dock width must win over legacy fixed-width mobile rules. */
+.hierarchy-panel, .menu-panel {
+  width: var(--nexus-panel-width, 172px) !important;
+  max-width: min(48vw, 420px) !important;
+}
