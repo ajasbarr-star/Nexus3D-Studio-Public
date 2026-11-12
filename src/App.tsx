@@ -3073,14 +3073,18 @@ export default function App() {
           if (moved.length) {
             const source = liveGeometry.index ? liveGeometry.toNonIndexed() : liveGeometry.clone();
             const oldAttributes = Object.entries(source.attributes) as Array<[string, THREE.BufferAttribute]>;
+            const originalAttributes = liveGeometry.attributes as Record<string, THREE.BufferAttribute>;
             const append: Record<string, number[]> = {};
             oldAttributes.forEach(([name]) => { append[name] = []; });
             const addVertex = (sourceIndex: number, point: THREE.Vector3) => {
               oldAttributes.forEach(([name, attribute]) => {
                 if (name === 'position') append[name].push(point.x, point.y, point.z);
                 else {
+                  const originalAttribute = originalAttributes[name];
                   for (let component = 0; component < attribute.itemSize; component++) {
-                    append[name].push(attribute.getComponent(sourceIndex, component));
+                    append[name].push(originalAttribute && sourceIndex < originalAttribute.count
+                      ? originalAttribute.getComponent(sourceIndex, component)
+                      : 0);
                   }
                 }
               });
@@ -3099,15 +3103,19 @@ export default function App() {
                 : [[edge.b, oldB], [edge.a, oldA], [edge.a, newA], [edge.b, oldB], [edge.a, newA], [edge.b, newB]] as Array<[number, THREE.Vector3]>;
               order.forEach(([sourceVertex, point]) => addVertex(sourceVertex, point));
             });
+            const wallStart = source.getAttribute('position').count;
+            let wallVertexCount = 0;
             oldAttributes.forEach(([name, attribute]) => {
               const extra = append[name];
               const values = new Float32Array(attribute.array.length + extra.length);
               values.set(attribute.array as unknown as ArrayLike<number>);
               values.set(extra, attribute.array.length);
               source.setAttribute(name, new THREE.Float32BufferAttribute(values, attribute.itemSize, attribute.normalized));
+              if (name === 'position') wallVertexCount = extra.length / 3;
             });
-            source.clearGroups();
-            if (source.getAttribute('position').count % 6 === 0) mesh.userData.nexusQuadGrid = true;
+            // Preserve existing material groups. If this mesh uses groups, put
+            // the generated wall quads into the first existing face material.
+            if (source.groups.length && wallVertexCount) source.addGroup(wallStart, wallVertexCount, source.groups[0].materialIndex);
             source.computeVertexNormals();
             source.computeBoundingBox();
             source.computeBoundingSphere();
