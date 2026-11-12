@@ -647,8 +647,11 @@ export default function App() {
         const seen = new Set<string>();
         const pointAt = (index: number) => new THREE.Vector3().fromBufferAttribute(position, index);
         const pointKey = (point: THREE.Vector3) => [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(',');
-        const bounds = mesh.geometry.boundingSphere || (mesh.geometry.computeBoundingSphere(), mesh.geometry.boundingSphere);
-        const lineOffset = Math.max(0.0008, (bounds?.radius || 1) * 0.0015);
+        // Geometry bounds can be stale after repeated Subdivide / Extrude edits.
+        // Recompute them before choosing outward normals and the overlay offset.
+        mesh.geometry.computeBoundingSphere();
+        const bounds = mesh.geometry.boundingSphere;
+        const lineOffset = Math.max(0.0012, (bounds?.radius || 1) * 0.002);
         const boundsCenter = bounds?.center || new THREE.Vector3();
         for (let base = 0; base < position.count; base += 6) {
           const corners = [base, base + 1, base + 2, base + 5].map(pointAt);
@@ -671,7 +674,7 @@ export default function App() {
       } else {
         edges = new THREE.EdgesGeometry(mesh.geometry, 1);
       }
-      const lines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x05070a, transparent: true, opacity: 0.98, depthTest: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
+      const lines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x9aa6b2, transparent: true, opacity: 0.96, depthTest: true, depthWrite: false }));
       lines.name = 'Editable Topology Overlay'; lines.renderOrder = 1004;
       topologyOverlay.add(lines);
       // Cut loops still define Face Mode region boundaries. Quad-grid edges are
