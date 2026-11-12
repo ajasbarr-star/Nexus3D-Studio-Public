@@ -275,6 +275,9 @@ test('Dual Faces selection requires opposite faces and shares one transform pivo
   assert.match(source, /previousNormal\.dot\(currentNormal\) < -0\.8/);
   assert.match(source, /both faces share one transform pivot/);
   assert.match(source, /worldPivot\.copy\(mesh\.localToWorld\(pivotLocal\.clone\(\)\)\)/);
+  assert.match(source, /previousLocalNormal\.applyMatrix3\(new THREE\.Matrix3\(\)\.getNormalMatrix\(hit\.object\.matrixWorld\)\)/);
+  assert.match(source, /const faceHighlightColor = isOppositeLockedFace \? 0x00ffff : 0x00e5ff/);
+  assert.match(source, /color: faceHighlightColor, side: THREE\.DoubleSide, transparent: true, opacity: 0\.42, depthTest: false/);
 });
 
 test('Dual Faces extrude inward together and Faces Cut removes only touching caps', () => {
