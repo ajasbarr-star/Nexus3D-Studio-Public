@@ -155,3 +155,10 @@ test('Primitive triangle pairing builds the perimeter quad in non-crossing order
   assert.match(source, /const corners = \[edgeA, edgeB, opposite, remaining\]/);
   assert.doesNotMatch(source, /const corners = \[edgeA, remaining, edgeB, opposite\]/);
 });
+
+
+test('Primitive quad reconstruction prefers the longest shared diagonal over outer cell edges', () => {
+  assert.match(source, /const edgeLength = \(a: number, b: number\) =>/);
+  assert.match(source, /sharedLength: edgeLength\(triangle\.indices\[edge\], triangle\.indices\[\(edge \+ 1\) % 3\]\)/);
+  assert.match(source, /candidates\.sort\(\(a, b\) => b\.sharedLength - a\.sharedLength\)/);
+});
