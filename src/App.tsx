@@ -2868,6 +2868,7 @@ export default function App() {
     const depth = Math.max(0.01, rawAmount / 100) * 0.8;
     let extrudedCapIndices: number[] = [];
     let generatedCutLoops: number[][][] = [];
+    let genericSubdivideApplied = false;
     const previousCutLoops = useExtrudeBaseline ? extrudeBaseCutLoops.current.map(loop => loop.map(point => [...point])) : Array.isArray(target.userData.cutLoops) ? (target.userData.cutLoops as number[][][]).map(loop => loop.map(point => [...point])) : [];
     const captureQuadGridState = () => ({
       enabled: Boolean(target.userData.nexusQuadGrid),
@@ -2887,7 +2888,7 @@ export default function App() {
       else delete target.userData.nexusCubeGridDivisions;
     };
 
-    if (tool === 'Subdivide' && target.userData.kind === 'Cube') {
+    if (tool === 'Subdivide' && target.userData.kind === 'Cube' && (geometry.index || target.userData.nexusQuadGrid === true)) {
       // Three.js BoxGeometry stores each original quad as [A,B,D] and [B,C,D].
       // Reconstruct the perimeter [A,B,C,D] on the first pass. Nexus3D-generated
       // quads use [A,B,C,A,C,D], so later passes read [0,1,2,5].
@@ -3050,6 +3051,7 @@ export default function App() {
       sourceGeometry.dispose();
       geometry.dispose();
       geometry = subdivided;
+      genericSubdivideApplied = true;
       generatedCutLoops = [];
       delete target.userData.nexusQuadGrid;
       delete target.userData.nexusQuadGridLayout;
@@ -3333,7 +3335,7 @@ export default function App() {
     const afterCutLoops = Array.isArray(target.userData.cutLoops) ? (target.userData.cutLoops as number[][][]).map(loop => loop.map(point => [...point])) : [];
     const after = geometry.clone();
     const afterQuadGridState = tool === 'Subdivide'
-      ? { enabled: true, layout: 'canonical-v1', bounds: null, divisions: 0 }
+      ? (genericSubdivideApplied ? { enabled: false, layout: null, bounds: null, divisions: 0 } : { enabled: true, layout: 'canonical-v1', bounds: null, divisions: 0 })
       : tool === 'LoopCut'
         ? { enabled: false, layout: null, bounds: null, divisions: 0 }
         : captureQuadGridState();
