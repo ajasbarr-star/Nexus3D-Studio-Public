@@ -3617,13 +3617,24 @@ export default function App() {
             const uniquePosition = triA.indexOf(uniqueA);
             const firstShared = triA[(uniquePosition + 1) % 3];
             const secondShared = triA[(uniquePosition + 2) % 3];
-            const triBMatchesWinding = triB.some((value, index) =>
-              value === shared.find(pair => pair[0] === firstShared)?.[1] &&
-              triB[(index + 1) % 3] === uniqueB &&
-              triB[(index + 2) % 3] === shared.find(pair => pair[0] === secondShared)?.[1]
-            );
-            if (!triBMatchesWinding) { verified = false; break; }
-            reorder.push(uniqueA, firstShared, uniqueB, uniqueA, uniqueB, secondShared);
+            const normalA = point(triA[1]).sub(point(triA[0])).cross(point(triA[2]).sub(point(triA[0]))).normalize();
+            const triBPoints = triB.map(point);
+            const normalB = triBPoints[1].clone().sub(triBPoints[0]).cross(triBPoints[2].clone().sub(triBPoints[0])).normalize();
+            const candidateNormal = (b: number, c: number) =>
+              point(b).sub(point(uniqueA)).cross(point(c).sub(point(uniqueA))).normalize();
+            const firstNormal = candidateNormal(firstShared, uniqueB);
+            const secondNormal = candidateNormal(uniqueB, secondShared);
+            const firstOrderMatches = firstNormal.dot(normalA) > 0.999 && secondNormal.dot(normalB) > 0.999;
+            if (firstOrderMatches) {
+              reorder.push(uniqueA, firstShared, uniqueB, uniqueA, uniqueB, secondShared);
+            } else {
+              const alternateFirst = candidateNormal(secondShared, uniqueB);
+              const alternateSecond = candidateNormal(uniqueB, firstShared);
+              if (alternateFirst.dot(normalA) <= 0.999 || alternateSecond.dot(normalB) <= 0.999) {
+                verified = false; break;
+              }
+              reorder.push(uniqueA, secondShared, uniqueB, uniqueA, uniqueB, firstShared);
+            }
           }
         }
         if (verified && position && reorder.length === position.count) {
