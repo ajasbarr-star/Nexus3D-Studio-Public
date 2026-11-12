@@ -2390,3 +2390,13 @@ button:active { box-shadow:0 0 11px #22cfff44; }
     bottom: 48px !important;
   }
 }
+
+
+/* DFI category summaries: each stable ID has its own compact copy control. */
+.dfi-report-copy-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+.dfi-tool-result summary{display:flex;align-items:center;justify-content:space-between;gap:8px;list-style:none}
+.dfi-tool-result summary::-webkit-details-marker{display:none}
+.dfi-result-title{flex:1;min-width:0}
+.dfi-summary-copy-icon{display:grid;place-items:center;flex:0 0 36px;width:36px;height:32px;min-height:32px;padding:0;border:1px solid #28647a;border-radius:5px;background:rgba(8,35,51,.96);color:#62dff8;cursor:pointer;touch-action:manipulation}
+.dfi-summary-copy-icon:active{background:#12445a;border-color:#62dff8}
+@media(max-width:420px){.dfi-report-copy-actions{grid-template-columns:1fr}.dfi-summary-copy-icon{flex-basis:40px;width:40px;height:36px}}
