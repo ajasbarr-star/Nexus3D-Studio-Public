@@ -2556,10 +2556,24 @@ export default function App() {
         const target = targetRoot;
         if (target && (target === hit.object || target.getObjectById(hit.object.id)) && hit.object instanceof THREE.Mesh && hit.face) {
           const candidateWorldNormal = hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize();
-          const previousWorldNormal = activeSubSelection?.mesh === hit.object && activeSubSelection.faceParts?.length === 1
-            ? new THREE.Vector3(0, 0, 1).applyQuaternion(activeSubSelection.lastQuaternion).normalize()
+          const previousFacePart = activeSubSelection?.mesh === hit.object && activeSubSelection.faceParts?.length === 1
+            ? activeSubSelection.faceParts[0]
             : null;
+          let previousWorldNormal: THREE.Vector3 | null = null;
+          if (previousFacePart && previousFacePart.length >= 3) {
+            const previousPosition = (hit.object as THREE.Mesh).geometry.getAttribute('position');
+            const previousA = new THREE.Vector3().fromBufferAttribute(previousPosition, previousFacePart[0]);
+            let previousLocalNormal: THREE.Vector3 | null = null;
+            for (let faceIndex = 1; faceIndex + 1 < previousFacePart.length; faceIndex++) {
+              const previousB = new THREE.Vector3().fromBufferAttribute(previousPosition, previousFacePart[faceIndex]);
+              const previousC = new THREE.Vector3().fromBufferAttribute(previousPosition, previousFacePart[faceIndex + 1]);
+              const normal = previousB.clone().sub(previousA).cross(previousC.clone().sub(previousA));
+              if (normal.lengthSq() > 1e-12) { previousLocalNormal = normal.normalize(); break; }
+            }
+            if (previousLocalNormal) previousWorldNormal = previousLocalNormal.applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize();
+          }
           const isOppositeLockedFace = Boolean(editModeRef.current === 'Face' && previousWorldNormal && previousWorldNormal.dot(candidateWorldNormal) < -0.8);
+          const faceHighlightColor = isOppositeLockedFace ? 0x00ffff : 0x00e5ff;
           if (!isOppositeLockedFace) clearSubObjectHighlight();
           const mesh = hit.object as THREE.Mesh;
           const geometry = mesh.geometry as THREE.BufferGeometry;
@@ -2634,7 +2648,7 @@ export default function App() {
                 const faceGeometry = new THREE.BufferGeometry();
                 faceGeometry.setAttribute('position', new THREE.Float32BufferAttribute(faceVertices, 3));
                 faceGeometry.computeVertexNormals();
-                const face = new THREE.Mesh(faceGeometry, new THREE.MeshBasicMaterial({ color: 0x24d8ff, side: THREE.DoubleSide, transparent: true, opacity: 0.32, depthTest: false }));
+                const face = new THREE.Mesh(faceGeometry, new THREE.MeshBasicMaterial({ color: faceHighlightColor, side: THREE.DoubleSide, transparent: true, opacity: 0.42, depthTest: false }));
                 face.renderOrder = 1000;
                 subObjectHighlight.add(face);
                 const outlineGeometry = new THREE.BufferGeometry().setFromPoints([...worldCorners, worldCorners[0]]);
@@ -2742,7 +2756,7 @@ export default function App() {
               const faceGeometry = new THREE.BufferGeometry();
               faceGeometry.setAttribute('position', new THREE.Float32BufferAttribute(worldPoints.flatMap(p => [p.x, p.y, p.z]), 3));
               faceGeometry.computeVertexNormals();
-              const face = new THREE.Mesh(faceGeometry, new THREE.MeshBasicMaterial({ color: 0x24d8ff, side: THREE.DoubleSide, transparent: true, opacity: 0.32, depthTest: false }));
+              const face = new THREE.Mesh(faceGeometry, new THREE.MeshBasicMaterial({ color: faceHighlightColor, side: THREE.DoubleSide, transparent: true, opacity: 0.42, depthTest: false }));
               face.renderOrder = 1000; subObjectHighlight.add(face);
               // Draw only the perimeter of the selected coplanar face region. The old
               // triangle-by-triangle outline exposed internal triangulation diagonals as
