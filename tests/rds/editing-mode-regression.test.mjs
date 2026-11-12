@@ -325,7 +325,8 @@ test('Extruded cap and side-wall upper corners follow Move, Rotate and Scale wit
 });
 
 test('Extruded Single and Dual Face highlights follow the newly created cap geometry', () => {
-  assert.match(source, /selectedFacePointKeySets = selectedFaceParts\.map/);
+  assert.match(source, /const selectedTriangleOffsets = new Set<number>\(\)/);
+  assert.match(source, /const sourceTriangleVertexIds = \[0, 1, 2\]\.map\(k => sourceVertex\(start \+ k\)\)/);
   assert.match(source, /selectedExtrudedFaceParts\[selectedPartIndex\]\.push/);
   assert.match(source, /selection\.faceParts\.forEach\(part =>/);
   assert.match(source, /color: 0x00e5ff, side: THREE\.DoubleSide, transparent: true, opacity: 0\.42/);
