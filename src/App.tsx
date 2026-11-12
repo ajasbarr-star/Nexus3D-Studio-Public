@@ -3057,9 +3057,11 @@ export default function App() {
             return [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(',');
           };
           const boundary = new Map<string, { a: number; b: number; count: number }>();
+          const selectedTriangleOffsets = new Set<number>();
           for (let offset = 0; offset + 2 < triangleCount; offset += 3) {
             const tri = [vertexAt(offset), vertexAt(offset + 1), vertexAt(offset + 2)];
             if (!tri.every(index => selectedVertexIds.has(index))) continue;
+            selectedTriangleOffsets.add(offset / 3);
             for (let edge = 0; edge < 3; edge++) {
               const a = tri[edge], b = tri[(edge + 1) % 3];
               const ka = pointKey(a), kb = pointKey(b);
@@ -3123,6 +3125,62 @@ export default function App() {
             // Preserve existing material groups. If this mesh uses groups, put
             // the generated wall quads into the first existing face material.
             if (source.groups.length && wallVertexCount) source.addGroup(wallStart, wallVertexCount, source.groups[0].materialIndex);
+
+            // Remove stale coplanar copies of the selected source face. A moved
+            // cap remains in the mesh; only a second triangle still occupying
+            // that cap's exact pre-pull position is removed. Adjacent side faces
+            // share at most an edge, so they do not match a full triangle key.
+            const sourcePosition = source.getAttribute('position') as THREE.BufferAttribute;
+            const pointKeyFrom = (attribute: THREE.BufferAttribute, index: number) => {
+              const point = new THREE.Vector3().fromBufferAttribute(attribute, index);
+              return [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(',');
+            };
+            const triangleKeyFrom = (attribute: THREE.BufferAttribute, start: number) =>
+              [pointKeyFrom(attribute, start), pointKeyFrom(attribute, start + 1), pointKeyFrom(attribute, start + 2)].sort().join('|');
+            const movedSourceFaceKeys = new Set<string>();
+            selectedTriangleOffsets.forEach(triangleOffset => {
+              const oldStart = triangleOffset * 3;
+              const oldIds = [vertexAt(oldStart), vertexAt(oldStart + 1), vertexAt(oldStart + 2)];
+              const oldKey = oldIds.map(index => pointKeyFrom(beforePosition, index)).sort().join('|');
+              const liveStart = triangleOffset * 3;
+              if (oldKey !== triangleKeyFrom(sourcePosition, liveStart)) movedSourceFaceKeys.add(oldKey);
+            });
+            if (movedSourceFaceKeys.size) {
+              const removedDuplicateTriangles = new Set<number>();
+              const sourceTriangleCount = Math.floor(sourcePosition.count / 3);
+              for (let triangleOffset = 0; triangleOffset < sourceTriangleCount; triangleOffset++) {
+                if (selectedTriangleOffsets.has(triangleOffset)) continue;
+                const liveStart = triangleOffset * 3;
+                if (movedSourceFaceKeys.has(triangleKeyFrom(sourcePosition, liveStart))) {
+                  removedDuplicateTriangles.add(triangleOffset);
+                }
+              }
+              if (removedDuplicateTriangles.size) {
+                const originalGroups = source.groups.map(group => ({ ...group }));
+                const keptIndices: number[] = [];
+                const rebuiltGroups: Array<{ start: number; count: number; materialIndex: number }> = [];
+                for (let triangleOffset = 0; triangleOffset < sourceTriangleCount; triangleOffset++) {
+                  if (removedDuplicateTriangles.has(triangleOffset)) continue;
+                  const originalStart = triangleOffset * 3;
+                  const group = originalGroups.find(item => originalStart >= item.start && originalStart + 3 <= item.start + item.count);
+                  const materialIndex = group?.materialIndex ?? originalGroups[0]?.materialIndex ?? 0;
+                  const newStart = keptIndices.length;
+                  keptIndices.push(originalStart, originalStart + 1, originalStart + 2);
+                  const previousGroup = rebuiltGroups[rebuiltGroups.length - 1];
+                  if (previousGroup && previousGroup.materialIndex === materialIndex && previousGroup.start + previousGroup.count === newStart) {
+                    previousGroup.count += 3;
+                  } else if (originalGroups.length) {
+                    rebuiltGroups.push({ start: newStart, count: 3, materialIndex });
+                  }
+                }
+                source.setIndex(keptIndices);
+                source.groups.splice(0, source.groups.length, ...rebuiltGroups);
+                recordInteractionTrace('Face Pull stale duplicate surface removed', {
+                  removedTriangles: removedDuplicateTriangles.size,
+                  movedCapTriangles: movedSourceFaceKeys.size,
+                });
+              }
+            }
             source.computeVertexNormals();
             source.computeBoundingBox();
             source.computeBoundingSphere();
