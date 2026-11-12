@@ -2087,3 +2087,50 @@ button:active { box-shadow:0 0 11px #22cfff44; }
     bottom: 48px !important;
   }
 }
+
+
+/* Bottom-anchored compact resize grip for Scene Tree, Menu, and IK Rigging.
+   The grip remains horizontally draggable, but no longer covers object rows or manager tools. */
+.hierarchy-panel,
+.menu-panel {
+  padding-bottom: 32px !important;
+}
+
+.panel-resize-handle {
+  top: auto !important;
+  right: auto !important;
+  left: 50% !important;
+  bottom: 4px !important;
+  transform: translateX(-50%) !important;
+  width: 42px !important;
+  min-width: 42px !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  padding: 0 !important;
+  border: 1px solid rgba(72, 174, 207, .58) !important;
+  border-radius: 6px !important;
+  border-right: 1px solid rgba(72, 174, 207, .58) !important;
+  background: rgba(10, 31, 47, .97) !important;
+  cursor: ew-resize !important;
+  touch-action: none !important;
+}
+.panel-resize-handle span {
+  width: 16px !important;
+  height: 2px !important;
+  border: 0 !important;
+  border-top: 1px solid #62d9f3 !important;
+  border-bottom: 1px solid #62d9f3 !important;
+  opacity: .85 !important;
+}
+
+/* IK Rigging previously forced the Scene Tree to 132px on mobile,
+   preventing the shared drag-width state from taking effect. */
+.rigging-mode .hierarchy-panel {
+  width: var(--nexus-panel-width, 172px) !important;
+  max-width: min(48vw, 420px) !important;
+  padding-bottom: 32px !important;
+}
+.rigging-mode .hierarchy-panel .panel-resize-handle {
+  z-index: 30 !important;
+  pointer-events: auto !important;
+}
