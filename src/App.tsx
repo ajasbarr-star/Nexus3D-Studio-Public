@@ -622,8 +622,8 @@ export default function App() {
     try {
       if (typeof PerformanceObserver !== 'undefined') {
         longTaskObserver = new PerformanceObserver(list => {
-          list.getEntries().forEach(entry => diagnosticSinkRef.current(entry.duration >= 250 ? 'ERROR' : 'WARN',
-            'Main Thread', 'Long task blocked UI thread', `${Math.round(entry.duration)} ms`));
+          list.getEntries().forEach(entry => diagnosticSinkRef.current('WARN',
+            'Main Thread Performance', 'UI thread was blocked by a long task (performance warning, not a runtime exception)', `${Math.round(entry.duration)} ms`));
         });
         longTaskObserver.observe({ entryTypes: ['longtask'] });
       }
@@ -3305,7 +3305,7 @@ export default function App() {
       geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-      geometry.computeVertexNormals();
+      // Final geometry commit below computes normals once after all topology edits.
     } else if (tool === 'Subdivide') {
       // Fail closed for meshes without a verified quad-cell topology. Splitting
       // arbitrary triangles creates diagonal triangle grids and loses reliable
@@ -3360,7 +3360,9 @@ export default function App() {
       groups.forEach((group, key) => smoothed.set(key, group.point.clone()));
       // Apply multiple positive passes on ALL connected mesh vertices. Each press
       // compounds on the latest geometry, making the object progressively rounder.
-      const smoothPasses = position.count > 36000 ? 1 : 3;
+      // Smoothing allocates adjacency and vector snapshots; reduce passes on mobile meshes.
+      // Repeated Smooth presses still compound progressively on the latest geometry.
+      const smoothPasses = position.count > 8000 ? 1 : position.count > 3000 ? 2 : 3;
       for (let pass = 0; pass < smoothPasses; pass++) {
         const next = new Map<string, THREE.Vector3>();
         smoothed.forEach((point, key) => {
@@ -3381,7 +3383,6 @@ export default function App() {
       });
       position.needsUpdate = true;
       geometry.deleteAttribute('normal');
-      geometry.computeVertexNormals();
       }
         } else if (tool === 'LoopCut') {
       // Loop Cut remains a separate operation. Subdivide is deliberately excluded
@@ -3567,15 +3568,15 @@ export default function App() {
         ids.forEach(i => { if (i>=0 && i<p.count) p.setXYZ(i,p.getX(i)+offset.x,p.getY(i)+offset.y,p.getZ(i)+offset.z); });
         p.needsUpdate = true;
       }
-      geometry.computeVertexNormals();
+      // Final geometry commit below computes normals once after the extrusion is complete.
 
     }
     // Re-weld coincident vertices after topology-changing operations so adjacent faces share indices.
     // UVs are regenerated safely if topology changes; normals and bounds are always rebuilt below.
     if (tool === 'Extrude') {
       // Keep UV and material seams as authored; the new side walls receive interpolated
-      // fallback UVs only when no usable UV attribute exists.
-      geometry.computeVertexNormals();
+      // fallback UVs only when no usable UV attribute exists. Normals are computed once
+      // in the shared finalization block below.
     }
     const finalPosition = geometry.getAttribute('position');
     if (finalPosition) {
