@@ -3638,6 +3638,13 @@ export default function App() {
           }
         }
         extrudeQuadGridVerified = verified;
+        if (!verified) {
+          diagnosticSinkRef.current('WARN', 'Geometry Safety', 'Extrude quad topology handoff unavailable', JSON.stringify({
+            object: target.name,
+            vertexCount: position?.count || 0,
+            reason: 'Triangle pairs could not be reconstructed as verified planar quads; Subdivide remains safely disabled for this mesh.'
+          }));
+        }
       }
     }
     // Re-weld coincident vertices after topology-changing operations so adjacent faces share indices.
@@ -3671,8 +3678,8 @@ export default function App() {
     const after = geometry.clone();
     const afterQuadGridState = tool === 'Subdivide'
       ? { enabled: true, layout: 'canonical-v1', bounds: null, divisions: 0 }
-      : tool === 'Extrude' && extrudeQuadGridVerified
-        ? { enabled: true, layout: 'canonical-v1', bounds: null, divisions: 0 }
+      : tool === 'Extrude'
+        ? { enabled: extrudeQuadGridVerified, layout: extrudeQuadGridVerified ? 'canonical-v1' : null, bounds: null, divisions: 0 }
       : tool === 'LoopCut'
         ? { enabled: false, layout: null, bounds: null, divisions: 0 }
         : captureQuadGridState();
