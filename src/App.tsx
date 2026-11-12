@@ -794,7 +794,10 @@ export default function App() {
     orbit.enableDamping = true;
     orbit.dampingFactor = 0.08;
     orbit.target.set(0, 0.7, 0);
-    orbit.maxPolarAngle = Math.PI * 0.49;
+    // Allow a near-full vertical orbit so users can inspect the underside and top of a shape.
+    // Keep a small margin away from the poles to avoid unstable camera orientation.
+    orbit.minPolarAngle = 0.01;
+    orbit.maxPolarAngle = Math.PI - 0.01;
     orbit.minDistance = 2.2;
     orbit.maxDistance = 35;
     const activeOrbit = new OrbitControls(activeCamera, renderer.domElement);
