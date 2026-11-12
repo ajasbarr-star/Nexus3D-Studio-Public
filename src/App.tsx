@@ -26,6 +26,7 @@ import {
   Plus, Target, Link2, Unlink, RefreshCw, GitMerge, Activity, Code2, Folder, FolderPlus, MoreHorizontal, Pencil,
 } from 'lucide-react';
 import { scanMeshCore, formatMeshForensicReport } from './dfi/mesh-forensics';
+import { CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES } from './geometry/clean-flat-surface-contract';
 import './index.css';
 
 type NexusProjectFilesPlugin = {
@@ -250,12 +251,18 @@ export default function App() {
       y: event.clientY,
       width: targetPanel === 'tree' ? treePanelWidth : menuPanelWidth,
       height: targetPanel === 'tree' ? treePanelHeight : menuPanelHeight,
-      pointerId: event.pointerId
+      pointerId: event.pointerId,
+      handle: event.currentTarget,
+      dragging: false
     };
     panelResizeStart.current = start;
     const move = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== start.pointerId) return;
       moveEvent.preventDefault();
+      if (!start.dragging && Math.hypot(moveEvent.clientX - start.x, moveEvent.clientY - start.y) > 3) {
+        start.dragging = true;
+        start.handle.classList.add('is-dragging');
+      }
       if (axis === 'height') {
         // The top-left anchor stays fixed; only the bottom edge follows the grip.
         const maxHeight = Math.max(180, window.innerHeight - 52 - 48);
@@ -273,6 +280,7 @@ export default function App() {
     const end = (endEvent: PointerEvent) => {
       if (endEvent.pointerId !== start.pointerId) return;
       panelResizeStart.current = null;
+      start.handle.classList.remove('is-dragging');
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', end);
       window.removeEventListener('pointercancel', end);
@@ -698,7 +706,9 @@ export default function App() {
         edges = new THREE.BufferGeometry();
         edges.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
       } else {
-        edges = new THREE.EdgesGeometry(mesh.geometry, 1);
+        // Ignore tiny normal differences between triangles that belong to one flat surface.
+        // This suppresses triangulation diagonals while preserving real boundaries and hard edges.
+        edges = new THREE.EdgesGeometry(mesh.geometry, CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES);
         // EdgesGeometry emits only boundaries and hard edges, but its vertices
         // are otherwise exactly coincident with the surface. Offset each edge
         // endpoint along the averaged source vertex normal to keep black lines
