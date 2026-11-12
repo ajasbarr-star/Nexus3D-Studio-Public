@@ -124,3 +124,25 @@ test('COPY SUMMARY REPORT consolidates captured 3D scene and shape workflows int
   assert.match(app, /const copyAllDfiSummary = \(\) => \{/);
   assert.match(app, /const report = buildSceneWorkflowSummary\(\)/);
 });
+
+
+test('Clean Flat Surface is a protected core geometry invariant across all editing operations', () => {
+  const contract = fs.readFileSync(new URL('../../src/geometry/clean-flat-surface-contract.ts', import.meta.url), 'utf8');
+  const policy = fs.readFileSync(new URL('../../docs/CORE_GEOMETRY_INVARIANTS.md', import.meta.url), 'utf8');
+  for (const operation of ['Face Extrude','Face Scale','Subdivide','Subdivide Rotate','Edge Move / Pull','Vertex Move / Pull','Smooth']) {
+    assert.ok(contract.includes(operation), 'core contract missing operation: ' + operation);
+    assert.ok(policy.includes(operation), 'protected policy missing operation: ' + operation);
+  }
+  assert.match(app, /EdgesGeometry\(mesh\.geometry, CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES\)/);
+  assert.match(app, /for \(let edgeIndex = 0; edgeIndex < 4; edgeIndex\+\+\)/);
+  assert.match(app, /triangle-by-triangle outline exposed internal triangulation diagonals/);
+});
+
+test('Panel resize handles stay neutral until pointer movement starts, then highlight only while dragging', () => {
+  assert.match(app, /handle: event\.currentTarget/);
+  assert.match(app, /Math\.hypot\(moveEvent\.clientX - start\.x, moveEvent\.clientY - start\.y\) > 3/);
+  assert.match(app, /start\.handle\.classList\.add\('is-dragging'\)/);
+  assert.match(app, /start\.handle\.classList\.remove\('is-dragging'\)/);
+  assert.match(styles, /\.panel-resize-handle \{/);
+  assert.match(styles, /\.panel-resize-handle\.is-dragging/);
+});
