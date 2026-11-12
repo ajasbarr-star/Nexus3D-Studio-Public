@@ -109,6 +109,7 @@ function BufferedNumberInput({ value, step = 0.1, disabled = false, ariaLabel, o
 }
 
 type DiagnosticEntry = { id: string; time: string; level: 'ERROR' | 'WARN' | 'INFO'; source: string; message: string; details?: string };
+type InteractionTraceEntry = DiagnosticEntry & { event: string };
 type Item = { id: string; name: string; object: THREE.Object3D; kind: string };
 type TransformSnapshot = { position: number[]; rotation: number[]; scale: number[] };
 type FrameData = Record<string, TransformSnapshot>;
@@ -285,12 +286,31 @@ export default function App() {
   });
   const [diagnosticFilter, setDiagnosticFilter] = useState<'ALL' | 'ERROR' | 'WARN' | 'INFO'>('ALL');
   const [diagnosticPanelOpen, setDiagnosticPanelOpen] = useState(false);
+  const [interactionTrace, setInteractionTrace] = useState<InteractionTraceEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem('nexus3d_interaction_trace_v1');
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed.slice(-600) as InteractionTraceEntry[] : [];
+    } catch { return []; }
+  });
+  const [interactionPanelOpen, setInteractionPanelOpen] = useState(false);
+  const [interactionErrorOnly, setInteractionErrorOnly] = useState(false);
+  const interactionTraceQueueRef = useRef<InteractionTraceEntry[]>([]);
   const diagnosticSinkRef = useRef<(level: DiagnosticEntry['level'], source: string, message: string, details?: string) => void>(() => {});
   const diagnosticQueueRef = useRef<DiagnosticEntry[]>([]);
   const pushDiagnostic = (level: DiagnosticEntry['level'], source: string, message: string, details?: string) => {
     // Capture immediately; UI state and localStorage are flushed in small batches.
-    diagnosticQueueRef.current.push({ id: uid(), time: new Date().toLocaleTimeString(), level, source, message: String(message).slice(0, 1200), details: details ? String(details).slice(0, 5000) : undefined });
+    const time = new Date().toLocaleTimeString();
+    const safeMessage = String(message).slice(0, 1200);
+    const safeDetails = details ? String(details).slice(0, 5000) : undefined;
+    diagnosticQueueRef.current.push({ id: uid(), time, level, source, message: safeMessage, details: safeDetails });
     if (diagnosticQueueRef.current.length > 100) diagnosticQueueRef.current.splice(0, diagnosticQueueRef.current.length - 100);
+    // Runtime warnings/errors are mirrored into the interaction timeline so they
+    // can be correlated with the most recent user actions without merging RDS scans.
+    if (level === 'ERROR' || level === 'WARN') {
+      interactionTraceQueueRef.current.push({ id: uid(), time, level, source, message: safeMessage, details: safeDetails, event: 'RUNTIME ' + level });
+      if (interactionTraceQueueRef.current.length > 150) interactionTraceQueueRef.current.splice(0, interactionTraceQueueRef.current.length - 150);
+    }
   };
   const clearDiagnosticLogs = () => {
     diagnosticQueueRef.current = [];
@@ -323,6 +343,52 @@ export default function App() {
     } catch { setStatus('Copy failed · allow clipboard permission and try again'); }
   };
   const visibleDiagnosticLogs = diagnosticFilter === 'ALL' ? diagnosticLogs : diagnosticLogs.filter(entry => entry.level === diagnosticFilter);
+  const recordInteraction = (event: string, source: string, message: string, details?: string) => {
+    interactionTraceQueueRef.current.push({
+      id: uid(), time: new Date().toLocaleTimeString(), level: 'INFO', event,
+      source: String(source).slice(0, 160), message: String(message).slice(0, 1200),
+      details: details ? String(details).slice(0, 2500) : undefined
+    });
+    if (interactionTraceQueueRef.current.length > 150) interactionTraceQueueRef.current.splice(0, interactionTraceQueueRef.current.length - 150);
+  };
+  const visibleInteractionTrace = interactionErrorOnly
+    ? interactionTrace.filter(entry => entry.level === 'ERROR')
+    : interactionTrace;
+  const copyInteractionTrace = (entries: InteractionTraceEntry[]) => {
+    const mapped: DiagnosticEntry[] = entries.map(entry => ({
+      id: entry.id, time: entry.time, level: entry.level, source: `${entry.event} · ${entry.source}`,
+      message: entry.message, details: entry.details
+    }));
+    void copyDiagnosticText(mapped);
+  };
+  useEffect(() => {
+    const flush = () => {
+      if (!interactionTraceQueueRef.current.length) return;
+      const batch = interactionTraceQueueRef.current.splice(0, 150);
+      setInteractionTrace(previous => {
+        const next = [...previous, ...batch].slice(-600);
+        try { localStorage.setItem('nexus3d_interaction_trace_v1', JSON.stringify(next)); } catch { /* storage may be unavailable or full */ }
+        return next;
+      });
+    };
+    const timer = window.setInterval(flush, 180);
+    return () => { window.clearInterval(timer); flush(); };
+  }, []);
+  useEffect(() => {
+    const captureControlTouch = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target.closest('button,[role="button"]') : null;
+      if (!target || target.closest('.diagnostic-panel-expanded')) return;
+      const label = (target.getAttribute('aria-label') || target.getAttribute('title') || target.textContent || 'Unnamed control').replace(/\\s+/g, ' ').trim().slice(0, 120);
+      if (label) recordInteraction('CONTROL TOUCH', 'UI Control', label, `Pointer type: ${event.pointerType || 'unknown'}`);
+    };
+    document.addEventListener('pointerdown', captureControlTouch, true);
+    return () => document.removeEventListener('pointerdown', captureControlTouch, true);
+  }, []);
+  const clearInteractionTrace = () => {
+    interactionTraceQueueRef.current = [];
+    setInteractionTrace([]);
+    try { localStorage.removeItem('nexus3d_interaction_trace_v1'); } catch { /* ignore unavailable storage */ }
+  };
   const [maintenanceBusy, setMaintenanceBusy] = useState(false);
   const [performanceMode, setPerformanceMode] = useState(false);
   const [coreOptimizerOpen, setCoreOptimizerOpen] = useState(false);
@@ -1189,6 +1255,7 @@ export default function App() {
       }
       setSelected(String(obj.userData.editorId || ''));
       selectedRef.current = String(obj.userData.editorId || '');
+      recordInteraction('OBJECT SELECTED', 'Viewport Selection', obj.name || obj.type, `Object type: ${obj.type}; editor ID: ${String(obj.userData.editorId || 'none')}; edit mode: ${editModeRef.current}`);
       refreshJointColors(obj instanceof THREE.Bone ? obj : undefined);
       if (obj instanceof THREE.Mesh && editModeRef.current !== 'Object') refreshTopologyOverlay(obj);
       // Selection is reflected by the viewport, Scene Tree, and Inspector; do not spawn a toast per tap.
@@ -5166,6 +5233,31 @@ export default function App() {
                         <div className="menu-info"><Info size={12}/><span>Live capture stays active even when this panel is collapsed. Monitors JavaScript errors, rejected promises, failed resources, relevant console warnings, WebGL context events, main-thread stalls, FPS drops, memory and WebGL load, plus Nexus3D viewport-control state. Native Android process crashes may not leave a JavaScript log. Maximum 400 recent entries.</span></div>
           
                         </section>}
+        </section>
+        <section className="menu-category interaction-trace-section">
+          <button type="button" className={'menu-option diagnostic-toggle-button ' + (interactionPanelOpen ? 'expanded' : '')}
+            aria-expanded={interactionPanelOpen} onClick={() => setInteractionPanelOpen(open => !open)}>
+            <Activity size={13}/><span>REALTIME INTERACTION TRACE</span>
+            {interactionPanelOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
+          </button>
+          {interactionPanelOpen && <section className="diagnostic-panel-expanded" aria-label="Realtime Interaction Trace Panel">
+            <div className="diagnostic-summary"><span>{interactionTrace.length} event(s)</span><span>{interactionTrace.filter(entry => entry.level === 'ERROR').length} error(s)</span></div>
+            <div className="diagnostic-actions">
+              <button type="button" onClick={() => copyInteractionTrace(visibleInteractionTrace)} disabled={!visibleInteractionTrace.length}><ClipboardCopy size={12}/> COPY VIEW</button>
+              <button type="button" onClick={() => copyInteractionTrace(interactionTrace)} disabled={!interactionTrace.length}><ClipboardCopy size={12}/> COPY ALL</button>
+              <button type="button" onClick={() => setInteractionErrorOnly(value => !value)} className={interactionErrorOnly ? 'active' : ''}><ScanEye size={12}/> {interactionErrorOnly ? 'SHOW ALL' : 'ERROR HIGHLIGHTS'}</button>
+              <button type="button" onClick={clearInteractionTrace} disabled={!interactionTrace.length}><Trash2 size={12}/> CLEAR</button>
+            </div>
+            <div className="diagnostic-log-list" role="log" aria-live="polite" aria-label="Nexus3D interaction trace">
+              {!visibleInteractionTrace.length && <div className="diagnostic-empty">{interactionErrorOnly ? 'No runtime errors captured in this trace yet.' : 'No interactions captured yet. Select an object or touch a tool to begin.'}</div>}
+              {visibleInteractionTrace.slice().reverse().map(entry => <article className={'diagnostic-entry diagnostic-' + entry.level.toLowerCase()} key={entry.id}>
+                <div><strong>{entry.level}</strong><time>{entry.time}</time></div>
+                <b>{entry.event} · {entry.source}</b><p>{entry.message}</p>
+                {entry.details && <pre>{entry.details}</pre>}
+              </article>)}
+            </div>
+            <div className="menu-info"><Info size={12}/><span>Separate from RDS scans: records viewport/Scene Tree selections and UI control touches, then mirrors runtime ERROR/WARN events for correlation. This is an event timeline, not proof of root cause. Maximum 600 saved events.</span></div>
+          </section>}
         </section>
         <section className="menu-category core-optimizer-section">
           <button type="button" className={'menu-option diagnostic-toggle-button ' + (coreOptimizerOpen ? 'expanded' : '')}
