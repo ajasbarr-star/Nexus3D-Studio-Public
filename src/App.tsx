@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import * as THREE from 'three';
-import { buildTopologyFromCanonicalQuadGeometry, buildTopologyFromIndexedQuadGeometry } from './geometry/topology-model.mjs';
+import { buildTopologyFromCanonicalQuadGeometry, buildTopologyFromIndexedQuadGeometry, updateTopologyPositionsFromRenderGeometry } from './geometry/topology-model.mjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -3076,13 +3076,34 @@ export default function App() {
       selection.mesh.geometry.computeBoundingSphere();
       if (selection.mesh.userData.nexusQuadGrid) {
         const topologyPosition = selection.mesh.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
-        const rebuiltTopology = topologyPosition
-          ? selection.mesh.geometry.index
-            ? buildTopologyFromIndexedQuadGeometry(topologyPosition.array, selection.mesh.geometry.index.array)
-            : buildTopologyFromCanonicalQuadGeometry(topologyPosition.array)
+        const existingTopology = selection.mesh.userData.nexusTopology;
+        // Move Face changes coordinates, not connectivity. Refresh the stored
+        // face loops from their render-corner mapping instead of re-inferring
+        // quads from the deformed triangle stream.
+        const updatedTopology = topologyPosition && existingTopology?.version === 1
+          ? updateTopologyPositionsFromRenderGeometry(
+              existingTopology,
+              topologyPosition.array,
+              selection.mesh.geometry.index?.array || null
+            )
           : null;
-        if (rebuiltTopology) selection.mesh.userData.nexusTopology = rebuiltTopology;
-        else delete selection.mesh.userData.nexusTopology;
+        if (updatedTopology) {
+          selection.mesh.userData.nexusTopology = updatedTopology;
+          recordInteractionTrace('Persistent topology positions updated', {
+            operation: 'Move Face',
+            faceCount: updatedTopology.faces.length,
+            vertexCount: updatedTopology.vertices.length,
+            source: 'stored-face-loops',
+          });
+        } else {
+          delete selection.mesh.userData.nexusTopology;
+          recordInteractionTrace('Persistent topology update rejected', {
+            operation: 'Move Face',
+            reason: 'Stored face-loop render mapping did not match the deformed geometry',
+            faceCount: existingTopology?.faces?.length || 0,
+            vertexCount: topologyPosition?.count || 0,
+          });
+        }
       }
       refreshTopologyOverlay(selection.mesh);
       if (selection.faceParts?.length) {
