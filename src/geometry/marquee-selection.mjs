@@ -62,3 +62,26 @@ export function mergeSelectionLocks(existing, additions) {
 export function clearSelectionLocks() {
   return [];
 }
+
+
+/** Reject projected points outside the camera clip volume before screen-space tests. */
+export function isInsideClipVolume(projected, epsilon = 1e-6) {
+  return Number.isFinite(projected?.x) &&
+    Number.isFinite(projected?.y) &&
+    Number.isFinite(projected?.z) &&
+    projected.x >= -1 - epsilon && projected.x <= 1 + epsilon &&
+    projected.y >= -1 - epsilon && projected.y <= 1 + epsilon &&
+    projected.z >= -1 - epsilon && projected.z <= 1 + epsilon;
+}
+
+/**
+ * A raycast candidate is visible only when the nearest scene hit belongs to the
+ * candidate's target mesh and is effectively at the candidate depth.
+ */
+export function isNearestTargetHit(hits, targetObjectId, candidateDistance, tolerance = 1e-4) {
+  if (!Array.isArray(hits) || !hits.length || !Number.isFinite(candidateDistance)) return false;
+  const nearest = hits[0];
+  return String(nearest?.objectId ?? '') === String(targetObjectId) &&
+    Number.isFinite(nearest?.distance) &&
+    Math.abs(nearest.distance - candidateDistance) <= Math.max(0, tolerance);
+}
