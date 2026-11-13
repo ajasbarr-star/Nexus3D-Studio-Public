@@ -30,6 +30,7 @@ import { scanMeshCore, formatMeshForensicReport } from './dfi/mesh-forensics';
 import { CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES } from './geometry/clean-flat-surface-contract';
 import { scanGeometryRit, formatGeometryRitReport } from './geometry/geometry-rit';
 import { RUNTIME_SESSION_ID, RUNTIME_SESSION_STARTED_AT, createRuntimeEventMetadata, formatRuntimeTraceReport } from './diagnostics/runtime-session.mjs';
+import { buildRdsNoticeSection } from './diagnostics/rds-notice.mjs';
 import './index.css';
 
 function createProjectMaterial(data: any): THREE.Material {
@@ -4992,6 +4993,7 @@ export default function App() {
       add('Device / WebGL Capability', gl ? 'PASS' : 'WARN', `WebGL: ${glVersion}; max texture size: ${maxTexture}; DPR: ${window.devicePixelRatio || 1}; heap: ${usedMB === null ? 'not exposed' : usedMB + ' MB'}.`);
       add('Module API Contract', ['addObject','syncItems','syncViewportControls','setPerformanceMode','createManualRig','solveIK'].every(key => typeof rt?.[key] === 'function') ? 'PASS' : 'WARN', 'Checks registered runtime entry points; this does not statically inspect every source-code call site.');
       add('Regression Safety', 'PASS', 'Read-only checks only. No transforms, hierarchy, bones, materials, animation, renderer settings or project files were changed.');
+      const noticeSection = buildRdsNoticeSection(checks);
       const errors = checks.filter(item => item.status === 'ERROR').length;
       const warnings = checks.filter(item => item.status === 'WARN').length;
       const passed = checks.filter(item => item.status === 'PASS').length;
@@ -5002,6 +5004,8 @@ export default function App() {
         `Scene objects: ${objects.length} · JS heap: ${usedMB === null ? 'not exposed' : usedMB + ' MB'}`,
         '',
         ...checks.map(item => `[${item.status}] ${item.name}\n  ${item.detail}`),
+        '',
+        noticeSection,
         '',
         'LIMITATIONS: This is a runtime integrity scan, not a static source-code analyzer. Native Android process crashes require native Logcat instrumentation. A warning is not automatically a confirmed root cause.'
       ].join('\\n');
