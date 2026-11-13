@@ -678,15 +678,56 @@ export default function App() {
       if (!mesh || !mesh.geometry) { clearTopologyOverlay(); return; }
       clearOverlayGroup(topologyOverlay);
       const position = mesh.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+      const topology = mesh.userData.nexusTopology;
+      const hasPersistentTopology = topology?.version === 1 &&
+        Array.isArray(topology.vertices) && Array.isArray(topology.faces) && Array.isArray(topology.edges);
       const isQuadGrid = Boolean(mesh.userData.nexusQuadGrid && !mesh.geometry.index && position && position.count % 6 === 0);
       // Refresh bounds before deriving a scale-aware overlay offset. This is
-      // shared by quad-grid and EdgesGeometry paths so freshly extruded edges
-      // never sit exactly on the surface and disappear from depth-buffer z-fighting.
+      // shared by topology and triangle-adjacency paths to prevent z-fighting.
       mesh.geometry.computeBoundingSphere();
       const bounds = mesh.geometry.boundingSphere;
       const lineOffset = Math.max(0.0012, (bounds?.radius || 1) * 0.002);
       let edges: THREE.BufferGeometry;
-      if (isQuadGrid && position) {
+      if (hasPersistentTopology) {
+        // Persistent modeling edges are the source of truth. In particular,
+        // Subdivide creates coplanar internal edges which triangle-normal
+        // filtering intentionally suppresses; never route those edges through
+        // the render-triangle visibility heuristic or they appear to vanish.
+        const vertexById = new Map<string, THREE.Vector3>(
+          topology.vertices.map((vertex: any) => [vertex.id, new THREE.Vector3(...vertex.position)])
+        );
+        const normalByVertex = new Map<string, THREE.Vector3>();
+        topology.faces.forEach((face: any) => {
+          const points = (face.vertices || []).map((id: string) => vertexById.get(id)).filter(Boolean) as THREE.Vector3[];
+          if (points.length < 3) return;
+          const normal = new THREE.Vector3();
+          for (let i = 0; i < points.length; i++) {
+            const current = points[i], next = points[(i + 1) % points.length];
+            normal.x += (current.y - next.y) * (current.z + next.z);
+            normal.y += (current.z - next.z) * (current.x + next.x);
+            normal.z += (current.x - next.x) * (current.y + next.y);
+          }
+          if (normal.lengthSq() < 1e-16) return;
+          normal.normalize();
+          (face.vertices as string[]).forEach(id => {
+            const sum = normalByVertex.get(id) || new THREE.Vector3();
+            sum.add(normal);
+            normalByVertex.set(id, sum);
+          });
+        });
+        const edgePositions: number[] = [];
+        topology.edges.forEach((edge: any) => {
+          const a = vertexById.get(edge.a), b = vertexById.get(edge.b);
+          if (!a || !b) return;
+          const normalA = (normalByVertex.get(edge.a) || new THREE.Vector3()).normalize();
+          const normalB = (normalByVertex.get(edge.b) || new THREE.Vector3()).normalize();
+          const start = a.clone().addScaledVector(normalA, lineOffset);
+          const end = b.clone().addScaledVector(normalB, lineOffset);
+          edgePositions.push(start.x, start.y, start.z, end.x, end.y, end.z);
+        });
+        edges = new THREE.BufferGeometry();
+        edges.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
+      } else if (isQuadGrid && position) {
         // The mesh stores each quad as two triangles [0,1,2, 0,2,3].
         // Draw only the four quad boundaries, nudged slightly outward to prevent z-fighting.
         const edgePositions: number[] = [];
