@@ -3118,7 +3118,10 @@ export default function App() {
       controlDiag('transform:mouseUp');
       recordInteractionTrace('Transform gizmo drag ended', { axis: transform.axis ?? null, mode: transform.getMode(), space: spaceRef.current, selectedId: selectedRef.current, position: transform.object ? transform.object.position.toArray() : null, rotation: transform.object ? [transform.object.rotation.x, transform.object.rotation.y, transform.object.rotation.z] : null, scale: transform.object ? transform.object.scale.toArray() : null });
       syncViewportControls(false);
-      if (subGeometryBefore && activeSubSelection && editModeRef.current === 'Face' && transform.getMode() === 'translate' && activeSubSelection.faceParts?.length) {
+      if (subGeometryBefore && activeSubSelection && activeEditToolRef.current !== 'Extrude' && editModeRef.current === 'Face' && transform.getMode() === 'translate' && activeSubSelection.faceParts?.length) {
+        // Face Extrude already creates its four perimeter walls and links their upper corners
+        // to the cap. Do not run Face Pull's second wall generator during that same operation.
+        // Outside an active Extrude tool, ordinary Face Pull still creates its own walls.
         // Face Pull: when a face is moved with the Move gizmo, bridge its
         // original perimeter to its new perimeter with real quad side walls.
         // The wall vertices share the exact old/new boundary coordinates with
