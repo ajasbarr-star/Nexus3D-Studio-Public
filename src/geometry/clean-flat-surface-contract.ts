@@ -7,6 +7,7 @@
 export const CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES = 3;
 
 export const CLEAN_FLAT_SURFACE_OPERATIONS = Object.freeze([
+  'Move Face',
   'Face Extrude',
   'Face Scale',
   'Subdivide',
