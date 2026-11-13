@@ -1,5 +1,10 @@
 const ATTACHMENT_KINDS = new Set(['Bone', 'Rig', 'IK Target', 'IK Pole', 'Group', 'Imported Model', 'GLTF Node']);
 
+export function isShapeProjectMesh(node) {
+  const kind = node?.userData?.kind;
+  return Boolean(node?.isMesh && !['Bone', 'Rig', 'IK Target', 'IK Pole'].includes(kind) && !node.userData?.rigControlMarker);
+}
+
 function isExcludedViewportNode(node) {
   return Boolean(node?.isCamera || node?.isLight || node?.userData?.kind === 'Camera' || node?.userData?.kind === 'Light');
 }
@@ -11,7 +16,7 @@ function isExcludedViewportNode(node) {
 export function collectObjectOnlyProjectNodes(selectable = []) {
   const nodes = Array.isArray(selectable) ? selectable.filter(Boolean) : [];
   const included = new Set();
-  const meshes = nodes.filter(node => !isExcludedViewportNode(node) && (node.isMesh || node.userData?.shapeId));
+  const meshes = nodes.filter(node => !isExcludedViewportNode(node) && (isShapeProjectMesh(node) || (node.userData?.shapeId && !['Bone', 'Rig', 'IK Target', 'IK Pole'].includes(node.userData?.kind))));
   meshes.forEach(mesh => {
     let current = mesh;
     while (current && !current.isScene && current.type !== 'Scene' && !isExcludedViewportNode(current)) {

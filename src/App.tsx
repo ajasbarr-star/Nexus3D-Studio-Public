@@ -6,7 +6,7 @@ import { buildTopologyFromCanonicalQuadGeometry, buildTopologyFromIndexedQuadGeo
 import { createSubObjectLockStore } from './geometry/subobject-lock-store.mjs';
 import { allocateShapeIdentity, ensureShapeIdentity, formatShapeIdentity } from './identity/shape-identity.mjs';
 import { assignShapeOwnership } from './identity/shape-ownership.mjs';
-import { collectObjectOnlyProjectNodes, getObjectOnlyProjectRoots } from './project/object-project-scope.mjs';
+import { collectObjectOnlyProjectNodes, getObjectOnlyProjectRoots, isShapeProjectMesh } from './project/object-project-scope.mjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -1662,7 +1662,7 @@ export default function App() {
       }
       const identityObjects: THREE.Object3D[] = [...selectable];
       obj.traverse((child: THREE.Object3D) => {
-        if (!(child instanceof THREE.Mesh)) return;
+        if (!isShapeProjectMesh(child)) { delete child.userData.shapeId; delete child.userData.shapeIdentityLabel; return; }
         // editorId remains the runtime link; shapeId is permanent per editable mesh.
         delete child.userData.shapeId;
         const identity = allocateShapeIdentity(identityObjects, Number(scene.userData.nexusNextShapeId) || 1);
@@ -5513,7 +5513,7 @@ export default function App() {
   const getProjectData = () => {
     const r = runtime.current;
     const projectNodes = collectObjectOnlyProjectNodes(r?.selectable || []);
-    projectNodes.filter((obj: THREE.Object3D) => obj instanceof THREE.Mesh).forEach((obj: THREE.Object3D) => {
+    projectNodes.filter((obj: THREE.Object3D) => isShapeProjectMesh(obj)).forEach((obj: THREE.Object3D) => {
       const identity = ensureShapeIdentity(obj, projectNodes, Number(r?.scene?.userData?.nexusNextShapeId) || 1);
       if (r?.scene) r.scene.userData.nexusNextShapeId = identity.nextId;
       obj.userData.shapeIdentityLabel = formatShapeIdentity(obj.name, identity.shapeId);
@@ -5723,7 +5723,7 @@ export default function App() {
         r.clearSubObjectLocks?.();
         const seenShapeIds = new Set<string>();
         for (const saved of data.objects) {
-          if (!saved || !saved.geometry?.attributes?.position?.array) continue;
+          if (!saved || !saved.geometry?.attributes?.position?.array || ['Bone', 'Rig', 'IK Target', 'IK Pole'].includes(saved.kind)) continue;
           if (data.version >= 4 && (typeof saved.shapeId !== 'string' || !/^No\.\d+$/.test(saved.shapeId))) throw new Error('Project validation failed: a Shape is missing its permanent Shape ID');
           if (saved.shapeId && seenShapeIds.has(saved.shapeId)) throw new Error('Project validation failed: duplicate Shape ID ' + saved.shapeId);
           if (saved.shapeId) seenShapeIds.add(saved.shapeId);
@@ -5961,7 +5961,7 @@ export default function App() {
           setActionRedoStack([]);
         }
         r.scene.updateMatrixWorld(true);
-        r.selectable.filter((obj: THREE.Object3D) => obj instanceof THREE.Mesh).forEach((obj: THREE.Object3D) => {
+        r.selectable.filter((obj: THREE.Object3D) => isShapeProjectMesh(obj)).forEach((obj: THREE.Object3D) => {
           const identity = ensureShapeIdentity(obj, r.selectable, Number(r.scene.userData.nexusNextShapeId) || 1);
           r.scene.userData.nexusNextShapeId = identity.nextId;
           obj.userData.shapeIdentityLabel = formatShapeIdentity(obj.name, identity.shapeId);
@@ -6124,7 +6124,7 @@ export default function App() {
       object.traverse((node: any) => {
         if (!node.userData.editorId) node.userData.editorId = uid();
         node.userData.kind = node === object ? 'Imported Model' : node.isBone ? 'Bone' : node.isMesh ? 'Mesh' : 'GLTF Node';
-        if (node.isMesh && !node.userData.shapeId) {
+        if (isShapeProjectMesh(node) && !node.userData.shapeId) {
           const identity = allocateShapeIdentity(importedNodes, Number(r.scene.userData.nexusNextShapeId) || 1);
           node.userData.shapeId = identity.shapeId;
           r.scene.userData.nexusNextShapeId = identity.nextId;
@@ -6251,7 +6251,7 @@ export default function App() {
       const expectedShapeIds = new Set<string>();
       const seenZipShapeIds = new Set<string>();
       projectData.objects.forEach((saved: any) => {
-        if (!saved?.geometry?.attributes?.position?.array) return;
+        if (!saved?.geometry?.attributes?.position?.array || ['Bone', 'Rig', 'IK Target', 'IK Pole'].includes(saved.kind)) return;
         if (projectData.version >= 4 && (typeof saved.shapeId !== 'string' || !/^No\.\d+$/.test(saved.shapeId))) throw new Error('ZIP validation failed: a Shape is missing its permanent Shape ID');
         if (saved.shapeId && seenZipShapeIds.has(saved.shapeId)) throw new Error('ZIP validation failed: duplicate Shape ID ' + saved.shapeId);
         if (saved.shapeId) { seenZipShapeIds.add(saved.shapeId); expectedShapeIds.add(saved.shapeId); }
