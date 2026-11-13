@@ -335,6 +335,24 @@ test('Extruded Single and Dual Face highlights follow the newly created cap geom
   assert.match(source, /color: 0x00e5ff, side: THREE\.DoubleSide, transparent: true, opacity: 0\.42/);
 });
 
+test('Face Pull isolates selected face vertices from adjacent face seam copies', () => {
+  const start = source.indexOf('const isolatedTransformIndices = selection.linkedIndices');
+  const end = source.indexOf('if (!isolatedTransformIndices) selection.indices.forEach', start);
+  assert.ok(start >= 0 && end > start, 'sub-selection transform vertex policy must exist');
+  const block = source.slice(start, end);
+  assert.match(block, /selection\.linkedIndices[\s\S]*new Set\(\[\.\.\.selection\.indices, \.\.\.selection\.linkedIndices\]/);
+  assert.match(block, /selection\.faceParts\?\.length[\s\S]*new Set\(selection\.indices\.filter/);
+  assert.match(block, /Vertex\/Edge[\s\S]*preserve UV\/normal seam continuity/);
+  assert.match(source, /if \(isolatedTransformIndices \? !isolatedTransformIndices\.has\(index\) : !logicalKeys\.has\(/);
+});
+
+test('Face Extrude linked cap vertices remain isolated and the Build 318 wall generator guard stays intact', () => {
+  assert.match(source, /const isolatedTransformIndices = selection\.linkedIndices[\s\S]*new Set\(\[\.\.\.selection\.indices, \.\.\.selection\.linkedIndices\]/);
+  assert.match(source, /activeEditToolRef\.current !== 'Extrude'[\s\S]*Face Extrude already creates its four perimeter walls/);
+  assert.match(source, /extrudedWallCapIndices\.push\(wallStartIndex \+ 2, wallStartIndex \+ 4, wallStartIndex \+ 5\)/);
+  assert.match(source, /restoreExtrudedFaceSelection\?\.\(target, extrudedCapIndices, selectedExtrudedFaceParts, extrudedWallCapIndices\)/);
+});
+
 test('Face Pull with the Move gizmo creates connected quad side walls and preserves source attributes', () => {
   assert.match(source, /Face Pull: when a face is moved with the Move gizmo/);
   assert.match(source, /const selectedVertexIds = new Set\(activeSubSelection\.faceParts\.flat\(\)\)/);
