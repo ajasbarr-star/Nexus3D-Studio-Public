@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import * as THREE from 'three';
-import { buildTopologyFromCanonicalQuadGeometry } from './geometry/topology-model.mjs';
+import { buildTopologyFromCanonicalQuadGeometry, buildTopologyFromIndexedQuadGeometry } from './geometry/topology-model.mjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -1548,11 +1548,21 @@ export default function App() {
       obj.name = name || kind + ' ' + (selectable.filter(o => o.name.startsWith(kind)).length + 1);
       obj.userData.editorId = uid();
       obj.userData.kind = kind;
-      if (obj instanceof THREE.Mesh && obj.userData.nexusQuadGrid) {
+      if (obj instanceof THREE.Mesh && ['Cube', 'Sphere', 'Cylinder', 'Cone', 'Torus'].includes(kind)) {
         const primitivePosition = obj.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
-        const primitiveTopology = primitivePosition ? buildTopologyFromCanonicalQuadGeometry(primitivePosition.array) : null;
-        if (primitiveTopology) obj.userData.nexusTopology = primitiveTopology;
-        else delete obj.userData.nexusTopology;
+        const primitiveTopology = primitivePosition
+          ? obj.geometry.index
+            ? buildTopologyFromIndexedQuadGeometry(primitivePosition.array, obj.geometry.index.array)
+            : buildTopologyFromCanonicalQuadGeometry(primitivePosition.array)
+          : null;
+        if (primitiveTopology) {
+          obj.userData.nexusQuadGrid = true;
+          obj.userData.nexusQuadGridLayout = obj.geometry.index ? 'indexed-primitive-quad-grid' : 'canonical-v1';
+          obj.userData.nexusTopology = primitiveTopology;
+        } else {
+          delete obj.userData.nexusTopology;
+          if (kind === 'Cube') delete obj.userData.nexusQuadGrid;
+        }
       }
       scene.add(obj);
       selectable.push(obj);
@@ -3064,7 +3074,11 @@ export default function App() {
       selection.mesh.geometry.computeBoundingSphere();
       if (selection.mesh.userData.nexusQuadGrid) {
         const topologyPosition = selection.mesh.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
-        const rebuiltTopology = topologyPosition ? buildTopologyFromCanonicalQuadGeometry(topologyPosition.array) : null;
+        const rebuiltTopology = topologyPosition
+          ? selection.mesh.geometry.index
+            ? buildTopologyFromIndexedQuadGeometry(topologyPosition.array, selection.mesh.geometry.index.array)
+            : buildTopologyFromCanonicalQuadGeometry(topologyPosition.array)
+          : null;
         if (rebuiltTopology) selection.mesh.userData.nexusTopology = rebuiltTopology;
         else delete selection.mesh.userData.nexusTopology;
       }
@@ -3488,6 +3502,14 @@ export default function App() {
       const storedTopology = target.userData.nexusTopology;
       const storedFaces = storedTopology?.version === 1 && Array.isArray(storedTopology.faces)
         ? storedTopology.faces : [];
+      // Indexed primitive render indices are stored as expanded-stream offsets.
+      // Expand before validating those offsets; this preserves the topology map
+      // while keeping the original indexed mesh untouched in its history snapshot.
+      if (target.userData.nexusQuadGrid === true && storedFaces.length > 0 && geometry.index) {
+        const indexedSource = geometry;
+        geometry = indexedSource.toNonIndexed();
+        indexedSource.dispose();
+      }
       const positionCount = geometry.getAttribute('position')?.count || 0;
       if (target.userData.nexusQuadGrid === true && storedFaces.length > 0 &&
           storedFaces.every((face: any) => Array.isArray(face.renderIndices) &&
@@ -4052,7 +4074,9 @@ export default function App() {
     target.geometry.dispose(); target.geometry = geometry;
     const committedPosition = target.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
     if (afterQuadGridState.enabled && committedPosition) {
-      const committedTopology = buildTopologyFromCanonicalQuadGeometry(committedPosition.array);
+      const committedTopology = target.geometry.index
+        ? buildTopologyFromIndexedQuadGeometry(committedPosition.array, target.geometry.index.array)
+        : buildTopologyFromCanonicalQuadGeometry(committedPosition.array);
       if (committedTopology) target.userData.nexusTopology = committedTopology;
       else delete target.userData.nexusTopology;
     } else delete target.userData.nexusTopology;
@@ -4104,7 +4128,11 @@ export default function App() {
           target.userData.cutLoops = redoCutLoops.map(loop => loop.map(point => [...point]));
           restoreQuadGridState(afterQuadGridState);
           const redoPosition = target.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
-          const redoTopology = afterQuadGridState.enabled && redoPosition ? buildTopologyFromCanonicalQuadGeometry(redoPosition.array) : null;
+          const redoTopology = afterQuadGridState.enabled && redoPosition
+            ? target.geometry.index
+              ? buildTopologyFromIndexedQuadGeometry(redoPosition.array, target.geometry.index.array)
+              : buildTopologyFromCanonicalQuadGeometry(redoPosition.array)
+            : null;
           if (redoTopology) target.userData.nexusTopology = redoTopology;
           else delete target.userData.nexusTopology;
           runtime.current?.refreshTopologyOverlay?.(target);
