@@ -1,4 +1,4 @@
-import { scanMeshCore, type MeshForensicSummary } from '../dfi/mesh-forensics';
+import { isEditorOnlyGeometryMesh, scanMeshCore, type MeshForensicSummary } from '../dfi/mesh-forensics';
 
 export type GeometryRitSummary = {
   status: 'PASS' | 'REVIEW' | 'FAIL' | 'INSUFFICIENT EVIDENCE';
@@ -38,7 +38,7 @@ export function scanGeometryRit(scene: any): GeometryRitSummary {
   const cosineTolerance = Math.cos(3 * Math.PI / 180);
 
   scene?.traverse?.((mesh: any) => {
-    if (!mesh?.isMesh || !mesh.geometry) return;
+    if (!mesh?.isMesh || !mesh.geometry || isEditorOnlyGeometryMesh(mesh)) return;
     meshes += 1;
     const geometry = mesh.geometry;
     const position = geometry.getAttribute?.('position');
@@ -87,10 +87,15 @@ export function scanGeometryRit(scene: any): GeometryRitSummary {
     });
   });
 
-  const errors = meshCore.issues.filter(issue => issue.severity === 'ERROR').length;
-  const warnings = meshCore.issues.filter(issue => issue.severity === 'WARN').length;
+  // Scene-level rollups summarize object findings; do not count them again as
+  // separate defects when deciding status or reporting unique error totals.
+  const errors = meshCore.issues.filter(issue => issue.severity === 'ERROR' && !issue.code.startsWith('SCENE_')).length;
+  const warnings = meshCore.issues.filter(issue => issue.severity === 'WARN' && !issue.code.startsWith('SCENE_')).length;
   const limitations = [
     'Read-only runtime scan. No geometry, normals, transforms, materials, selection, or project data were modified.',
+    'Editor-only camera model, light helpers, IK joint/bone visuals, and explicitly tagged editor helpers are excluded from geometry totals.',
+    'Indexed meshes use index-based edge connectivity; coincident split vertices are not welded for topology integrity. Non-indexed meshes use inferred coordinate connectivity.',
+    'Scene-level rollup findings are displayed for context but are not double-counted in the unique object-level error/warning totals.',
     'Coplanar shared edges are internal-triangulation candidates; actual visibility is controlled by the editor edge overlay and must be visually verified.',
     'Non-coplanar shared edges are crease/perimeter review candidates. They may be intentional hard edges, bevels, side walls, or real deformation.',
     'A generic mesh does not retain the artist-intended plane for every face perimeter. Perimeter deformation cannot be confirmed without an operation-specific before/after baseline or authored face boundary.',
@@ -132,7 +137,7 @@ export function formatGeometryRitReport(summary: GeometryRitSummary, timestamp =
     'Degenerate triangles: ' + summary.degenerateTriangles,
     'Invalid indices: ' + summary.invalidIndices,
     'Boundary edges: ' + summary.boundaryEdges + ' (may be intentional open boundaries)',
-    'Mesh-core errors: ' + summary.errors + ' · warnings: ' + summary.warnings,
+    'Unique object-level mesh-core errors: ' + summary.errors + ' · warnings: ' + summary.warnings,
     '',
     'DETAILED FINDINGS',
     ...(summary.meshCore.issues.length
