@@ -75,6 +75,8 @@ function createProjectMaterial(data: any): THREE.Material {
     depthWrite: data?.depthWrite !== false,
     depthTest: data?.depthTest !== false
   });
+  material.name = typeof data?.name === 'string' ? data.name : '';
+  if (data?.userData && typeof data.userData === 'object') material.userData = JSON.parse(JSON.stringify(data.userData));
   return material as THREE.Material;
 }
 
@@ -5563,6 +5565,8 @@ export default function App() {
         } : undefined,
         material: obj instanceof THREE.Mesh ? (Array.isArray(obj.material) ? obj.material : [obj.material]).map((mat: any) => ({
           type: mat.type,
+          name: mat.name || '',
+          userData: (() => { try { return JSON.parse(JSON.stringify(mat.userData || {})); } catch { return {}; } })(),
           color: mat.color?.getHexString?.() || null,
           roughness: Number.isFinite(mat.roughness) ? mat.roughness : null,
           metalness: Number.isFinite(mat.metalness) ? mat.metalness : null,
