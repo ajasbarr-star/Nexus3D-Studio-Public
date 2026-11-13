@@ -712,13 +712,50 @@ export default function App() {
         edges = new THREE.BufferGeometry();
         edges.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
       } else {
-        // Ignore tiny normal differences between triangles that belong to one flat surface.
-        // This suppresses triangulation diagonals while preserving real boundaries and hard edges.
-        edges = new THREE.EdgesGeometry(mesh.geometry, CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES);
-        // EdgesGeometry emits only boundaries and hard edges, but its vertices
-        // are otherwise exactly coincident with the surface. Offset each edge
-        // endpoint along the averaged source vertex normal to keep black lines
-        // visible after Face Extrude / Scale without exposing hidden back edges.
+        // Build physical edge adjacency from positions, not vertex indices.
+        // Face Extrude intentionally produces non-indexed geometry; EdgesGeometry
+        // treats every triangle corner as unique there and exposes every diagonal.
+        // Coordinate welding is limited to this display overlay and never mutates
+        // the editable mesh or its UV/normal seams.
+        const edgeMap = new Map<string, { a: THREE.Vector3; b: THREE.Vector3; normal: THREE.Vector3; count: number; hard: boolean }>();
+        const pointAt = (index: number) => new THREE.Vector3().fromBufferAttribute(position!, index);
+        const coordinateKey = (point: THREE.Vector3) =>
+          [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(',');
+        const index = mesh.geometry.index;
+        const vertexCount = position?.count || 0;
+        const elementCount = index ? index.count : vertexCount;
+        const angleLimit = THREE.MathUtils.degToRad(CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES);
+        for (let start = 0; start + 2 < elementCount; start += 3) {
+          const vertexAt = (offset: number) => index ? index.getX(offset) : offset;
+          const triangle = [0, 1, 2].map(corner => pointAt(vertexAt(start + corner)));
+          const faceNormal = triangle[1].clone().sub(triangle[0]).cross(triangle[2].clone().sub(triangle[0]));
+          if (faceNormal.lengthSq() < 1e-16) continue;
+          faceNormal.normalize();
+          for (let side = 0; side < 3; side++) {
+            const a = triangle[side], b = triangle[(side + 1) % 3];
+            const ka = coordinateKey(a), kb = coordinateKey(b);
+            const key = ka < kb ? ka + '|' + kb : kb + '|' + ka;
+            const entry = edgeMap.get(key);
+            if (!entry) edgeMap.set(key, { a, b, normal: faceNormal.clone(), count: 1, hard: false });
+            else {
+              entry.count++;
+              const angle = Math.acos(THREE.MathUtils.clamp(entry.normal.dot(faceNormal), -1, 1));
+              if (angle > angleLimit) entry.hard = true;
+            }
+          }
+        }
+        const edgePositions: number[] = [];
+        edgeMap.forEach(edge => {
+          // Keep true boundaries, hard creases, and non-manifold edges visible.
+          // Suppress only shared coplanar edges (the unwanted triangle diagonals).
+          if (edge.count === 1 || edge.count > 2 || edge.hard) {
+            edgePositions.push(edge.a.x, edge.a.y, edge.a.z, edge.b.x, edge.b.y, edge.b.z);
+          }
+        });
+        edges = new THREE.BufferGeometry();
+        edges.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
+        // Offset each edge endpoint along the averaged source vertex normal to
+        // keep visible lines from z-fighting after Face Extrude / Scale.
         const edgePosition = edges.getAttribute('position') as THREE.BufferAttribute;
         let sourceNormals = mesh.geometry.getAttribute('normal') as THREE.BufferAttribute | undefined;
         if (!sourceNormals && position) {
