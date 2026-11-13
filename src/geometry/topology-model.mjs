@@ -158,3 +158,44 @@ export function buildTopologyFromCanonicalQuadGeometry(positionArray, options = 
     return null;
   }
 }
+
+
+/**
+ * Build topology for indexed primitive quad cells whose index stream is
+ * [A,B,D, B,C,D] per face. renderIndices address the equivalent expanded
+ * non-indexed stream so the existing geometry tools can preserve attributes.
+ */
+export function buildTopologyFromIndexedQuadGeometry(positionArray, indexArray, options = {}) {
+  if (!positionArray || !indexArray || typeof indexArray.length !== "number" ||
+      indexArray.length < 18 || indexArray.length % 6 !== 0) return null;
+  const digits = Number.isInteger(options.precision) ? Math.max(3, Math.min(9, options.precision)) : 6;
+  const vertices = new Map();
+  const faces = [];
+  const read = index => {
+    if (!Number.isInteger(index) || index < 0 || index * 3 + 2 >= positionArray.length) return null;
+    return [
+      Number(positionArray[index * 3]),
+      Number(positionArray[index * 3 + 1]),
+      Number(positionArray[index * 3 + 2]),
+    ];
+  };
+  const keyOf = point => point.map(value => Number(value).toFixed(digits)).join(",");
+  for (let base = 0, faceIndex = 0; base < indexArray.length; base += 6, faceIndex++) {
+    const renderIndices = [base, base + 1, base + 4, base + 2];
+    const corners = renderIndices.map(offset => read(Number(indexArray[offset])));
+    if (corners.some(point => !point || !point.every(Number.isFinite))) return null;
+    const keys = corners.map(keyOf);
+    if (new Set(keys).size !== 4) return null;
+    const ids = keys.map((key, cornerIndex) => {
+      const id = "v:" + key;
+      if (!vertices.has(id)) vertices.set(id, { id, position: corners[cornerIndex] });
+      return id;
+    });
+    faces.push({ id: "face:" + faceIndex, vertices: ids, materialIndex: 0, renderIndices });
+  }
+  try {
+    return buildTopology({ vertices: [...vertices.values()], faces });
+  } catch {
+    return null;
+  }
+}
