@@ -5596,6 +5596,22 @@ export default function App() {
               else delete obj.userData.nexusCubeGridBounds;
               if (Number(saved.meshTopology.cubeGridDivisions) > 0) obj.userData.nexusCubeGridDivisions = Number(saved.meshTopology.cubeGridDivisions);
               else delete obj.userData.nexusCubeGridDivisions;
+              // Prefer the exact saved persistent topology. For older project files
+              // that only stored the quad-grid marker, rebuild from the known
+              // canonical/indexed primitive layout rather than leaving stale metadata.
+              const savedTopology = obj.userData.nexusTopology;
+              if (savedTopology?.version === 1 && Array.isArray(savedTopology.faces)) {
+                obj.userData.nexusTopology = savedTopology;
+              } else if (saved.meshTopology.quadGrid === true) {
+                const restoredPosition = obj.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+                const restoredTopology = restoredPosition
+                  ? obj.geometry.index
+                    ? buildTopologyFromIndexedQuadGeometry(restoredPosition.array, obj.geometry.index.array)
+                    : buildTopologyFromCanonicalQuadGeometry(restoredPosition.array)
+                  : null;
+                if (restoredTopology) obj.userData.nexusTopology = restoredTopology;
+                else delete obj.userData.nexusTopology;
+              } else delete obj.userData.nexusTopology;
             }
           }
           if (Array.isArray(saved.position) && saved.position.length === 3) obj.position.fromArray(saved.position);
