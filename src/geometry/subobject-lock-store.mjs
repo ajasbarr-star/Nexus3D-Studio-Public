@@ -22,7 +22,7 @@ export function createSubObjectLockStore() {
         const b = Math.max(value[0], value[1]);
         return a + ':' + b;
       }
-      if (typeof value === 'string' && /^\\d+:\\d+$/.test(value)) {
+      if (typeof value === 'string' && /^\d+:\d+$/.test(value)) {
         const [a, b] = value.split(':').map(Number);
         return Math.min(a, b) + ':' + Math.max(a, b);
       }
