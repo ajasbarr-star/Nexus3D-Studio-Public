@@ -6,6 +6,7 @@ import { buildTopologyFromCanonicalQuadGeometry, buildTopologyFromIndexedQuadGeo
 import { createSubObjectLockStore } from './geometry/subobject-lock-store.mjs';
 import { allocateShapeIdentity, ensureShapeIdentity, formatShapeIdentity } from './identity/shape-identity.mjs';
 import { assignShapeOwnership } from './identity/shape-ownership.mjs';
+import { collectReservedIdentityIds } from './identity/import-identity-reservations.mjs';
 import { validateProjectIdentityData } from './identity/project-identity-validation.mjs';
 import { collectObjectOnlyProjectNodes, getObjectOnlyProjectRoots, isShapeProjectMesh } from './project/object-project-scope.mjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -6272,8 +6273,13 @@ export default function App() {
       // Project ZIP import merges into the current scene; never duplicate stable IDs.
       const editorIdRemap = new Map<string, string>();
       const shapeIdRemap = new Map<string, string>();
-      const reservedEditorIds = new Set<string>(r.selectable.map((node: THREE.Object3D) => String(node.userData?.editorId || '')).filter(Boolean));
-      const reservedShapeIds = new Set<string>(r.selectable.map((node: THREE.Object3D) => String(node.userData?.shapeId || '')).filter(Boolean));
+      // Reserve IDs across the complete scene graph, including hidden/non-selectable
+      // bones and IK helpers, so merged imports cannot collide with attached objects.
+      const existingSceneNodes: THREE.Object3D[] = [];
+      r.scene.traverse((node: THREE.Object3D) => existingSceneNodes.push(node));
+      const existingIdentityReservations = collectReservedIdentityIds(existingSceneNodes);
+      const reservedEditorIds = existingIdentityReservations.editorIds;
+      const reservedShapeIds = existingIdentityReservations.shapeIds;
       projectData.objects.forEach((saved: any) => {
         if (!saved?.editorId) return;
         const sourceId = String(saved.editorId);
