@@ -5561,7 +5561,8 @@ export default function App() {
           angle: obj instanceof THREE.SpotLight ? obj.angle : undefined,
           groundColor: obj instanceof THREE.HemisphereLight ? obj.groundColor.getHexString() : undefined,
           shadowBias: (obj as any).shadow?.bias,
-          shadowRadius: (obj as any).shadow?.radius
+          shadowRadius: (obj as any).shadow?.radius,
+          targetPosition: obj instanceof THREE.SpotLight ? obj.target.position.toArray() : undefined
         } : undefined,
         geometry: obj instanceof THREE.Mesh ? {
           attributes: Object.fromEntries(Object.entries(obj.geometry.attributes).map(([key, attribute]: [string, any]) => [key, { itemSize: attribute.itemSize, normalized: attribute.normalized, array: Array.from(attribute.array as ArrayLike<number>) }])),
@@ -5899,6 +5900,10 @@ export default function App() {
             if (obj instanceof THREE.HemisphereLight && saved.light.groundColor) obj.groundColor.set('#' + saved.light.groundColor);
             if ((obj as any).shadow && Number.isFinite(saved.light.shadowBias)) (obj as any).shadow.bias = saved.light.shadowBias;
             if ((obj as any).shadow && Number.isFinite(saved.light.shadowRadius)) (obj as any).shadow.radius = saved.light.shadowRadius;
+            if (obj instanceof THREE.SpotLight && Array.isArray(saved.light.targetPosition) && saved.light.targetPosition.length === 3) {
+              obj.target.position.fromArray(saved.light.targetPosition);
+              obj.target.updateMatrixWorld(true);
+            }
           }
           if (obj instanceof THREE.Mesh) {
             obj.castShadow = saved.castShadow !== false;
