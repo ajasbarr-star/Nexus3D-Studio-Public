@@ -108,3 +108,28 @@ test('indexed triangle repeated with the same vertex indices remains an exact du
   assert.equal(result.duplicateTriangles, 1);
   assert.ok(result.issues.some(issue => issue.code === 'DUPLICATE_TRIANGLES' && issue.severity === 'ERROR'));
 });
+
+
+test('non-indexed duplicate and non-manifold findings include bounded vertex-level evidence', async () => {
+  const { scanMeshCore } = await loadScanner();
+  const duplicate = makeMesh('Extrude duplicate sample', [
+    0,0,0, 1,0,0, 0,1,0,
+    0,0,0, 1,0,0, 0,1,0
+  ], null);
+  const duplicateResult = scanMeshCore(makeScene([duplicate]));
+  const duplicateIssue = duplicateResult.issues.find(issue => issue.code === 'DUPLICATE_TRIANGLES');
+  assert.ok(duplicateIssue);
+  assert.match(duplicateIssue.detail, /triangle #1/);
+  assert.match(duplicateIssue.detail, /v3=\(0,0,0\)/);
+
+  const nonManifold = makeMesh('Extrude edge sample', [
+    0,0,0, 1,0,0, 0,1,0,
+    1,0,0, 0,0,0, 0,-1,0,
+    0,0,0, 1,0,0, 0,0,1
+  ], null);
+  const edgeResult = scanMeshCore(makeScene([nonManifold]));
+  const edgeIssue = edgeResult.issues.find(issue => issue.code === 'NON_MANIFOLD_EDGE');
+  assert.ok(edgeIssue);
+  assert.match(edgeIssue.detail, /edge incidence 3/);
+  assert.match(edgeIssue.detail, /v0=\(0,0,0\)/);
+});
