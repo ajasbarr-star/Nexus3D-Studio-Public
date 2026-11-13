@@ -44,3 +44,14 @@ test('ZIP import restores full material properties and embedded texture slots fr
   assert.match(zipImport, /texture\.repeat\.fromArray\(textureData\.repeat\)/);
   assert.match(zipImport, /mesh\.material = materials\.length === 1 \? materials\[0\] : materials/);
 });
+
+
+test('ZIP import recreates metadata lights omitted from the GLB scene', () => {
+  const zipImport = app.slice(app.indexOf('const importProjectZip'));
+  assert.match(zipImport, /!saved\?\.light \|\| !saved\?\.editorId \|\| restoredById\.has\(saved\.editorId\)/);
+  assert.match(zipImport, /new THREE\.AmbientLight\(color, intensity\)/);
+  assert.match(zipImport, /new THREE\.HemisphereLight\(color, saved\.light\.groundColor/);
+  assert.match(zipImport, /light\.userData\.editorId = saved\.editorId/);
+  assert.match(zipImport, /importedNodes\.push\(light\)/);
+  assert.match(zipImport, /restoredById\.set\(saved\.editorId, light\)/);
+});
