@@ -40,6 +40,9 @@ export function validateProjectIdentityData(objects, version = 0) {
       if (saved.parentEditorId && !editorIds.has(saved.parentEditorId)) {
         throw new Error('Project validation failed: missing parent object ' + saved.parentEditorId);
       }
+      if (saved.ownerShapeId && !shapeIds.has(saved.ownerShapeId)) {
+        throw new Error('Project validation failed: missing owning Shape ' + saved.ownerShapeId);
+      }
       const boneIds = saved.skeleton?.boneEditorIds;
       if (Array.isArray(boneIds)) {
         for (const id of boneIds) {
