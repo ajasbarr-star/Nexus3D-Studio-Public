@@ -146,3 +146,12 @@ test('Panel resize handles stay neutral until pointer movement starts, then high
   assert.match(styles, /\.panel-resize-handle \{/);
   assert.match(styles, /\.panel-resize-handle\.is-dragging/);
 });
+
+test('Whole-mesh Smooth requires explicit Select All on the currently selected object', () => {
+  assert.match(app, /const \[smoothSelectAllId, setSmoothSelectAllId\] = useState\(''\)/);
+  assert.match(app, /Select All · entire shape geometry selected for Smooth/);
+  assert.match(app, /setActiveSubSelection\?\.\(\{ mesh: target, indices: Array\.from\(\{ length: count \}/);
+  assert.match(app, /tool === 'Smooth' && smoothSelectAllId !== selected/);
+  assert.match(app, /Tap Select All before Smooth/);
+  assert.match(app, /if \(tool !== 'Smooth'\) setSmoothSelectAllId\(''\)/);
+});
