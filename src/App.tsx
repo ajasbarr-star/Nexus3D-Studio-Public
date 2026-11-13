@@ -6397,6 +6397,53 @@ export default function App() {
         importedNodes.push(node);
         if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; }
       });
+      // GLTF's punctual-light extension does not represent every Three.js light type.
+      // Recreate metadata-backed lights omitted from Scene.glb (notably Ambient/Hemisphere)
+      // so ZIP import does not silently lose editable scene lighting.
+      for (const saved of projectData.objects) {
+        if (!saved?.light || !saved?.editorId || restoredById.has(saved.editorId)) continue;
+        const lightType = String(saved.lightType || '').toLowerCase();
+        let light: THREE.Light | null = null;
+        const color = saved.light.color ? '#' + saved.light.color : '#ffffff';
+        const intensity = Number.isFinite(saved.light.intensity) ? saved.light.intensity : 1;
+        if (lightType === 'ambient' || saved.objectType === 'AmbientLight') {
+          light = new THREE.AmbientLight(color, intensity);
+        } else if (lightType === 'hemisphere' || saved.objectType === 'HemisphereLight') {
+          light = new THREE.HemisphereLight(color, saved.light.groundColor ? '#' + saved.light.groundColor : '#444444', intensity);
+        } else if (lightType === 'directional' || saved.objectType === 'DirectionalLight') {
+          light = new THREE.DirectionalLight(color, intensity);
+        } else if (lightType === 'point' || saved.objectType === 'PointLight') {
+          light = new THREE.PointLight(color, intensity, Number.isFinite(saved.light.distance) ? saved.light.distance : 0, Number.isFinite(saved.light.decay) ? saved.light.decay : 2);
+        } else if (lightType === 'spot' || saved.objectType === 'SpotLight') {
+          light = new THREE.SpotLight(color, intensity, Number.isFinite(saved.light.distance) ? saved.light.distance : 0, Number.isFinite(saved.light.angle) ? saved.light.angle : Math.PI / 3, 0, Number.isFinite(saved.light.decay) ? saved.light.decay : 2);
+        }
+        if (!light) continue;
+        light.name = String(saved.name || 'Restored Light');
+        light.userData = saved.editorData && typeof saved.editorData === 'object' ? JSON.parse(JSON.stringify(saved.editorData)) : {};
+        light.userData.editorId = saved.editorId;
+        light.userData.kind = 'Light';
+        light.userData.lightType = saved.lightType || lightType;
+        if (Array.isArray(saved.position)) light.position.fromArray(saved.position);
+        if (Array.isArray(saved.rotation)) light.rotation.set(saved.rotation[0] || 0, saved.rotation[1] || 0, saved.rotation[2] || 0);
+        if (Array.isArray(saved.scale)) light.scale.fromArray(saved.scale);
+        light.visible = saved.visible !== false;
+        light.castShadow = Boolean(saved.castShadow);
+        if (light.shadow && Number.isFinite(saved.light.shadowBias)) light.shadow.bias = saved.light.shadowBias;
+        if (light.shadow && Number.isFinite(saved.light.shadowRadius)) light.shadow.radius = saved.light.shadowRadius;
+        if (light instanceof THREE.SpotLight && Array.isArray(saved.light.targetPosition) && saved.light.targetPosition.length === 3) {
+          light.target.position.fromArray(saved.light.targetPosition);
+          light.target.updateMatrixWorld(true);
+          importedScene.add(light.target);
+        }
+        const helper = importedScene.getObjectByName(light.name + '_Helper');
+        if (helper) {
+          helper.userData.isLightHelper = true;
+          light.add(helper);
+        }
+        importedScene.add(light);
+        importedNodes.push(light);
+        restoredById.set(saved.editorId, light);
+      }
       // Restore the editor's full material settings and embedded texture slots
       // from Project.nexus; GLB alone does not represent every Three.js material map.
       for (const saved of projectData.objects) {
