@@ -13,7 +13,7 @@ test('accepts unique Shape and editor IDs with valid attachment references', () 
     { name: 'Root', kind: 'Bone', editorId: 'bone-1' },
     { name: 'Rig', kind: 'Rig', editorId: 'rig-1', parentEditorId: 'mesh-1' },
     { name: 'Target', kind: 'IK Target', editorId: 'target-1', editorData: { rigRootBoneId: 'bone-1' } },
-    { name: 'Skinned', kind: 'Mesh', editorId: 'skin-1', shapeId: 'No.02', skeleton: { boneEditorIds: ['bone-1'] } }
+    { ...mesh('skin-1', 'No.02', 'Skinned'), skeleton: { boneEditorIds: ['bone-1'] } }
   ];
   assert.deepEqual(validateProjectIdentityData(objects, 4), { editorIdCount: 5, shapeIdCount: 2 });
 });
