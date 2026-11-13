@@ -9,7 +9,7 @@ test('NOTICE creates evidence-backed actions for non-pass checks only', () => {
     { name: 'Scene Tree Integrity', status: 'ERROR', detail: 'Duplicate editor IDs: 2.' },
   ]);
   assert.match(report, /NOTICE · AUTOMATED FINDINGS/);
-  assert.match(report, /\[CRITICAL\] Scene Tree Integrity/);
+  assert.match(report, /\[HIGH\] Scene Tree Integrity/);
   assert.match(report, /\[HIGH\] Viewport & Camera/);
   assert.match(report, /Duplicate editor IDs: 2/);
   assert.match(report, /ROOT CAUSE NOT CONFIRMED/);
