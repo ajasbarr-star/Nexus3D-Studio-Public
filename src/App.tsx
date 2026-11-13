@@ -14,16 +14,6 @@ import { collectObjectOnlyProjectNodes, getObjectOnlyProjectRoots, isShapeProjec
 import { getNexusRenderPixelRatio } from './performance/render-budget.mjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
-import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
-import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
-import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
-import { BVHLoader } from 'three/examples/jsm/loaders/BVHLoader.js';
-import { VRMLoaderPlugin } from '@pixiv/three-vrm';
-import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import JSZip from 'jszip';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { clone as cloneSkeletonHierarchy } from 'three/examples/jsm/utils/SkeletonUtils.js';
@@ -5766,7 +5756,7 @@ export default function App() {
             if (Array.isArray(saved.geometry.groups)) saved.geometry.groups.forEach((group: any) => {
               if (Number.isFinite(group.start) && Number.isFinite(group.count)) geometry.addGroup(group.start, group.count, Number(group.materialIndex) || 0);
             });
-            if (!geometry.getAttribute('normal')) geometry.computeVertexNormals();
+            if (!parsedGeometry.getAttribute('normal')) parsedGeometry.computeVertexNormals();
             geometry.computeBoundingBox();
             geometry.computeBoundingSphere();
             const materialData = Array.isArray(saved.material) ? saved.material[0] : null;
@@ -6089,8 +6079,10 @@ export default function App() {
       });
       if (extension === 'obj') {
         const materialFile = companionFiles.find(asset => asset.name.toLowerCase().endsWith('.mtl'));
+        const { OBJLoader } = await import('three/examples/jsm/loaders/OBJLoader.js');
         const objLoader = new OBJLoader(manager);
         if (materialFile) {
+          const { MTLLoader } = await import('three/examples/jsm/loaders/MTLLoader.js');
           const materials = new MTLLoader(manager).parse(await materialFile.text(), '');
           materials.preload();
           objLoader.setMaterials(materials);
@@ -6098,31 +6090,41 @@ export default function App() {
         object = objLoader.parse(await file.text());
       } else if (extension === 'gltf' || extension === 'glb' || extension === 'vrm') {
         const buffer = await file.arrayBuffer();
+        const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
         const loader = new GLTFLoader(manager);
-        if (extension === 'vrm') loader.register(parser => new VRMLoaderPlugin(parser));
+        if (extension === 'vrm') {
+          const { VRMLoaderPlugin } = await import('@pixiv/three-vrm');
+          loader.register(parser => new VRMLoaderPlugin(parser));
+        }
         const gltf = await new Promise<any>((resolve, reject) => loader.parse(buffer, primaryDirectory, resolve, reject));
         object = gltf.scene;
         importedAnimations = gltf.animations || [];
         if (gltf.userData?.vrm) object.userData.nexusVRM = gltf.userData.vrm;
       } else if (extension === 'fbx') {
         const buffer = await file.arrayBuffer();
+        const { FBXLoader } = await import('three/examples/jsm/loaders/FBXLoader.js');
         object = new FBXLoader(manager).parse(buffer, primaryDirectory);
         importedAnimations = (object as any).animations || [];
       } else if (extension === 'dae') {
+        const { ColladaLoader } = await import('three/examples/jsm/loaders/ColladaLoader.js');
         const collada = new ColladaLoader(manager).parse(await file.text(), primaryDirectory);
         object = collada.scene;
         importedAnimations = collada.animations || [];
       } else if (extension === 'stl' || extension === 'ply') {
         const buffer = await file.arrayBuffer();
-        const geometry = extension === 'stl' ? new STLLoader(manager).parse(buffer) : new PLYLoader(manager).parse(buffer);
+        const geometry = extension === 'stl'
+          ? (await import('three/examples/jsm/loaders/STLLoader.js')).STLLoader
+          : (await import('three/examples/jsm/loaders/PLYLoader.js')).PLYLoader;
+        const parsedGeometry = new geometry(manager).parse(buffer);
         if (!geometry.getAttribute('normal')) geometry.computeVertexNormals();
-        const hasColors = Boolean(geometry.getAttribute('color'));
+        const hasColors = Boolean(parsedGeometry.getAttribute('color'));
         const material = new THREE.MeshStandardMaterial({ color: hasColors ? 0xffffff : 0xb8c5d6, roughness: 0.72, metalness: 0.08, vertexColors: hasColors });
-        const mesh = new THREE.Mesh(geometry, material);
+        const mesh = new THREE.Mesh(parsedGeometry, material);
         mesh.name = file.name.replace(/\.(stl|ply)$/i, '') || 'Imported Geometry';
         object = new THREE.Group();
         object.add(mesh);
       } else if (extension === 'bvh') {
+        const { BVHLoader } = await import('three/examples/jsm/loaders/BVHLoader.js');
         const bvh = new BVHLoader().parse(await file.text());
         const rootBone = bvh.skeleton.bones[0];
         if (!rootBone) throw new Error('BVH file does not contain a skeleton root');
@@ -6179,6 +6181,7 @@ export default function App() {
     try {
       setStatus('Preparing portable project ZIP…');
       const data = getProjectData();
+      const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js');
       const exporter = new GLTFExporter();
       const projectNodes = collectObjectOnlyProjectNodes(r.selectable || []);
       const projectNodeSet = new Set(projectNodes);
@@ -6329,6 +6332,7 @@ export default function App() {
       });
       const remappedExpectedShapeIds = new Set<string>([...expectedShapeIds].map(id => shapeIdRemap.get(id) || id));
       const sceneBuffer = await sceneEntry.async('arraybuffer');
+      const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
       const loader = new GLTFLoader();
       const gltf = await new Promise<any>((resolve, reject) => loader.parse(sceneBuffer, '', resolve, reject));
       const importedScene: THREE.Object3D = gltf.scene;
