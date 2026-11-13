@@ -70,7 +70,7 @@ jobs:
 
       - name: Calculate Phase 1 release version
         env:
-          PHASE1_BUILD_NUMBER: 1
+          PHASE1_BUILD_NUMBER: 2
         run: |
           VERSION_PATCH="$PHASE1_BUILD_NUMBER"
           echo "NEXUS3D_VERSION_PATCH=$VERSION_PATCH" >> "$GITHUB_ENV"
@@ -153,7 +153,7 @@ jobs:
       - name: Upload signed Nexus3D Phase 1 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Nexus3D_Phase1_Rendering_Build_01_v1.0.${{ env.NEXUS3D_VERSION_PATCH }}
+          name: Nexus3D_Phase1_Rendering_Build_02_v1.0.${{ env.NEXUS3D_VERSION_PATCH }}
           path: android/app/build/outputs/apk/release/${{ env.NEXUS3D_APK_NAME }}
           if-no-files-found: error
           retention-days: 14
