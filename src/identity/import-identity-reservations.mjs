@@ -11,7 +11,7 @@ export function collectReservedIdentityIds(nodes = []) {
     const data = node?.userData;
     if (!data || typeof data !== 'object') return;
     if (typeof data.editorId === 'string' && data.editorId) editorIds.add(data.editorId);
-    if (typeof data.shapeId === 'string' && /^No\\.\\d+$/.test(data.shapeId)) shapeIds.add(data.shapeId);
+    if (typeof data.shapeId === 'string' && /^No\.\d+$/.test(data.shapeId)) shapeIds.add(data.shapeId);
   });
   return { editorIds, shapeIds };
 }
