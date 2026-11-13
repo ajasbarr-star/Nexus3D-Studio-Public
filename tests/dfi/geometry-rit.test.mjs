@@ -14,6 +14,12 @@ test('Geometry RIT is an independent toolbar diagnostic with its own results pan
   assert.match(styles, /\.geometry-rit-panel/);
 });
 
+test('Opening Geometry RIT resets all counters and requires an explicit fresh scan', () => {
+  assert.match(app, /if \(!geometryRitOpen\) \{ setGeometryRitReport\('NOT SCANNED/);
+  assert.match(app, /setGeometryRitSummary\(\{ status: 'NOT SCANNED', meshes: 0, vertices: 0, triangles: 0, errors: 0, warnings: 0 \}\)/);
+  assert.match(app, /onClick=\{runGeometryRitScan\}/);
+});
+
 test('Geometry RIT exposes an explicit Scan action and a separate Copy Report action', () => {
   assert.match(app, /onClick=\{runGeometryRitScan\}/);
   assert.match(app, /SCAN GEOMETRY/);
