@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTopology, validateTopology, moveTopologyVertices, subdivideQuadFace, buildTopologyFromCanonicalQuadGeometry } from '../../src/geometry/topology-model.mjs';
+import { buildTopology, validateTopology, moveTopologyVertices, subdivideQuadFace, buildTopologyFromCanonicalQuadGeometry, buildTopologyFromIndexedQuadGeometry } from '../../src/geometry/topology-model.mjs';
 
 const square = () => buildTopology({
   vertices: [
@@ -89,4 +89,16 @@ test('Subdivide consumes persistent face-loop render mappings before triangle-pa
   assert.ok(start >= 0, 'Subdivide must read persistent topology');
   assert.ok(fallback > start, 'legacy reconstruction must remain a fallback only');
   assert.match(app.slice(start, fallback), /face\.renderIndices/);
+});
+
+
+test('indexed BoxGeometry-style quad cells retain expanded render-corner offsets', () => {
+  const positions = [0,0,0, 1,0,0, 1,1,0, 0,1,0];
+  const indices = [0,1,3, 1,2,3];
+  const topology = buildTopologyFromIndexedQuadGeometry(positions, indices);
+  assert.ok(topology);
+  assert.equal(topology.faces.length, 1);
+  assert.deepEqual(topology.faces[0].vertices.length, 4);
+  assert.deepEqual(topology.faces[0].renderIndices, [0,1,4,2]);
+  assert.equal(validateTopology(topology).valid, true);
 });
