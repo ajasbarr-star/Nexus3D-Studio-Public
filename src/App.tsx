@@ -3409,10 +3409,6 @@ export default function App() {
         perfFrameCount += 1;
         perfIntervalTotal += frameInterval;
         perfIntervalMax = Math.max(perfIntervalMax, frameInterval);
-        perfUpdateTotal += updateWorkMs;
-        perfUpdateMax = Math.max(perfUpdateMax, updateWorkMs);
-        perfRenderSubmitTotal += renderSubmitMs;
-        perfRenderSubmitMax = Math.max(perfRenderSubmitMax, renderSubmitMs);
       }
       orbit.update();
       if (runtime.current?.riggingView && ikOrbit) ikOrbit.update();
@@ -3468,6 +3464,12 @@ export default function App() {
         renderer.render(scene, inCam ? activeCamera : camera);
       }
       const renderSubmitMs = performance.now() - renderSubmitStartedAt;
+      if (frameInterval > 0 && frameInterval < 10000) {
+        perfUpdateTotal += updateWorkMs;
+        perfUpdateMax = Math.max(perfUpdateMax, updateWorkMs);
+        perfRenderSubmitTotal += renderSubmitMs;
+        perfRenderSubmitMax = Math.max(perfRenderSubmitMax, renderSubmitMs);
+      }
       const perfSampleNow = performance.now();
       const perfElapsed = perfSampleNow - perfWindowStartedAt;
       if (perfElapsed >= 1000) {
