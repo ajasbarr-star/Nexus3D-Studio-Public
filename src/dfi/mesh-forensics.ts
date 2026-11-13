@@ -76,6 +76,8 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
     let meshInvalidIndices = 0;
     let meshDegenerateTriangles = 0;
     let meshDuplicateTriangles = 0;
+    const duplicateTriangleSamples: string[] = [];
+    const nonManifoldEdgeSamples: string[] = [];
     const vertexKeyToFirst = new Map<string, number>();
     for (let v = 0; v < position.count; v += 1) {
       const x = position.getX(v), y = position.getY(v), z = position.getZ(v);
@@ -135,6 +137,11 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
       if (localTriangleKeys.has(triangleKey)) {
         result.duplicateTriangles += 1;
         meshDuplicateTriangles += 1;
+        if (duplicateTriangleSamples.length < 8) {
+          const describeVertex = (vertex: number) =>
+            `v${vertex}=(${[position.getX(vertex), position.getY(vertex), position.getZ(vertex)].map(value => Number(value.toFixed(6))).join(',')})`;
+          duplicateTriangleSamples.push(`triangle #${t}: [${[a, b, c].map(describeVertex).join(' ')}]`);
+        }
       }
       localTriangleKeys.add(triangleKey);
       // Indexed geometry uses true vertex identity. Coordinate welding is only a
@@ -145,11 +152,20 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
     if (elementCount % 3 !== 0) add('WARN', 'NON_TRIANGLE_ELEMENT_COUNT', meshName, objectId, `Geometry element count ${elementCount} is not divisible by three.`);
     if (meshInvalidIndices) add('ERROR', 'INVALID_INDEX', meshName, objectId, `${meshInvalidIndices} triangle index reference(s) point outside this mesh position buffer.`);
     if (meshDegenerateTriangles) add('WARN', 'DEGENERATE_TRIANGLES', meshName, objectId, `${meshDegenerateTriangles} degenerate triangle(s) were detected in this mesh.`);
-    if (meshDuplicateTriangles) add('ERROR', 'DUPLICATE_TRIANGLES', meshName, objectId, `${meshDuplicateTriangles} duplicate triangle(s) with identical topology vertex identity were detected within this mesh.`);
+    if (meshDuplicateTriangles) add('ERROR', 'DUPLICATE_TRIANGLES', meshName, objectId,
+      `${meshDuplicateTriangles} duplicate triangle(s) with identical topology vertex identity were detected within this mesh. Samples: ${duplicateTriangleSamples.join('; ') || 'not captured'}`);
 
-    for (const count of edgeCounts.values()) {
+    for (const [key, count] of edgeCounts.entries()) {
       if (count === 1) result.boundaryEdges += 1;
-      else if (count > 2) result.nonManifoldEdges += 1;
+      else if (count > 2) {
+        result.nonManifoldEdges += 1;
+        if (nonManifoldEdgeSamples.length < 8) {
+          const [left, right] = key.split(':').map(Number);
+          const describeVertex = (vertex: number) =>
+            `v${vertex}=(${[position.getX(vertex), position.getY(vertex), position.getZ(vertex)].map(value => Number(value.toFixed(6))).join(',')})`;
+          nonManifoldEdgeSamples.push(`edge incidence ${count}: ${describeVertex(left)} -- ${describeVertex(right)}`);
+        }
+      }
     }
     const visited = new Set<number>();
     let components = 0;
@@ -163,8 +179,9 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
       }
     }
     if (components > 1) result.disconnectedComponents += components;
-    if (edgeCounts.size && [...edgeCounts.values()].some(count => count > 2))
-      add('ERROR', 'NON_MANIFOLD_EDGE', meshName, objectId, 'One or more edges are shared by more than two triangles.');
+    if (nonManifoldEdgeSamples.length)
+      add('ERROR', 'NON_MANIFOLD_EDGE', meshName, objectId,
+        `One or more edges are shared by more than two triangles. Samples: ${nonManifoldEdgeSamples.join('; ')}`);
   }
   if (result.duplicateTriangles) add('ERROR', 'SCENE_DUPLICATE_TRIANGLES', 'Scene', '', `${result.duplicateTriangles} exact duplicate triangle(s) detected.`);
   if (result.nonManifoldEdges) add('ERROR', 'SCENE_NON_MANIFOLD_EDGES', 'Scene', '', `${result.nonManifoldEdges} non-manifold edge(s) detected.`);
