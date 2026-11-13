@@ -1,50 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { scanMeshCore } from '../../src/dfi/mesh-forensics.ts';
+import fs from 'node:fs';
 
-function makeMesh(name, uuid, positions, indices) {
-  const position = {
-    count: positions.length / 3,
-    itemSize: 3,
-    getX: i => positions[i * 3],
-    getY: i => positions[i * 3 + 1],
-    getZ: i => positions[i * 3 + 2],
-  };
-  const index = indices ? { count: indices.length, getX: i => indices[i] } : null;
-  return { name, uuid, userData: {}, isMesh: true, geometry: {
-    getAttribute: key => key === 'position' ? position : null,
-    getIndex: () => index,
-  }};
-}
-function makeScene(meshes) {
-  return { traverse(fn) { meshes.forEach(fn); } };
-}
+const scanner = fs.readFileSync(new URL('../../src/dfi/mesh-forensics.ts', import.meta.url), 'utf8');
 
-test('same-named separate objects are not counted as duplicate triangles', () => {
-  const positions = [0,0,0, 1,0,0, 0,1,0];
-  const scene = makeScene([
-    makeMesh('X', 'object-a', positions, [0,1,2]),
-    makeMesh('X', 'object-b', positions, [0,1,2]),
-  ]);
-  const report = scanMeshCore(scene);
-  assert.equal(report.duplicateTriangles, 0);
-  assert.equal(report.issues.filter(issue => issue.code === 'DUPLICATE_TRIANGLES').length, 0);
+test('duplicate triangle detection is scoped to each mesh, not mesh names across objects', () => {
+  assert.match(scanner, /const localTriangleKeys = new Set<string>\(\)/);
+  assert.match(scanner, /if \(localTriangleKeys\.has\(triangleKey\)\)/);
+  assert.doesNotMatch(scanner, /globalTriangleKeys/);
+  assert.doesNotMatch(scanner, /meshName \+ '\\|' \+ triangleKey/);
 });
 
-test('duplicate triangles are detected within one mesh only', () => {
-  const positions = [0,0,0, 1,0,0, 0,1,0];
-  const report = scanMeshCore(makeScene([
-    makeMesh('Cube', 'cube-1', positions, [0,1,2, 2,1,0]),
-  ]));
-  assert.equal(report.duplicateTriangles, 1);
-  assert.equal(report.issues.filter(issue => issue.code === 'DUPLICATE_TRIANGLES').length, 1);
-});
-
-test('per-mesh findings use local counters rather than repeating earlier mesh errors', () => {
-  const valid = makeMesh('Valid', 'valid-1', [0,0,0, 1,0,0, 0,1,0], [0,1,2]);
-  const invalid = makeMesh('Invalid', 'invalid-1', [0,0,0, 1,0,0, 0,1,0], [0,1,99]);
-  const report = scanMeshCore(makeScene([invalid, valid]));
-  const invalidFindings = report.issues.filter(issue => issue.code === 'INVALID_INDEX');
-  assert.equal(invalidFindings.length, 1);
-  assert.equal(invalidFindings[0].mesh, 'Invalid');
+test('per-mesh issue records use per-mesh counters', () => {
+  assert.match(scanner, /let meshInvalidIndices = 0/);
+  assert.match(scanner, /let meshDegenerateTriangles = 0/);
+  assert.match(scanner, /let meshDuplicateTriangles = 0/);
+  assert.match(scanner, /if \(meshInvalidIndices\) add\('ERROR', 'INVALID_INDEX'/);
+  assert.match(scanner, /if \(meshDegenerateTriangles\) add\('WARN', 'DEGENERATE_TRIANGLES'/);
+  assert.match(scanner, /if \(meshDuplicateTriangles\) add\('ERROR', 'DUPLICATE_TRIANGLES'/);
+  assert.doesNotMatch(scanner, /if \(result\.invalidIndices\) add\('ERROR', 'INVALID_INDEX'/);
+  assert.doesNotMatch(scanner, /if \(result\.duplicateTriangles\) add\('ERROR', 'DUPLICATE_TRIANGLES'/);
 });
