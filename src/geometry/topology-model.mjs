@@ -121,3 +121,40 @@ export function subdivideQuadFace(topology, faceId) {
     faces,
   });
 }
+
+
+/**
+ * Build persistent face-loop topology from Nexus3D's verified canonical quad
+ * render stream ([a,b,c,a,c,d] per face). This is intentionally fail-closed:
+ * it does not guess topology from arbitrary triangle soups.
+ */
+export function buildTopologyFromCanonicalQuadGeometry(positionArray, options = {}) {
+  if (!positionArray || typeof positionArray.length !== "number" ||
+      positionArray.length < 18 || positionArray.length % 18 !== 0) return null;
+  const digits = Number.isInteger(options.precision) ? Math.max(3, Math.min(9, options.precision)) : 6;
+  const vertices = new Map();
+  const faces = [];
+  const read = index => [
+    Number(positionArray[index * 3]),
+    Number(positionArray[index * 3 + 1]),
+    Number(positionArray[index * 3 + 2]),
+  ];
+  const keyOf = point => point.map(value => Number(value).toFixed(digits)).join(",");
+  for (let base = 0, faceIndex = 0; base < positionArray.length / 3; base += 6, faceIndex++) {
+    const corners = [base, base + 1, base + 2, base + 5].map(read);
+    if (corners.some(point => !point.every(Number.isFinite))) return null;
+    const keys = corners.map(keyOf);
+    if (new Set(keys).size !== 4) return null;
+    const ids = keys.map((key, cornerIndex) => {
+      const id = "v:" + key;
+      if (!vertices.has(id)) vertices.set(id, { id, position: corners[cornerIndex] });
+      return id;
+    });
+    faces.push({ id: "face:" + faceIndex, vertices: ids, materialIndex: 0 });
+  }
+  try {
+    return buildTopology({ vertices: [...vertices.values()], faces });
+  } catch {
+    return null;
+  }
+}
