@@ -6,3 +6,5 @@ export function buildTopology(input: { vertices: NexusTopologyVertex[]; faces: N
 export function validateTopology(topology: NexusTopology): { valid: boolean; errors: string[] };
 export function moveTopologyVertices(topology: NexusTopology, positionById: Map<string, [number, number, number]> | Record<string, [number, number, number]>): NexusTopology;
 export function subdivideQuadFace(topology: NexusTopology, faceId: string): NexusTopology;
+
+export function buildTopologyFromCanonicalQuadGeometry(positionArray: ArrayLike<number>, options?: { precision?: number }): NexusTopology | null;
