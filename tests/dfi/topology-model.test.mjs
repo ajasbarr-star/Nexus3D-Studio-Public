@@ -210,3 +210,35 @@ test('Object Rotate is retained in transform undo and redo snapshots', async () 
   assert.match(app, /o\.rotation\.set\(v\.rotation\[0\], v\.rotation\[1\], v\.rotation\[2\]\)/);
   assert.match(app, /label: 'Transform ' \+ before\.object\.name/);
 });
+
+
+test('multi-object topology remains isolated at 1, 2, 5, and 10 scene objects', () => {
+  const source = [
+    0,0,0, 1,0,0, 1,1,0, 0,0,0, 1,1,0, 0,1,0,
+    1,0,0, 2,0,0, 2,1,0, 1,0,0, 2,1,0, 1,1,0,
+  ];
+  for (const count of [1, 2, 5, 10]) {
+    const objects = Array.from({ length: count }, () => ({
+      topology: buildTopologyFromCanonicalQuadGeometry(source),
+      positions: [...source],
+    }));
+    assert.ok(objects.every(object => object.topology));
+    for (let pass = 0; pass < 3; pass++) {
+      const targetIndex = (pass * 3) % count;
+      const target = objects[targetIndex];
+      target.positions = target.positions.map((value, index) =>
+        index % 3 === 2 ? value + (pass + 1) * 0.1 : value
+      );
+      target.topology = updateTopologyPositionsFromRenderGeometry(target.topology, target.positions);
+      assert.ok(target.topology, 'target topology refresh must succeed');
+      objects.forEach((object, index) => {
+        assert.equal(validateTopology(object.topology).valid, true);
+        assert.equal(object.topology.faces.length, 2);
+        if (index !== targetIndex) {
+          assert.deepEqual(object.topology.vertices.map(vertex => vertex.position),
+            buildTopologyFromCanonicalQuadGeometry(source).vertices.map(vertex => vertex.position));
+        }
+      });
+    }
+  }
+});
