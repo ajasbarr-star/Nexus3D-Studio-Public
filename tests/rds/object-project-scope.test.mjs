@@ -7,7 +7,7 @@ function node(name, kind, extra = {}) {
 }
 function add(parent, child) { child.parent = parent; parent.children.push(child); return child; }
 
-test('keeps Shape meshes and their parent hierarchy while excluding cameras and lights', () => {
+test('keeps Shape meshes, hierarchy and scene lights while excluding viewport cameras', () => {
   const scene = node('scene', 'Scene');
   const group = add(scene, node('ImportedRoot', 'Imported Model'));
   const mesh = add(group, node('Cube1', 'Mesh', { shapeId: 'No.01', editorId: 'mesh-1' }));
@@ -16,8 +16,8 @@ test('keeps Shape meshes and their parent hierarchy while excluding cameras and 
   const light = add(scene, node('KeyLight', 'Light', { editorId: 'light-1' }));
   light.isLight = true;
   const result = collectObjectOnlyProjectNodes([group, mesh, camera, light]);
-  assert.deepEqual(result, [group, mesh]);
-  assert.deepEqual(getObjectOnlyProjectRoots(result), [group]);
+  assert.deepEqual(result, [group, mesh, light]);
+  assert.deepEqual(getObjectOnlyProjectRoots(result), [group, light]);
 });
 
 test('keeps rig bones and IK handles attached to an included Shape', () => {
@@ -30,7 +30,7 @@ test('keeps rig bones and IK handles attached to an included Shape', () => {
   assert.deepEqual(getObjectOnlyProjectRoots(result), [shape]);
 });
 
-test('does not serialize unrelated groups or viewport-only helpers', () => {
+test('does not serialize unrelated groups or viewport-only cameras and helpers', () => {
   const unrelated = node('Empty', 'Group');
   const helper = node('Grid', 'GridHelper');
   assert.deepEqual(collectObjectOnlyProjectNodes([unrelated, helper]), []);
