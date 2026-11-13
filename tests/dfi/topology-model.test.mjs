@@ -349,3 +349,13 @@ test('sub-object lock store rejects missing object identity and unsupported lock
   assert.throws(() => store.add('', 'Vertex', [0]), /stable object ID/);
   assert.throws(() => store.add('shape-a', 'Face', [0]), /Vertex or Edge/);
 });
+
+
+test('Clear Locks UI releases stored Vertex and Edge locks and clears visible component state', async () => {
+  const fs = await import('node:fs');
+  const app = fs.readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
+  assert.match(app, /clearAllSubObjectLocks:\s*\(\)\s*=>\s*\{\s*subObjectLockStore\.clear\(\);\s*activeSubSelection\s*=\s*null;/);
+  assert.match(app, /clearAllSubObjectLocks:\s*\(\)\s*=>\s*\{[\s\S]*?transform\.detach\(\);[\s\S]*?transform\.enabled\s*=\s*false;[\s\S]*?transform\.getHelper\(\)\.visible\s*=\s*false;/);
+  assert.match(app, /runtime\.current\?\.clearAllSubObjectLocks\?\.\(\)/);
+  assert.match(app, /Clear Locks/);
+});
