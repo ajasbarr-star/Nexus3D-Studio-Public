@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import * as THREE from 'three';
+import { buildTopologyFromCanonicalQuadGeometry } from './geometry/topology-model.mjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -1547,6 +1548,12 @@ export default function App() {
       obj.name = name || kind + ' ' + (selectable.filter(o => o.name.startsWith(kind)).length + 1);
       obj.userData.editorId = uid();
       obj.userData.kind = kind;
+      if (obj instanceof THREE.Mesh && obj.userData.nexusQuadGrid) {
+        const primitivePosition = obj.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+        const primitiveTopology = primitivePosition ? buildTopologyFromCanonicalQuadGeometry(primitivePosition.array) : null;
+        if (primitiveTopology) obj.userData.nexusTopology = primitiveTopology;
+        else delete obj.userData.nexusTopology;
+      }
       scene.add(obj);
       selectable.push(obj);
       syncItems();
@@ -2996,6 +3003,7 @@ export default function App() {
     renderer.domElement.addEventListener('pointercancel', onPointerCancel);
     window.addEventListener('blur', onWindowBlur);
     let transformBefore: { object: THREE.Object3D; state: TransformSnapshot } | null = null;
+    let subTopologyBefore: any = null;
     transform.addEventListener('objectChange', () => {
       if (!activeSubSelection || transform.object !== subObjectPivot) {
         if (transform.object) {
@@ -3054,6 +3062,12 @@ export default function App() {
       selection.mesh.geometry.computeVertexNormals();
       selection.mesh.geometry.computeBoundingBox();
       selection.mesh.geometry.computeBoundingSphere();
+      if (selection.mesh.userData.nexusQuadGrid) {
+        const topologyPosition = selection.mesh.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+        const rebuiltTopology = topologyPosition ? buildTopologyFromCanonicalQuadGeometry(topologyPosition.array) : null;
+        if (rebuiltTopology) selection.mesh.userData.nexusTopology = rebuiltTopology;
+        else delete selection.mesh.userData.nexusTopology;
+      }
       refreshTopologyOverlay(selection.mesh);
       if (selection.faceParts?.length) {
         clearSubObjectHighlight();
@@ -3100,7 +3114,11 @@ export default function App() {
       recordInteractionTrace('Transform gizmo drag started', { axis: transform.axis ?? null, mode: transform.getMode(), space: spaceRef.current, selectedId: selectedRef.current, position: transform.object ? transform.object.position.toArray() : null, rotation: transform.object ? [transform.object.rotation.x, transform.object.rotation.y, transform.object.rotation.z] : null, scale: transform.object ? transform.object.scale.toArray() : null });
       syncViewportControls(true);
       const object = transform.object;
-      if (object === subObjectPivot && activeSubSelection) subGeometryBefore = activeSubSelection.mesh.geometry.clone();
+      if (object === subObjectPivot && activeSubSelection) {
+        subGeometryBefore = activeSubSelection.mesh.geometry.clone();
+        subTopologyBefore = activeSubSelection.mesh.userData.nexusTopology
+          ? JSON.parse(JSON.stringify(activeSubSelection.mesh.userData.nexusTopology)) : null;
+      }
       else transformBefore = object ? { object, state: snapshot(object) } : null;
     });
     let lastDfiGizmoSampleAt = 0;
@@ -3138,9 +3156,12 @@ export default function App() {
         const beforeGeometry = subGeometryBefore.clone();
         const afterGeometry = mesh.geometry.clone();
         if (beforeGeometry.getAttribute('position').count !== afterGeometry.getAttribute('position').count || beforeGeometry.getAttribute('position').array.some((value: number, index: number) => value !== afterGeometry.getAttribute('position').array[index])) {
-          recordSceneAction({ label: 'Move sub-object ' + mesh.name, undo: () => { mesh.geometry.dispose(); mesh.geometry = beforeGeometry.clone(); mesh.geometry.computeVertexNormals(); }, redo: () => { mesh.geometry.dispose(); mesh.geometry = afterGeometry.clone(); mesh.geometry.computeVertexNormals(); } });
+          const beforeTopology = subTopologyBefore ? JSON.parse(JSON.stringify(subTopologyBefore)) : null;
+          const afterTopology = mesh.userData.nexusTopology ? JSON.parse(JSON.stringify(mesh.userData.nexusTopology)) : null;
+          recordSceneAction({ label: 'Move sub-object ' + mesh.name, undo: () => { mesh.geometry.dispose(); mesh.geometry = beforeGeometry.clone(); mesh.geometry.computeVertexNormals(); if (beforeTopology) mesh.userData.nexusTopology = JSON.parse(JSON.stringify(beforeTopology)); else delete mesh.userData.nexusTopology; }, redo: () => { mesh.geometry.dispose(); mesh.geometry = afterGeometry.clone(); mesh.geometry.computeVertexNormals(); if (afterTopology) mesh.userData.nexusTopology = JSON.parse(JSON.stringify(afterTopology)); else delete mesh.userData.nexusTopology; } });
         } else beforeGeometry.dispose();
         subGeometryBefore.dispose(); subGeometryBefore = null;
+        subTopologyBefore = null;
       }
       // Vertex/Edge gizmo edits update the live mesh; refresh the working geometry
       // so the next Face tool starts from those exact positions.
@@ -3375,6 +3396,7 @@ export default function App() {
       divisions: Number(target.userData.nexusCubeGridDivisions || 0),
     });
     const beforeQuadGridState = captureQuadGridState();
+    const beforeTopology = target.userData.nexusTopology ? JSON.parse(JSON.stringify(target.userData.nexusTopology)) : null;
     const restoreQuadGridState = (state: ReturnType<typeof captureQuadGridState>) => {
       if (state.enabled) target.userData.nexusQuadGrid = true;
       else delete target.userData.nexusQuadGrid;
@@ -4016,6 +4038,11 @@ export default function App() {
           : captureQuadGridState();
     target.geometry.dispose(); target.geometry = geometry;
     const committedPosition = target.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+    if (afterQuadGridState.enabled && committedPosition) {
+      const committedTopology = buildTopologyFromCanonicalQuadGeometry(committedPosition.array);
+      if (committedTopology) target.userData.nexusTopology = committedTopology;
+      else delete target.userData.nexusTopology;
+    } else delete target.userData.nexusTopology;
     recordInteractionTrace('Geometry operation committed', {
       operation: tool,
       editMode: editModeRef.current,
@@ -4054,6 +4081,8 @@ export default function App() {
           target.geometry.computeVertexNormals(); target.geometry.computeBoundingBox();
           target.userData.cutLoops = previousCutLoops.map(loop => loop.map(point => [...point]));
           restoreQuadGridState(beforeQuadGridState);
+          if (beforeTopology) target.userData.nexusTopology = JSON.parse(JSON.stringify(beforeTopology));
+          else delete target.userData.nexusTopology;
           runtime.current?.refreshTopologyOverlay?.(target);
         },
         redo: () => {
@@ -4061,6 +4090,10 @@ export default function App() {
           target.geometry.computeVertexNormals(); target.geometry.computeBoundingBox();
           target.userData.cutLoops = redoCutLoops.map(loop => loop.map(point => [...point]));
           restoreQuadGridState(afterQuadGridState);
+          const redoPosition = target.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+          const redoTopology = afterQuadGridState.enabled && redoPosition ? buildTopologyFromCanonicalQuadGeometry(redoPosition.array) : null;
+          if (redoTopology) target.userData.nexusTopology = redoTopology;
+          else delete target.userData.nexusTopology;
           runtime.current?.refreshTopologyOverlay?.(target);
         }
       });
