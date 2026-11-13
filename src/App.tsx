@@ -1596,15 +1596,35 @@ export default function App() {
       obj.name = name || kind + ' ' + (selectable.filter(o => o.name.startsWith(kind)).length + 1);
       obj.userData.editorId = uid();
       obj.userData.kind = kind;
-      if (obj instanceof THREE.Mesh) {
-        // Keep editorId intact for existing selection/IK links; shapeId is the
-        // durable identity shared by this Shape's editable data.
-        delete obj.userData.shapeId;
-        const identity = allocateShapeIdentity(selectable, Number(scene.userData.nexusNextShapeId) || 1);
-        obj.userData.shapeId = identity.shapeId;
-        scene.userData.nexusNextShapeId = identity.nextId;
-        obj.userData.shapeIdentityLabel = formatShapeIdentity(obj.name, identity.shapeId);
+      if (cloneOf) {
+        // A cloned hierarchy needs fresh editor references as well as fresh
+        // Shape IDs; remap internal IK/attachment references to the clone.
+        const clonedEditorIds = new Map<string, string>();
+        obj.traverse((child: THREE.Object3D) => {
+          if (child === obj) return;
+          const previousId = child.userData.editorId;
+          const nextId = uid();
+          if (typeof previousId === 'string') clonedEditorIds.set(previousId, nextId);
+          child.userData.editorId = nextId;
+        });
+        obj.traverse((child: THREE.Object3D) => {
+          Object.entries(child.userData).forEach(([key, value]) => {
+            if (typeof value === 'string' && clonedEditorIds.has(value)) child.userData[key] = clonedEditorIds.get(value);
+            else if (Array.isArray(value)) child.userData[key] = value.map(entry => typeof entry === 'string' ? clonedEditorIds.get(entry) || entry : entry);
+          });
+        });
       }
+      const identityObjects: THREE.Object3D[] = [...selectable];
+      obj.traverse((child: THREE.Object3D) => {
+        if (!(child instanceof THREE.Mesh)) return;
+        // editorId remains the runtime link; shapeId is permanent per editable mesh.
+        delete child.userData.shapeId;
+        const identity = allocateShapeIdentity(identityObjects, Number(scene.userData.nexusNextShapeId) || 1);
+        child.userData.shapeId = identity.shapeId;
+        child.userData.shapeIdentityLabel = formatShapeIdentity(child.name || obj.name, identity.shapeId);
+        scene.userData.nexusNextShapeId = identity.nextId;
+        identityObjects.push(child);
+      });
       if (obj instanceof THREE.Mesh && ['Cube', 'Sphere', 'Cylinder', 'Cone', 'Torus'].includes(kind)) {
         const primitivePosition = obj.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
         const primitiveTopology = primitivePosition
