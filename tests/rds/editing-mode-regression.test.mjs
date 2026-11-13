@@ -377,3 +377,10 @@ test('Face Extrude matches selected triangles by source identity, not coincident
   assert.doesNotMatch(block, /selectedTriangleKeys/);
   assert.doesNotMatch(block, /triangleKey\(tri\[0\], tri\[1\], tri\[2\]\)/);
 });
+
+
+test('Face Extrude does not invoke the separate Face Pull wall generator for the same cap drag', () => {
+  assert.match(source, /activeEditToolRef\.current !== 'Extrude'[\s\S]*?Face Extrude already creates its four perimeter walls/);
+  assert.match(source, /extrudedWallCapIndices\.push\(wallStartIndex \+ 2, wallStartIndex \+ 4, wallStartIndex \+ 5\)/);
+  assert.match(source, /restoreExtrudedFaceSelection\?\.\(target, extrudedCapIndices, selectedExtrudedFaceParts, extrudedWallCapIndices\)/);
+});
