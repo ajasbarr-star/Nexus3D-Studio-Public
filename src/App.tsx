@@ -6,6 +6,7 @@ import { buildTopologyFromCanonicalQuadGeometry, buildTopologyFromIndexedQuadGeo
 import { createSubObjectLockStore } from './geometry/subobject-lock-store.mjs';
 import { allocateShapeIdentity, ensureShapeIdentity, formatShapeIdentity } from './identity/shape-identity.mjs';
 import { assignShapeOwnership } from './identity/shape-ownership.mjs';
+import { validateProjectIdentityData } from './identity/project-identity-validation.mjs';
 import { collectObjectOnlyProjectNodes, getObjectOnlyProjectRoots, isShapeProjectMesh } from './project/object-project-scope.mjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
@@ -5716,6 +5717,7 @@ export default function App() {
           setStatus('LOAD STOPPED: walang 3D shapes sa file na ito. Posibleng empty/duplicate save file ang napili.');
           return;
         }
+        validateProjectIdentityData(data.objects, Number(data.version) || 0);
         if (data.projectName) setProjectName(String(data.projectName));
         r.scene.userData.nexusNextShapeId = Math.max(Number(r.scene.userData.nexusNextShapeId) || 1, Number(data.nextShapeId) || 1);
         const restoredById = new Map<string, THREE.Object3D>();
