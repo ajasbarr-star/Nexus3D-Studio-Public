@@ -20,6 +20,7 @@ import { VRMLoaderPlugin } from '@pixiv/three-vrm';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import JSZip from 'jszip';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { clone as cloneSkeletonHierarchy } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import {
   Box, Camera, Circle, Copy, Cuboid, Cylinder, Cone, Focus, Globe, Grid2X2,
   Layers, Maximize, Move, Rotate3D, Scaling, Trash2, Magnet, Gauge,
@@ -6099,7 +6100,7 @@ export default function App() {
       const projectNodeSet = new Set(projectNodes);
       const exportRoot = new THREE.Group();
       exportRoot.name = 'Nexus3D Object Project';
-      getObjectOnlyProjectRoots(projectNodes).forEach((node: THREE.Object3D) => exportRoot.add(node.clone(true)));
+      getObjectOnlyProjectRoots(projectNodes).forEach((node: THREE.Object3D) => exportRoot.add(cloneSkeletonHierarchy(node)));
       exportRoot.traverse((node: any) => {
         const source = projectNodes.find((candidate: THREE.Object3D) => candidate.userData.editorId && candidate.userData.editorId === node.userData?.editorId);
         if (source?.userData?.shapeId) node.name = node.name + '__NEXUS_ID_' + source.userData.shapeId;
@@ -6124,7 +6125,7 @@ export default function App() {
               else reject(new Error('GLB exporter did not return a binary scene'));
             },
             error => reject(error instanceof Error ? error : new Error(String(error))),
-            { binary: true, onlyVisible: true }
+            { binary: true, onlyVisible: false }
           );
         });
       } finally {
