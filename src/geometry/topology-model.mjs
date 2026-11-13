@@ -32,7 +32,7 @@ export function buildTopology({ vertices, faces }) {
     for (const id of face.vertices) if (!vertexMap.has(id)) {
       throw new Error("Topology face " + face.id + " references missing vertex " + id + ".");
     }
-    faceMap.set(face.id, { id: face.id, vertices: [...face.vertices], materialIndex: face.materialIndex ?? 0 });
+    faceMap.set(face.id, { id: face.id, vertices: [...face.vertices], materialIndex: face.materialIndex ?? 0, ...(Array.isArray(face.renderIndices) ? { renderIndices: [...face.renderIndices] } : {}) });
   }
 
   const edgeMap = new Map();
@@ -150,7 +150,7 @@ export function buildTopologyFromCanonicalQuadGeometry(positionArray, options = 
       if (!vertices.has(id)) vertices.set(id, { id, position: corners[cornerIndex] });
       return id;
     });
-    faces.push({ id: "face:" + faceIndex, vertices: ids, materialIndex: 0 });
+    faces.push({ id: "face:" + faceIndex, vertices: ids, materialIndex: 0, renderIndices: [base, base + 1, base + 2, base + 5] });
   }
   try {
     return buildTopology({ vertices: [...vertices.values()], faces });
