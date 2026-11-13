@@ -250,3 +250,18 @@ test('multi-object topology remains isolated at 1, 2, 5, and 10 scene objects', 
     }
   }
 });
+
+
+test('Subdivide topology overlay draws persistent coplanar edges without the legacy quad-grid marker', async () => {
+  const source = await import('node:fs');
+  const app = source.readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
+  const start = app.indexOf('const refreshTopologyOverlay = (mesh?: THREE.Mesh | null) => {');
+  const end = app.indexOf('topologyOverlay.userData.targetMesh = mesh;', start);
+  assert.ok(start >= 0 && end > start);
+  const block = app.slice(start, end);
+  assert.match(block, /const hasPersistentTopology = topology\?\.version === 1/);
+  assert.match(block, /if \(hasPersistentTopology\)/);
+  assert.match(block, /topology\.edges\.forEach/);
+  assert.ok(block.indexOf('if (hasPersistentTopology)') < block.indexOf('else if (isQuadGrid && position)'));
+  assert.match(block, /Persistent modeling edges are the source of truth/);
+});
