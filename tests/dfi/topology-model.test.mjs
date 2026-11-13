@@ -142,3 +142,16 @@ test('Move Face transform updates stored topology rather than rebuilding from tr
   assert.match(block, /updateTopologyPositionsFromRenderGeometry/);
   assert.doesNotMatch(block, /buildTopologyFromCanonicalQuadGeometry/);
 });
+
+
+test('Move Face can recover missing metadata only from a verified quad layout marker', async () => {
+  const source = await import('node:fs');
+  const app = source.readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
+  const start = app.indexOf("const sourceTopology = existingTopology?.version === 1");
+  const end = app.indexOf("const updatedTopology =", start);
+  assert.ok(start >= 0 && end > start);
+  const block = app.slice(start, end);
+  assert.match(block, /nexusQuadGridLayout === 'canonical-v1'/);
+  assert.match(block, /buildTopologyFromCanonicalQuadGeometry/);
+  assert.doesNotMatch(block, /triangle-pair/);
+});
