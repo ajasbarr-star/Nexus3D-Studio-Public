@@ -167,7 +167,7 @@ export function buildTopologyFromCanonicalQuadGeometry(positionArray, options = 
  */
 export function buildTopologyFromIndexedQuadGeometry(positionArray, indexArray, options = {}) {
   if (!positionArray || !indexArray || typeof indexArray.length !== "number" ||
-      indexArray.length < 18 || indexArray.length % 6 !== 0) return null;
+      indexArray.length < 6 || indexArray.length % 6 !== 0) return null;
   const digits = Number.isInteger(options.precision) ? Math.max(3, Math.min(9, options.precision)) : 6;
   const vertices = new Map();
   const faces = [];
