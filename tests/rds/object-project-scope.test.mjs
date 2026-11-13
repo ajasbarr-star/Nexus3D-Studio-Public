@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { collectObjectOnlyProjectNodes, getObjectOnlyProjectRoots } from '../../src/project/object-project-scope.mjs';
+import { collectObjectOnlyProjectNodes, getObjectOnlyProjectRoots, isShapeProjectMesh } from '../../src/project/object-project-scope.mjs';
 
 function node(name, kind, extra = {}) {
   return { name, userData: { kind, ...extra }, parent: null, children: [], traverse(fn) { fn(this); this.children.forEach(child => child.traverse(fn)); } };
@@ -34,4 +34,13 @@ test('does not serialize unrelated groups or viewport-only helpers', () => {
   const unrelated = node('Empty', 'Group');
   const helper = node('Grid', 'GridHelper');
   assert.deepEqual(collectObjectOnlyProjectNodes([unrelated, helper]), []);
+});
+
+test('IK target and pole mesh helpers are attachments, not independent Shapes', () => {
+  const target = node('IK Target', 'IK Target', { editorId: 'ik-target' });
+  target.isMesh = true;
+  const pole = node('IK Pole', 'IK Pole', { editorId: 'ik-pole' });
+  pole.isMesh = true;
+  assert.equal(isShapeProjectMesh(target), false);
+  assert.equal(isShapeProjectMesh(pole), false);
 });

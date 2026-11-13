@@ -5513,6 +5513,7 @@ export default function App() {
   const getProjectData = () => {
     const r = runtime.current;
     const projectNodes = collectObjectOnlyProjectNodes(r?.selectable || []);
+    projectNodes.filter((obj: THREE.Object3D) => ['Bone', 'Rig', 'IK Target', 'IK Pole'].includes(String(obj.userData.kind))).forEach((obj: THREE.Object3D) => { delete obj.userData.shapeId; delete obj.userData.shapeIdentityLabel; });
     projectNodes.filter((obj: THREE.Object3D) => isShapeProjectMesh(obj)).forEach((obj: THREE.Object3D) => {
       const identity = ensureShapeIdentity(obj, projectNodes, Number(r?.scene?.userData?.nexusNextShapeId) || 1);
       if (r?.scene) r.scene.userData.nexusNextShapeId = identity.nextId;
@@ -5640,7 +5641,7 @@ export default function App() {
     try {
       const data = getProjectData();
       const sceneObjects = Array.isArray(data.objects) ? data.objects : [];
-      const meshCount = sceneObjects.filter((obj: any) => obj && obj.geometry?.attributes?.position?.array?.length).length;
+      const meshCount = sceneObjects.filter((obj: any) => obj?.shapeId && obj.geometry?.attributes?.position?.array?.length).length;
       if (meshCount === 0) {
         setStatus('SAVE CANCELLED: walang 3D shape/mesh na nakuha sa current scene. Hindi gumawa ng empty project file.');
         return;
@@ -5708,8 +5709,8 @@ export default function App() {
           return;
         }
         const savedMeshCount = data.objects.filter((saved: any) =>
-          saved && Array.isArray(saved.geometry?.attributes?.position?.array) &&
-          saved.geometry.attributes.position.array.length >= 9
+          saved && !['Bone', 'Rig', 'IK Target', 'IK Pole'].includes(saved.kind) &&
+          Array.isArray(saved.geometry?.attributes?.position?.array) && saved.geometry.attributes.position.array.length >= 9
         ).length;
         if (savedMeshCount === 0) {
           setStatus('LOAD STOPPED: walang 3D shapes sa file na ito. Posibleng empty/duplicate save file ang napili.');
@@ -6202,7 +6203,7 @@ export default function App() {
         ...data,
         projectName: safeBase + '.nexus',
         savedObjectCount: data.objects.length,
-        savedMeshCount: data.objects.filter((item: any) => item?.geometry?.attributes?.position?.array?.length).length
+        savedMeshCount: data.objects.filter((item: any) => item?.shapeId && item?.geometry?.attributes?.position?.array?.length).length
       }));
       zip.file('Scene/Scene.glb', glb);
       zip.file('Manifest.json', JSON.stringify({
