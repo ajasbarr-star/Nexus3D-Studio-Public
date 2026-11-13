@@ -1,4 +1,4 @@
-package com.nexus3d.studio.test;
+package com.nexus3d.studio.phase1;
 
 import android.app.Activity;
 import android.content.Intent;
