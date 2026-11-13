@@ -6258,6 +6258,7 @@ export default function App() {
       if (!projectEntry || !sceneEntry) throw new Error('ZIP is missing Project.nexus or Scene/Scene.glb');
       const projectData = JSON.parse(await projectEntry.async('string'));
       if (!Array.isArray(projectData.objects)) throw new Error('Project metadata is invalid');
+      validateProjectIdentityData(projectData.objects, Number(projectData.version) || 0);
       const expectedShapeIds = new Set<string>();
       const seenZipShapeIds = new Set<string>();
       const seenZipEditorIds = new Set<string>();
