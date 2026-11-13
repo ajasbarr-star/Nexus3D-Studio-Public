@@ -5933,6 +5933,11 @@ export default function App() {
           setActionRedoStack([]);
         }
         r.scene.updateMatrixWorld(true);
+        r.selectable.filter((obj: THREE.Object3D) => obj instanceof THREE.Mesh).forEach((obj: THREE.Object3D) => {
+          const identity = ensureShapeIdentity(obj, r.selectable, Number(r.scene.userData.nexusNextShapeId) || 1);
+          r.scene.userData.nexusNextShapeId = identity.nextId;
+          obj.userData.shapeIdentityLabel = formatShapeIdentity(obj.name, identity.shapeId);
+        });
         // Refresh React's Scene Tree from the restored runtime objects before
         // selecting one, so every loaded object gets the same editor controls
         // (select, visibility, rename, transform, hierarchy, delete) as a new object.
