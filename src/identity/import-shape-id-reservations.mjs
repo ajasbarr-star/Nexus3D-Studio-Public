@@ -26,7 +26,7 @@ export function reserveImportedShapeIds(objects, existingReservedIds, startingNe
     }
 
     reservedShapeIds.add(sourceId);
-    const numericId = Number(sourceId.replace(/^No\\./, ''));
+    const numericId = Number(sourceId.replace(/^No\./, ''));
     if (Number.isSafeInteger(numericId)) nextShapeId = Math.max(nextShapeId, numericId + 1);
   });
 
