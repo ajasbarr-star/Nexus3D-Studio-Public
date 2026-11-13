@@ -346,46 +346,52 @@ test('Face Pull isolates selected face vertices from adjacent face seam copies',
   assert.match(source, /if \(isolatedTransformIndices \? !isolatedTransformIndices\.has\(index\) : !logicalKeys\.has\(/);
 });
 
-test('Face Extrude linked cap vertices remain isolated and the Build 318 wall generator guard stays intact', () => {
-  assert.match(source, /const isolatedTransformIndices = selection\.linkedIndices[\s\S]*new Set\(\[\.\.\.selection\.indices, \.\.\.selection\.linkedIndices\]/);
-  assert.match(source, /activeEditToolRef\.current !== 'Extrude'[\s\S]*Face Extrude already creates its four perimeter walls/);
-  assert.match(source, /extrudedWallCapIndices\.push\(wallStartIndex \+ 2, wallStartIndex \+ 4, wallStartIndex \+ 5\)/);
-  assert.match(source, /restoreExtrudedFaceSelection\?\.\(target, extrudedCapIndices, selectedExtrudedFaceParts, extrudedWallCapIndices\)/);
+test('Move Face stays transform-only while Extrude owns connecting walls', () => {
+  const moveTrace = source.indexOf("Move Face committed · no extrusion walls");
+  assert.ok(moveTrace >= 0, 'Move Face completion trace must exist');
+  const mouseUpStart = source.lastIndexOf("transform.addEventListener('mouseUp'", moveTrace);
+  const mouseUpEnd = source.indexOf("if (subGeometryBefore && activeSubSelection) {", moveTrace);
+  assert.ok(mouseUpStart >= 0 && mouseUpEnd > moveTrace, 'Move Face transform completion block must exist');
+  const moveBlock = source.slice(mouseUpStart, mouseUpEnd);
+  assert.match(moveBlock, /activeEditToolRef\.current !== 'Extrude'/);
+  assert.match(moveBlock, /editModeRef\.current === 'Face'/);
+  assert.match(moveBlock, /transform\.getMode\(\) === 'translate'/);
+  assert.match(moveBlock, /generatedWallQuadCount: 0/);
+  assert.doesNotMatch(moveBlock, /boundary\.forEach|connectedQuadWalls|generatedWallTriangleCount/);
+
+  const extrudeStart = source.indexOf("} else if (tool === 'Extrude') {");
+  const extrudeEnd = source.indexOf("// Re-weld coincident vertices", extrudeStart);
+  assert.ok(extrudeStart >= 0 && extrudeEnd > extrudeStart, 'dedicated Extrude implementation must exist');
+  const extrudeBlock = source.slice(extrudeStart, extrudeEnd);
+  assert.match(extrudeBlock, /boundary\.forEach\(edge =>/);
+  assert.match(extrudeBlock, /if \(edge\.count !== 1\) return/);
+  assert.match(extrudeBlock, /\[a, b, bn, a, bn, an\]\.forEach\(v => data\.push/);
+  assert.match(extrudeBlock, /extrudedWallCapIndices\.push/);
 });
 
-test('Face Pull records selected-face, perimeter, and generated-wall topology evidence', () => {
-  assert.match(source, /Face Pull geometry preflight/);
-  assert.match(source, /selectedFacePartCount: activeSubSelection\.faceParts\.length/);
-  assert.match(source, /Face Pull perimeter analysis/);
-  assert.match(source, /selectedTriangleCount: selectedTriangleOffsets\.size/);
-  assert.match(source, /perimeterEdgeCount: perimeter\.length/);
-  assert.match(source, /movedPerimeterEdgeCount: moved\.length/);
-  assert.match(source, /Face Pull wall generation metrics/);
-  assert.match(source, /generatedWallQuadCount: moved\.length/);
-  assert.match(source, /generatedWallTriangleCount: moved\.length \* 2/);
+test('Move Face does not append geometry or create side-wall topology', () => {
+  const moveTrace = source.indexOf("Move Face committed · no extrusion walls");
+  const mouseUpStart = source.lastIndexOf("transform.addEventListener('mouseUp'", moveTrace);
+  const mouseUpEnd = source.indexOf("if (subGeometryBefore && activeSubSelection) {", moveTrace);
+  const moveBlock = source.slice(mouseUpStart, mouseUpEnd);
+  assert.match(moveBlock, /generatedWallQuadCount: 0/);
+  assert.doesNotMatch(moveBlock, /setIndex\(|setAttribute\(|boundary\.forEach|wallQuad|wallTriangle/);
+  assert.match(moveBlock, /Move Face is a transform-only command/);
 });
 
-test('Face Pull with the Move gizmo creates connected quad side walls and preserves source attributes', () => {
-  assert.match(source, /Face Pull: when a face is moved with the Move gizmo/);
-  assert.match(source, /const selectedVertexIds = new Set\(activeSubSelection\.faceParts\.flat\(\)\)/);
-  assert.match(source, /const perimeter = Array\.from\(boundary\.values\(\)\)\.filter\(edge => edge\.count === 1\)/);
-  assert.match(source, /const moved = perimeter\.filter\(edge =>/);
-  assert.match(source, /const source = liveGeometry\.index \? liveGeometry\.toNonIndexed\(\) : liveGeometry\.clone\(\)/);
-  assert.match(source, /connectedQuadWalls: moved\.length, duplicateSurfaceTrianglesRemoved: removedDuplicateSurfaceTriangles/);
-  assert.match(source, /refreshTopologyOverlay\(mesh\)/);
-  assert.match(source, /const originalAttribute = originalAttributes\[name\]/);
-  assert.doesNotMatch(source, /source\.clearGroups\(\)/);
-});
+test('Move Face and Extrude Face have distinct protected regression expectations', () => {
+  const moveTrace = source.indexOf("Move Face committed · no extrusion walls");
+  const mouseUpStart = source.lastIndexOf("transform.addEventListener('mouseUp'", moveTrace);
+  const mouseUpEnd = source.indexOf("if (subGeometryBefore && activeSubSelection) {", moveTrace);
+  const moveBlock = source.slice(mouseUpStart, mouseUpEnd);
+  assert.match(moveBlock, /generatedWallQuadCount: 0/);
+  assert.doesNotMatch(moveBlock, /extrudedWallCapIndices|boundary\.forEach/);
 
-test('Face Pull removes exact stale duplicate cap triangles without deleting adjacent side faces', () => {
-  assert.match(source, /const selectedTriangleOffsets = new Set<number>\(\)/);
-  assert.match(source, /selectedTriangleOffsets\.add\(offset \/ 3\)/);
-  assert.match(source, /const movedSourceFaceKeys = new Set<string>\(\)/);
-  assert.match(source, /movedSourceFaceKeys\.has\(triangleKeyFrom\(sourcePosition, liveStart\)\)/);
-  assert.match(source, /removedDuplicateTriangles\.add\(triangleOffset\)/);
-  assert.match(source, /source\.setIndex\(keptIndices\)/);
-  assert.match(source, /Face Pull stale duplicate surface removed/);
-  assert.match(source, /duplicateSurfaceTrianglesRemoved: removedDuplicateSurfaceTriangles/);
+  const extrudeStart = source.indexOf("} else if (tool === 'Extrude') {");
+  const extrudeEnd = source.indexOf("// Re-weld coincident vertices", extrudeStart);
+  const extrudeBlock = source.slice(extrudeStart, extrudeEnd);
+  assert.match(extrudeBlock, /extrudedWallCapIndices\.push/);
+  assert.match(extrudeBlock, /boundary\.forEach\(edge =>/);
 });
 
 test('Main Viewport camera orbit can inspect the underside without crossing unstable poles', () => {
@@ -409,8 +415,14 @@ test('Face Extrude matches selected triangles by source identity, not coincident
 });
 
 
-test('Face Extrude does not invoke the separate Face Pull wall generator for the same cap drag', () => {
-  assert.match(source, /activeEditToolRef\.current !== 'Extrude'[\s\S]*?Face Extrude already creates its four perimeter walls/);
-  assert.match(source, /extrudedWallCapIndices\.push\(wallStartIndex \+ 2, wallStartIndex \+ 4, wallStartIndex \+ 5\)/);
-  assert.match(source, /restoreExtrudedFaceSelection\?\.\(target, extrudedCapIndices, selectedExtrudedFaceParts, extrudedWallCapIndices\)/);
-});
+test('Face Extrude wall generation remains separate from Move Face', () => {
+  const moveTrace = source.indexOf("Move Face committed · no extrusion walls");
+  const extrudeStart = source.indexOf("} else if (tool === 'Extrude') {");
+  const extrudeEnd = source.indexOf("// Re-weld coincident vertices", extrudeStart);
+  assert.ok(moveTrace >= 0);
+  assert.ok(extrudeStart >= 0 && extrudeEnd > extrudeStart);
+  const extrudeBlock = source.slice(extrudeStart, extrudeEnd);
+  assert.match(extrudeBlock, /extrudedWallCapIndices\.push/);
+  assert.match(extrudeBlock, /boundary\.forEach\(edge =>/);
+  assert.match(extrudeBlock, /restoreExtrudedFaceSelection\?\.\(target, extrudedCapIndices, selectedExtrudedFaceParts, extrudedWallCapIndices\)/);
+});;
