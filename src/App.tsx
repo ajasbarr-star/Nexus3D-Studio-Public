@@ -3077,12 +3077,22 @@ export default function App() {
       if (selection.mesh.userData.nexusQuadGrid) {
         const topologyPosition = selection.mesh.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
         const existingTopology = selection.mesh.userData.nexusTopology;
-        // Move Face changes coordinates, not connectivity. Refresh the stored
-        // face loops from their render-corner mapping instead of re-inferring
-        // quads from the deformed triangle stream.
-        const updatedTopology = topologyPosition && existingTopology?.version === 1
+        // Move Face changes coordinates, not connectivity. Prefer the stored
+        // face loops. If an earlier commit did not persist them, rebuild only
+        // from the explicitly marked canonical/indexed quad layout, never from
+        // arbitrary triangle-pair guessing.
+        const sourceTopology = existingTopology?.version === 1
+          ? existingTopology
+          : topologyPosition
+            ? selection.mesh.geometry.index
+              ? buildTopologyFromIndexedQuadGeometry(topologyPosition.array, selection.mesh.geometry.index.array)
+              : selection.mesh.userData.nexusQuadGridLayout === 'canonical-v1'
+                ? buildTopologyFromCanonicalQuadGeometry(topologyPosition.array)
+                : null
+            : null;
+        const updatedTopology = topologyPosition && sourceTopology
           ? updateTopologyPositionsFromRenderGeometry(
-              existingTopology,
+              sourceTopology,
               topologyPosition.array,
               selection.mesh.geometry.index?.array || null
             )
@@ -3093,7 +3103,8 @@ export default function App() {
             operation: 'Move Face',
             faceCount: updatedTopology.faces.length,
             vertexCount: updatedTopology.vertices.length,
-            source: 'stored-face-loops',
+            source: existingTopology?.version === 1 ? 'stored-face-loops' : 'verified-quad-layout-recovery',
+            recoveredMissingTopology: existingTopology?.version !== 1,
           });
         } else {
           delete selection.mesh.userData.nexusTopology;
@@ -4096,13 +4107,22 @@ export default function App() {
           : captureQuadGridState();
     target.geometry.dispose(); target.geometry = geometry;
     const committedPosition = target.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+    let committedTopology = null;
     if (afterQuadGridState.enabled && committedPosition) {
-      const committedTopology = target.geometry.index
+      committedTopology = target.geometry.index
         ? buildTopologyFromIndexedQuadGeometry(committedPosition.array, target.geometry.index.array)
         : buildTopologyFromCanonicalQuadGeometry(committedPosition.array);
       if (committedTopology) target.userData.nexusTopology = committedTopology;
       else delete target.userData.nexusTopology;
     } else delete target.userData.nexusTopology;
+    recordInteractionTrace('Persistent topology handoff', {
+      operation: tool,
+      enabled: Boolean(afterQuadGridState.enabled),
+      stored: Boolean(committedTopology),
+      faceCount: committedTopology?.faces?.length || 0,
+      vertexCount: committedTopology?.vertices?.length || 0,
+      layout: afterQuadGridState.layout,
+    });
     recordInteractionTrace('Geometry operation committed', {
       operation: tool,
       editMode: editModeRef.current,
