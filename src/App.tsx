@@ -5606,6 +5606,10 @@ export default function App() {
             return [[slot, { dataUrl, colorSpace: texture.colorSpace || '', mapping: texture.mapping, wrapS: texture.wrapS, wrapT: texture.wrapT, flipY: texture.flipY, repeat: texture.repeat?.toArray?.() || [1,1], offset: texture.offset?.toArray?.() || [0,0], center: texture.center?.toArray?.() || [0,0], rotation: texture.rotation || 0, magFilter: texture.magFilter, minFilter: texture.minFilter, anisotropy: texture.anisotropy, channel: texture.channel }]];
           }))
         })) : undefined,
+        faceSelection: (() => {
+          const active = r?.getActiveSubSelection?.();
+          return active?.mesh === obj ? { indices: [...(active.indices || [])], faceParts: active.faceParts?.map((part: number[]) => [...part]) || [], linkedIndices: active.linkedIndices ? [...active.linkedIndices] : [] } : null;
+        })(),
         meshTopology: obj instanceof THREE.Mesh ? {
           cutLoops: Array.isArray(obj.userData.cutLoops) ? obj.userData.cutLoops.map((loop: number[][]) => loop.map(point => [...point])) : [],
           quadGrid: Boolean(obj.userData.nexusQuadGrid),
@@ -5621,7 +5625,11 @@ export default function App() {
         receiveShadow: Boolean((obj as any).receiveShadow),
         parentEditorId: obj.parent?.userData?.editorId || null,
         parentName: obj.parent?.userData?.editorId ? obj.parent.name : null
-      }))
+      })),
+      subObjectLocks: (r?.getSubObjectLockSnapshot?.() || []).flatMap((entry: any) => {
+        const owner = projectNodes.find((obj: THREE.Object3D) => String(obj.userData.editorId) === String(entry.objectId));
+        return owner?.userData?.shapeId ? [{ shapeId: owner.userData.shapeId, Vertex: [...(entry.Vertex || [])], Edge: [...(entry.Edge || [])] }] : [];
+      })
     };
   };
   const saveProject = async () => {
@@ -5708,6 +5716,7 @@ export default function App() {
         const restoredById = new Map<string, THREE.Object3D>();
         const restoredByName = new Map<string, THREE.Object3D>();
         const restoredNodeSet = new Set<THREE.Object3D>();
+        r.clearSubObjectLocks?.();
         const seenShapeIds = new Set<string>();
         for (const saved of data.objects) {
           if (!saved || !saved.geometry?.attributes?.position?.array) continue;
@@ -5905,6 +5914,14 @@ export default function App() {
         const staleNodes = collectObjectOnlyProjectNodes(r.selectable || []).filter((node: THREE.Object3D) => !restoredNodeSet.has(node));
         getObjectOnlyProjectRoots(staleNodes).forEach((node: THREE.Object3D) => r.removeObject(node, true));
 
+        // Restore Vertex and Edge locks by permanent Shape ID, not transient editor IDs.
+        (Array.isArray(data.subObjectLocks) ? data.subObjectLocks : []).forEach((savedLock: any) => {
+          const mesh = r.selectable.find((candidate: THREE.Object3D) => candidate.userData.shapeId === savedLock.shapeId);
+          if (!(mesh instanceof THREE.Mesh)) return;
+          if (Array.isArray(savedLock.Vertex) && savedLock.Vertex.length) r.addSubObjectLocks?.(String(mesh.userData.editorId), 'Vertex', savedLock.Vertex);
+          if (Array.isArray(savedLock.Edge) && savedLock.Edge.length) r.addSubObjectLocks?.(String(mesh.userData.editorId), 'Edge', savedLock.Edge);
+        });
+
         // Rebuild manual rig chains before reconnecting their IK handles.
         data.objects.forEach((saved: any) => {
           if (saved?.kind !== 'Rig') return;
@@ -5939,6 +5956,11 @@ export default function App() {
           setActionRedoStack([]);
         }
         r.scene.updateMatrixWorld(true);
+        data.objects.forEach((saved: any) => {
+          if (!saved?.faceSelection || !Array.isArray(saved.faceSelection.indices)) return;
+          const mesh = saved.shapeId ? r.selectable.find((candidate: THREE.Object3D) => candidate.userData.shapeId === saved.shapeId) : undefined;
+          if (mesh instanceof THREE.Mesh && saved.faceSelection.indices.length >= 3) r.restoreExtrudedFaceSelection?.(mesh, saved.faceSelection.indices, saved.faceSelection.faceParts, saved.faceSelection.linkedIndices);
+        });
         r.selectable.filter((obj: THREE.Object3D) => obj instanceof THREE.Mesh).forEach((obj: THREE.Object3D) => {
           const identity = ensureShapeIdentity(obj, r.selectable, Number(r.scene.userData.nexusNextShapeId) || 1);
           r.scene.userData.nexusNextShapeId = identity.nextId;
