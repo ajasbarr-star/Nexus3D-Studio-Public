@@ -6,6 +6,7 @@
 
 This rule is mandatory after each of these operations:
 
+- Move Face
 - Face Extrude
 - Face Scale
 - Subdivide
