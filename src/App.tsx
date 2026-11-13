@@ -6003,6 +6003,9 @@ export default function App() {
       const index = r.selectable.indexOf(obj);
       if (index >= 0) r.selectable.splice(index, 1);
     });
+    r.scene.userData.nexusNextShapeId = 1;
+    r.clearSubObjectLocks?.();
+    setUndoStack([]); setRedoStack([]); setActionUndoStack([]); setActionRedoStack([]);
     setSelected('');
     selectedRef.current = '';
     setFrame(0);
