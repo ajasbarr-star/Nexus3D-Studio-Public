@@ -6248,6 +6248,14 @@ export default function App() {
       if (!projectEntry || !sceneEntry) throw new Error('ZIP is missing Project.nexus or Scene/Scene.glb');
       const projectData = JSON.parse(await projectEntry.async('string'));
       if (!Array.isArray(projectData.objects)) throw new Error('Project metadata is invalid');
+      const expectedShapeIds = new Set<string>();
+      const seenZipShapeIds = new Set<string>();
+      projectData.objects.forEach((saved: any) => {
+        if (!saved?.geometry?.attributes?.position?.array) return;
+        if (projectData.version >= 4 && (typeof saved.shapeId !== 'string' || !/^No\.\d+$/.test(saved.shapeId))) throw new Error('ZIP validation failed: a Shape is missing its permanent Shape ID');
+        if (saved.shapeId && seenZipShapeIds.has(saved.shapeId)) throw new Error('ZIP validation failed: duplicate Shape ID ' + saved.shapeId);
+        if (saved.shapeId) { seenZipShapeIds.add(saved.shapeId); expectedShapeIds.add(saved.shapeId); }
+      });
       r.scene.userData.nexusNextShapeId = Math.max(Number(r.scene.userData.nexusNextShapeId) || 1, Number(projectData.nextShapeId) || 1);
       const sceneBuffer = await sceneEntry.async('arraybuffer');
       const loader = new GLTFLoader();
@@ -6303,6 +6311,9 @@ export default function App() {
         importedNodes.push(node);
         if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; }
       });
+      const restoredShapeIds = new Set(importedNodes.map(node => node.userData.shapeId).filter((id: any): id is string => typeof id === 'string'));
+      const missingShapeIds = [...expectedShapeIds].filter(id => !restoredShapeIds.has(id));
+      if (missingShapeIds.length) throw new Error('ZIP scene is missing Shape mesh data for ' + missingShapeIds.join(', '));
       r.scene.add(importedScene);
       importedNodes.forEach(node => { if (!r.selectable.includes(node)) r.selectable.push(node); });
       assignShapeOwnership(importedNodes);
