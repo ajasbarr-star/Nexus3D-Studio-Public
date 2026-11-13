@@ -66,6 +66,7 @@ test('canonical quad render cells become persistent face loops with shared edge 
   const topology = buildTopologyFromCanonicalQuadGeometry(positions);
   assert.ok(topology);
   assert.equal(topology.faces.length, 2);
+  assert.deepEqual(topology.faces.map(face => face.renderIndices), [[0,1,2,5],[6,7,8,11]]);
   assert.equal(topology.vertices.length, 6);
   assert.equal(topology.edges.length, 7);
   assert.equal(topology.edges.filter(edge => edge.faces.length === 2).length, 1);
@@ -77,4 +78,15 @@ test('canonical quad adapter fails closed for incomplete or malformed render str
   assert.equal(buildTopologyFromCanonicalQuadGeometry([
     0,0,0, 1,0,0, 1,1,0, 0,0,0, 1,1,0, 0,0,0,
   ]), null);
+});
+
+
+test('Subdivide consumes persistent face-loop render mappings before triangle-pair fallback', async () => {
+  const source = await import('node:fs');
+  const app = source.readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
+  const start = app.indexOf('const storedTopology = target.userData.nexusTopology;');
+  const fallback = app.indexOf('if (!sourceQuadCorners && geometry.index', start);
+  assert.ok(start >= 0, 'Subdivide must read persistent topology');
+  assert.ok(fallback > start, 'legacy reconstruction must remain a fallback only');
+  assert.match(app.slice(start, fallback), /face\.renderIndices/);
 });
