@@ -133,9 +133,11 @@ test('Clean Flat Surface is a protected core geometry invariant across all editi
     assert.ok(contract.includes(operation), 'core contract missing operation: ' + operation);
     assert.ok(policy.includes(operation), 'protected policy missing operation: ' + operation);
   }
-  assert.match(app, /EdgesGeometry\(mesh\.geometry, CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES\)/);
+  assert.match(app, /Build physical edge adjacency from positions, not vertex indices/);
+  assert.match(app, /const edgeMap = new Map<string, \{ a: THREE\.Vector3; b: THREE\.Vector3; normal: THREE\.Vector3; count: number; hard: boolean \}>\(\)/);
+  assert.match(app, /if \(edge\.count === 1 \|\| edge\.count > 2 \|\| edge\.hard\)/);
   assert.match(app, /for \(let edgeIndex = 0; edgeIndex < 4; edgeIndex\+\+\)/);
-  assert.match(app, /triangle-by-triangle outline exposed internal triangulation diagonals/);
+  assert.match(app, /Suppress only shared coplanar edges \(the unwanted triangle diagonals\)/);
 });
 
 test('Panel resize handles stay neutral until pointer movement starts, then highlight only while dragging', () => {
