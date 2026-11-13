@@ -5753,7 +5753,7 @@ export default function App() {
             if (Array.isArray(saved.geometry.groups)) saved.geometry.groups.forEach((group: any) => {
               if (Number.isFinite(group.start) && Number.isFinite(group.count)) geometry.addGroup(group.start, group.count, Number(group.materialIndex) || 0);
             });
-            geometry.computeVertexNormals();
+            if (!geometry.getAttribute('normal')) geometry.computeVertexNormals();
             geometry.computeBoundingBox();
             geometry.computeBoundingSphere();
             const materialData = Array.isArray(saved.material) ? saved.material[0] : null;
@@ -5811,7 +5811,7 @@ export default function App() {
             if (Array.isArray(saved.geometry.groups)) saved.geometry.groups.forEach((group: any) => {
               if (Number.isFinite(group.start) && Number.isFinite(group.count)) restored.addGroup(group.start, group.count, Number(group.materialIndex) || 0);
             });
-            restored.computeVertexNormals();
+            if (!restored.getAttribute('normal')) restored.computeVertexNormals();
             restored.computeBoundingBox();
             restored.computeBoundingSphere();
             obj.geometry.dispose();
