@@ -24,3 +24,13 @@ test('project restore reapplies light shadow state and SpotLight target directio
   assert.match(app, /obj\.target\.position\.fromArray\(saved\.light\.targetPosition\)/);
   assert.match(app, /obj\.target\.updateMatrixWorld\(true\)/);
 });
+
+test('ZIP import reapplies editor light settings omitted by GLB metadata', () => {
+  const zipImport = app.slice(app.indexOf('const importProjectZip'));
+  assert.match(zipImport, /if \(node\.isLight && saved\.light\)/);
+  assert.match(zipImport, /node\.color\.set\('#' \+ saved\.light\.color\)/);
+  assert.match(zipImport, /node\.shadow\.bias = saved\.light\.shadowBias/);
+  assert.match(zipImport, /node\.shadow\.radius = saved\.light\.shadowRadius/);
+  assert.match(zipImport, /node\.target\.position\.fromArray\(saved\.light\.targetPosition\)/);
+  assert.match(zipImport, /node\.castShadow = saved\.castShadow/);
+});
