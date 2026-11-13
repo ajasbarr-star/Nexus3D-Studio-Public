@@ -1,5 +1,5 @@
 export type NexusTopologyVertex = { id: string; position: [number, number, number] };
-export type NexusTopologyFace = { id: string; vertices: string[]; materialIndex?: number };
+export type NexusTopologyFace = { id: string; vertices: string[]; materialIndex?: number; renderIndices?: number[] };
 export type NexusTopologyEdge = { id: string; a: string; b: string; faces: string[] };
 export type NexusTopology = { version: 1; vertices: NexusTopologyVertex[]; faces: NexusTopologyFace[]; edges: NexusTopologyEdge[] };
 export function buildTopology(input: { vertices: NexusTopologyVertex[]; faces: NexusTopologyFace[] }): NexusTopology;
