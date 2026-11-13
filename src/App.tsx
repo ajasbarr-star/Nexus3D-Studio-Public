@@ -352,6 +352,8 @@ export default function App() {
   });
   const [diagnosticFilter, setDiagnosticFilter] = useState<'ALL' | 'ERROR' | 'WARN' | 'INFO'>('ALL');
   const [diagnosticPanelOpen, setDiagnosticPanelOpen] = useState(false);
+  const [rdsPanelOpen, setRdsPanelOpen] = useState(false);
+  const [rdsActiveTool, setRdsActiveTool] = useState('Overview');
   const [interactionTraceOpen, setInteractionTraceOpen] = useState(false);
   const diagnosticSinkRef = useRef<(level: DiagnosticEntry['level'], source: string, message: string, details?: string) => void>(() => {});
   const diagnosticQueueRef = useRef<DiagnosticEntry[]>([]);
@@ -6661,6 +6663,7 @@ export default function App() {
         <div className="top-actions">
           <button className={'icon-btn ' + (panel ? 'active' : '')} id="btn-hierarchy" onClick={() => { const opening = !panel; setPanel(opening); setMenuOpen(false); setQuickPanel(null); if (!riggingView) setInspectorOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); }} title={panel ? 'Hide Scene Tree' : 'Show Scene Tree'} disabled={cameraView}><Layers size={14} /></button>
           <button className="icon-btn" onClick={() => { setMenuOpen(v => !v); setPanel(false); setQuickPanel(null); setInspectorOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); }} title="Menu"><Settings2 size={14} /></button>
+          <button type="button" className={"icon-btn rds-launch-btn " + (rdsPanelOpen ? "active" : "")} onClick={() => { setRdsPanelOpen(open => !open); setMenuOpen(false); setPanel(false); setQuickPanel(null); setInspectorOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); }} title="Open RDS Command Center" aria-label="Open RDS Command Center"><Activity size={16}/><span className="tiny-label">RDS</span></button>
           <div className="tool-divider" />
           <button className="icon-btn" onClick={undo} disabled={!actionUndoStack.length && !undoStack.length} title="Undo scene or timeline action"><Undo2 size={15} /></button>
           <button className="icon-btn" onClick={redo} disabled={!actionRedoStack.length && !redoStack.length} title="Redo scene or timeline action"><Redo2 size={15} /></button>
@@ -6682,6 +6685,41 @@ export default function App() {
           <button className="icon-btn fullscreen-btn" onClick={enterFullscreen} title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}><Maximize size={16} /></button>
         </div>
       </header>
+
+      {rdsPanelOpen && !cameraView && !animationMode && <aside className="rds-command-center" role="dialog" aria-label="Nexus3D RDS Command Center">
+        <div className="rds-command-header">
+          <div className="rds-command-brand"><Activity size={17}/><div><strong>NEXUS3D RDS</strong><small>RUNTIME DIAGNOSTICS · FORENSIC CENTER</small></div></div>
+          <div className="rds-command-header-actions"><span className="rds-live-indicator">LIVE</span><button type="button" onClick={() => setRdsPanelOpen(false)} aria-label="Close RDS Command Center"><X size={15}/></button></div>
+        </div>
+        <div className="rds-command-body">
+          <nav className="rds-command-nav" aria-label="RDS tools">
+            {[['Overview','LayoutDashboard'],['Runtime','Activity'],['RIT Trace','ListTree'],['DFI Core','ScanEye'],['Mesh DFI','Box'],['Root Cause','GitBranch'],['Source Audit','Code2'],['Reports','FileText']].map(([name, icon]) => <button key={name} type="button" className={'rds-nav-item ' + (rdsActiveTool === name ? 'active' : '')} aria-current={rdsActiveTool === name ? 'page' : undefined} onClick={() => setRdsActiveTool(name)}>
+              {name === 'Overview' ? <Layers size={21}/> : name === 'Runtime' ? <Activity size={21}/> : name === 'RIT Trace' ? <GitBranch size={21}/> : name === 'DFI Core' ? <ScanEye size={21}/> : name === 'Mesh DFI' ? <Box size={21}/> : name === 'Root Cause' ? <GitMerge size={21}/> : name === 'Source Audit' ? <Code2 size={21}/> : <FileJson size={21}/>}
+              <span>{name}</span>
+            </button>)}
+          </nav>
+          <main className="rds-command-content">
+            <div className="rds-content-heading"><div><span className="rds-eyebrow">DIAGNOSTIC WORKSPACE</span><h2>{rdsActiveTool === 'Overview' ? 'System Overview' : rdsActiveTool}</h2></div><span className="rds-session-chip">SESSION ACTIVE</span></div>
+            {rdsActiveTool === 'Overview' && <>
+              <div className="rds-stat-grid">
+                <div className="rds-stat-card"><Activity/><small>Runtime Logs</small><strong>{diagnosticLogs.length}</strong></div>
+                <div className="rds-stat-card rds-stat-error"><ScanEye/><small>Errors</small><strong>{diagnosticLogs.filter(entry => entry.level === 'ERROR').length}</strong></div>
+                <div className="rds-stat-card rds-stat-warning"><Gauge/><small>Warnings</small><strong>{diagnosticLogs.filter(entry => entry.level === 'WARN').length}</strong></div>
+                <div className="rds-stat-card"><Box/><small>Scene Objects</small><strong>{items.length}</strong></div>
+              </div>
+              <section className="rds-info-card"><div className="rds-card-heading"><strong>Latest Diagnostic Results</strong><span>{rdsLastScanAt || 'Not scanned'}</span></div><div className="rds-result-line"><span>Full Core Scan</span><b>{rdsScanSummary.checks ? rdsScanSummary.checks + ' checks' : 'Awaiting scan'}</b></div><div className="rds-result-line"><span>DFI Investigation</span><b>{dfiSummary.findings ? dfiSummary.findings + ' finding(s)' : 'Awaiting analysis'}</b></div><div className="rds-result-line"><span>Interaction Trace</span><b>{diagnosticLogs.filter(entry => entry.source === 'Interaction Trace').length} events</b></div></section>
+              <div className="rds-quick-actions"><button type="button" onClick={runRdsFullScan} disabled={rdsScanBusy}><ScanEye size={16}/>{rdsScanBusy ? 'Scanning…' : 'Full Scan'}</button><button type="button" onClick={() => void runDfiInvestigation()} disabled={dfiBusy}><Activity size={16}/>{dfiBusy ? 'Analyzing…' : 'Deep Analysis'}</button><button type="button" onClick={copyAllDfiReport}><Copy size={16}/>Copy All</button></div>
+            </>}
+            {rdsActiveTool === 'Runtime' && <><div className="rds-summary-strip"><span>{diagnosticLogs.length} captured</span><span>{diagnosticLogs.filter(entry => entry.level === 'ERROR').length} errors</span><span>{diagnosticLogs.filter(entry => entry.level === 'WARN').length} warnings</span></div><div className="rds-command-log-list">{visibleDiagnosticLogs.slice().reverse().map(entry => <article className={'diagnostic-entry diagnostic-' + entry.level.toLowerCase()} key={entry.id}><div><strong>{entry.level}</strong><time>{entry.time}</time></div><b>{entry.source}</b><p>{entry.message}</p>{entry.details && <pre>{entry.details}</pre>}</article>)}{!visibleDiagnosticLogs.length && <div className="diagnostic-empty">No runtime logs match the selected filter.</div>}</div><div className="rds-quick-actions"><button type="button" onClick={() => setDiagnosticFilter('ALL')}>All</button><button type="button" onClick={() => setDiagnosticFilter('ERROR')}>Errors</button><button type="button" onClick={() => setDiagnosticFilter('WARN')}>Warnings</button><button type="button" onClick={() => void copyDiagnosticText(visibleDiagnosticLogs)}><Copy size={14}/>Copy</button></div></>}
+            {rdsActiveTool === 'RIT Trace' && <><div className="rds-summary-strip"><span>Session {RUNTIME_SESSION_ID}</span><span>{diagnosticLogs.filter(entry => entry.source === 'Interaction Trace').length} events</span></div><div className="rds-command-log-list">{diagnosticLogs.filter(entry => entry.source === 'Interaction Trace').slice().reverse().map(entry => <article className="diagnostic-entry diagnostic-info" key={entry.id}><div><strong>{entry.origin || 'UNKNOWN'}</strong><time>{entry.time}</time></div><small className="rit-event-meta">{entry.sessionId === RUNTIME_SESSION_ID ? 'CURRENT SESSION' : entry.sessionId ? 'PREVIOUS SESSION' : 'LEGACY'} · SEQ {entry.sequence ?? '—'}</small><p>{entry.message}</p>{entry.details && <pre>{entry.details}</pre>}</article>)}{!diagnosticLogs.some(entry => entry.source === 'Interaction Trace') && <div className="diagnostic-empty">No interaction events captured yet.</div>}</div><div className="rds-quick-actions"><button type="button" onClick={() => void copyDiagnosticText([...diagnosticLogs.filter(entry => entry.source === 'Interaction Trace'), ...diagnosticQueueRef.current.filter(entry => entry.source === 'Interaction Trace')])}><Copy size={14}/>Copy Trace</button></div></>}
+            {rdsActiveTool === 'DFI Core' && <><div className="rds-summary-strip"><span>{dfiSummary.findings} findings</span><span>{dfiSummary.errors} errors</span><span>{dfiSummary.warnings} warnings</span></div><div className="rds-quick-actions"><button type="button" onClick={() => void runDfiInvestigation()} disabled={dfiBusy}><ScanEye size={15}/>{dfiBusy ? 'Investigating…' : 'Run Deep Analysis'}</button><button type="button" onClick={() => void copyDiagnosticText([{id:'dfi-report',time:new Date().toLocaleTimeString(),level:dfiSummary.errors?'ERROR':dfiSummary.warnings?'WARN':'INFO',source:'DFI Core',message:'Forensic investigation report',details:dfiReport}])}><Copy size={14}/>Copy Report</button></div><pre className="rds-command-report">{dfiReport}</pre></>}
+            {rdsActiveTool === 'Mesh DFI' && <><div className="rds-quick-actions"><button type="button" onClick={() => runDfiToolScan('Shape Core')} disabled={Boolean(dfiToolBusy)}><Box size={15}/>{dfiToolBusy ? 'Scanning…' : 'Scan Mesh Integrity'}</button></div><pre className="rds-command-report">{dfiToolReports['Shape Core'] || 'Mesh integrity scan has not been run yet.'}</pre></>}
+            {rdsActiveTool === 'Root Cause' && <><div className="rds-info-card"><strong>Evidence-based investigation</strong><p>Correlates captured runtime events, DFI findings and source audit evidence. A suspected cause is not confirmed until the first failing state transition is reproduced.</p></div><div className="rds-quick-actions"><button type="button" onClick={() => void runDfiInvestigation()} disabled={dfiBusy}><GitMerge size={15}/>{dfiBusy ? 'Investigating…' : 'Correlate Evidence'}</button></div><pre className="rds-command-report">{dfiReport}</pre></>}
+            {rdsActiveTool === 'Source Audit' && <><div className="rds-quick-actions"><button type="button" onClick={() => void loadRdsSourceAudit()}><Code2 size={15}/>Load Source Audit</button></div><pre className="rds-command-report">{rdsSourceAuditReport}</pre></>}
+            {rdsActiveTool === 'Reports' && <><div className="rds-quick-actions"><button type="button" onClick={copyAllDfiReport}><Copy size={15}/>Copy All Report</button><button type="button" onClick={copyAllDfiSummary}><ClipboardCopy size={15}/>Copy Scene Summary</button><button type="button" onClick={() => void copyDiagnosticText([{id:'rds-report',time:rdsLastScanAt || new Date().toLocaleTimeString(),level:rdsScanSummary.errors?'ERROR':rdsScanSummary.warnings?'WARN':'INFO',source:'RDS Full Core Scan',message:'Full scan report',details:rdsScanReport + '\n\n' + rdsSourceAuditReport}])}><FileText size={15}/>Copy RDS Report</button></div><pre className="rds-command-report">{rdsScanReport}{'\n\n'}{rdsSourceAuditReport}</pre></>}
+          </main>
+        </div>
+      </aside>}
 
       {geometryRitOpen && !cameraView && !animationMode && <aside className="geometry-rit-panel" role="dialog" aria-label="Independent Geometry RIT Results Report">
         <div className="geometry-rit-heading">
