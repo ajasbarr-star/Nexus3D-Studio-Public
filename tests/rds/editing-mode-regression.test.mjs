@@ -335,15 +335,16 @@ test('Extruded Single and Dual Face highlights follow the newly created cap geom
   assert.match(source, /color: 0x00e5ff, side: THREE\.DoubleSide, transparent: true, opacity: 0\.42/);
 });
 
-test('Face Pull isolates selected face vertices from adjacent face seam copies', () => {
+test('Move Face shares coincident boundary vertices while explicit linked selections stay isolated', () => {
   const start = source.indexOf('const isolatedTransformIndices = selection.linkedIndices');
   const end = source.indexOf('if (!isolatedTransformIndices) selection.indices.forEach', start);
   assert.ok(start >= 0 && end > start, 'sub-selection transform vertex policy must exist');
   const block = source.slice(start, end);
-  assert.match(block, /selection\.linkedIndices[\s\S]*new Set\(\[\.\.\.selection\.indices, \.\.\.selection\.linkedIndices\]/);
-  assert.match(block, /selection\.faceParts\?\.length[\s\S]*new Set\(selection\.indices\.filter/);
-  assert.match(source, /Face selections must move only the selected face's own render vertices/);
-  assert.match(source, /if \(isolatedTransformIndices \? !isolatedTransformIndices\.has\(index\) : !logicalKeys\.has\(/);
+  assert.match(block, /selection\\.linkedIndices[\\s\\S]*new Set\\(\\[\\.\\.\\.selection\\.indices, \\.\\.\\.selection\\.linkedIndices\\]/);
+  assert.match(block, /: null;/);
+  assert.doesNotMatch(block, /selection\\.faceParts/);
+  assert.doesNotMatch(source, /Face selections must move only the selected face's own render vertices/);
+  assert.match(source, /if \\(isolatedTransformIndices \\? !isolatedTransformIndices\\.has\\(index\\) : !logicalKeys\\.has\\(/);
 });
 
 test('Move Face stays transform-only while Extrude owns connecting walls', () => {
