@@ -359,3 +359,18 @@ test('Clear Locks UI releases stored Vertex and Edge locks and clears visible co
   assert.match(app, /runtime\.current\?\.clearAllSubObjectLocks\?\.\(\)/);
   assert.match(app, /Clear Locks/);
 });
+
+
+test('edge marquee collection selects a visible segment crossing the box with both endpoints outside', async () => {
+  const rect = normalizeSelectionRect({ x: 20, y: 20 }, { x: 60, y: 60 });
+  const items = [{ id: 'crossing' }, { id: 'outside' }];
+  const additions = collectVisibleMarqueeSelection(
+    items, rect,
+    item => item.id === 'crossing'
+      ? [{ x: 0, y: 40 }, { x: 80, y: 40 }]
+      : [{ x: 0, y: 10 }, { x: 80, y: 10 }],
+    () => true,
+    'segment',
+  );
+  assert.deepEqual(additions, ['crossing']);
+});
