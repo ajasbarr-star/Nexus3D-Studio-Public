@@ -5967,6 +5967,7 @@ export default function App() {
           r.scene.userData.nexusNextShapeId = identity.nextId;
           obj.userData.shapeIdentityLabel = formatShapeIdentity(obj.name, identity.shapeId);
         });
+        assignShapeOwnership(r.selectable || []);
         // Refresh React's Scene Tree from the restored runtime objects before
         // selecting one, so every loaded object gets the same editor controls
         // (select, visibility, rename, transform, hierarchy, delete) as a new object.
