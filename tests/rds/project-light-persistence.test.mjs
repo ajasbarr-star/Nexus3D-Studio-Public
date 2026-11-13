@@ -34,3 +34,13 @@ test('ZIP import reapplies editor light settings omitted by GLB metadata', () =>
   assert.match(zipImport, /node\.target\.position\.fromArray\(saved\.light\.targetPosition\)/);
   assert.match(zipImport, /node\.castShadow = saved\.castShadow/);
 });
+
+test('ZIP import restores full material properties and embedded texture slots from project metadata', () => {
+  const zipImport = app.slice(app.indexOf('const importProjectZip'));
+  assert.match(zipImport, /Array\.isArray\(saved\.material\) && saved\.material\.length/);
+  assert.match(zipImport, /createProjectMaterial\(materialData\)/);
+  assert.match(zipImport, /materialData\?\.textures/);
+  assert.match(zipImport, /new THREE\.TextureLoader\(\)\.loadAsync\(textureData\.dataUrl\)/);
+  assert.match(zipImport, /texture\.repeat\.fromArray\(textureData\.repeat\)/);
+  assert.match(zipImport, /mesh\.material = materials\.length === 1 \? materials\[0\] : materials/);
+});
