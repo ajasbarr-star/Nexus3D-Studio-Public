@@ -6274,7 +6274,6 @@ export default function App() {
       });
       // Project ZIP import merges into the current scene; never duplicate stable IDs.
       const editorIdRemap = new Map<string, string>();
-      const shapeIdRemap = new Map<string, string>();
       // Reserve IDs across the complete scene graph, including hidden/non-selectable
       // bones and IK helpers, so merged imports cannot collide with attached objects.
       const existingSceneNodes: THREE.Object3D[] = [];
@@ -6301,26 +6300,7 @@ export default function App() {
         )
       );
       const shapeIdRemap = shapeReservations.shapeIdRemap;
-      const reservedShapeIdsAfterImport = shapeReservations.reservedShapeIds;
       const importNextShapeId = shapeReservations.nextShapeId;
-      projectData.objects.forEach((saved: any) => {
-        if (!saved?.shapeId) return;
-        const sourceId = String(saved.shapeId);
-        if (reservedShapeIds.has(sourceId)) {
-          let targetId = 'No.' + String(importNextShapeId).padStart(2, '0');
-          while (reservedShapeIds.has(targetId)) {
-            importNextShapeId += 1;
-            targetId = 'No.' + String(importNextShapeId).padStart(2, '0');
-          }
-          shapeIdRemap.set(sourceId, targetId);
-          reservedShapeIds.add(targetId);
-          importNextShapeId += 1;
-        } else {
-          reservedShapeIds.add(sourceId);
-          const numericId = Number(sourceId.replace(/^No\./, ''));
-          if (Number.isSafeInteger(numericId)) importNextShapeId = Math.max(importNextShapeId, numericId + 1);
-        }
-      });
       projectData.objects.forEach((saved: any) => {
         // Keep original IDs for matching the tagged GLB nodes before restoring remapped IDs.
         saved.__sourceEditorId = saved.editorId || null;
