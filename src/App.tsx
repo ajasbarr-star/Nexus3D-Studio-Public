@@ -7,6 +7,7 @@ import { createSubObjectLockStore } from './geometry/subobject-lock-store.mjs';
 import { allocateShapeIdentity, ensureShapeIdentity, formatShapeIdentity } from './identity/shape-identity.mjs';
 import { assignShapeOwnership } from './identity/shape-ownership.mjs';
 import { collectReservedIdentityIds } from './identity/import-identity-reservations.mjs';
+import { remapImportedIdentityReferences } from './identity/import-identity-reference-remap.mjs';
 import { validateProjectIdentityData } from './identity/project-identity-validation.mjs';
 import { collectObjectOnlyProjectNodes, getObjectOnlyProjectRoots, isShapeProjectMesh } from './project/object-project-scope.mjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -6312,23 +6313,20 @@ export default function App() {
           if (Number.isSafeInteger(numericId)) importNextShapeId = Math.max(importNextShapeId, numericId + 1);
         }
       });
-      const remapImportedReferences = (value: any): any => {
-        if (typeof value === 'string') return editorIdRemap.get(value) || shapeIdRemap.get(value) || value;
-        if (Array.isArray(value)) return value.map(remapImportedReferences);
-        if (value && typeof value === 'object') {
-          Object.keys(value).forEach(key => { value[key] = remapImportedReferences(value[key]); });
-        }
-        return value;
-      };
       projectData.objects.forEach((saved: any) => {
+        // Keep original IDs for matching the tagged GLB nodes before restoring remapped IDs.
         saved.__sourceEditorId = saved.editorId || null;
         saved.__sourceShapeId = saved.shapeId || null;
+        // Remap every nested metadata reference, not only editorData, so custom
+        // rig/attachment/topology references remain linked after a merge import.
+        Object.keys(saved).forEach((key: string) => {
+          if (['editorId', 'shapeId', 'ownerShapeId', 'parentEditorId', '__sourceEditorId', '__sourceShapeId'].includes(key)) return;
+          saved[key] = remapImportedIdentityReferences(saved[key], editorIdRemap, shapeIdRemap);
+        });
         if (saved.editorId) saved.editorId = editorIdRemap.get(String(saved.editorId)) || saved.editorId;
         if (saved.shapeId) saved.shapeId = shapeIdRemap.get(String(saved.shapeId)) || saved.shapeId;
         if (saved.ownerShapeId) saved.ownerShapeId = shapeIdRemap.get(String(saved.ownerShapeId)) || saved.ownerShapeId;
         if (saved.parentEditorId) saved.parentEditorId = editorIdRemap.get(String(saved.parentEditorId)) || saved.parentEditorId;
-        if (saved.skeleton?.boneEditorIds) saved.skeleton.boneEditorIds = saved.skeleton.boneEditorIds.map((id: string) => editorIdRemap.get(String(id)) || id);
-        if (saved.editorData && typeof saved.editorData === 'object') remapImportedReferences(saved.editorData);
       });
       const remappedExpectedShapeIds = new Set<string>([...expectedShapeIds].map(id => shapeIdRemap.get(id) || id));
       const sceneBuffer = await sceneEntry.async('arraybuffer');
