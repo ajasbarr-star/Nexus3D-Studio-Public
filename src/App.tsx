@@ -3381,6 +3381,26 @@ export default function App() {
     let perfFrameCount = 0;
     let perfIntervalTotal = 0;
     let perfIntervalMax = 0;
+    let perfUpdateTotal = 0;
+    let perfUpdateMax = 0;
+    let perfRenderSubmitTotal = 0;
+    let perfRenderSubmitMax = 0;
+    let perfLongTaskCount = 0;
+    let perfLongTaskMax = 0;
+    let longTaskObserver: PerformanceObserver | null = null;
+    try {
+      if (typeof PerformanceObserver !== 'undefined' && PerformanceObserver.supportedEntryTypes?.includes('longtask')) {
+        longTaskObserver = new PerformanceObserver(entries => {
+          entries.getEntries().forEach(entry => {
+            perfLongTaskCount += 1;
+            perfLongTaskMax = Math.max(perfLongTaskMax, entry.duration);
+          });
+        });
+        longTaskObserver.observe({ entryTypes: ['longtask'] });
+      }
+    } catch {
+      // Long-task timing is optional; frame timing remains available on older WebViews.
+    }
     const frameLoop = () => {
       const frameStartedAt = performance.now();
       const frameInterval = frameStartedAt - lastFrameStartedAt;
@@ -3389,6 +3409,10 @@ export default function App() {
         perfFrameCount += 1;
         perfIntervalTotal += frameInterval;
         perfIntervalMax = Math.max(perfIntervalMax, frameInterval);
+        perfUpdateTotal += updateWorkMs;
+        perfUpdateMax = Math.max(perfUpdateMax, updateWorkMs);
+        perfRenderSubmitTotal += renderSubmitMs;
+        perfRenderSubmitMax = Math.max(perfRenderSubmitMax, renderSubmitMs);
       }
       orbit.update();
       if (runtime.current?.riggingView && ikOrbit) ikOrbit.update();
@@ -3416,6 +3440,7 @@ export default function App() {
       camBody.visible = !inCam && !Boolean(runtime.current?.riggingView);
       // Selection changes own gizmo visibility; never reveal an old attachment.
       transform.getHelper().visible = Boolean(selectedRef.current && transform.object && transform.enabled);
+      const updateWorkMs = performance.now() - frameStartedAt;
       Object.entries(particleSystems).forEach(([type, points]) => {
         if (!points.visible) return;
         const position = points.geometry.getAttribute('position') as THREE.BufferAttribute;
@@ -3436,11 +3461,13 @@ export default function App() {
           const wasVisible = mirrorObject.visible; mirrorObject.visible = false; reflectionCamera.update(renderer, scene); mirrorObject.visible = wasVisible;
         }
       }
+      const renderSubmitStartedAt = performance.now();
       if (runtime.current?.riggingView) {
         renderer.render(scene, ikCamera);
       } else {
         renderer.render(scene, inCam ? activeCamera : camera);
       }
+      const renderSubmitMs = performance.now() - renderSubmitStartedAt;
       const perfSampleNow = performance.now();
       const perfElapsed = perfSampleNow - perfWindowStartedAt;
       if (perfElapsed >= 1000) {
@@ -3452,6 +3479,12 @@ export default function App() {
           fps: Math.round((perfFrameCount / perfElapsed) * 1000 * 10) / 10,
           averageFrameMs: perfFrameCount ? Math.round((perfIntervalTotal / perfFrameCount) * 10) / 10 : 0,
           maxFrameMs: Math.round(perfIntervalMax * 10) / 10,
+          averageUpdateMs: perfFrameCount ? Math.round((perfUpdateTotal / perfFrameCount) * 100) / 100 : 0,
+          maxUpdateMs: Math.round(perfUpdateMax * 100) / 100,
+          averageRenderSubmitMs: perfFrameCount ? Math.round((perfRenderSubmitTotal / perfFrameCount) * 100) / 100 : 0,
+          maxRenderSubmitMs: Math.round(perfRenderSubmitMax * 100) / 100,
+          longTaskCount: perfLongTaskCount,
+          maxLongTaskMs: Math.round(perfLongTaskMax * 10) / 10,
           drawCalls: renderStats.calls || 0,
           triangles: renderStats.triangles || 0,
           geometries: renderMemory.geometries || 0,
@@ -3465,6 +3498,12 @@ export default function App() {
         perfFrameCount = 0;
         perfIntervalTotal = 0;
         perfIntervalMax = 0;
+        perfUpdateTotal = 0;
+        perfUpdateMax = 0;
+        perfRenderSubmitTotal = 0;
+        perfRenderSubmitMax = 0;
+        perfLongTaskCount = 0;
+        perfLongTaskMax = 0;
       }
       raf = requestAnimationFrame(frameLoop);
     };
@@ -3472,6 +3511,7 @@ export default function App() {
     syncItems();
     return () => {
       cancelAnimationFrame(raf);
+      longTaskObserver?.disconnect();
       window.removeEventListener('resize', resize);
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
@@ -4949,6 +4989,9 @@ export default function App() {
       `Measured FPS: ${perf ? perf.fps : 'sampling'}`,
       `Average frame interval: ${perf ? perf.averageFrameMs + ' ms' : 'sampling'}`,
       `Worst frame interval (1s sample): ${perf ? perf.maxFrameMs + ' ms' : 'sampling'}`,
+      `Average update work / render submit: ${perf ? perf.averageUpdateMs + ' / ' + perf.averageRenderSubmitMs + ' ms' : 'sampling'}`,
+      `Worst update work / render submit: ${perf ? perf.maxUpdateMs + ' / ' + perf.maxRenderSubmitMs + ' ms' : 'sampling'}`,
+      `Long tasks (>50 ms): ${perf ? perf.longTaskCount + ' · max ' + perf.maxLongTaskMs + ' ms' : 'sampling'}`,
       `Measured draw calls / triangles: ${perf ? perf.drawCalls + ' / ' + perf.triangles : 'sampling'}`,
       `Measured geometries / textures: ${perf ? perf.geometries + ' / ' + perf.textures : 'sampling'}`,
       `Viewport: ${perf ? perf.viewportWidth + ' × ' + perf.viewportHeight : 'sampling'} @ DPR ${perf ? perf.pixelRatio : (window.devicePixelRatio || 1)}`,
@@ -5029,7 +5072,7 @@ export default function App() {
       add('Modeling / Resource Inventory', info ? 'PASS' : 'WARN', `Geometries: ${info?.memory?.geometries ?? 'unavailable'}; textures: ${info?.memory?.textures ?? 'unavailable'}; draw calls: ${info?.render?.calls ?? 'unavailable'}; triangles: ${info?.render?.triangles ?? 'unavailable'}.`);
       const perf = rt?.performanceMetrics;
       add('Rendering Performance Baseline', perf ? 'PASS' : 'WARN', perf
-        ? `FPS: ${perf.fps}; average frame interval: ${perf.averageFrameMs} ms; max interval: ${perf.maxFrameMs} ms; draw calls: ${perf.drawCalls}; triangles: ${perf.triangles}; geometries: ${perf.geometries}; textures: ${perf.textures}; viewport: ${perf.viewportWidth}×${perf.viewportHeight}; pixel ratio: ${perf.pixelRatio}. Values are sampled from the live renderer; FPS is requestAnimationFrame cadence, not GPU timer-query time.`
+        ? `FPS: ${perf.fps}; average frame interval: ${perf.averageFrameMs} ms; max interval: ${perf.maxFrameMs} ms; update work avg/max: ${perf.averageUpdateMs}/${perf.maxUpdateMs} ms; render submit avg/max: ${perf.averageRenderSubmitMs}/${perf.maxRenderSubmitMs} ms; long tasks >50 ms: ${perf.longTaskCount} (max ${perf.maxLongTaskMs} ms); draw calls: ${perf.drawCalls}; triangles: ${perf.triangles}; geometries: ${perf.geometries}; textures: ${perf.textures}; viewport: ${perf.viewportWidth}×${perf.viewportHeight}; pixel ratio: ${perf.pixelRatio}. Render-submit time measures synchronous CPU submission, not GPU execution; FPS is requestAnimationFrame cadence, not GPU timer-query time.`
         : 'Performance sample is not ready yet. Wait at least one second after the viewport starts.');
       add('Memory Leak Trend', 'WARN', rdsResourceBaselineRef.current && info ? (() => {
         const previous = rdsResourceBaselineRef.current!;
