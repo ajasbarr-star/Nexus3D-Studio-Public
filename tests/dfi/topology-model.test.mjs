@@ -225,6 +225,10 @@ test('multi-object topology remains isolated at 1, 2, 5, and 10 scene objects', 
     assert.ok(objects.every(object => object.topology));
     for (let pass = 0; pass < 3; pass++) {
       const targetIndex = (pass * 3) % count;
+      const before = objects.map(object => ({
+        positions: [...object.positions],
+        faces: object.topology.faces.map(face => [...face.vertices]),
+      }));
       const target = objects[targetIndex];
       target.positions = target.positions.map((value, index) =>
         index % 3 === 2 ? value + (pass + 1) * 0.1 : value
@@ -234,9 +238,13 @@ test('multi-object topology remains isolated at 1, 2, 5, and 10 scene objects', 
       objects.forEach((object, index) => {
         assert.equal(validateTopology(object.topology).valid, true);
         assert.equal(object.topology.faces.length, 2);
-        if (index !== targetIndex) {
+        assert.deepEqual(object.topology.faces.map(face => face.vertices), before[index].faces);
+        if (index === targetIndex) {
+          assert.notDeepEqual(object.positions, before[index].positions);
+        } else {
+          assert.deepEqual(object.positions, before[index].positions, 'non-target object coordinates must remain unchanged');
           assert.deepEqual(object.topology.vertices.map(vertex => vertex.position),
-            buildTopologyFromCanonicalQuadGeometry(source).vertices.map(vertex => vertex.position));
+            buildTopologyFromCanonicalQuadGeometry(before[index].positions).vertices.map(vertex => vertex.position));
         }
       });
     }
