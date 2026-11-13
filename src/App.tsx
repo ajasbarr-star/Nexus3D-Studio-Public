@@ -6162,7 +6162,7 @@ export default function App() {
       getObjectOnlyProjectRoots(projectNodes).forEach((node: THREE.Object3D) => exportRoot.add(cloneSkeletonHierarchy(node)));
       exportRoot.traverse((node: any) => {
         const source = projectNodes.find((candidate: THREE.Object3D) => candidate.userData.editorId && candidate.userData.editorId === node.userData?.editorId);
-        if (source?.userData?.shapeId) node.name = node.name + '__NEXUS_ID_' + source.userData.shapeId;
+        if (source?.userData?.editorId) node.name = node.name + '__NEXUS_EDITOR_ID_' + source.userData.editorId + (source.userData.shapeId ? '__NEXUS_ID_' + source.userData.shapeId : '');
       });
       const userDataSnapshots: Array<{ target: any; userData: any }> = [];
       exportRoot.traverse((node: any) => {
@@ -6251,8 +6251,10 @@ export default function App() {
       importedScene.name = (projectData.projectName || file?.name || 'Nexus3D Imported Project').replace(/\.(nexus|zip)$/i, '');
       const savedByName = new Map<string, any[]>();
       const savedByShapeId = new Map<string, any>();
+      const savedByEditorId = new Map<string, any>();
       projectData.objects.forEach((saved: any) => {
         if (saved?.shapeId) savedByShapeId.set(saved.shapeId, saved);
+        if (saved?.editorId) savedByEditorId.set(saved.editorId, saved);
         if (!saved || typeof saved.name !== 'string') return;
         const key = saved.name + '::' + (saved.kind || '');
         const list = savedByName.get(key) || [];
@@ -6263,11 +6265,13 @@ export default function App() {
       const importedNodes: THREE.Object3D[] = [];
       importedScene.traverse((node: any) => {
         const kind = node.isBone ? 'Bone' : node.isSkinnedMesh ? 'Mesh' : node.isMesh ? 'Mesh' : node.userData?.kind || node.type;
-        const idMatch = /__NEXUS_ID_(No\.\d+)$/.exec(node.name);
-        const shapeIdMatch = idMatch ? savedByShapeId.get(idMatch[1]) : undefined;
-        if (shapeIdMatch) node.name = shapeIdMatch.name;
+        const identityMatch = /__NEXUS_EDITOR_ID_(.+?)(?:__NEXUS_ID_(No\.\d+))?$/.exec(node.name);
+        const editorIdMatch = identityMatch ? savedByEditorId.get(identityMatch[1]) : undefined;
+        const shapeIdMatch = identityMatch?.[2] ? savedByShapeId.get(identityMatch[2]) : undefined;
+        const matched = editorIdMatch || shapeIdMatch;
+        if (matched) node.name = matched.name;
         const candidates = savedByName.get(node.name + '::' + kind) || savedByName.get(node.name + '::') || [];
-        const saved = shapeIdMatch || candidates.shift();
+        const saved = matched || candidates.shift();
         if (saved) {
           if (saved.editorId) {
             node.userData.editorId = saved.editorId;
