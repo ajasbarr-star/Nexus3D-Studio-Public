@@ -22,7 +22,7 @@ import {
   Layers, Maximize, Move, Rotate3D, Scaling, Trash2, Magnet, Gauge,
   Play, Pause, Rewind, ClipboardCopy, ClipboardPaste, Diamond, Undo2, Redo2,
   Film, Lightbulb, X, Check, Eye, EyeOff, Search, ChevronDown, ChevronRight, Download,
-  Save, FolderOpen, FileJson, Settings2, Info, Keyboard, Sun, Flashlight, Palette, Upload,
+  Save, FolderOpen, FileJson, FileText, Settings2, Info, Keyboard, Sun, Flashlight, Palette, Upload,
   Sparkles, Waves, Aperture, SlidersHorizontal, CloudFog, ScanEye, Lock, Unlock, Scissors, GitBranch,
   Plus, Target, Link2, Unlink, RefreshCw, GitMerge, Activity, Code2, Folder, FolderPlus, MoreHorizontal, Pencil, ScanSearch,
 } from 'lucide-react';
