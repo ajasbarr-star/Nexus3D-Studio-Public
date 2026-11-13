@@ -5529,7 +5529,7 @@ export default function App() {
       version: 4,
       savedAt: new Date().toISOString(),
       nextShapeId: Number(r?.scene?.userData?.nexusNextShapeId) || 1,
-      // Object-only project format: viewport, cameras, lights and timeline state are excluded.
+      // Project payload keeps editable Shapes, rig data and scene lights; viewport cameras and transient UI state are excluded.
       objects: projectNodes.map((obj: THREE.Object3D) => ({
         editorId: obj.userData.editorId || null,
         shapeId: obj.userData.shapeId || null,
