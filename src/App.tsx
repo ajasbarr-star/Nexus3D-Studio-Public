@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { buildTopologyFromCanonicalQuadGeometry, buildTopologyFromIndexedQuadGeometry, updateTopologyPositionsFromRenderGeometry } from './geometry/topology-model.mjs';
 import { createSubObjectLockStore } from './geometry/subobject-lock-store.mjs';
 import { allocateShapeIdentity, ensureShapeIdentity, formatShapeIdentity } from './identity/shape-identity.mjs';
+import { assignShapeOwnership } from './identity/shape-ownership.mjs';
 import { collectObjectOnlyProjectNodes, getObjectOnlyProjectRoots } from './project/object-project-scope.mjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
@@ -1688,6 +1689,7 @@ export default function App() {
       }
       scene.add(obj);
       selectable.push(obj);
+      assignShapeOwnership(selectable);
       syncItems();
       selectObject(obj);
       recordSceneAction({ label: 'Create ' + obj.name, undo: () => { obj.parent?.remove(obj); const i = selectable.indexOf(obj); if (i >= 0) selectable.splice(i, 1); syncItems(); selectObject(); }, redo: () => { if (!obj.parent) scene.add(obj); if (!selectable.includes(obj)) selectable.push(obj); syncItems(); selectObject(obj); } });
@@ -5509,6 +5511,7 @@ export default function App() {
   const getProjectData = () => {
     const r = runtime.current;
     const projectNodes = collectObjectOnlyProjectNodes(r?.selectable || []);
+    assignShapeOwnership(projectNodes);
     projectNodes.filter((obj: THREE.Object3D) => obj instanceof THREE.Mesh).forEach((obj: THREE.Object3D) => {
       const identity = ensureShapeIdentity(obj, projectNodes, Number(r?.scene?.userData?.nexusNextShapeId) || 1);
       if (r?.scene) r.scene.userData.nexusNextShapeId = identity.nextId;
@@ -5523,6 +5526,7 @@ export default function App() {
       objects: projectNodes.map((obj: THREE.Object3D) => ({
         editorId: obj.userData.editorId || null,
         shapeId: obj.userData.shapeId || null,
+        ownerShapeId: obj.userData.ownerShapeId || obj.userData.shapeId || null,
         shapeIdentityLabel: obj.userData.shapeId ? formatShapeIdentity(obj.name, obj.userData.shapeId) : null,
         // Preserve editor-specific metadata used by topology, modeling and other tools.
         editorData: (() => {
@@ -5895,6 +5899,8 @@ export default function App() {
           if (obj.parent !== targetParent) targetParent.add(obj);
         });
 
+        assignShapeOwnership(r.selectable || []);
+
         // Replace stale project shapes only after saved parent/child links have been reconnected.
         const staleNodes = collectObjectOnlyProjectNodes(r.selectable || []).filter((node: THREE.Object3D) => !restoredNodeSet.has(node));
         getObjectOnlyProjectRoots(staleNodes).forEach((node: THREE.Object3D) => r.removeObject(node, true));
@@ -6108,6 +6114,7 @@ export default function App() {
       });
       r.scene.add(object);
       importedNodes.forEach(node => { if (!r.selectable.includes(node)) r.selectable.push(node); });
+      assignShapeOwnership(importedNodes);
       r.detectRiggedMeshes?.(object);
       r.syncItems?.();
       setStatus('Imported ' + file.name);
