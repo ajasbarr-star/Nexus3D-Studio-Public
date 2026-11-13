@@ -4107,7 +4107,7 @@ export default function App() {
           : captureQuadGridState();
     target.geometry.dispose(); target.geometry = geometry;
     const committedPosition = target.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
-    let committedTopology = null;
+    let committedTopology: ReturnType<typeof buildTopologyFromCanonicalQuadGeometry> = null;
     if (afterQuadGridState.enabled && committedPosition) {
       committedTopology = target.geometry.index
         ? buildTopologyFromIndexedQuadGeometry(committedPosition.array, target.geometry.index.array)
