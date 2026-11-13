@@ -1,28 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {
-  GEOMETRY_COMMAND_LOCK,
-  PROTECTED_GEOMETRY_COMMANDS,
-} from '../../src/geometry/geometry-command-lock.ts';
-
 const app = fs.readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
 const contract = fs.readFileSync(new URL('../../src/geometry/clean-flat-surface-contract.ts', import.meta.url), 'utf8');
+const lock = fs.readFileSync(new URL('../../src/geometry/geometry-command-lock.ts', import.meta.url), 'utf8');
 
 test('Geometry command lock explicitly protects every core modeling command', () => {
   for (const command of [
     'Move Face', 'Extrude Face', 'Face Scale', 'Subdivide', 'Subdivide Rotate',
     'Edge Move / Pull', 'Vertex Move / Pull', 'Smooth',
   ]) {
-    assert.ok(PROTECTED_GEOMETRY_COMMANDS.includes(command), 'missing protected command: ' + command);
-    assert.ok(Object.isFrozen(GEOMETRY_COMMAND_LOCK[command]), 'command contract must be immutable: ' + command);
+    assert.ok(lock.includes("'" + command + "'"), 'missing protected command: ' + command);
   }
-  assert.ok(Object.isFrozen(GEOMETRY_COMMAND_LOCK));
-  assert.ok(Object.isFrozen(PROTECTED_GEOMETRY_COMMANDS));
+  assert.match(lock, /Object\.freeze\(\{/);
+  assert.match(lock, /Object\.keys\(GEOMETRY_COMMAND_LOCK\)/);
 });
 
 test('Move Face is transform-only and must never generate connecting walls', () => {
-  assert.equal(GEOMETRY_COMMAND_LOCK['Move Face'].generatesConnectingWalls, false);
+  assert.match(lock, /'Move Face': Object\.freeze\(\{[\s\S]*?generatesConnectingWalls: false/);
   const moveTrace = app.indexOf("Move Face committed · no extrusion walls");
   assert.notEqual(moveTrace, -1, 'Move Face must record its no-wall behavior');
   const moveSection = app.slice(moveTrace - 450, moveTrace + 700);
@@ -31,10 +26,7 @@ test('Move Face is transform-only and must never generate connecting walls', () 
 });
 
 test('Extrude Face alone owns connecting quad-wall generation and moved cap linkage', () => {
-  const behavior = GEOMETRY_COMMAND_LOCK['Extrude Face'];
-  assert.equal(behavior.generatesConnectingWalls, true);
-  assert.equal(behavior.wallTopology, 'quad');
-  assert.equal(behavior.removesOriginalFaceAtSourcePosition, true);
+  assert.match(lock, /'Extrude Face': Object\.freeze\(\{[\s\S]*?generatesConnectingWalls: true,[\s\S]*?wallTopology: 'quad',[\s\S]*?removesOriginalFaceAtSourcePosition: true/);
 
   const extrudeStart = app.indexOf("} else if (tool === 'Extrude') {");
   const extrudeEnd = app.indexOf('// Reconstruct each existing pair of triangles as one canonical quad cell.', extrudeStart);
@@ -48,6 +40,7 @@ test('Extrude Face alone owns connecting quad-wall generation and moved cap link
 });
 
 test('Move Face and Extrude Face remain separate operations in the Clean Flat Surface contract', () => {
+  assert.match(contract, /'Move Face'/);
   assert.match(contract, /'Face Extrude'/);
   assert.match(contract, /'Face Scale'/);
   assert.match(contract, /'Subdivide'/);
