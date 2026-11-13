@@ -5643,7 +5643,7 @@ export default function App() {
         // First pass: resolve existing editor objects, or create missing scene objects.
         // This is the key difference from the old loader, which only updated objects
         // already present in the current scene.
-        data.objects.forEach((saved: any) => {
+        await Promise.all(data.objects.map(async (saved: any) => {
           if (!saved || typeof saved.name !== 'string') return;
           let obj = saved.shapeId
             ? r.selectable.find((candidate: THREE.Object3D) => candidate.userData.shapeId === saved.shapeId)
@@ -5766,22 +5766,20 @@ export default function App() {
                 const textureSlots = materialData?.textures && typeof materialData.textures === 'object' ? materialData.textures : {};
                 for (const [slot, textureData] of Object.entries(textureSlots) as Array<[string, any]>) {
                   if (!textureData?.dataUrl || !['map','emissiveMap','normalMap','roughnessMap','metalnessMap','aoMap','alphaMap'].includes(slot)) continue;
-                  const texture = new THREE.TextureLoader().load(textureData.dataUrl, loadedTexture => {
-                    if (textureData.colorSpace) loadedTexture.colorSpace = textureData.colorSpace;
-                    if (Number.isFinite(textureData.wrapS)) loadedTexture.wrapS = textureData.wrapS;
-                    if (Number.isFinite(textureData.wrapT)) loadedTexture.wrapT = textureData.wrapT;
-                    if (typeof textureData.flipY === 'boolean') loadedTexture.flipY = textureData.flipY;
-                    if (Array.isArray(textureData.repeat)) loadedTexture.repeat.fromArray(textureData.repeat);
-                    if (Array.isArray(textureData.offset)) loadedTexture.offset.fromArray(textureData.offset);
-                    if (Array.isArray(textureData.center)) loadedTexture.center.fromArray(textureData.center);
-                    if (Number.isFinite(textureData.rotation)) loadedTexture.rotation = textureData.rotation;
-                    if (Number.isFinite(textureData.magFilter)) loadedTexture.magFilter = textureData.magFilter;
-                    if (Number.isFinite(textureData.minFilter)) loadedTexture.minFilter = textureData.minFilter;
-                    if (Number.isFinite(textureData.anisotropy)) loadedTexture.anisotropy = textureData.anisotropy;
-                    if (Number.isFinite(textureData.channel)) loadedTexture.channel = textureData.channel;
-                    loadedTexture.needsUpdate = true;
-                    material.needsUpdate = true;
-                  });
+                  const texture = await new THREE.TextureLoader().loadAsync(textureData.dataUrl);
+                  if (textureData.colorSpace) texture.colorSpace = textureData.colorSpace;
+                  if (Number.isFinite(textureData.wrapS)) texture.wrapS = textureData.wrapS;
+                  if (Number.isFinite(textureData.wrapT)) texture.wrapT = textureData.wrapT;
+                  if (typeof textureData.flipY === 'boolean') texture.flipY = textureData.flipY;
+                  if (Array.isArray(textureData.repeat)) texture.repeat.fromArray(textureData.repeat);
+                  if (Array.isArray(textureData.offset)) texture.offset.fromArray(textureData.offset);
+                  if (Array.isArray(textureData.center)) texture.center.fromArray(textureData.center);
+                  if (Number.isFinite(textureData.rotation)) texture.rotation = textureData.rotation;
+                  if (Number.isFinite(textureData.magFilter)) texture.magFilter = textureData.magFilter;
+                  if (Number.isFinite(textureData.minFilter)) texture.minFilter = textureData.minFilter;
+                  if (Number.isFinite(textureData.anisotropy)) texture.anisotropy = textureData.anisotropy;
+                  if (Number.isFinite(textureData.channel)) texture.channel = textureData.channel;
+                  texture.needsUpdate = true;
                   (material as any)[slot] = texture;
                 }
                 material.needsUpdate = true;
@@ -5838,7 +5836,7 @@ export default function App() {
           }
           if (saved.editorId) restoredById.set(saved.editorId, obj);
           restoredByName.set(saved.name, obj);
-        });
+        }));
 
         // Second pass: restore parent-child links after every saved object exists.
         data.objects.forEach((saved: any) => {
