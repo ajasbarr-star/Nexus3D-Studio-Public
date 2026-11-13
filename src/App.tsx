@@ -871,6 +871,7 @@ export default function App() {
         if ('linewidth' in material) material.linewidth = 3;
       });
     });
+    transform.getHelper().userData.nexusEditorHelper = true;
     transform.getHelper().visible = false;
     scene.add(transform.getHelper());
 
