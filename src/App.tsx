@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { buildTopologyFromCanonicalQuadGeometry, buildTopologyFromIndexedQuadGeometry, updateTopologyPositionsFromRenderGeometry } from './geometry/topology-model.mjs';
 import { createSubObjectLockStore } from './geometry/subobject-lock-store.mjs';
 import { allocateShapeIdentity, formatShapeIdentity } from './identity/shape-identity.mjs';
+import { collectObjectOnlyProjectNodes, getObjectOnlyProjectRoots } from './project/object-project-scope.mjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -5444,12 +5445,13 @@ export default function App() {
 
   const getProjectData = () => {
     const r = runtime.current;
+    const projectNodes = collectObjectOnlyProjectNodes(r?.selectable || []);
     return {
       app: 'Nexus3D',
       version: 3,
       savedAt: new Date().toISOString(),
-      keyframes: JSON.parse(JSON.stringify(keysRef.current)),
-      objects: (r?.selectable || []).map((obj: THREE.Object3D) => ({
+      // Object-only project format: viewport, cameras, lights and timeline state are excluded.
+      objects: projectNodes.map((obj: THREE.Object3D) => ({
         editorId: obj.userData.editorId || null,
         shapeId: obj.userData.shapeId || null,
         shapeIdentityLabel: obj.userData.shapeId ? formatShapeIdentity(obj.name, obj.userData.shapeId) : null,
@@ -5494,7 +5496,25 @@ export default function App() {
           opacity: Number.isFinite(mat.opacity) ? mat.opacity : 1,
           transparent: Boolean(mat.transparent),
           emissive: mat.emissive?.getHexString?.() || null,
-          emissiveIntensity: Number.isFinite(mat.emissiveIntensity) ? mat.emissiveIntensity : 0
+          emissiveIntensity: Number.isFinite(mat.emissiveIntensity) ? mat.emissiveIntensity : 0,
+          textures: Object.fromEntries(['map','emissiveMap','normalMap','roughnessMap','metalnessMap','aoMap','alphaMap'].flatMap((slot: string) => {
+            const texture = mat[slot];
+            if (!texture?.image) return [];
+            const image: any = texture.image;
+            let dataUrl = typeof image.src === 'string' && image.src.startsWith('data:') ? image.src : null;
+            if (!dataUrl) {
+              const width = Number(image.width || image.videoWidth || image.naturalWidth || 0);
+              const height = Number(image.height || image.videoHeight || image.naturalHeight || 0);
+              if (!width || !height) throw new Error('Texture image is not ready for offline save: ' + slot);
+              const canvas = document.createElement('canvas');
+              canvas.width = width; canvas.height = height;
+              const context = canvas.getContext('2d');
+              if (!context) throw new Error('Could not prepare texture image for offline save: ' + slot);
+              context.drawImage(image, 0, 0, width, height);
+              dataUrl = canvas.toDataURL('image/png');
+            }
+            return [[slot, { dataUrl, colorSpace: texture.colorSpace || '', mapping: texture.mapping, wrapS: texture.wrapS, wrapT: texture.wrapT, flipY: texture.flipY }]];
+          }))
         })) : undefined,
         meshTopology: obj instanceof THREE.Mesh ? {
           cutLoops: Array.isArray(obj.userData.cutLoops) ? obj.userData.cutLoops.map((loop: number[][]) => loop.map(point => [...point])) : [],
@@ -5576,7 +5596,7 @@ export default function App() {
   const handleProjectFile = (file?: File) => {
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const raw = String(reader.result || '');
         const data = JSON.parse(raw);
@@ -5705,6 +5725,22 @@ export default function App() {
                 emissiveIntensity: Number.isFinite(mat.emissiveIntensity) ? mat.emissiveIntensity : 0
               }));
               obj.material = materials.length === 1 ? materials[0] : materials;
+              for (let materialIndex = 0; materialIndex < materials.length; materialIndex++) {
+                const materialData = saved.material[materialIndex];
+                const material = materials[materialIndex];
+                const textureSlots = materialData?.textures && typeof materialData.textures === 'object' ? materialData.textures : {};
+                for (const [slot, textureData] of Object.entries(textureSlots) as Array<[string, any]>) {
+                  if (!textureData?.dataUrl || !['map','emissiveMap','normalMap','roughnessMap','metalnessMap','aoMap','alphaMap'].includes(slot)) continue;
+                  const texture = await new THREE.TextureLoader().loadAsync(textureData.dataUrl);
+                  if (textureData.colorSpace) texture.colorSpace = textureData.colorSpace;
+                  if (Number.isFinite(textureData.wrapS)) texture.wrapS = textureData.wrapS;
+                  if (Number.isFinite(textureData.wrapT)) texture.wrapT = textureData.wrapT;
+                  if (typeof textureData.flipY === 'boolean') texture.flipY = textureData.flipY;
+                  texture.needsUpdate = true;
+                  (material as any)[slot] = texture;
+                }
+                material.needsUpdate = true;
+              }
             }
             if (saved.meshTopology) {
               obj.userData.cutLoops = Array.isArray(saved.meshTopology.cutLoops) ? saved.meshTopology.cutLoops.map((loop: number[][]) => loop.map(point => [...point])) : [];
@@ -5992,8 +6028,13 @@ export default function App() {
       setStatus('Preparing portable project ZIP…');
       const data = getProjectData();
       const exporter = new GLTFExporter();
+      const projectNodes = collectObjectOnlyProjectNodes(r.selectable || []);
+      const projectNodeSet = new Set(projectNodes);
+      const exportRoot = new THREE.Group();
+      exportRoot.name = 'Nexus3D Object Project';
+      getObjectOnlyProjectRoots(projectNodes).forEach((node: THREE.Object3D) => exportRoot.add(node.clone(true)));
       const userDataSnapshots: Array<{ target: any; userData: any }> = [];
-      r.scene.traverse((node: any) => {
+      exportRoot.traverse((node: any) => {
         userDataSnapshots.push({ target: node, userData: node.userData });
         node.userData = {};
         const materials = Array.isArray(node.material) ? node.material : node.material ? [node.material] : [];
@@ -6006,7 +6047,7 @@ export default function App() {
       try {
         glb = await new Promise<ArrayBuffer>((resolve, reject) => {
           exporter.parse(
-            r.scene,
+            exportRoot,
             result => {
               if (result instanceof ArrayBuffer) resolve(result);
               else reject(new Error('GLB exporter did not return a binary scene'));
@@ -6017,6 +6058,7 @@ export default function App() {
         });
       } finally {
         userDataSnapshots.forEach(snapshot => { snapshot.target.userData = snapshot.userData; });
+        exportRoot.clear();
       }
       const zip = new JSZip();
       const safeBase = (projectName.trim() || 'Nexus3D_Project').replace(/\.(nexus|zip)$/i, '').replace(/[^a-z0-9._-]/gi, '_');
@@ -6034,8 +6076,8 @@ export default function App() {
         createdAt: new Date().toISOString(),
         projectFile: 'Project.nexus',
         sceneFile: 'Scene/Scene.glb',
-        sceneBinaryIncludes: ['mesh geometry', 'node hierarchy and transforms', 'supported materials and embedded textures', 'supported skinning and skeleton data', 'supported cameras and lights'],
-        editorDataFileIncludes: ['Nexus3D editor IDs and metadata', 'scene object snapshots', 'keyframes']
+        sceneBinaryIncludes: ['shape mesh geometry', 'shape hierarchy and transforms', 'materials and embedded texture images', 'supported skinning and skeleton data'],
+        editorDataFileIncludes: ['per-shape permanent IDs and editor metadata', 'object-only snapshots', 'topology and IK rig data']
       }, null, 2));
       const base64 = await zip.generateAsync({ type: 'base64', compression: 'DEFLATE', compressionOptions: { level: 6 } });
       const fileName = safeBase.toLowerCase().endsWith('.zip') ? safeBase : safeBase + '.zip';
