@@ -1061,7 +1061,7 @@ export default function App() {
       });
       visit(scene);
       selectable.forEach(o => { if (!ordered.includes(o)) ordered.push(o); });
-      setItems(ordered.map(o => ({ id: o.userData.editorId, name: o.name, object: o, kind: o.userData.kind || o.type })));
+      setItems(ordered.map(o => ({ id: o.userData.editorId, name: o.userData.shapeId ? formatShapeIdentity(o.name, o.userData.shapeId) : o.name, object: o, kind: o.userData.kind || o.type })));
       setObjectCount(selectable.length);
     };
     syncItems();
