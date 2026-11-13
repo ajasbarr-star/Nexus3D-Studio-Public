@@ -5827,6 +5827,7 @@ export default function App() {
                   if (!textureData?.dataUrl || !['map','emissiveMap','normalMap','roughnessMap','metalnessMap','aoMap','alphaMap','bumpMap','displacementMap','lightMap','specularMap','clearcoatMap','clearcoatRoughnessMap','clearcoatNormalMap','iridescenceMap','iridescenceThicknessMap','sheenColorMap','sheenRoughnessMap','transmissionMap','thicknessMap','specularIntensityMap','specularColorMap','gradientMap'].includes(slot)) continue;
                   const texture = await new THREE.TextureLoader().loadAsync(textureData.dataUrl);
                   if (textureData.colorSpace) texture.colorSpace = textureData.colorSpace;
+                  if (Number.isFinite(textureData.mapping)) texture.mapping = textureData.mapping;
                   if (Number.isFinite(textureData.wrapS)) texture.wrapS = textureData.wrapS;
                   if (Number.isFinite(textureData.wrapT)) texture.wrapT = textureData.wrapT;
                   if (typeof textureData.flipY === 'boolean') texture.flipY = textureData.flipY;
