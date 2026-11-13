@@ -69,11 +69,13 @@ jobs:
           test -s "$RUNNER_TEMP/nexus3d-phase1-release.jks"
 
       - name: Calculate Phase 1 release version
+        env:
+          PHASE1_BUILD_NUMBER: 1
         run: |
-          VERSION_PATCH=$((GITHUB_RUN_NUMBER - 192))
-          if [ "$VERSION_PATCH" -lt 1 ]; then VERSION_PATCH=1; fi
+          VERSION_PATCH="$PHASE1_BUILD_NUMBER"
           echo "NEXUS3D_VERSION_PATCH=$VERSION_PATCH" >> "$GITHUB_ENV"
-          echo "Nexus3D Phase 1 version: 1.0.$VERSION_PATCH (build $GITHUB_RUN_NUMBER)"
+          printf -v BUILD_LABEL '%02d' "$PHASE1_BUILD_NUMBER"
+          echo "Nexus3D Phase 1 version: 1.0.$VERSION_PATCH (Phase 1 Build #$BUILD_LABEL)"
 
       - name: Configure Phase 1 release signing and version
         env:
@@ -142,7 +144,8 @@ jobs:
 
       - name: Rename APK with build number and version
         run: |
-          APK_NAME="Nexus3D_Phase1_Rendering_build${GITHUB_RUN_NUMBER}_v1.0.${NEXUS3D_VERSION_PATCH}.apk"
+          printf -v BUILD_LABEL "%02d" "$NEXUS3D_VERSION_PATCH"
+          APK_NAME="Nexus3D_Phase1_Rendering_Build_${BUILD_LABEL}_v1.0.${NEXUS3D_VERSION_PATCH}.apk"
           cp android/app/build/outputs/apk/release/app-release.apk "android/app/build/outputs/apk/release/$APK_NAME"
           echo "NEXUS3D_APK_NAME=$APK_NAME" >> "$GITHUB_ENV"
           echo "Created $APK_NAME"
@@ -150,7 +153,7 @@ jobs:
       - name: Upload signed Nexus3D Phase 1 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Nexus3D_Phase1_Rendering_build${{ github.run_number }}_v1.0.${{ env.NEXUS3D_VERSION_PATCH }}
+          name: Nexus3D_Phase1_Rendering_Build_01_v1.0.${{ env.NEXUS3D_VERSION_PATCH }}
           path: android/app/build/outputs/apk/release/${{ env.NEXUS3D_APK_NAME }}
           if-no-files-found: error
           retention-days: 14
