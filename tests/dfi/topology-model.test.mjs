@@ -265,3 +265,54 @@ test('Subdivide topology overlay draws persistent coplanar edges without the leg
   assert.ok(block.indexOf('if (hasPersistentTopology)') < block.indexOf('else if (isQuadGrid && position)'));
   assert.match(block, /Persistent modeling edges are the source of truth/);
 });
+
+
+import {
+  normalizeSelectionRect, pointInSelectionRect, segmentIntersectsSelectionRect,
+  collectVisibleMarqueeSelection, mergeSelectionLocks, clearSelectionLocks,
+} from '../../src/geometry/marquee-selection.mjs';
+
+test('marquee rectangle normalizes horizontal, vertical, and diagonal drags', () => {
+  assert.deepEqual(normalizeSelectionRect({ x: 90, y: 40 }, { x: 10, y: 80 }),
+    { left: 10, top: 40, right: 90, bottom: 80 });
+  assert.deepEqual(normalizeSelectionRect({ x: 30, y: 90 }, { x: 30, y: 10 }),
+    { left: 30, top: 10, right: 30, bottom: 90 });
+});
+
+test('vertex marquee includes points on rectangle boundaries', () => {
+  const rect = normalizeSelectionRect({ x: 10, y: 10 }, { x: 50, y: 50 });
+  assert.equal(pointInSelectionRect({ x: 10, y: 30 }, rect), true);
+  assert.equal(pointInSelectionRect({ x: 51, y: 30 }, rect), false);
+});
+
+test('edge marquee detects horizontal, vertical, diagonal, and crossing segments', () => {
+  const rect = normalizeSelectionRect({ x: 20, y: 20 }, { x: 60, y: 60 });
+  assert.equal(segmentIntersectsSelectionRect({ x: 0, y: 40 }, { x: 80, y: 40 }, rect), true);
+  assert.equal(segmentIntersectsSelectionRect({ x: 40, y: 0 }, { x: 40, y: 80 }, rect), true);
+  assert.equal(segmentIntersectsSelectionRect({ x: 0, y: 0 }, { x: 80, y: 80 }, rect), true);
+  assert.equal(segmentIntersectsSelectionRect({ x: 0, y: 10 }, { x: 80, y: 10 }, rect), false);
+});
+
+test('marquee collection excludes occluded items and merges additive locks without duplicates', () => {
+  const rect = normalizeSelectionRect({ x: 0, y: 0 }, { x: 100, y: 100 });
+  const items = [{ id: 'front' }, { id: 'hidden' }, { id: 'outside' }];
+  const additions = collectVisibleMarqueeSelection(
+    items, rect, item => item.id === 'outside' ? { x: 120, y: 20 } : { x: 30, y: 30 },
+    item => item.id !== 'hidden',
+  );
+  assert.deepEqual(additions, ['front']);
+  assert.deepEqual(mergeSelectionLocks(['prior', 'front'], additions), ['prior', 'front']);
+  assert.deepEqual(clearSelectionLocks(), []);
+});
+
+test('edge marquee collection uses visible predicate before projected segment intersection', () => {
+  const rect = normalizeSelectionRect({ x: 25, y: 25 }, { x: 75, y: 75 });
+  const items = [{ id: 'visible' }, { id: 'occluded' }];
+  const additions = collectVisibleMarqueeSelection(
+    items, rect,
+    item => [{ x: 0, y: 50 }, { x: 100, y: 50 }],
+    item => item.id === 'visible',
+    'segment',
+  );
+  assert.deepEqual(additions, ['visible']);
+});
