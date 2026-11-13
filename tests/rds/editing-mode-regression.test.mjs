@@ -353,6 +353,18 @@ test('Face Extrude linked cap vertices remain isolated and the Build 318 wall ge
   assert.match(source, /restoreExtrudedFaceSelection\?\.\(target, extrudedCapIndices, selectedExtrudedFaceParts, extrudedWallCapIndices\)/);
 });
 
+test('Face Pull records selected-face, perimeter, and generated-wall topology evidence', () => {
+  assert.match(source, /Face Pull geometry preflight/);
+  assert.match(source, /selectedFacePartCount: activeSubSelection\.faceParts\.length/);
+  assert.match(source, /Face Pull perimeter analysis/);
+  assert.match(source, /selectedTriangleCount: selectedTriangleOffsets\.size/);
+  assert.match(source, /perimeterEdgeCount: perimeter\.length/);
+  assert.match(source, /movedPerimeterEdgeCount: moved\.length/);
+  assert.match(source, /Face Pull wall generation metrics/);
+  assert.match(source, /generatedWallQuadCount: moved\.length/);
+  assert.match(source, /generatedWallTriangleCount: moved\.length \* 2/);
+});
+
 test('Face Pull with the Move gizmo creates connected quad side walls and preserves source attributes', () => {
   assert.match(source, /Face Pull: when a face is moved with the Move gizmo/);
   assert.match(source, /const selectedVertexIds = new Set\(activeSubSelection\.faceParts\.flat\(\)\)/);
