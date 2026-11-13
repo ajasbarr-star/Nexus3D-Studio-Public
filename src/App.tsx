@@ -5513,7 +5513,7 @@ export default function App() {
   const getProjectData = () => {
     const r = runtime.current;
     const projectNodes = collectObjectOnlyProjectNodes(r?.selectable || []);
-    projectNodes.filter((obj: THREE.Object3D) => ['Bone', 'Rig', 'IK Target', 'IK Pole'].includes(String(obj.userData.kind))).forEach((obj: THREE.Object3D) => { delete obj.userData.shapeId; delete obj.userData.shapeIdentityLabel; });
+    projectNodes.filter((obj: THREE.Object3D) => obj.userData.rigControlMarker || ['Bone', 'Rig', 'IK Target', 'IK Pole'].includes(String(obj.userData.kind))).forEach((obj: THREE.Object3D) => { delete obj.userData.shapeId; delete obj.userData.shapeIdentityLabel; });
     projectNodes.filter((obj: THREE.Object3D) => isShapeProjectMesh(obj)).forEach((obj: THREE.Object3D) => {
       const identity = ensureShapeIdentity(obj, projectNodes, Number(r?.scene?.userData?.nexusNextShapeId) || 1);
       if (r?.scene) r.scene.userData.nexusNextShapeId = identity.nextId;

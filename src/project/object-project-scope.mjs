@@ -16,7 +16,7 @@ function isExcludedViewportNode(node) {
 export function collectObjectOnlyProjectNodes(selectable = []) {
   const nodes = Array.isArray(selectable) ? selectable.filter(Boolean) : [];
   const included = new Set();
-  const meshes = nodes.filter(node => !isExcludedViewportNode(node) && (isShapeProjectMesh(node) || (node.userData?.shapeId && !['Bone', 'Rig', 'IK Target', 'IK Pole'].includes(node.userData?.kind))));
+  const meshes = nodes.filter(node => !isExcludedViewportNode(node) && (isShapeProjectMesh(node) || (node.userData?.shapeId && !node.userData?.rigControlMarker && !['Bone', 'Rig', 'IK Target', 'IK Pole'].includes(node.userData?.kind))));
   meshes.forEach(mesh => {
     let current = mesh;
     while (current && !current.isScene && current.type !== 'Scene' && !isExcludedViewportNode(current)) {
