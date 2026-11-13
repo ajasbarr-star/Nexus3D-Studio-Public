@@ -10,7 +10,7 @@ const mesh = (editorId, shapeId, name = 'Cube') => ({
 test('accepts unique Shape and editor IDs with valid attachment references', () => {
   const objects = [
     mesh('mesh-1', 'No.01'),
-    { name: 'Root', kind: 'Bone', editorId: 'bone-1' },
+    { name: 'Root', kind: 'Bone', editorId: 'bone-1', ownerShapeId: 'No.01' },
     { name: 'Rig', kind: 'Rig', editorId: 'rig-1', parentEditorId: 'mesh-1' },
     { name: 'Target', kind: 'IK Target', editorId: 'target-1', editorData: { rigRootBoneId: 'bone-1' } },
     { ...mesh('skin-1', 'No.02', 'Skinned'), skeleton: { boneEditorIds: ['bone-1'] } }
@@ -40,6 +40,12 @@ test('rejects missing parent, skeleton bone, and IK root references', () => {
   assert.throws(() => validateProjectIdentityData([
     mesh('mesh-1', 'No.01'), { editorId: 'target', editorData: { rigRootBoneId: 'missing' } }
   ], 4), /missing IK root bone/);
+});
+
+test('rejects attached nodes whose owning Shape is missing', () => {
+  assert.throws(() => validateProjectIdentityData([
+    mesh('mesh-1', 'No.01'), { kind: 'Bone', editorId: 'bone-1', ownerShapeId: 'No.99' }
+  ], 4), /missing owning Shape/);
 });
 
 test('keeps legacy projects compatible while still rejecting duplicate editor IDs', () => {
