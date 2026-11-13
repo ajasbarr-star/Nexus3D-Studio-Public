@@ -40,7 +40,6 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
     result.issues.push({ severity, code, mesh, objectId, detail });
   const meshes: any[] = [];
   scene?.traverse?.((object: any) => { if (object?.isMesh && object.geometry) meshes.push(object); });
-  const globalTriangleKeys = new Set<string>();
   let triangleBudget = Math.max(1, maxTriangles);
 
   for (const mesh of meshes) {
@@ -62,6 +61,9 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
     const elementCount = index ? index.count : position.count;
     const triCount = Math.floor(elementCount / 3);
     const localTriangleKeys = new Set<string>();
+    let meshInvalidIndices = 0;
+    let meshDegenerateTriangles = 0;
+    let meshDuplicateTriangles = 0;
     const vertexKeyToFirst = new Map<string, number>();
     for (let v = 0; v < position.count; v += 1) {
       const x = position.getX(v), y = position.getY(v), z = position.getZ(v);
@@ -95,6 +97,7 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
       const c = index ? index.getX(offset + 2) : offset + 2;
       if (![a, b, c].every(v => Number.isInteger(v) && v >= 0 && v < position.count)) {
         result.invalidIndices += 1;
+        meshInvalidIndices += 1;
         continue;
       }
       result.triangles += 1;
@@ -106,18 +109,23 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
       const nx = aby * acz - abz * acy;
       const ny = abz * acx - abx * acz;
       const nz = abx * acy - aby * acx;
-      if (nx * nx + ny * ny + nz * nz < 1e-18) result.degenerateTriangles += 1;
+      if (nx * nx + ny * ny + nz * nz < 1e-18) {
+        result.degenerateTriangles += 1;
+        meshDegenerateTriangles += 1;
+      }
       const keys = [pointKey(ax, ay, az, 1e-5), pointKey(bx, by, bz, 1e-5), pointKey(cx, cy, cz, 1e-5)].sort();
       const triangleKey = keys.join('|');
-      if (localTriangleKeys.has(triangleKey) || globalTriangleKeys.has(meshName + '|' + triangleKey)) result.duplicateTriangles += 1;
+      if (localTriangleKeys.has(triangleKey)) {
+        result.duplicateTriangles += 1;
+        meshDuplicateTriangles += 1;
+      }
       localTriangleKeys.add(triangleKey);
-      globalTriangleKeys.add(meshName + '|' + triangleKey);
       addEdge(canonicalVertexIds[a], canonicalVertexIds[b]); addEdge(canonicalVertexIds[b], canonicalVertexIds[c]); addEdge(canonicalVertexIds[c], canonicalVertexIds[a]);
     }
     if (elementCount % 3 !== 0) add('WARN', 'NON_TRIANGLE_ELEMENT_COUNT', meshName, objectId, `Geometry element count ${elementCount} is not divisible by three.`);
-    if (result.invalidIndices) add('ERROR', 'INVALID_INDEX', meshName, objectId, 'One or more triangle indices reference vertices outside the position buffer.');
-    if (result.degenerateTriangles) add('WARN', 'DEGENERATE_TRIANGLES', meshName, objectId, 'Degenerate triangles were detected in the scanned scene.');
-    if (result.duplicateTriangles) add('ERROR', 'DUPLICATE_TRIANGLES', meshName, objectId, 'Exact coincident triangle geometry was detected. Review face identity and material/UV seams before classifying as unintended.');
+    if (meshInvalidIndices) add('ERROR', 'INVALID_INDEX', meshName, objectId, `${meshInvalidIndices} triangle index reference(s) point outside this mesh position buffer.`);
+    if (meshDegenerateTriangles) add('WARN', 'DEGENERATE_TRIANGLES', meshName, objectId, `${meshDegenerateTriangles} degenerate triangle(s) were detected in this mesh.`);
+    if (meshDuplicateTriangles) add('ERROR', 'DUPLICATE_TRIANGLES', meshName, objectId, `${meshDuplicateTriangles} exact duplicate triangle(s) were detected within this mesh. Review face identity and material/UV seams before classifying as unintended.`);
 
     for (const count of edgeCounts.values()) {
       if (count === 1) result.boundaryEdges += 1;
