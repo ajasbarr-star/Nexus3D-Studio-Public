@@ -5905,6 +5905,9 @@ export default function App() {
               obj.target.updateMatrixWorld(true);
             }
           }
+          if (obj instanceof THREE.Light && typeof saved.castShadow === 'boolean') {
+            obj.castShadow = saved.castShadow;
+          }
           if (obj instanceof THREE.Mesh) {
             obj.castShadow = saved.castShadow !== false;
             obj.receiveShadow = saved.receiveShadow !== false;
