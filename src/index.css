@@ -2553,3 +2553,48 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   box-shadow: 0 0 14px rgba(0, 205, 245, .34), 0 0 7px rgba(139, 92, 246, .18) !important;
   cursor: grabbing !important;
 }
+
+
+/* Independent Geometry RIT diagnostics — separate from Menu, RDS and DFI. */
+.geometry-rit-toolbar-btn { color: #b8a0ff; }
+.geometry-rit-toolbar-btn.active { color: #d9caff; border-color: rgba(177,145,255,.8); background: rgba(112,76,170,.22); }
+.geometry-rit-panel {
+  position: fixed;
+  z-index: 160;
+  top: 58px;
+  right: 12px;
+  width: min(430px, calc(100vw - 24px));
+  max-height: min(72vh, 660px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(159,128,235,.72);
+  border-top: 2px solid #a98aff;
+  border-radius: 9px;
+  color: #e9e7f5;
+  background: rgba(8,10,22,.97);
+  box-shadow: 0 12px 36px rgba(0,0,0,.48), 0 0 18px rgba(139,104,219,.12);
+  backdrop-filter: blur(12px);
+}
+.geometry-rit-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.geometry-rit-heading > div { display:flex; align-items:center; gap:7px; color:#c9b6ff; }
+.geometry-rit-heading strong { font-size:11px; letter-spacing:.12em; }
+.geometry-rit-heading small { margin-left:4px; color:#8990a8; font-size:8px; letter-spacing:.08em; }
+.geometry-rit-heading > button { display:grid; place-items:center; width:30px; height:30px; border:1px solid #34334d; border-radius:6px; color:#c5c0d8; background:#151629; }
+.geometry-rit-summary { display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; padding:7px; border:1px solid #292b43; border-radius:6px; color:#aeb2c9; background:#101322; font-size:9px; }
+.geometry-rit-status { padding:3px 7px; border:1px solid #62528c; border-radius:4px; color:#d6c7ff; background:#28213d; font-weight:800; letter-spacing:.08em; }
+.geometry-rit-status.status-pass { color:#9be8c4; border-color:#286c55; background:#102c25; }
+.geometry-rit-status.status-review,.geometry-rit-status.status-insufficient-evidence { color:#ffd58b; border-color:#80633b; background:#302515; }
+.geometry-rit-status.status-fail { color:#ffaaaa; border-color:#873e4c; background:#351a24; }
+.geometry-rit-actions { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.geometry-rit-actions button { min-height:38px; display:flex; align-items:center; justify-content:center; gap:6px; border:1px solid #66538e; border-radius:6px; color:#e5dcff; background:linear-gradient(180deg,#302547,#201b35); font-size:9px; font-weight:800; letter-spacing:.06em; }
+.geometry-rit-actions button:disabled { opacity:.42; }
+.geometry-rit-report { min-height:100px; max-height: min(42vh,390px); margin:0; padding:9px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; border:1px solid #303149; border-radius:6px; color:#d5d8e8; background:#080d18; font:9px/1.55 "DM Mono",monospace; }
+.geometry-rit-note { color:#9398ae; font-size:8px; line-height:1.45; }
+@media (max-width:760px) {
+  .geometry-rit-panel { top:54px; right:7px; width:min(390px,calc(100vw - 14px)); max-height:74vh; padding:8px; }
+  .geometry-rit-report { max-height:42vh; font-size:8px; }
+  .geometry-rit-heading small { display:none; }
+}
