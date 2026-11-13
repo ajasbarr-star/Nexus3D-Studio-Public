@@ -415,6 +415,18 @@ test('Face Extrude matches selected triangles by source identity, not coincident
 });
 
 
+test('Move Face preserves connected boundary vertices without generating Extrude walls', () => {
+  const start = source.indexOf("const isolatedTransformIndices = selection.linkedIndices");
+  const end = source.indexOf("for (let index = 0; index < pos.count; index++)", start);
+  assert.ok(start >= 0 && end > start, 'sub-object transform boundary selection must exist');
+  const selectionBlock = source.slice(start, end);
+  assert.match(selectionBlock, /selection\.linkedIndices/);
+  assert.doesNotMatch(selectionBlock, /selection\.faceParts/);
+  assert.match(source, /if \(!isolatedTransformIndices\) selection\.indices\.forEach/);
+  assert.match(source, /logicalKeys\.has\(positionKey\(pos\.getX\(index\), pos\.getY\(index\), pos\.getZ\(index\)\)\)/);
+  assert.match(source, /Move Face committed · no extrusion walls/);
+});
+
 test('Face Extrude wall generation remains separate from Move Face', () => {
   const moveTrace = source.indexOf("Move Face committed · no extrusion walls");
   const extrudeStart = source.indexOf("} else if (tool === 'Extrude') {");
