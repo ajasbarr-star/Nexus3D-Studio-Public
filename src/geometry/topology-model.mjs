@@ -1,0 +1,123 @@
+/**
+ * Nexus3D persistent polygon topology model.
+ *
+ * Modeling topology is stored as vertex IDs and ordered polygon face loops.
+ * Render triangles are deliberately not used as the source of truth.
+ * This module is the foundation for migrating geometry operations incrementally.
+ */
+
+const edgeId = (a, b) => a < b ? a + "|" + b : b + "|" + a;
+const midpointId = (a, b) => "edge-mid:" + edgeId(a, b);
+
+export function buildTopology({ vertices, faces }) {
+  const vertexMap = new Map();
+  for (const vertex of vertices || []) {
+    if (!vertex || typeof vertex.id !== "string" || !vertex.id || vertexMap.has(vertex.id)) {
+      throw new Error("Topology contains a missing or duplicate vertex ID.");
+    }
+    if (!Array.isArray(vertex.position) || vertex.position.length !== 3 || !vertex.position.every(Number.isFinite)) {
+      throw new Error("Topology vertex " + vertex.id + " has an invalid position.");
+    }
+    vertexMap.set(vertex.id, { id: vertex.id, position: [...vertex.position] });
+  }
+
+  const faceMap = new Map();
+  for (const face of faces || []) {
+    if (!face || typeof face.id !== "string" || !face.id || faceMap.has(face.id)) {
+      throw new Error("Topology contains a missing or duplicate face ID.");
+    }
+    if (!Array.isArray(face.vertices) || face.vertices.length < 3 || new Set(face.vertices).size !== face.vertices.length) {
+      throw new Error("Topology face " + face.id + " must contain at least three unique ordered vertices.");
+    }
+    for (const id of face.vertices) if (!vertexMap.has(id)) {
+      throw new Error("Topology face " + face.id + " references missing vertex " + id + ".");
+    }
+    faceMap.set(face.id, { id: face.id, vertices: [...face.vertices], materialIndex: face.materialIndex ?? 0 });
+  }
+
+  const edgeMap = new Map();
+  for (const face of faceMap.values()) {
+    for (let i = 0; i < face.vertices.length; i++) {
+      const a = face.vertices[i], b = face.vertices[(i + 1) % face.vertices.length];
+      const id = edgeId(a, b);
+      const edge = edgeMap.get(id) || { id, a: a < b ? a : b, b: a < b ? b : a, faces: [] };
+      edge.faces.push(face.id);
+      edgeMap.set(id, edge);
+    }
+  }
+
+  return {
+    version: 1,
+    vertices: [...vertexMap.values()],
+    faces: [...faceMap.values()],
+    edges: [...edgeMap.values()],
+  };
+}
+
+export function validateTopology(topology) {
+  const errors = [];
+  if (!topology || topology.version !== 1 || !Array.isArray(topology.vertices) ||
+      !Array.isArray(topology.faces) || !Array.isArray(topology.edges)) {
+    return { valid: false, errors: ["Unsupported or incomplete topology payload."] };
+  }
+  try {
+    const rebuilt = buildTopology(topology);
+    if (rebuilt.edges.length !== topology.edges.length) errors.push("Stored edge adjacency is stale.");
+    const expected = new Map(rebuilt.edges.map(edge => [edge.id, edge.faces.slice().sort().join("|")]));
+    for (const edge of topology.edges) {
+      if (!expected.has(edge.id) || expected.get(edge.id) !== (edge.faces || []).slice().sort().join("|")) {
+        errors.push("Edge adjacency mismatch: " + edge.id);
+      }
+    }
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+export function moveTopologyVertices(topology, positionById) {
+  const vertices = topology.vertices.map(vertex => {
+    const next = positionById instanceof Map ? positionById.get(vertex.id) : positionById?.[vertex.id];
+    return next ? { ...vertex, position: [...next] } : vertex;
+  });
+  return buildTopology({ vertices, faces: topology.faces });
+}
+
+export function subdivideQuadFace(topology, faceId) {
+  const face = topology.faces.find(item => item.id === faceId);
+  if (!face) throw new Error("Cannot subdivide missing face " + faceId + ".");
+  if (face.vertices.length !== 4) throw new Error("Quad subdivision requires exactly four ordered face vertices.");
+
+  const vertexMap = new Map(topology.vertices.map(vertex => [vertex.id, vertex]));
+  const [a, b, c, d] = face.vertices.map(id => vertexMap.get(id));
+  const midpoint = (left, right) => left.position.map((value, axis) => (value + right.position[axis]) * 0.5);
+  const additions = [];
+  const midpointFor = (left, right) => {
+    const id = midpointId(left.id, right.id);
+    if (!vertexMap.has(id)) {
+      const vertex = { id, position: midpoint(left, right) };
+      vertexMap.set(id, vertex);
+      additions.push(vertex);
+    }
+    return id;
+  };
+  const ab = midpointFor(a, b), bc = midpointFor(b, c);
+  const cd = midpointFor(c, d), da = midpointFor(d, a);
+  const centerId = "face-center:" + face.id;
+  if (vertexMap.has(centerId)) throw new Error("Subdivision center ID already exists for face " + face.id + ".");
+  const center = {
+    id: centerId,
+    position: [0, 1, 2].map(axis => (a.position[axis] + b.position[axis] + c.position[axis] + d.position[axis]) * 0.25),
+  };
+  const replacements = [
+    { id: face.id + ":q0", vertices: [a.id, ab, centerId, da], materialIndex: face.materialIndex },
+    { id: face.id + ":q1", vertices: [ab, b.id, bc, centerId], materialIndex: face.materialIndex },
+    { id: face.id + ":q2", vertices: [centerId, bc, c.id, cd], materialIndex: face.materialIndex },
+    { id: face.id + ":q3", vertices: [da, centerId, cd, d.id], materialIndex: face.materialIndex },
+  ];
+  const faces = topology.faces.filter(item => item.id !== faceId).concat(replacements);
+  return buildTopology({
+    vertices: topology.vertices.concat(additions, center),
+    faces,
+  });
+}
