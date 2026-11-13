@@ -3399,6 +3399,7 @@ export default function App() {
   const add = (kind: string) => { if (!cameraView) runtime.current?.addObject(kind); };
   const applyGeometryTool = (tool: 'Extrude' | 'Subdivide' | 'Smooth' | 'LoopCut' | 'FacesCut' | '', rawAmount: number, partOverride?: { mesh: THREE.Mesh; indices: number[]; faceParts?: number[][] }, rebuildExtrudeFromBase = false) => {
     if (!tool) return;
+    if (tool !== 'Smooth') setSmoothSelectAllId('');
     const target = runtime.current?.selectable.find((o: THREE.Object3D) => String(o.userData.editorId) === selectedRef.current);
     const savedLoop = tool === 'LoopCut' ? loopCutContext.current : null;
     const savedExtrude = tool === 'Extrude' ? extrudeContext.current : null;
