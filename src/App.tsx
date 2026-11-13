@@ -29,6 +29,7 @@ import {
 import { scanMeshCore, formatMeshForensicReport } from './dfi/mesh-forensics';
 import { CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES } from './geometry/clean-flat-surface-contract';
 import { scanGeometryRit, formatGeometryRitReport } from './geometry/geometry-rit';
+import { RUNTIME_SESSION_ID, RUNTIME_SESSION_STARTED_AT, createRuntimeEventMetadata, formatRuntimeTraceReport } from './diagnostics/runtime-session.mjs';
 import './index.css';
 
 function createProjectMaterial(data: any): THREE.Material {
@@ -156,7 +157,7 @@ function BufferedNumberInput({ value, step = 0.1, disabled = false, ariaLabel, o
   );
 }
 
-type DiagnosticEntry = { id: string; time: string; level: 'ERROR' | 'WARN' | 'INFO'; source: string; message: string; details?: string };
+type DiagnosticEntry = { id: string; time: string; level: 'ERROR' | 'WARN' | 'INFO'; source: string; message: string; details?: string; sessionId?: string; sequence?: number; timestampISO?: string; origin?: 'USER_ACTION' | 'AUTO_PROCESS' | 'RESTORE' | 'SYSTEM' | 'UNKNOWN_ORIGIN' };
 type Item = { id: string; name: string; object: THREE.Object3D; kind: string };
 type TransformSnapshot = { position: number[]; rotation: number[]; scale: number[] };
 type FrameData = Record<string, TransformSnapshot>;
@@ -355,7 +356,9 @@ export default function App() {
   const diagnosticQueueRef = useRef<DiagnosticEntry[]>([]);
   const pushDiagnostic = (level: DiagnosticEntry['level'], source: string, message: string, details?: string) => {
     // Capture immediately; UI state and localStorage are flushed in small batches.
-    diagnosticQueueRef.current.push({ id: uid(), time: new Date().toLocaleTimeString(), level, source, message: String(message).slice(0, 1200), details: details ? String(details).slice(0, 5000) : undefined });
+    const timestamp = new Date();
+    const metadata = createRuntimeEventMetadata(source, message, timestamp);
+    diagnosticQueueRef.current.push({ id: uid(), time: timestamp.toLocaleTimeString(), level, source, message: String(message).slice(0, 1200), details: details ? String(details).slice(0, 5000) : undefined, ...metadata });
     if (diagnosticQueueRef.current.length > 100) diagnosticQueueRef.current.splice(0, diagnosticQueueRef.current.length - 100);
   };
   const clearDiagnosticLogs = () => {
@@ -391,7 +394,7 @@ export default function App() {
     return () => { window.clearInterval(timer); flush(); };
   }, []);
   const copyDiagnosticText = async (entries: DiagnosticEntry[]) => {
-    const report = entries.map(entry => `[${entry.time}] [${entry.level}] [${entry.source}] ${entry.message}${entry.details ? '\\n' + entry.details : ''}`).join('\\n\\n');
+    const report = formatRuntimeTraceReport(entries, { sessionId: RUNTIME_SESSION_ID, startedAt: RUNTIME_SESSION_STARTED_AT });
     try {
       if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(report);
       else {
@@ -4755,14 +4758,15 @@ export default function App() {
     } catch { setStatus('Use your browser menu for fullscreen mode'); }
   };
   useEffect(() => {
+    const isNativeApp = Capacitor.isNativePlatform();
     const onInstall = (event: Event) => {
       event.preventDefault();
       setInstallPrompt(event);
       setShowInstall(true);
     };
-    window.addEventListener('beforeinstallprompt', onInstall);
+    if (!isNativeApp) window.addEventListener('beforeinstallprompt', onInstall);
     const alreadyStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    const timer = !alreadyStandalone && !sessionStorage.getItem('nexus3d-install-dismissed')
+    const timer = !isNativeApp && !alreadyStandalone && !sessionStorage.getItem('nexus3d-install-dismissed')
       ? window.setTimeout(() => setShowInstall(true), 1800)
       : undefined;
     const fn = () => setFullscreen(Boolean(document.fullscreenElement));
@@ -4771,7 +4775,7 @@ export default function App() {
     document.addEventListener('fullscreenchange', fn);
     window.addEventListener('orientationchange', orient);
     orient();
-    return () => { if (timer) window.clearTimeout(timer); document.removeEventListener('fullscreenchange', fn); window.removeEventListener('orientationchange', orient); window.removeEventListener('beforeinstallprompt', onInstall); };
+    return () => { if (timer) window.clearTimeout(timer); document.removeEventListener('fullscreenchange', fn); window.removeEventListener('orientationchange', orient); if (!isNativeApp) window.removeEventListener('beforeinstallprompt', onInstall); };
   }, []);
 
   const applyInterpolatedFrame = (atFrame: number) => {
@@ -6737,6 +6741,7 @@ export default function App() {
                         </div>
                         {interactionTraceOpen && <section className="rds-rit-panel" aria-label="Realtime Interaction Trace results">
                           <div className="diagnostic-summary"><span>{diagnosticLogs.filter(entry => entry.source === 'Interaction Trace').length} interaction event(s)</span><span>{diagnosticLogs.filter(entry => entry.source === 'Interaction Trace' && entry.level === 'ERROR').length} trace error(s)</span></div>
+                          <div className="menu-info"><Info size={12}/><span>Session {RUNTIME_SESSION_ID} · started {RUNTIME_SESSION_STARTED_AT} · copied reports identify current, previous, and legacy events.</span></div>
                           <div className="diagnostic-actions rds-rit-actions rds-icon-actions" aria-label="RIT actions">
                             <button type="button" aria-label="Copy all RIT logs" title="Copy all RIT logs" onClick={() => void copyDiagnosticText([...diagnosticLogs.filter(entry => entry.source === 'Interaction Trace'), ...diagnosticQueueRef.current.filter(entry => entry.source === 'Interaction Trace')])} disabled={!diagnosticLogs.some(entry => entry.source === 'Interaction Trace') && !diagnosticQueueRef.current.some(entry => entry.source === 'Interaction Trace')}><ClipboardCopy size={15}/></button>
                             <button type="button" aria-label="Clear all RIT logs" title="Clear all RIT logs" onClick={clearInteractionTraceLogs} disabled={!diagnosticLogs.some(entry => entry.source === 'Interaction Trace') && !diagnosticQueueRef.current.some(entry => entry.source === 'Interaction Trace')}><Trash2 size={15}/></button>
@@ -6745,6 +6750,7 @@ export default function App() {
                             {!diagnosticLogs.some(entry => entry.source === 'Interaction Trace') && <div className="diagnostic-empty">No interaction events captured yet. Tap the viewport, Scene Tree, or a modeling tool to begin tracing.</div>}
                             {diagnosticLogs.filter(entry => entry.source === 'Interaction Trace').slice(-120).reverse().map(entry => <article className={'diagnostic-entry diagnostic-' + entry.level.toLowerCase()} key={entry.id}>
                               <div><strong>{entry.level}</strong><time>{entry.time}</time></div>
+                              <small className="rit-event-meta">{entry.sessionId === RUNTIME_SESSION_ID ? 'CURRENT' : entry.sessionId ? 'PREVIOUS' : 'LEGACY'} · {entry.origin || 'UNKNOWN ORIGIN'} · SEQ {entry.sequence ?? '—'}</small>
                               <b>{entry.source}</b><p>{entry.message}</p>
                               {entry.details && <pre>{entry.details}</pre>}
                             </article>)}
@@ -6873,7 +6879,7 @@ export default function App() {
               <button className="menu-option" onClick={setAxisSpace}><Globe size={13} /><span>Toggle World / Local</span></button>
               <button className="menu-option" onClick={toggleSnap}><Magnet size={13} /><span>{snapOn ? 'Disable Snapping' : 'Enable Snapping'}</span></button>
               <button className="menu-option" onClick={enterFullscreen}><Maximize size={13} /><span>Toggle Fullscreen</span></button>
-              <button className="menu-option" onClick={() => { setShowInstall(true); setMenuOpen(false); }}><Download size={13} /><span>Install Nexus3D</span></button>
+              {!Capacitor.isNativePlatform() && <button className="menu-option" onClick={() => { setShowInstall(true); setMenuOpen(false); }}><Download size={13} /><span>Install Nexus3D</span></button>}
             </>}
             {category.title === 'Help & System Info' && <>
               <div className="menu-info"><Keyboard size={13} /><span>Touch: tap to select; drag the gizmo to transform. Pinch or orbit to navigate the view.</span></div>
@@ -7159,7 +7165,7 @@ export default function App() {
       {animationMode && <><div className="animation-mode-controls" aria-label="Animation mode controls"><button title="Exit Animation Mode" aria-label="Exit Animation Mode" onClick={() => { setPlaying(false); setAnimationMode(false); setAnimOpen(false); setPlaybackControlsOpen(false); setTimelineOptionsOpen(false); if (cameraView) toggleCamera(); }}><X size={19}/></button><button className={playbackControlsOpen ? 'active' : ''} title={playbackControlsOpen ? 'Hide playback controls' : 'Show playback controls'} aria-label="Toggle playback controls" onClick={() => setPlaybackControlsOpen(v => !v)}><Film size={16}/><span>Anim</span></button></div>
         {playbackControlsOpen && <div className="sequence-playback-controls" aria-label="Playback controls"><button type="button" onClick={() => setCurrentFrame(Math.max(workStart, frame - 1))}>BACK</button><button type="button" className={playing ? 'active' : ''} onClick={() => setPlaying(v => !v)}>{playing ? 'PAUSE' : 'PLAY'}</button><button type="button" onClick={() => setCurrentFrame(Math.min(workEnd, frame + 1))}>FORWARD</button></div>}</>}
 
-      {showInstall && !portrait && !window.matchMedia('(display-mode: standalone)').matches && <div className="install-backdrop"><section className="install-card" role="dialog" aria-modal="true" aria-labelledby="install-title"><div className="install-icon"><Download size={19} /></div><button className="install-close" aria-label="Later" onClick={() => { setShowInstall(false); sessionStorage.setItem('nexus3d-install-dismissed', '1'); }}><X size={14} /></button><small>NEXUS3D / APP INSTALLER</small><h2 id="install-title">Install Nexus3D App / APK for fullscreen desktop-like experience?</h2><p>Install the web app for a cleaner standalone workspace. Android APK is not generated by this web install prompt.</p><div className="install-actions"><button className="install-later" onClick={() => { setShowInstall(false); sessionStorage.setItem('nexus3d-install-dismissed', '1'); }}>Later</button><button className="install-now" onClick={async () => { if (installPrompt && typeof installPrompt.prompt === 'function') { await installPrompt.prompt(); const choice = await installPrompt.userChoice; setStatus(choice?.outcome === 'accepted' ? 'Install accepted' : 'Install dismissed'); setInstallPrompt(null); setShowInstall(false); } else { setStatus('Use your browser menu: Install app / Add to Home screen'); setShowInstall(false); } }}><Download size={13} /> Install</button></div></section></div>}
+      {showInstall && !Capacitor.isNativePlatform() && !portrait && !window.matchMedia('(display-mode: standalone)').matches && <div className="install-backdrop"><section className="install-card" role="dialog" aria-modal="true" aria-labelledby="install-title"><div className="install-icon"><Download size={19} /></div><button className="install-close" aria-label="Later" onClick={() => { setShowInstall(false); sessionStorage.setItem('nexus3d-install-dismissed', '1'); }}><X size={14} /></button><small>NEXUS3D / APP INSTALLER</small><h2 id="install-title">Install Nexus3D App / APK for fullscreen desktop-like experience?</h2><p>Install the web app for a cleaner standalone workspace. Android APK is not generated by this web install prompt.</p><div className="install-actions"><button className="install-later" onClick={() => { setShowInstall(false); sessionStorage.setItem('nexus3d-install-dismissed', '1'); }}>Later</button><button className="install-now" onClick={async () => { if (installPrompt && typeof installPrompt.prompt === 'function') { await installPrompt.prompt(); const choice = await installPrompt.userChoice; setStatus(choice?.outcome === 'accepted' ? 'Install accepted' : 'Install dismissed'); setInstallPrompt(null); setShowInstall(false); } else { setStatus('Use your browser menu: Install app / Add to Home screen'); setShowInstall(false); } }}><Download size={13} /> Install</button></div></section></div>}
       {portrait && <div className="rotate-overlay"><div className="rotate-card"><div className="rotate-icon"><Rotate3D size={35} /></div><strong>Please rotate your device to Landscape Mode to use Nexus3D</strong><p>Nexus3D is optimized for a widescreen workspace.</p><div className="rotate-phone"><span /></div></div></div>}
     </main>
   );
