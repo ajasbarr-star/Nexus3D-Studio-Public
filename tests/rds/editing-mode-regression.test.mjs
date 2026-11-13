@@ -424,5 +424,5 @@ test('Face Extrude wall generation remains separate from Move Face', () => {
   const extrudeBlock = source.slice(extrudeStart, extrudeEnd);
   assert.match(extrudeBlock, /extrudedWallCapIndices\.push/);
   assert.match(extrudeBlock, /boundary\.forEach\(edge =>/);
-  assert.match(extrudeBlock, /restoreExtrudedFaceSelection\?\.\(target, extrudedCapIndices, selectedExtrudedFaceParts, extrudedWallCapIndices\)/);
+  // Selection restoration is intentionally committed after the geometry branch, not inside the Extrude generator block.\n  assert.match(source, /restoreExtrudedFaceSelection\?\.\(target, extrudedCapIndices, selectedExtrudedFaceParts, extrudedWallCapIndices\)/);
 });;
