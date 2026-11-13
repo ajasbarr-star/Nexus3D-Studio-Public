@@ -5756,7 +5756,7 @@ export default function App() {
             if (Array.isArray(saved.geometry.groups)) saved.geometry.groups.forEach((group: any) => {
               if (Number.isFinite(group.start) && Number.isFinite(group.count)) geometry.addGroup(group.start, group.count, Number(group.materialIndex) || 0);
             });
-            if (!parsedGeometry.getAttribute('normal')) parsedGeometry.computeVertexNormals();
+            if (!geometry.getAttribute('normal')) geometry.computeVertexNormals();
             geometry.computeBoundingBox();
             geometry.computeBoundingSphere();
             const materialData = Array.isArray(saved.material) ? saved.material[0] : null;
@@ -6112,11 +6112,15 @@ export default function App() {
         importedAnimations = collada.animations || [];
       } else if (extension === 'stl' || extension === 'ply') {
         const buffer = await file.arrayBuffer();
-        const geometry = extension === 'stl'
-          ? (await import('three/examples/jsm/loaders/STLLoader.js')).STLLoader
-          : (await import('three/examples/jsm/loaders/PLYLoader.js')).PLYLoader;
-        const parsedGeometry = new geometry(manager).parse(buffer);
-        if (!geometry.getAttribute('normal')) geometry.computeVertexNormals();
+        let parsedGeometry: THREE.BufferGeometry;
+        if (extension === 'stl') {
+          const { STLLoader } = await import('three/examples/jsm/loaders/STLLoader.js');
+          parsedGeometry = new STLLoader(manager).parse(buffer);
+        } else {
+          const { PLYLoader } = await import('three/examples/jsm/loaders/PLYLoader.js');
+          parsedGeometry = new PLYLoader(manager).parse(buffer);
+        }
+        if (!parsedGeometry.getAttribute('normal')) parsedGeometry.computeVertexNormals();
         const hasColors = Boolean(parsedGeometry.getAttribute('color'));
         const material = new THREE.MeshStandardMaterial({ color: hasColors ? 0xffffff : 0xb8c5d6, roughness: 0.72, metalness: 0.08, vertexColors: hasColors });
         const mesh = new THREE.Mesh(parsedGeometry, material);
