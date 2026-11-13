@@ -25,6 +25,17 @@ export type MeshForensicSummary = {
 const pointKey = (x: number, y: number, z: number, precision: number) =>
   [x, y, z].map(value => Math.round(value / precision)).join(',');
 
+/** Excludes editor-only visuals while retaining user-authored/imported mesh descendants. */
+export function isEditorOnlyGeometryMesh(mesh: any): boolean {
+  let node = mesh;
+  while (node) {
+    const data = node.userData || {};
+    if (data.nexusEditorHelper || data.isLightHelper || data.nexusJointVisual || data.nexusBoneVisual || data.isCineCamera) return true;
+    node = node.parent;
+  }
+  return false;
+}
+
 export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSummary {
   const result: MeshForensicSummary = {
     meshes: 0, vertices: 0, triangles: 0, uniquePositions: 0,
@@ -32,14 +43,15 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
     invalidIndices: 0, boundaryEdges: 0, nonManifoldEdges: 0,
     disconnectedComponents: 0, issues: [], limitations: [
       'Read-only scan: no mesh, transform, material, selection, or project data was modified.',
-      'Exact duplicate triangles and edge incidence are checked. General triangle-triangle self-intersection and hidden internal-shell classification require a dedicated spatial intersection pass.',
+      'Indexed topology uses vertex indices to avoid falsely welding UV/normal seams. Non-indexed topology uses coordinate-based inferred connectivity and is lower confidence. General self-intersection and hidden-shell classification require a dedicated spatial pass.',
+      'Editor-only camera, light-helper, IK joint/bone visual, and explicitly tagged editor-helper meshes are excluded from user geometry totals.',
       'A scan limit may apply to very large scenes; check the reported inspected triangle count.'
     ]
   };
   const add = (severity: MeshForensicIssue['severity'], code: string, mesh: string, objectId: string, detail: string) =>
     result.issues.push({ severity, code, mesh, objectId, detail });
   const meshes: any[] = [];
-  scene?.traverse?.((object: any) => { if (object?.isMesh && object.geometry) meshes.push(object); });
+  scene?.traverse?.((object: any) => { if (object?.isMesh && object.geometry && !isEditorOnlyGeometryMesh(object)) meshes.push(object); });
   let triangleBudget = Math.max(1, maxTriangles);
 
   for (const mesh of meshes) {
@@ -56,7 +68,7 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
     const positionCounts = new Map<string, number>();
     const edgeCounts = new Map<string, number>();
     const adjacency = new Map<number, Set<number>>();
-    const canonicalVertexIds = new Int32Array(position.count);
+    const coordinateVertexIds = new Int32Array(position.count);
     const index = geometry.getIndex?.();
     const elementCount = index ? index.count : position.count;
     const triCount = Math.floor(elementCount / 3);
@@ -74,7 +86,7 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
       const key = pointKey(x, y, z, 1e-6);
       positionCounts.set(key, (positionCounts.get(key) || 0) + 1);
       if (!vertexKeyToFirst.has(key)) vertexKeyToFirst.set(key, v);
-      canonicalVertexIds[v] = vertexKeyToFirst.get(key)!;
+      coordinateVertexIds[v] = vertexKeyToFirst.get(key)!;
     }
     result.uniquePositions += positionCounts.size;
     const duplicateGroups = [...positionCounts.values()].filter(count => count > 1).length;
@@ -120,7 +132,10 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
         meshDuplicateTriangles += 1;
       }
       localTriangleKeys.add(triangleKey);
-      addEdge(canonicalVertexIds[a], canonicalVertexIds[b]); addEdge(canonicalVertexIds[b], canonicalVertexIds[c]); addEdge(canonicalVertexIds[c], canonicalVertexIds[a]);
+      // Indexed geometry uses true vertex identity. Coordinate welding is only a
+      // fallback for non-indexed geometry, where triangle vertices are duplicated.
+      const topologyId = (vertex: number) => index ? vertex : coordinateVertexIds[vertex];
+      addEdge(topologyId(a), topologyId(b)); addEdge(topologyId(b), topologyId(c)); addEdge(topologyId(c), topologyId(a));
     }
     if (elementCount % 3 !== 0) add('WARN', 'NON_TRIANGLE_ELEMENT_COUNT', meshName, objectId, `Geometry element count ${elementCount} is not divisible by three.`);
     if (meshInvalidIndices) add('ERROR', 'INVALID_INDEX', meshName, objectId, `${meshInvalidIndices} triangle index reference(s) point outside this mesh position buffer.`);
