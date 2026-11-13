@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTopology, validateTopology, moveTopologyVertices, subdivideQuadFace, buildTopologyFromCanonicalQuadGeometry, buildTopologyFromIndexedQuadGeometry } from '../../src/geometry/topology-model.mjs';
+import { buildTopology, validateTopology, moveTopologyVertices, subdivideQuadFace, buildTopologyFromCanonicalQuadGeometry, buildTopologyFromIndexedQuadGeometry, updateTopologyPositionsFromRenderGeometry } from '../../src/geometry/topology-model.mjs';
 
 const square = () => buildTopology({
   vertices: [
@@ -101,4 +101,44 @@ test('indexed BoxGeometry-style quad cells retain expanded render-corner offsets
   assert.deepEqual(topology.faces[0].vertices.length, 4);
   assert.deepEqual(topology.faces[0].renderIndices, [0,1,4,2]);
   assert.equal(validateTopology(topology).valid, true);
+});
+
+
+test('Move Face refreshes positions from persistent face loops without triangle-pair inference', () => {
+  const initial = [
+    0,0,0, 1,0,0, 1,1,0, 0,0,0, 1,1,0, 0,1,0,
+    1,0,0, 2,0,0, 2,1,0, 1,0,0, 2,1,0, 1,1,0,
+  ];
+  const topology = buildTopologyFromCanonicalQuadGeometry(initial);
+  assert.ok(topology);
+  const moved = [...initial];
+  for (let i = 0; i < moved.length / 3; i++) if (moved[i * 3] === 1) moved[i * 3 + 2] += 0.25;
+  const updated = updateTopologyPositionsFromRenderGeometry(topology, moved);
+  assert.ok(updated);
+  assert.deepEqual(updated.faces.map(face => face.vertices), topology.faces.map(face => face.vertices));
+  assert.equal(updated.edges.length, topology.edges.length);
+  assert.equal(validateTopology(updated).valid, true);
+  assert.equal(updated.vertices.find(vertex => vertex.id === 'v:1.000000,0.000000,0.000000').position[2], 0.25);
+});
+
+test('persistent topology refresh fails closed when shared render copies disagree', () => {
+  const positions = [
+    0,0,0, 1,0,0, 1,1,0, 0,0,0, 1,1,0, 0,1,0,
+    1,0,0, 2,0,0, 2,1,0, 1,0,0, 2,1,0, 1,1,0,
+  ];
+  const topology = buildTopologyFromCanonicalQuadGeometry(positions);
+  assert.ok(topology);
+  positions[18] += 0.2;
+  assert.equal(updateTopologyPositionsFromRenderGeometry(topology, positions), null);
+});
+
+test('Move Face transform updates stored topology rather than rebuilding from triangles', async () => {
+  const source = await import('node:fs');
+  const app = source.readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
+  const start = app.indexOf("const updatedTopology = topologyPosition && existingTopology?.version === 1");
+  const end = app.indexOf("refreshTopologyOverlay(selection.mesh);", start);
+  assert.ok(start >= 0 && end > start);
+  const block = app.slice(start, end);
+  assert.match(block, /updateTopologyPositionsFromRenderGeometry/);
+  assert.doesNotMatch(block, /buildTopologyFromCanonicalQuadGeometry/);
 });
