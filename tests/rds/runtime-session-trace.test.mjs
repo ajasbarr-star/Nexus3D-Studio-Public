@@ -30,4 +30,5 @@ test('RIT report separates current, previous and legacy events', () => {
   assert.match(report, /PREVIOUS_SESSION/);
   assert.match(report, /LEGACY_UNKNOWN_SESSION/);
   assert.match(report, /cannot be attributed/);
+  assert.ok(report.includes('\n'), 'copied report should contain real line breaks');
 });
