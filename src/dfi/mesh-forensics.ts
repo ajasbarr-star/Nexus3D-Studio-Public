@@ -43,7 +43,7 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
     invalidIndices: 0, boundaryEdges: 0, nonManifoldEdges: 0,
     disconnectedComponents: 0, issues: [], limitations: [
       'Read-only scan: no mesh, transform, material, selection, or project data was modified.',
-      'Indexed topology uses vertex indices to avoid falsely welding UV/normal seams. Non-indexed topology uses coordinate-based inferred connectivity and is lower confidence. General self-intersection and hidden-shell classification require a dedicated spatial pass.',
+      'Indexed topology and duplicate-face identity use vertex indices to avoid falsely welding UV/normal seams. Non-indexed topology uses coordinate-based inferred connectivity and is lower confidence. Geometrically coincident triangles with different indexed vertices are not counted as exact duplicates; a separate overlap/intersection pass is required to classify them.',
       'Editor-only camera, light-helper, IK joint/bone visual, and explicitly tagged editor-helper meshes are excluded from user geometry totals.',
       'A scan limit may apply to very large scenes; check the reported inspected triangle count.'
     ]
@@ -125,7 +125,12 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
         result.degenerateTriangles += 1;
         meshDegenerateTriangles += 1;
       }
-      const keys = [pointKey(ax, ay, az, 1e-5), pointKey(bx, by, bz, 1e-5), pointKey(cx, cy, cz, 1e-5)].sort();
+      // Duplicate identity must follow topology identity for indexed meshes.
+      // Coordinate-only matching can falsely label UV/normal seam triangles as
+      // exact duplicates when distinct vertex records occupy the same positions.
+      const keys = index
+        ? [a, b, c].sort((left, right) => left - right).map(String)
+        : [pointKey(ax, ay, az, 1e-5), pointKey(bx, by, bz, 1e-5), pointKey(cx, cy, cz, 1e-5)].sort();
       const triangleKey = keys.join('|');
       if (localTriangleKeys.has(triangleKey)) {
         result.duplicateTriangles += 1;
@@ -140,7 +145,7 @@ export function scanMeshCore(scene: any, maxTriangles = 250000): MeshForensicSum
     if (elementCount % 3 !== 0) add('WARN', 'NON_TRIANGLE_ELEMENT_COUNT', meshName, objectId, `Geometry element count ${elementCount} is not divisible by three.`);
     if (meshInvalidIndices) add('ERROR', 'INVALID_INDEX', meshName, objectId, `${meshInvalidIndices} triangle index reference(s) point outside this mesh position buffer.`);
     if (meshDegenerateTriangles) add('WARN', 'DEGENERATE_TRIANGLES', meshName, objectId, `${meshDegenerateTriangles} degenerate triangle(s) were detected in this mesh.`);
-    if (meshDuplicateTriangles) add('ERROR', 'DUPLICATE_TRIANGLES', meshName, objectId, `${meshDuplicateTriangles} exact duplicate triangle(s) were detected within this mesh. Review face identity and material/UV seams before classifying as unintended.`);
+    if (meshDuplicateTriangles) add('ERROR', 'DUPLICATE_TRIANGLES', meshName, objectId, `${meshDuplicateTriangles} duplicate triangle(s) with identical topology vertex identity were detected within this mesh.`);
 
     for (const count of edgeCounts.values()) {
       if (count === 1) result.boundaryEdges += 1;
