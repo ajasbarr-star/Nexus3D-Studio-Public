@@ -158,3 +158,55 @@ test('Move Face can recover missing metadata only from a verified quad layout ma
   assert.match(block, /buildTopologyFromCanonicalQuadGeometry/);
   assert.doesNotMatch(block, /triangle-pair/);
 });
+
+
+test('multi-object topology ownership is isolated across repeated position updates', () => {
+  const source = [
+    0,0,0, 1,0,0, 1,1,0, 0,0,0, 1,1,0, 0,1,0,
+    1,0,0, 2,0,0, 2,1,0, 1,0,0, 2,1,0, 1,1,0,
+  ];
+  const objectA = buildTopologyFromCanonicalQuadGeometry(source);
+  const objectB = buildTopologyFromCanonicalQuadGeometry(source);
+  assert.ok(objectA && objectB);
+  const movedA = source.map((value, index) => index % 3 === 2 ? value + 0.5 : value);
+  const updatedA = updateTopologyPositionsFromRenderGeometry(objectA, movedA);
+  assert.ok(updatedA);
+  assert.deepEqual(objectB.vertices.map(vertex => vertex.position), [
+    [0,0,0], [1,0,0], [1,1,0], [0,1,0], [2,0,0], [2,1,0],
+  ]);
+  assert.notDeepEqual(updatedA.vertices.map(vertex => vertex.position), objectB.vertices.map(vertex => vertex.position));
+  assert.deepEqual(updatedA.faces.map(face => face.vertices), objectA.faces.map(face => face.vertices));
+  assert.deepEqual(objectB.faces.map(face => face.vertices), objectA.faces.map(face => face.vertices));
+  assert.equal(validateTopology(updatedA).valid, true);
+  assert.equal(validateTopology(objectB).valid, true);
+});
+
+test('App preserves stored face loops for position-only operations even without legacy quad-grid marker', async () => {
+  const source = await import('node:fs');
+  const app = source.readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
+  assert.match(app, /const priorTopology = beforeTopology\?\.version === 1 \? beforeTopology : null/);
+  assert.match(app, /const connectivityChanged = tool === 'Extrude'.*tool === 'FacesCut'/);
+  assert.match(app, /if \(committedPosition && priorTopology && !connectivityChanged\)/);
+  assert.match(app, /updateTopologyPositionsFromRenderGeometry\(\s*priorTopology/);
+  assert.match(app, /selection\.mesh\.userData\.nexusQuadGrid \|\| selection\.mesh\.userData\.nexusTopology\?\.version === 1/);
+});
+
+test('Subdivide prefers stored face loops even if legacy quad-grid marker is absent', async () => {
+  const source = await import('node:fs');
+  const app = source.readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
+  const start = app.indexOf('const storedTopology = target.userData.nexusTopology;');
+  const end = app.indexOf('if (!sourceQuadCorners && geometry.index', start);
+  assert.ok(start >= 0 && end > start);
+  const block = app.slice(start, end);
+  assert.match(block, /if \(storedFaces\.length > 0 && geometry\.index\)/);
+  assert.match(block, /if \(storedFaces\.length > 0 &&/);
+  assert.doesNotMatch(block, /target\.userData\.nexusQuadGrid === true && storedFaces/);
+});
+
+test('Object Rotate is retained in transform undo and redo snapshots', async () => {
+  const source = await import('node:fs');
+  const app = source.readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
+  assert.match(app, /rotation: \[o\.rotation\.x, o\.rotation\.y, o\.rotation\.z\]/);
+  assert.match(app, /o\.rotation\.set\(v\.rotation\[0\], v\.rotation\[1\], v\.rotation\[2\]\)/);
+  assert.match(app, /label: 'Transform ' \+ before\.object\.name/);
+});
