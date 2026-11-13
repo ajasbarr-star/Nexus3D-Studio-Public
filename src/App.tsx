@@ -4,6 +4,7 @@ import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import * as THREE from 'three';
 import { buildTopologyFromCanonicalQuadGeometry, buildTopologyFromIndexedQuadGeometry, updateTopologyPositionsFromRenderGeometry } from './geometry/topology-model.mjs';
 import { createSubObjectLockStore } from './geometry/subobject-lock-store.mjs';
+import { allocateShapeIdentity, formatShapeIdentity } from './identity/shape-identity.mjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -1594,6 +1595,15 @@ export default function App() {
       obj.name = name || kind + ' ' + (selectable.filter(o => o.name.startsWith(kind)).length + 1);
       obj.userData.editorId = uid();
       obj.userData.kind = kind;
+      if (obj instanceof THREE.Mesh) {
+        // Keep editorId intact for existing selection/IK links; shapeId is the
+        // durable identity shared by this Shape's editable data.
+        delete obj.userData.shapeId;
+        const identity = allocateShapeIdentity(selectable, Number(scene.userData.nexusNextShapeId) || 1);
+        obj.userData.shapeId = identity.shapeId;
+        scene.userData.nexusNextShapeId = identity.nextId;
+        obj.userData.shapeIdentityLabel = formatShapeIdentity(obj.name, identity.shapeId);
+      }
       if (obj instanceof THREE.Mesh && ['Cube', 'Sphere', 'Cylinder', 'Cone', 'Torus'].includes(kind)) {
         const primitivePosition = obj.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
         const primitiveTopology = primitivePosition
@@ -5441,6 +5451,8 @@ export default function App() {
       keyframes: JSON.parse(JSON.stringify(keysRef.current)),
       objects: (r?.selectable || []).map((obj: THREE.Object3D) => ({
         editorId: obj.userData.editorId || null,
+        shapeId: obj.userData.shapeId || null,
+        shapeIdentityLabel: obj.userData.shapeId ? formatShapeIdentity(obj.name, obj.userData.shapeId) : null,
         // Preserve editor-specific metadata used by topology, modeling and other tools.
         editorData: (() => {
           try {
@@ -5658,6 +5670,14 @@ export default function App() {
           }
           obj.userData.kind = saved.kind || obj.userData.kind || obj.type;
           if (saved.editorId) obj.userData.editorId = saved.editorId;
+          if (saved.shapeId) {
+            obj.userData.shapeId = saved.shapeId;
+            obj.userData.shapeIdentityLabel = formatShapeIdentity(saved.name, saved.shapeId);
+            const restoredNumber = Number(saved.shapeId.replace(/^No\./, ''));
+            if (Number.isSafeInteger(restoredNumber)) {
+              r.scene.userData.nexusNextShapeId = Math.max(Number(r.scene.userData.nexusNextShapeId) || 1, restoredNumber + 1);
+            }
+          }
           if (obj instanceof THREE.Mesh && saved.geometry?.attributes?.position?.array) {
             const restored = new THREE.BufferGeometry();
             Object.entries(saved.geometry.attributes).forEach(([key, value]: [string, any]) => {
@@ -5937,6 +5957,12 @@ export default function App() {
       object.traverse((node: any) => {
         if (!node.userData.editorId) node.userData.editorId = uid();
         node.userData.kind = node === object ? 'Imported Model' : node.isBone ? 'Bone' : node.isMesh ? 'Mesh' : 'GLTF Node';
+        if (node.isMesh && !node.userData.shapeId) {
+          const identity = allocateShapeIdentity(importedNodes, Number(r.scene.userData.nexusNextShapeId) || 1);
+          node.userData.shapeId = identity.shapeId;
+          r.scene.userData.nexusNextShapeId = identity.nextId;
+          node.userData.shapeIdentityLabel = formatShapeIdentity(node.name || object.name, identity.shapeId);
+        }
         importedNodes.push(node);
         if (node.isMesh && node.geometry) {
           node.geometry.computeVertexNormals();
@@ -6075,6 +6101,14 @@ export default function App() {
             });
           }
           node.userData.kind = saved.kind || kind;
+          if (saved.shapeId) {
+            node.userData.shapeId = saved.shapeId;
+            node.userData.shapeIdentityLabel = formatShapeIdentity(saved.name || node.name, saved.shapeId);
+            const restoredNumber = Number(saved.shapeId.replace(/^No\./, ''));
+            if (Number.isSafeInteger(restoredNumber)) {
+              r.scene.userData.nexusNextShapeId = Math.max(Number(r.scene.userData.nexusNextShapeId) || 1, restoredNumber + 1);
+            }
+          }
         } else {
           node.userData.editorId = node.userData.editorId || uid();
           node.userData.kind = kind;
