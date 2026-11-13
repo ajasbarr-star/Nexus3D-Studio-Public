@@ -2655,9 +2655,9 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 
 /* RDS compact dock and temporary top-right toolbar declutter. */
 .rds-command-center {
-  width: min(460px, calc(100vw - 18px)) !important;
-  height: min(58vh, calc(100dvh - 78px)) !important;
-  min-height: 220px !important;
+  width: min(360px, calc(100vw - 18px)) !important;
+  height: min(48vh, calc(100dvh - 78px)) !important;
+  min-height: 180px !important;
 }
 .right-actions .ready-label,
 .right-actions .fullscreen-btn {
@@ -2685,8 +2685,8 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 }
 @media (max-width: 760px) {
   .rds-command-center {
-    width: calc(100vw - 10px) !important;
-    height: min(62vh, calc(100dvh - 68px)) !important;
+    width: min(360px, calc(100vw - 10px)) !important;
+    height: min(48vh, calc(100dvh - 68px)) !important;
   }
   .quick-access-rail {
     top: 52px !important;
