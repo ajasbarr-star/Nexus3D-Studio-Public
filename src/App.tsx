@@ -3139,6 +3139,17 @@ export default function App() {
         const beforePosition = beforeGeometry.getAttribute('position') as THREE.BufferAttribute | undefined;
         const livePosition = liveGeometry.getAttribute('position') as THREE.BufferAttribute | undefined;
         const selectedVertexIds = new Set(activeSubSelection.faceParts.flat());
+        recordInteractionTrace('Face Pull geometry preflight', {
+          selectedIndexCount: activeSubSelection.indices.length,
+          selectedFacePartCount: activeSubSelection.faceParts.length,
+          facePartVertexCounts: activeSubSelection.faceParts.map(part => part.length),
+          selectedVertexCount: selectedVertexIds.size,
+          beforeVertexCount: beforePosition?.count ?? 0,
+          liveVertexCount: livePosition?.count ?? 0,
+          indexedBefore: Boolean(beforeGeometry.index),
+          indexedLive: Boolean(liveGeometry.index),
+          triangleElementCount: beforeGeometry.index?.count ?? beforePosition?.count ?? 0,
+        });
         if (beforePosition && livePosition && beforePosition.count === livePosition.count) {
           const sourceIndex = beforeGeometry.index;
           const triangleCount = sourceIndex ? sourceIndex.count : beforePosition.count;
@@ -3169,6 +3180,12 @@ export default function App() {
             const newA = new THREE.Vector3().fromBufferAttribute(livePosition, edge.a);
             const newB = new THREE.Vector3().fromBufferAttribute(livePosition, edge.b);
             return oldA.distanceToSquared(newA) > 1e-12 || oldB.distanceToSquared(newB) > 1e-12;
+          });
+          recordInteractionTrace('Face Pull perimeter analysis', {
+            selectedTriangleCount: selectedTriangleOffsets.size,
+            perimeterEdgeCount: perimeter.length,
+            movedPerimeterEdgeCount: moved.length,
+            perimeterVertexIds: Array.from(new Set(perimeter.flatMap(edge => [edge.a, edge.b]))),
           });
           if (moved.length) {
             let removedDuplicateSurfaceTriangles = 0;
@@ -3274,6 +3291,14 @@ export default function App() {
                 });
               }
             }
+            recordInteractionTrace('Face Pull wall generation metrics', {
+              generatedWallQuadCount: moved.length,
+              generatedWallTriangleCount: moved.length * 2,
+              generatedWallVertexCount: wallVertexCount,
+              removedDuplicateSurfaceTriangles,
+              sourceTriangleCountBeforeWalls: Math.floor(livePosition.count / 3),
+              finalTriangleCountBeforeAssignment: Math.floor(source.getAttribute('position').count / 3),
+            });
             source.computeVertexNormals();
             source.computeBoundingBox();
             source.computeBoundingSphere();
