@@ -6295,7 +6295,7 @@ export default function App() {
         Math.max(
           Number(r.scene.userData.nexusNextShapeId) || 1,
           Number(projectData.nextShapeId) || 1,
-          ...[...reservedShapeIds].map(id => Number(id.replace(/^No\\./, '')) + 1).filter(Number.isSafeInteger),
+          ...[...reservedShapeIds].map(id => Number(id.replace(/^No\./, '')) + 1).filter(Number.isSafeInteger),
           1
         )
       );
