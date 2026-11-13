@@ -3074,7 +3074,7 @@ export default function App() {
       selection.mesh.geometry.computeVertexNormals();
       selection.mesh.geometry.computeBoundingBox();
       selection.mesh.geometry.computeBoundingSphere();
-      if (selection.mesh.userData.nexusQuadGrid) {
+      if (selection.mesh.userData.nexusQuadGrid || selection.mesh.userData.nexusTopology?.version === 1) {
         const topologyPosition = selection.mesh.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
         const existingTopology = selection.mesh.userData.nexusTopology;
         // Move Face changes coordinates, not connectivity. Prefer the stored
@@ -3539,13 +3539,13 @@ export default function App() {
       // Indexed primitive render indices are stored as expanded-stream offsets.
       // Expand before validating those offsets; this preserves the topology map
       // while keeping the original indexed mesh untouched in its history snapshot.
-      if (target.userData.nexusQuadGrid === true && storedFaces.length > 0 && geometry.index) {
+      if (storedFaces.length > 0 && geometry.index) {
         const indexedSource = geometry;
         geometry = indexedSource.toNonIndexed();
         indexedSource.dispose();
       }
       const positionCount = geometry.getAttribute('position')?.count || 0;
-      if (target.userData.nexusQuadGrid === true && storedFaces.length > 0 &&
+      if (storedFaces.length > 0 &&
           storedFaces.every((face: any) => Array.isArray(face.renderIndices) &&
             face.renderIndices.length === 4 &&
             face.renderIndices.every((index: number) => Number.isInteger(index) && index >= 0 && index < positionCount))) {
@@ -4108,13 +4108,25 @@ export default function App() {
     target.geometry.dispose(); target.geometry = geometry;
     const committedPosition = target.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
     let committedTopology: ReturnType<typeof buildTopologyFromCanonicalQuadGeometry> = null;
-    if (afterQuadGridState.enabled && committedPosition) {
+    const priorTopology = beforeTopology?.version === 1 ? beforeTopology : null;
+    const connectivityChanged = tool === 'Extrude' || tool === 'Subdivide' || tool === 'LoopCut' || tool === 'FacesCut';
+    if (committedPosition && priorTopology && !connectivityChanged) {
+      // Position-only operations (notably Smooth and face/component transforms)
+      // must refresh coordinates on this object's existing face loops. Do not
+      // discard topology merely because the legacy quad-grid marker is absent.
+      committedTopology = updateTopologyPositionsFromRenderGeometry(
+        priorTopology,
+        committedPosition.array,
+        target.geometry.index?.array || null
+      );
+    } else if (afterQuadGridState.enabled && committedPosition) {
+      // Connectivity-changing operations publish a new verified render layout.
       committedTopology = target.geometry.index
         ? buildTopologyFromIndexedQuadGeometry(committedPosition.array, target.geometry.index.array)
         : buildTopologyFromCanonicalQuadGeometry(committedPosition.array);
-      if (committedTopology) target.userData.nexusTopology = committedTopology;
-      else delete target.userData.nexusTopology;
-    } else delete target.userData.nexusTopology;
+    }
+    if (committedTopology) target.userData.nexusTopology = committedTopology;
+    else delete target.userData.nexusTopology;
     recordInteractionTrace('Persistent topology handoff', {
       operation: tool,
       enabled: Boolean(afterQuadGridState.enabled),
@@ -4171,11 +4183,13 @@ export default function App() {
           target.userData.cutLoops = redoCutLoops.map(loop => loop.map(point => [...point]));
           restoreQuadGridState(afterQuadGridState);
           const redoPosition = target.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
-          const redoTopology = afterQuadGridState.enabled && redoPosition
-            ? target.geometry.index
-              ? buildTopologyFromIndexedQuadGeometry(redoPosition.array, target.geometry.index.array)
-              : buildTopologyFromCanonicalQuadGeometry(redoPosition.array)
-            : null;
+          const redoTopology = redoPosition && priorTopology && !connectivityChanged
+            ? updateTopologyPositionsFromRenderGeometry(priorTopology, redoPosition.array, target.geometry.index?.array || null)
+            : afterQuadGridState.enabled && redoPosition
+              ? target.geometry.index
+                ? buildTopologyFromIndexedQuadGeometry(redoPosition.array, target.geometry.index.array)
+                : buildTopologyFromCanonicalQuadGeometry(redoPosition.array)
+              : null;
           if (redoTopology) target.userData.nexusTopology = redoTopology;
           else delete target.userData.nexusTopology;
           runtime.current?.refreshTopologyOverlay?.(target);
