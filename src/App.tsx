@@ -5651,6 +5651,7 @@ export default function App() {
           return;
         }
         if (data.projectName) setProjectName(String(data.projectName));
+        r.scene.userData.nexusNextShapeId = Math.max(Number(r.scene.userData.nexusNextShapeId) || 1, Number(data.nextShapeId) || 1);
         const restoredById = new Map<string, THREE.Object3D>();
         const restoredByName = new Map<string, THREE.Object3D>();
         const restoredNodeSet = new Set<THREE.Object3D>();
@@ -6185,6 +6186,7 @@ export default function App() {
       if (!projectEntry || !sceneEntry) throw new Error('ZIP is missing Project.nexus or Scene/Scene.glb');
       const projectData = JSON.parse(await projectEntry.async('string'));
       if (!Array.isArray(projectData.objects)) throw new Error('Project metadata is invalid');
+      r.scene.userData.nexusNextShapeId = Math.max(Number(r.scene.userData.nexusNextShapeId) || 1, Number(projectData.nextShapeId) || 1);
       const sceneBuffer = await sceneEntry.async('arraybuffer');
       const loader = new GLTFLoader();
       const gltf = await new Promise<any>((resolve, reject) => loader.parse(sceneBuffer, '', resolve, reject));
