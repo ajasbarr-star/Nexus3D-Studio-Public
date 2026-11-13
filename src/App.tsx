@@ -3025,16 +3025,13 @@ export default function App() {
       // UV/material seam copies visually connected without welding their attributes.
       const logicalKeys = new Set<string>();
       const positionKey = (x: number, y: number, z: number) => [x, y, z].map(value => Math.round(value * 1e5)).join(',');
-      // Face selections must move only the selected face's own render vertices.
-      // Expanding by matching coordinates also moves the duplicated boundary vertices
-      // on adjacent faces, collapsing the old perimeter onto the pulled cap and creating
-      // three-triangle (non-manifold) edges once Face Pull walls are added. Vertex/Edge
-      // selections still expand by logical position to preserve UV/normal seam continuity.
+      // Move Face must preserve the existing mesh boundary: include coincident render
+      // vertices on adjacent faces so shared cube edges stay connected. This deforms the
+      // existing side faces; it does not create Extrude wall geometry. Explicit linked
+      // selections remain isolated to their declared indices.
       const isolatedTransformIndices = selection.linkedIndices
         ? new Set([...selection.indices, ...selection.linkedIndices].filter(index => index >= 0 && index < pos.count))
-        : selection.faceParts?.length
-          ? new Set(selection.indices.filter(index => index >= 0 && index < pos.count))
-          : null;
+        : null;
       if (!isolatedTransformIndices) selection.indices.forEach(index => { if (index >= 0 && index < pos.count) logicalKeys.add(positionKey(pos.getX(index), pos.getY(index), pos.getZ(index))); });
       for (let index = 0; index < pos.count; index++) {
         if (isolatedTransformIndices ? !isolatedTransformIndices.has(index) : !logicalKeys.has(positionKey(pos.getX(index), pos.getY(index), pos.getZ(index)))) continue;
