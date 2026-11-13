@@ -319,6 +319,7 @@ test('edge marquee collection uses visible predicate before projected segment in
 
 
 import { createSubObjectLockStore } from '../../src/geometry/subobject-lock-store.mjs';
+import { isInsideClipVolume, isNearestTargetHit } from '../../src/geometry/marquee-selection.mjs';
 
 test('Vertex and Edge locks accumulate independently per object and Clear Locks is scoped', () => {
   const store = createSubObjectLockStore();
@@ -373,4 +374,20 @@ test('edge marquee collection selects a visible segment crossing the box with bo
     'segment',
   );
   assert.deepEqual(additions, ['crossing']);
+});
+
+
+test('marquee projection rejects points outside the active camera clip volume', () => {
+  assert.equal(isInsideClipVolume({ x: 0, y: 0, z: 0 }), true);
+  assert.equal(isInsideClipVolume({ x: 1.0000005, y: -1, z: 1 }), true);
+  assert.equal(isInsideClipVolume({ x: 1.01, y: 0, z: 0 }), false);
+  assert.equal(isInsideClipVolume({ x: 0, y: 0, z: -1.1 }), false);
+  assert.equal(isInsideClipVolume({ x: NaN, y: 0, z: 0 }), false);
+});
+
+test('marquee occlusion accepts only the nearest hit on the candidate target', () => {
+  assert.equal(isNearestTargetHit([{ objectId: 'mesh-a', distance: 4 }], 'mesh-a', 4.00001), true);
+  assert.equal(isNearestTargetHit([{ objectId: 'mesh-b', distance: 3 }, { objectId: 'mesh-a', distance: 4 }], 'mesh-a', 4), false);
+  assert.equal(isNearestTargetHit([{ objectId: 'mesh-a', distance: 4.2 }], 'mesh-a', 4, 0.01), false);
+  assert.equal(isNearestTargetHit([], 'mesh-a', 4), false);
 });
