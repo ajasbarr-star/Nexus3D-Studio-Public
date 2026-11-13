@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTopology, validateTopology, moveTopologyVertices, subdivideQuadFace } from '../../src/geometry/topology-model.mjs';
+import { buildTopology, validateTopology, moveTopologyVertices, subdivideQuadFace, buildTopologyFromCanonicalQuadGeometry } from '../../src/geometry/topology-model.mjs';
 
 const square = () => buildTopology({
   vertices: [
@@ -55,4 +55,26 @@ test('topology builder rejects duplicate IDs and dangling face references', () =
     vertices: [{ id: 'a', position: [0,0,0] }],
     faces: [{ id: 'f', vertices: ['a', 'missing', 'a2'] }],
   }), /missing vertex/);
+});
+
+
+test('canonical quad render cells become persistent face loops with shared edge adjacency', () => {
+  const positions = [
+    0,0,0, 1,0,0, 1,1,0, 0,0,0, 1,1,0, 0,1,0,
+    1,0,0, 2,0,0, 2,1,0, 1,0,0, 2,1,0, 1,1,0,
+  ];
+  const topology = buildTopologyFromCanonicalQuadGeometry(positions);
+  assert.ok(topology);
+  assert.equal(topology.faces.length, 2);
+  assert.equal(topology.vertices.length, 6);
+  assert.equal(topology.edges.length, 7);
+  assert.equal(topology.edges.filter(edge => edge.faces.length === 2).length, 1);
+  assert.equal(validateTopology(topology).valid, true);
+});
+
+test('canonical quad adapter fails closed for incomplete or malformed render streams', () => {
+  assert.equal(buildTopologyFromCanonicalQuadGeometry([0,0,0, 1,0,0, 0,1,0]), null);
+  assert.equal(buildTopologyFromCanonicalQuadGeometry([
+    0,0,0, 1,0,0, 1,1,0, 0,0,0, 1,1,0, 0,0,0,
+  ]), null);
 });
