@@ -340,11 +340,12 @@ test('Move Face shares coincident boundary vertices while explicit linked select
   const end = source.indexOf('if (!isolatedTransformIndices) selection.indices.forEach', start);
   assert.ok(start >= 0 && end > start, 'sub-selection transform vertex policy must exist');
   const block = source.slice(start, end);
-  assert.match(block, /selection\\.linkedIndices[\\s\\S]*new Set\\(\\[\\.\\.\\.selection\\.indices, \\.\\.\\.selection\\.linkedIndices\\]/);
-  assert.match(block, /: null;/);
-  assert.doesNotMatch(block, /selection\\.faceParts/);
-  assert.doesNotMatch(source, /Face selections must move only the selected face's own render vertices/);
-  assert.match(source, /if \\(isolatedTransformIndices \\? !isolatedTransformIndices\\.has\\(index\\) : !logicalKeys\\.has\\(/);
+  assert.ok(block.includes('selection.linkedIndices'));
+  assert.ok(block.includes('new Set([...selection.indices, ...selection.linkedIndices]'));
+  assert.ok(block.includes(': null;'));
+  assert.ok(!block.includes('selection.faceParts'));
+  assert.ok(!source.includes("Face selections must move only the selected face's own render vertices"));
+  assert.ok(source.includes('if (isolatedTransformIndices ? !isolatedTransformIndices.has(index) : !logicalKeys.has('));
 });
 
 test('Move Face stays transform-only while Extrude owns connecting walls', () => {
