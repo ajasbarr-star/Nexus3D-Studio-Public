@@ -316,3 +316,36 @@ test('edge marquee collection uses visible predicate before projected segment in
   );
   assert.deepEqual(additions, ['visible']);
 });
+
+
+import { createSubObjectLockStore } from '../../src/geometry/subobject-lock-store.mjs';
+
+test('Vertex and Edge locks accumulate independently per object and Clear Locks is scoped', () => {
+  const store = createSubObjectLockStore();
+  assert.deepEqual(store.add('shape-a', 'Vertex', [4, 2, 4, -1, 3.5]), [2, 4]);
+  assert.deepEqual(store.add('shape-a', 'Vertex', [7, 2]), [2, 4, 7]);
+  assert.deepEqual(store.add('shape-a', 'Edge', [[5, 2], [2, 5], [8, 9]]), ['2:5', '8:9']);
+  assert.deepEqual(store.add('shape-b', 'Vertex', [1]), [1]);
+  assert.deepEqual(store.get('shape-a', 'Vertex'), [2, 4, 7]);
+  assert.deepEqual(store.get('shape-a', 'Edge'), ['2:5', '8:9']);
+  store.clear('shape-a', 'Vertex');
+  assert.deepEqual(store.get('shape-a', 'Vertex'), []);
+  assert.deepEqual(store.get('shape-a', 'Edge'), ['2:5', '8:9']);
+  assert.deepEqual(store.get('shape-b', 'Vertex'), [1]);
+  store.clearObject('shape-a');
+  assert.deepEqual(store.snapshot(), [{ objectId: 'shape-b', Vertex: [1], Edge: [] }]);
+});
+
+test('Clear Locks without an object clears every Vertex and Edge lock', () => {
+  const store = createSubObjectLockStore();
+  store.add('shape-a', 'Vertex', [0, 1]);
+  store.add('shape-b', 'Edge', [[1, 2]]);
+  store.clear();
+  assert.deepEqual(store.snapshot(), []);
+});
+
+test('sub-object lock store rejects missing object identity and unsupported lock modes', () => {
+  const store = createSubObjectLockStore();
+  assert.throws(() => store.add('', 'Vertex', [0]), /stable object ID/);
+  assert.throws(() => store.add('shape-a', 'Face', [0]), /Vertex or Edge/);
+});
