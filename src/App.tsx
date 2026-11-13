@@ -1552,7 +1552,9 @@ export default function App() {
         const primitivePosition = obj.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
         const primitiveTopology = primitivePosition
           ? obj.geometry.index
-            ? buildTopologyFromIndexedQuadGeometry(primitivePosition.array, obj.geometry.index.array)
+            ? kind === 'Cube'
+              ? buildTopologyFromIndexedQuadGeometry(primitivePosition.array, obj.geometry.index.array)
+              : null
             : buildTopologyFromCanonicalQuadGeometry(primitivePosition.array)
           : null;
         if (primitiveTopology) {
