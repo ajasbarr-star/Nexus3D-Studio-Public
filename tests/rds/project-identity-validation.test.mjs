@@ -44,6 +44,6 @@ test('rejects missing parent, skeleton bone, and IK root references', () => {
 
 test('keeps legacy projects compatible while still rejecting duplicate editor IDs', () => {
   assert.deepEqual(validateProjectIdentityData([
-    { name: 'Legacy Cube', kind: 'Mesh', geometry: { attributes: { position: { array: [0,0,0,1,0,0,0,1,0] } } }
+    { name: 'Legacy Cube', kind: 'Mesh', geometry: { attributes: { position: { array: [0,0,0,1,0,0,0,1,0] } } } }
   ], 3), { editorIdCount: 0, shapeIdCount: 0 });
 });
