@@ -35,6 +35,48 @@ import { CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES } from './geometry/clean-flat-sur
 import { scanGeometryRit, formatGeometryRitReport } from './geometry/geometry-rit';
 import './index.css';
 
+function createProjectMaterial(data: any): THREE.Material {
+  const constructors: Record<string, any> = {
+    MeshPhysicalMaterial: THREE.MeshPhysicalMaterial,
+    MeshStandardMaterial: THREE.MeshStandardMaterial,
+    MeshPhongMaterial: THREE.MeshPhongMaterial,
+    MeshLambertMaterial: THREE.MeshLambertMaterial,
+    MeshBasicMaterial: THREE.MeshBasicMaterial,
+    MeshToonMaterial: THREE.MeshToonMaterial,
+    MeshMatcapMaterial: THREE.MeshMatcapMaterial,
+    MeshNormalMaterial: THREE.MeshNormalMaterial,
+    ShadowMaterial: THREE.ShadowMaterial
+  };
+  const Constructor = constructors[data?.type] || THREE.MeshPhysicalMaterial;
+  const material = new Constructor({
+    color: data?.color ? '#' + data.color : '#b6d8ff',
+    roughness: Number.isFinite(data?.roughness) ? data.roughness : 0.35,
+    metalness: Number.isFinite(data?.metalness) ? data.metalness : 0.18,
+    opacity: Number.isFinite(data?.opacity) ? data.opacity : 1,
+    transparent: Boolean(data?.transparent),
+    emissive: data?.emissive ? '#' + data.emissive : '#000000',
+    emissiveIntensity: Number.isFinite(data?.emissiveIntensity) ? data.emissiveIntensity : 0,
+    clearcoat: Number.isFinite(data?.clearcoat) ? data.clearcoat : 0,
+    clearcoatRoughness: Number.isFinite(data?.clearcoatRoughness) ? data.clearcoatRoughness : 0,
+    transmission: Number.isFinite(data?.transmission) ? data.transmission : 0,
+    ior: Number.isFinite(data?.ior) ? data.ior : 1.5,
+    sheen: Number.isFinite(data?.sheen) ? data.sheen : 0,
+    sheenRoughness: Number.isFinite(data?.sheenRoughness) ? data.sheenRoughness : 1,
+    side: Number.isFinite(data?.side) ? data.side : THREE.FrontSide,
+    wireframe: Boolean(data?.wireframe),
+    vertexColors: Boolean(data?.vertexColors),
+    flatShading: Boolean(data?.flatShading),
+    shininess: Number.isFinite(data?.shininess) ? data.shininess : 30,
+    specular: data?.specular ? '#' + data.specular : '#111111',
+    reflectivity: Number.isFinite(data?.reflectivity) ? data.reflectivity : 0.5,
+    refractionRatio: Number.isFinite(data?.refractionRatio) ? data.refractionRatio : 0.98,
+    alphaTest: Number.isFinite(data?.alphaTest) ? data.alphaTest : 0,
+    depthWrite: data?.depthWrite !== false,
+    depthTest: data?.depthTest !== false
+  });
+  return material as THREE.Material;
+}
+
 type NexusProjectFilesPlugin = {
   saveProject(options: { fileName: string; content: string }): Promise<{ uri: string; name: string }>;
   loadProject(): Promise<{ content: string; name: string }>;
@@ -5534,6 +5576,13 @@ export default function App() {
           wireframe: Boolean(mat.wireframe),
           vertexColors: Boolean(mat.vertexColors),
           flatShading: Boolean(mat.flatShading),
+          shininess: Number.isFinite(mat.shininess) ? mat.shininess : null,
+          specular: mat.specular?.getHexString?.() || null,
+          reflectivity: Number.isFinite(mat.reflectivity) ? mat.reflectivity : null,
+          refractionRatio: Number.isFinite(mat.refractionRatio) ? mat.refractionRatio : null,
+          alphaTest: Number.isFinite(mat.alphaTest) ? mat.alphaTest : 0,
+          depthWrite: mat.depthWrite !== false,
+          depthTest: mat.depthTest !== false,
           textures: Object.fromEntries(['map','emissiveMap','normalMap','roughnessMap','metalnessMap','aoMap','alphaMap'].flatMap((slot: string) => {
             const texture = mat[slot];
             if (!texture?.image) return [];
@@ -5695,15 +5744,7 @@ export default function App() {
             geometry.computeBoundingBox();
             geometry.computeBoundingSphere();
             const materialData = Array.isArray(saved.material) ? saved.material[0] : null;
-            const material = new THREE.MeshPhysicalMaterial({
-              color: materialData?.color ? '#' + materialData.color : '#b6d8ff',
-              roughness: Number.isFinite(materialData?.roughness) ? materialData.roughness : 0.35,
-              metalness: Number.isFinite(materialData?.metalness) ? materialData.metalness : 0.18,
-              opacity: Number.isFinite(materialData?.opacity) ? materialData.opacity : 1,
-              transparent: Boolean(materialData?.transparent),
-              emissive: materialData?.emissive ? '#' + materialData.emissive : '#000000',
-              emissiveIntensity: Number.isFinite(materialData?.emissiveIntensity) ? materialData.emissiveIntensity : 0
-            });
+            const material = createProjectMaterial(materialData || {});
             obj = saved.objectType === 'SkinnedMesh' ? new THREE.SkinnedMesh(geometry, material) : new THREE.Mesh(geometry, material);
             obj.name = saved.name;
             obj.userData.kind = saved.kind || 'Mesh';
@@ -5763,25 +5804,7 @@ export default function App() {
             obj.geometry.dispose();
             obj.geometry = restored;
             if (Array.isArray(saved.material) && saved.material.length) {
-              const materials = saved.material.map((mat: any) => new THREE.MeshPhysicalMaterial({
-                color: mat.color ? '#' + mat.color : '#b6d8ff',
-                roughness: Number.isFinite(mat.roughness) ? mat.roughness : 0.35,
-                metalness: Number.isFinite(mat.metalness) ? mat.metalness : 0.18,
-                opacity: Number.isFinite(mat.opacity) ? mat.opacity : 1,
-                transparent: Boolean(mat.transparent),
-                emissive: mat.emissive ? '#' + mat.emissive : '#000000',
-                emissiveIntensity: Number.isFinite(mat.emissiveIntensity) ? mat.emissiveIntensity : 0,
-                clearcoat: Number.isFinite(mat.clearcoat) ? mat.clearcoat : 0,
-                clearcoatRoughness: Number.isFinite(mat.clearcoatRoughness) ? mat.clearcoatRoughness : 0,
-                transmission: Number.isFinite(mat.transmission) ? mat.transmission : 0,
-                ior: Number.isFinite(mat.ior) ? mat.ior : 1.5,
-                sheen: Number.isFinite(mat.sheen) ? mat.sheen : 0,
-                sheenRoughness: Number.isFinite(mat.sheenRoughness) ? mat.sheenRoughness : 1,
-                side: Number.isFinite(mat.side) ? mat.side : THREE.FrontSide,
-                wireframe: Boolean(mat.wireframe),
-                vertexColors: Boolean(mat.vertexColors),
-                flatShading: Boolean(mat.flatShading)
-              }));
+              const materials = saved.material.map((mat: any) => createProjectMaterial(mat));
               obj.material = materials.length === 1 ? materials[0] : materials;
               for (let materialIndex = 0; materialIndex < materials.length; materialIndex++) {
                 const materialData = saved.material[materialIndex];
