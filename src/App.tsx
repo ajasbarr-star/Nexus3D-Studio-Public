@@ -3482,7 +3482,20 @@ export default function App() {
       // Recover quad perimeters from pairs of render triangles without assuming
       // their vertex order. The shared render diagonal is never a modeling edge.
       let sourceQuadCorners: number[][] | null = null;
-      if (geometry.index && target.userData.kind === 'Cube' && target.userData.nexusQuadGrid !== true) {
+      // Prefer the persistent face-loop model over inferring modeling faces from
+      // render-triangle order. Each stored face carries its verified render-corner
+      // mapping so UV/material seam copies remain attached to the correct quad.
+      const storedTopology = target.userData.nexusTopology;
+      const storedFaces = storedTopology?.version === 1 && Array.isArray(storedTopology.faces)
+        ? storedTopology.faces : [];
+      const positionCount = geometry.getAttribute('position')?.count || 0;
+      if (target.userData.nexusQuadGrid === true && storedFaces.length > 0 &&
+          storedFaces.every((face: any) => Array.isArray(face.renderIndices) &&
+            face.renderIndices.length === 4 &&
+            face.renderIndices.every((index: number) => Number.isInteger(index) && index >= 0 && index < positionCount))) {
+        sourceQuadCorners = storedFaces.map((face: any) => [...face.renderIndices]);
+      }
+      if (!sourceQuadCorners && geometry.index && target.userData.kind === 'Cube' && target.userData.nexusQuadGrid !== true) {
         const indexedSource = geometry;
         geometry = indexedSource.toNonIndexed();
         indexedSource.dispose();
@@ -3490,7 +3503,7 @@ export default function App() {
         for (let base = 0; base < geometry.getAttribute('position').count; base += 6) {
           sourceQuadCorners.push([base, base + 1, base + 4, base + 2]);
         }
-      } else {
+      } else if (!sourceQuadCorners) {
         if (geometry.index) {
           const indexedSource = geometry;
           geometry = indexedSource.toNonIndexed();
