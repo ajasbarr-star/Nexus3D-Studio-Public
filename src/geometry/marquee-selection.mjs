@@ -47,7 +47,8 @@ export function collectVisibleMarqueeSelection(items, rect, project, isVisible, 
     if (!isVisible(item)) continue;
     const projected = project(item);
     const hit = kind === 'segment'
-      ? segmentIntersectsSelectionRect(projected?.[0], projected?.[1], rect)
+      ? Array.isArray(projected) && projected.length >= 2 &&
+        segmentIntersectsSelectionRect(projected[0], projected[1], rect)
       : pointInSelectionRect(projected, rect);
     if (hit) selected.push(item.id);
   }
