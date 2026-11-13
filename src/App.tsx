@@ -5746,12 +5746,14 @@ export default function App() {
                 const textureSlots = materialData?.textures && typeof materialData.textures === 'object' ? materialData.textures : {};
                 for (const [slot, textureData] of Object.entries(textureSlots) as Array<[string, any]>) {
                   if (!textureData?.dataUrl || !['map','emissiveMap','normalMap','roughnessMap','metalnessMap','aoMap','alphaMap'].includes(slot)) continue;
-                  const texture = await new THREE.TextureLoader().loadAsync(textureData.dataUrl);
-                  if (textureData.colorSpace) texture.colorSpace = textureData.colorSpace;
-                  if (Number.isFinite(textureData.wrapS)) texture.wrapS = textureData.wrapS;
-                  if (Number.isFinite(textureData.wrapT)) texture.wrapT = textureData.wrapT;
-                  if (typeof textureData.flipY === 'boolean') texture.flipY = textureData.flipY;
-                  texture.needsUpdate = true;
+                  const texture = new THREE.TextureLoader().load(textureData.dataUrl, loadedTexture => {
+                    if (textureData.colorSpace) loadedTexture.colorSpace = textureData.colorSpace;
+                    if (Number.isFinite(textureData.wrapS)) loadedTexture.wrapS = textureData.wrapS;
+                    if (Number.isFinite(textureData.wrapT)) loadedTexture.wrapT = textureData.wrapT;
+                    if (typeof textureData.flipY === 'boolean') loadedTexture.flipY = textureData.flipY;
+                    loadedTexture.needsUpdate = true;
+                    material.needsUpdate = true;
+                  });
                   (material as any)[slot] = texture;
                 }
                 material.needsUpdate = true;
