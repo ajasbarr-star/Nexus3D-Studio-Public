@@ -3436,7 +3436,6 @@ export default function App() {
       camBody.visible = !inCam && !Boolean(runtime.current?.riggingView);
       // Selection changes own gizmo visibility; never reveal an old attachment.
       transform.getHelper().visible = Boolean(selectedRef.current && transform.object && transform.enabled);
-      const updateWorkMs = performance.now() - frameStartedAt;
       Object.entries(particleSystems).forEach(([type, points]) => {
         if (!points.visible) return;
         const position = points.geometry.getAttribute('position') as THREE.BufferAttribute;
@@ -3457,6 +3456,7 @@ export default function App() {
           const wasVisible = mirrorObject.visible; mirrorObject.visible = false; reflectionCamera.update(renderer, scene); mirrorObject.visible = wasVisible;
         }
       }
+      const updateWorkMs = performance.now() - frameStartedAt;
       const renderSubmitStartedAt = performance.now();
       if (runtime.current?.riggingView) {
         renderer.render(scene, ikCamera);
