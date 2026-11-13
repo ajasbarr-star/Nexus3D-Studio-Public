@@ -85,3 +85,26 @@ test('scene rollup errors are not counted as additional object-level defects', a
   assert.equal(objectErrors.length, 1);
   assert.equal(rollups.length, 1);
 });
+
+
+test('indexed triangles with coincident positions but distinct vertex indices are not exact duplicates', async () => {
+  const { scanMeshCore } = await loadScanner();
+  const mesh = makeMesh('Split face records', [
+    0,0,0, 1,0,0, 0,1,0,
+    0,0,0, 1,0,0, 0,1,0
+  ], [0,1,2, 3,4,5]);
+  const result = scanMeshCore(makeScene([mesh]));
+  assert.equal(result.duplicateTriangles, 0);
+  assert.equal(result.issues.some(issue => issue.code === 'DUPLICATE_TRIANGLES'), false);
+  assert.ok(result.duplicatePositionGroups > 0);
+});
+
+test('indexed triangle repeated with the same vertex indices remains an exact duplicate', async () => {
+  const { scanMeshCore } = await loadScanner();
+  const mesh = makeMesh('Repeated indexed face', [
+    0,0,0, 1,0,0, 0,1,0
+  ], [0,1,2, 0,1,2]);
+  const result = scanMeshCore(makeScene([mesh]));
+  assert.equal(result.duplicateTriangles, 1);
+  assert.ok(result.issues.some(issue => issue.code === 'DUPLICATE_TRIANGLES' && issue.severity === 'ERROR'));
+});
