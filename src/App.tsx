@@ -6255,13 +6255,74 @@ export default function App() {
       if (!Array.isArray(projectData.objects)) throw new Error('Project metadata is invalid');
       const expectedShapeIds = new Set<string>();
       const seenZipShapeIds = new Set<string>();
+      const seenZipEditorIds = new Set<string>();
       projectData.objects.forEach((saved: any) => {
         if (!saved?.geometry?.attributes?.position?.array || ['Bone', 'Rig', 'IK Target', 'IK Pole'].includes(saved.kind)) return;
         if (projectData.version >= 4 && (typeof saved.shapeId !== 'string' || !/^No\.\d+$/.test(saved.shapeId))) throw new Error('ZIP validation failed: a Shape is missing its permanent Shape ID');
         if (saved.shapeId && seenZipShapeIds.has(saved.shapeId)) throw new Error('ZIP validation failed: duplicate Shape ID ' + saved.shapeId);
         if (saved.shapeId) { seenZipShapeIds.add(saved.shapeId); expectedShapeIds.add(saved.shapeId); }
       });
-      r.scene.userData.nexusNextShapeId = Math.max(Number(r.scene.userData.nexusNextShapeId) || 1, Number(projectData.nextShapeId) || 1);
+      projectData.objects.forEach((saved: any) => {
+        if (!saved?.editorId) return;
+        if (seenZipEditorIds.has(saved.editorId)) throw new Error('ZIP validation failed: duplicate editor object ID ' + saved.editorId);
+        seenZipEditorIds.add(saved.editorId);
+      });
+      // Project ZIP import merges into the current scene; never duplicate stable IDs.
+      const editorIdRemap = new Map<string, string>();
+      const shapeIdRemap = new Map<string, string>();
+      const reservedEditorIds = new Set<string>(r.selectable.map((node: THREE.Object3D) => String(node.userData?.editorId || '')).filter(Boolean));
+      const reservedShapeIds = new Set<string>(r.selectable.map((node: THREE.Object3D) => String(node.userData?.shapeId || '')).filter(Boolean));
+      projectData.objects.forEach((saved: any) => {
+        if (!saved?.editorId) return;
+        const sourceId = String(saved.editorId);
+        let targetId = sourceId;
+        while (reservedEditorIds.has(targetId)) targetId = uid();
+        reservedEditorIds.add(targetId);
+        editorIdRemap.set(sourceId, targetId);
+      });
+      let importNextShapeId = Math.max(
+        Number(r.scene.userData.nexusNextShapeId) || 1,
+        Number(projectData.nextShapeId) || 1,
+        ...[...reservedShapeIds].map(id => Number(id.replace(/^No\./, '')) + 1).filter(Number.isSafeInteger),
+        1
+      );
+      projectData.objects.forEach((saved: any) => {
+        if (!saved?.shapeId) return;
+        const sourceId = String(saved.shapeId);
+        if (reservedShapeIds.has(sourceId)) {
+          let targetId = 'No.' + String(importNextShapeId).padStart(2, '0');
+          while (reservedShapeIds.has(targetId)) {
+            importNextShapeId += 1;
+            targetId = 'No.' + String(importNextShapeId).padStart(2, '0');
+          }
+          shapeIdRemap.set(sourceId, targetId);
+          reservedShapeIds.add(targetId);
+          importNextShapeId += 1;
+        } else {
+          reservedShapeIds.add(sourceId);
+          const numericId = Number(sourceId.replace(/^No\./, ''));
+          if (Number.isSafeInteger(numericId)) importNextShapeId = Math.max(importNextShapeId, numericId + 1);
+        }
+      });
+      const remapImportedReferences = (value: any): any => {
+        if (typeof value === 'string') return editorIdRemap.get(value) || shapeIdRemap.get(value) || value;
+        if (Array.isArray(value)) return value.map(remapImportedReferences);
+        if (value && typeof value === 'object') {
+          Object.keys(value).forEach(key => { value[key] = remapImportedReferences(value[key]); });
+        }
+        return value;
+      };
+      projectData.objects.forEach((saved: any) => {
+        saved.__sourceEditorId = saved.editorId || null;
+        saved.__sourceShapeId = saved.shapeId || null;
+        if (saved.editorId) saved.editorId = editorIdRemap.get(String(saved.editorId)) || saved.editorId;
+        if (saved.shapeId) saved.shapeId = shapeIdRemap.get(String(saved.shapeId)) || saved.shapeId;
+        if (saved.ownerShapeId) saved.ownerShapeId = shapeIdRemap.get(String(saved.ownerShapeId)) || saved.ownerShapeId;
+        if (saved.parentEditorId) saved.parentEditorId = editorIdRemap.get(String(saved.parentEditorId)) || saved.parentEditorId;
+        if (saved.skeleton?.boneEditorIds) saved.skeleton.boneEditorIds = saved.skeleton.boneEditorIds.map((id: string) => editorIdRemap.get(String(id)) || id);
+        if (saved.editorData && typeof saved.editorData === 'object') remapImportedReferences(saved.editorData);
+      });
+      const remappedExpectedShapeIds = new Set<string>([...expectedShapeIds].map(id => shapeIdRemap.get(id) || id));
       const sceneBuffer = await sceneEntry.async('arraybuffer');
       const loader = new GLTFLoader();
       const gltf = await new Promise<any>((resolve, reject) => loader.parse(sceneBuffer, '', resolve, reject));
@@ -6271,8 +6332,8 @@ export default function App() {
       const savedByShapeId = new Map<string, any>();
       const savedByEditorId = new Map<string, any>();
       projectData.objects.forEach((saved: any) => {
-        if (saved?.shapeId) savedByShapeId.set(saved.shapeId, saved);
-        if (saved?.editorId) savedByEditorId.set(saved.editorId, saved);
+        if (saved?.__sourceShapeId) savedByShapeId.set(saved.__sourceShapeId, saved);
+        if (saved?.__sourceEditorId) savedByEditorId.set(saved.__sourceEditorId, saved);
         if (!saved || typeof saved.name !== 'string') return;
         const key = saved.name + '::' + (saved.kind || '');
         const list = savedByName.get(key) || [];
@@ -6317,8 +6378,9 @@ export default function App() {
         if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; }
       });
       const restoredShapeIds = new Set(importedNodes.map(node => node.userData.shapeId).filter((id: any): id is string => typeof id === 'string'));
-      const missingShapeIds = [...expectedShapeIds].filter(id => !restoredShapeIds.has(id));
+      const missingShapeIds = [...remappedExpectedShapeIds].filter(id => !restoredShapeIds.has(id));
       if (missingShapeIds.length) throw new Error('ZIP scene is missing Shape mesh data for ' + missingShapeIds.join(', '));
+      r.scene.userData.nexusNextShapeId = Math.max(Number(r.scene.userData.nexusNextShapeId) || 1, importNextShapeId);
       r.scene.add(importedScene);
       importedNodes.forEach(node => { if (!r.selectable.includes(node)) r.selectable.push(node); });
       assignShapeOwnership(importedNodes);
