@@ -3472,7 +3472,6 @@ export default function App() {
     const transform = runtime.current?.transform;
     if (transform) {
       transform.setMode(next);
-      runtime.current?.transform?.setMode(next);
       const active = runtime.current?.getActiveSubSelection?.();
       const editingSubObject = editModeRef.current !== 'Object' && Boolean(active);
       transform.enabled = Boolean(selectedRef.current) && (editModeRef.current === 'Object' || editingSubObject);
@@ -3486,7 +3485,6 @@ export default function App() {
     spaceRef.current = next;
     setSpace(next);
     runtime.current?.transform.setSpace(next);
-    runtime.current?.transform?.setSpace(next);
     setStatus(next === 'world' ? 'World axis space' : 'Local axis space');
   };
   const add = (kind: string) => { if (!cameraView) runtime.current?.addObject(kind); };
