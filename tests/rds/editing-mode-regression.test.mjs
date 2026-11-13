@@ -342,7 +342,7 @@ test('Face Pull isolates selected face vertices from adjacent face seam copies',
   const block = source.slice(start, end);
   assert.match(block, /selection\.linkedIndices[\s\S]*new Set\(\[\.\.\.selection\.indices, \.\.\.selection\.linkedIndices\]/);
   assert.match(block, /selection\.faceParts\?\.length[\s\S]*new Set\(selection\.indices\.filter/);
-  assert.match(block, /Vertex\/Edge[\s\S]*preserve UV\/normal seam continuity/);
+  assert.match(source, /Face selections must move only the selected face's own render vertices/);
   assert.match(source, /if \(isolatedTransformIndices \? !isolatedTransformIndices\.has\(index\) : !logicalKeys\.has\(/);
 });
 
