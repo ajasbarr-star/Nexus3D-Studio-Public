@@ -3212,13 +3212,14 @@ export default function App() {
               const oldB = new THREE.Vector3().fromBufferAttribute(beforePosition, edge.b);
               const newA = new THREE.Vector3().fromBufferAttribute(livePosition, edge.a);
               const newB = new THREE.Vector3().fromBufferAttribute(livePosition, edge.b);
-              // [oldA, oldB, newB, oldA, newB, newA] is one quad.
-              const center = mesh.geometry.boundingBox?.getCenter(new THREE.Vector3()) || new THREE.Vector3();
-              const wallNormal = oldB.clone().sub(oldA).cross(newB.clone().sub(oldA));
-              const wallCenter = oldA.clone().add(oldB).add(newA).add(newB).multiplyScalar(0.25);
-              const order = wallNormal.dot(wallCenter.sub(center)) >= 0
-                ? [[edge.a, oldA], [edge.b, oldB], [edge.b, newB], [edge.a, oldA], [edge.b, newB], [edge.a, newA]] as Array<[number, THREE.Vector3]>
-                : [[edge.b, oldB], [edge.a, oldA], [edge.a, newA], [edge.b, oldB], [edge.a, newA], [edge.b, newB]] as Array<[number, THREE.Vector3]>;
+              // Match Face Extrude: preserve the selected face's directed boundary-edge winding.
+              // A mesh-center heuristic can flip individual walls inconsistently, causing
+              // back-face culling to make a wall appear transparent from corner views.
+              // [oldA, oldB, newB, oldA, newB, newA] is one connected quad wall.
+              const order = [
+                [edge.a, oldA], [edge.b, oldB], [edge.b, newB],
+                [edge.a, oldA], [edge.b, newB], [edge.a, newA],
+              ] as Array<[number, THREE.Vector3]>;
               order.forEach(([sourceVertex, point]) => addVertex(sourceVertex, point));
             });
             const wallStart = source.getAttribute('position').count;
