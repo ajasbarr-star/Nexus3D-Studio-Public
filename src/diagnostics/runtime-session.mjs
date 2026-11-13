@@ -43,10 +43,10 @@ export function formatRuntimeTraceReport(entries, session = {}) {
       const timestamp = entry.timestampISO || entry.time || 'UNKNOWN_TIME';
       const sequence = Number.isFinite(entry.sequence) ? entry.sequence : '?';
       const origin = entry.origin || 'UNKNOWN_ORIGIN';
-      return `[${timestamp}] [${sessionLabel}] [${origin}] [seq:${sequence}] [${entry.level}] [${entry.source}] ${entry.message}${entry.details ? '\\n' + entry.details : ''}`;
+      return `[${timestamp}] [${sessionLabel}] [${origin}] [seq:${sequence}] [${entry.level}] [${entry.source}] ${entry.message}${entry.details ? '\n' + entry.details : ''}`;
     }),
     '',
     'LEGACY NOTE: Entries without a session ID or ISO timestamp were retained from an older RDS format and cannot be attributed to this app session with certainty.'
   ];
-  return lines.join('\\n\\n');
+  return lines.join('\n\n');
 }
