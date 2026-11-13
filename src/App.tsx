@@ -8,6 +8,7 @@ import { allocateShapeIdentity, ensureShapeIdentity, formatShapeIdentity } from 
 import { assignShapeOwnership } from './identity/shape-ownership.mjs';
 import { collectReservedIdentityIds } from './identity/import-identity-reservations.mjs';
 import { remapImportedIdentityReferences } from './identity/import-identity-reference-remap.mjs';
+import { reserveImportedShapeIds } from './identity/import-shape-id-reservations.mjs';
 import { validateProjectIdentityData } from './identity/project-identity-validation.mjs';
 import { collectObjectOnlyProjectNodes, getObjectOnlyProjectRoots, isShapeProjectMesh } from './project/object-project-scope.mjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -6289,12 +6290,19 @@ export default function App() {
         reservedEditorIds.add(targetId);
         editorIdRemap.set(sourceId, targetId);
       });
-      let importNextShapeId = Math.max(
-        Number(r.scene.userData.nexusNextShapeId) || 1,
-        Number(projectData.nextShapeId) || 1,
-        ...[...reservedShapeIds].map(id => Number(id.replace(/^No\./, '')) + 1).filter(Number.isSafeInteger),
-        1
+      const shapeReservations = reserveImportedShapeIds(
+        projectData.objects,
+        reservedShapeIds,
+        Math.max(
+          Number(r.scene.userData.nexusNextShapeId) || 1,
+          Number(projectData.nextShapeId) || 1,
+          ...[...reservedShapeIds].map(id => Number(id.replace(/^No\\./, '')) + 1).filter(Number.isSafeInteger),
+          1
+        )
       );
+      const shapeIdRemap = shapeReservations.shapeIdRemap;
+      const reservedShapeIdsAfterImport = shapeReservations.reservedShapeIds;
+      const importNextShapeId = shapeReservations.nextShapeId;
       projectData.objects.forEach((saved: any) => {
         if (!saved?.shapeId) return;
         const sourceId = String(saved.shapeId);
