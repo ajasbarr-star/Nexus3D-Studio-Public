@@ -6397,6 +6397,40 @@ export default function App() {
         importedNodes.push(node);
         if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; }
       });
+      // Restore the editor's full material settings and embedded texture slots
+      // from Project.nexus; GLB alone does not represent every Three.js material map.
+      for (const saved of projectData.objects) {
+        if (!saved?.editorId || !Array.isArray(saved.material) || !saved.material.length) continue;
+        const mesh = restoredById.get(saved.editorId);
+        if (!(mesh instanceof THREE.Mesh)) continue;
+        const materials = saved.material.map((materialData: any) => createProjectMaterial(materialData));
+        for (let materialIndex = 0; materialIndex < materials.length; materialIndex++) {
+          const materialData = saved.material[materialIndex];
+          const material = materials[materialIndex];
+          const textureSlots = materialData?.textures && typeof materialData.textures === 'object' ? materialData.textures : {};
+          for (const [slot, textureData] of Object.entries(textureSlots) as Array<[string, any]>) {
+            if (!textureData?.dataUrl || !['map','emissiveMap','normalMap','roughnessMap','metalnessMap','aoMap','alphaMap','bumpMap','displacementMap','lightMap','specularMap','clearcoatMap','clearcoatRoughnessMap','clearcoatNormalMap','iridescenceMap','iridescenceThicknessMap','sheenColorMap','sheenRoughnessMap','transmissionMap','thicknessMap','specularIntensityMap','specularColorMap','gradientMap'].includes(slot)) continue;
+            const texture = await new THREE.TextureLoader().loadAsync(textureData.dataUrl);
+            if (textureData.colorSpace) texture.colorSpace = textureData.colorSpace;
+            if (Number.isFinite(textureData.mapping)) texture.mapping = textureData.mapping;
+            if (Number.isFinite(textureData.wrapS)) texture.wrapS = textureData.wrapS;
+            if (Number.isFinite(textureData.wrapT)) texture.wrapT = textureData.wrapT;
+            if (typeof textureData.flipY === 'boolean') texture.flipY = textureData.flipY;
+            if (Array.isArray(textureData.repeat)) texture.repeat.fromArray(textureData.repeat);
+            if (Array.isArray(textureData.offset)) texture.offset.fromArray(textureData.offset);
+            if (Array.isArray(textureData.center)) texture.center.fromArray(textureData.center);
+            if (Number.isFinite(textureData.rotation)) texture.rotation = textureData.rotation;
+            if (Number.isFinite(textureData.magFilter)) texture.magFilter = textureData.magFilter;
+            if (Number.isFinite(textureData.minFilter)) texture.minFilter = textureData.minFilter;
+            if (Number.isFinite(textureData.anisotropy)) texture.anisotropy = textureData.anisotropy;
+            if (Number.isFinite(textureData.channel)) texture.channel = textureData.channel;
+            texture.needsUpdate = true;
+            (material as any)[slot] = texture;
+          }
+          material.needsUpdate = true;
+        }
+        mesh.material = materials.length === 1 ? materials[0] : materials;
+      }
       const restoredShapeIds = new Set(importedNodes.map(node => node.userData.shapeId).filter((id: any): id is string => typeof id === 'string'));
       const missingShapeIds = [...remappedExpectedShapeIds].filter(id => !restoredShapeIds.has(id));
       if (missingShapeIds.length) throw new Error('ZIP scene is missing Shape mesh data for ' + missingShapeIds.join(', '));
