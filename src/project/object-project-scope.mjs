@@ -14,7 +14,7 @@ export function collectObjectOnlyProjectNodes(selectable = []) {
   const meshes = nodes.filter(node => !isExcludedViewportNode(node) && (node.isMesh || node.userData?.shapeId));
   meshes.forEach(mesh => {
     let current = mesh;
-    while (current && !isExcludedViewportNode(current)) {
+    while (current && !current.isScene && current.type !== 'Scene' && !isExcludedViewportNode(current)) {
       included.add(current);
       current = current.parent;
     }
@@ -28,7 +28,7 @@ export function collectObjectOnlyProjectNodes(selectable = []) {
     if (ATTACHMENT_KINDS.has(kind) && (node.isBone || kind === 'Rig' || kind === 'IK Target' || kind === 'IK Pole')) {
       included.add(node);
       let parent = node.parent;
-      while (parent && !isExcludedViewportNode(parent)) {
+      while (parent && !parent.isScene && parent.type !== 'Scene' && !isExcludedViewportNode(parent)) {
         included.add(parent);
         parent = parent.parent;
       }

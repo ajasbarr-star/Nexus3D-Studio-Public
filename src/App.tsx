@@ -5448,7 +5448,7 @@ export default function App() {
     const projectNodes = collectObjectOnlyProjectNodes(r?.selectable || []);
     return {
       app: 'Nexus3D',
-      version: 3,
+      version: 4,
       savedAt: new Date().toISOString(),
       // Object-only project format: viewport, cameras, lights and timeline state are excluded.
       objects: projectNodes.map((obj: THREE.Object3D) => ({
@@ -5616,15 +5616,24 @@ export default function App() {
         if (data.projectName) setProjectName(String(data.projectName));
         const restoredById = new Map<string, THREE.Object3D>();
         const restoredByName = new Map<string, THREE.Object3D>();
+        const restoredNodeSet = new Set<THREE.Object3D>();
+        const seenShapeIds = new Set<string>();
+        for (const saved of data.objects) {
+          if (!saved || !saved.geometry?.attributes?.position?.array) continue;
+          if (data.version >= 4 && (typeof saved.shapeId !== 'string' || !/^No\\.\\d+$/.test(saved.shapeId))) throw new Error('Project validation failed: a Shape is missing its permanent Shape ID');
+          if (saved.shapeId && seenShapeIds.has(saved.shapeId)) throw new Error('Project validation failed: duplicate Shape ID ' + saved.shapeId);
+          if (saved.shapeId) seenShapeIds.add(saved.shapeId);
+        }
 
         // First pass: resolve existing editor objects, or create missing scene objects.
         // This is the key difference from the old loader, which only updated objects
         // already present in the current scene.
         data.objects.forEach((saved: any) => {
           if (!saved || typeof saved.name !== 'string') return;
-          let obj = saved.editorId
-            ? r.selectable.find((candidate: THREE.Object3D) => candidate.userData.editorId === saved.editorId)
+          let obj = saved.shapeId
+            ? r.selectable.find((candidate: THREE.Object3D) => candidate.userData.shapeId === saved.shapeId)
             : undefined;
+          if (!obj && saved.editorId) obj = r.selectable.find((candidate: THREE.Object3D) => candidate.userData.editorId === saved.editorId);
           if (!obj) {
             obj = r.selectable.find((candidate: THREE.Object3D) =>
               candidate.name === saved.name &&
@@ -5682,6 +5691,7 @@ export default function App() {
           }
 
           if (!obj) return;
+          restoredNodeSet.add(obj);
           obj.name = saved.name;
           if (saved.editorData && typeof saved.editorData === 'object') {
             Object.entries(saved.editorData).forEach(([key, value]) => {
@@ -5794,6 +5804,10 @@ export default function App() {
           if (saved.editorId) restoredById.set(saved.editorId, obj);
           restoredByName.set(saved.name, obj);
         });
+
+        // Remove project objects that are not present in this file, while leaving viewport-only nodes untouched.
+        const staleNodes = collectObjectOnlyProjectNodes(r.selectable || []).filter((node: THREE.Object3D) => !restoredNodeSet.has(node));
+        getObjectOnlyProjectRoots(staleNodes).forEach((node: THREE.Object3D) => r.removeObject(node, true));
 
         // Second pass: restore parent-child links after every saved object exists.
         data.objects.forEach((saved: any) => {
@@ -6033,6 +6047,10 @@ export default function App() {
       const exportRoot = new THREE.Group();
       exportRoot.name = 'Nexus3D Object Project';
       getObjectOnlyProjectRoots(projectNodes).forEach((node: THREE.Object3D) => exportRoot.add(node.clone(true)));
+      exportRoot.traverse((node: any) => {
+        const source = projectNodes.find((candidate: THREE.Object3D) => candidate.userData.editorId && candidate.userData.editorId === node.userData?.editorId);
+        if (source?.userData?.shapeId) node.name = node.name + '__NEXUS_ID_' + source.userData.shapeId;
+      });
       const userDataSnapshots: Array<{ target: any; userData: any }> = [];
       exportRoot.traverse((node: any) => {
         userDataSnapshots.push({ target: node, userData: node.userData });
@@ -6119,7 +6137,9 @@ export default function App() {
       const importedScene: THREE.Object3D = gltf.scene;
       importedScene.name = (projectData.projectName || file?.name || 'Nexus3D Imported Project').replace(/\.(nexus|zip)$/i, '');
       const savedByName = new Map<string, any[]>();
+      const savedByShapeId = new Map<string, any>();
       projectData.objects.forEach((saved: any) => {
+        if (saved?.shapeId) savedByShapeId.set(saved.shapeId, saved);
         if (!saved || typeof saved.name !== 'string') return;
         const key = saved.name + '::' + (saved.kind || '');
         const list = savedByName.get(key) || [];
@@ -6130,8 +6150,11 @@ export default function App() {
       const importedNodes: THREE.Object3D[] = [];
       importedScene.traverse((node: any) => {
         const kind = node.isBone ? 'Bone' : node.isSkinnedMesh ? 'Mesh' : node.isMesh ? 'Mesh' : node.userData?.kind || node.type;
+        const idMatch = /__NEXUS_ID_(No\\.\\d+)$/.exec(node.name);
+        const shapeIdMatch = idMatch ? savedByShapeId.get(idMatch[1]) : undefined;
+        if (shapeIdMatch) node.name = shapeIdMatch.name;
         const candidates = savedByName.get(node.name + '::' + kind) || savedByName.get(node.name + '::') || [];
-        const saved = candidates.shift();
+        const saved = shapeIdMatch || candidates.shift();
         if (saved) {
           if (saved.editorId) {
             node.userData.editorId = saved.editorId;
