@@ -6,24 +6,28 @@ export function isShapeProjectMesh(node) {
 }
 
 function isExcludedViewportNode(node) {
-  return Boolean(node?.isCamera || node?.isLight || node?.userData?.kind === 'Camera' || node?.userData?.kind === 'Light');
+  // Cameras are viewport state; lights are editable scene objects and must survive project round-trips.
+  return Boolean(node?.isCamera || node?.userData?.kind === 'Camera');
 }
 
 /**
- * Return only editable Shape meshes and the hierarchy/rig nodes required by them.
- * Viewport cameras, lights and unrelated scene helpers are never project payload.
+ * Return editable Shape meshes, scene lights, and the hierarchy/rig nodes required by them.
+ * Viewport cameras and unrelated scene helpers are never project payload.
  */
 export function collectObjectOnlyProjectNodes(selectable = []) {
   const nodes = Array.isArray(selectable) ? selectable.filter(Boolean) : [];
   const included = new Set();
-  const meshes = nodes.filter(node => !isExcludedViewportNode(node) && (isShapeProjectMesh(node) || (node.userData?.shapeId && !node.userData?.rigControlMarker && !['Bone', 'Rig', 'IK Target', 'IK Pole'].includes(node.userData?.kind))));
-  meshes.forEach(mesh => {
-    let current = mesh;
+  const projectRoots = nodes.filter(node => !isExcludedViewportNode(node) && (
+    isShapeProjectMesh(node) || node?.isLight || node?.userData?.kind === 'Light' ||
+    (node.userData?.shapeId && !node.userData?.rigControlMarker && !['Bone', 'Rig', 'IK Target', 'IK Pole'].includes(node.userData?.kind))
+  ));
+  projectRoots.forEach(root => {
+    let current = root;
     while (current && !current.isScene && current.type !== 'Scene' && !isExcludedViewportNode(current)) {
       included.add(current);
       current = current.parent;
     }
-    mesh.traverse?.(child => {
+    root.traverse?.(child => {
       if (!isExcludedViewportNode(child)) included.add(child);
     });
   });
