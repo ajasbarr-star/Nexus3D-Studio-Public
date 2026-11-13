@@ -23,10 +23,11 @@ import {
   Film, Lightbulb, X, Check, Eye, EyeOff, Search, ChevronDown, ChevronRight, Download,
   Save, FolderOpen, FileJson, Settings2, Info, Keyboard, Sun, Flashlight, Palette, Upload,
   Sparkles, Waves, Aperture, SlidersHorizontal, CloudFog, ScanEye, Lock, Unlock, Scissors, GitBranch,
-  Plus, Target, Link2, Unlink, RefreshCw, GitMerge, Activity, Code2, Folder, FolderPlus, MoreHorizontal, Pencil,
+  Plus, Target, Link2, Unlink, RefreshCw, GitMerge, Activity, Code2, Folder, FolderPlus, MoreHorizontal, Pencil, ScanSearch,
 } from 'lucide-react';
 import { scanMeshCore, formatMeshForensicReport } from './dfi/mesh-forensics';
 import { CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES } from './geometry/clean-flat-surface-contract';
+import { scanGeometryRit, formatGeometryRitReport } from './geometry/geometry-rit';
 import './index.css';
 
 type NexusProjectFilesPlugin = {
@@ -371,6 +372,10 @@ export default function App() {
   const [dfiSummary, setDfiSummary] = useState({ findings: 0, errors: 0, warnings: 0, repeatedErrors: 0, invalidMeshes: 0 });
   const [dfiToolReports, setDfiToolReports] = useState<Record<string, string>>({});
   const [dfiToolBusy, setDfiToolBusy] = useState('');
+  const [geometryRitOpen, setGeometryRitOpen] = useState(false);
+  const [geometryRitBusy, setGeometryRitBusy] = useState(false);
+  const [geometryRitReport, setGeometryRitReport] = useState('NOT SCANNED — open Geometry RIT and run Scan to create a current-scene report.');
+  const [geometryRitSummary, setGeometryRitSummary] = useState<{ status: 'NOT SCANNED' | 'PASS' | 'REVIEW' | 'FAIL' | 'INSUFFICIENT EVIDENCE'; meshes: number; vertices: number; triangles: number; errors: number; warnings: number }>({ status: 'NOT SCANNED', meshes: 0, vertices: 0, triangles: 0, errors: 0, warnings: 0 });
   const rdsResourceBaselineRef = useRef<{ geometries: number; textures: number; time: number } | null>(null);
   const [menuAccordion, setMenuAccordion] = useState('Project & File');
   const [projectName, setProjectName] = useState('Project.nexus');
@@ -4863,6 +4868,51 @@ export default function App() {
       setRdsScanBusy(false);
     }
   };
+  const runGeometryRitScan = () => {
+    if (geometryRitBusy) return;
+    setGeometryRitBusy(true);
+    try {
+      const scene = runtime.current?.scene as THREE.Scene | undefined;
+      if (!scene) {
+        const report = [
+          'NEXUS3D GEOMETRY RIT · INDEPENDENT DIAGNOSTIC REPORT',
+          'Diagnostic ID: GEOM-RIT-001',
+          'RESULT: INSUFFICIENT EVIDENCE',
+          'Reason: The live 3D scene is not available. No scan was performed.',
+          'No scene or geometry data was changed.'
+        ].join('\n');
+        setGeometryRitReport(report);
+        setGeometryRitSummary({ status: 'INSUFFICIENT EVIDENCE', meshes: 0, vertices: 0, triangles: 0, errors: 0, warnings: 0 });
+        setStatus('Geometry RIT · scene unavailable; no scan performed');
+        return;
+      }
+      const result = scanGeometryRit(scene);
+      const report = formatGeometryRitReport(result);
+      setGeometryRitReport(report);
+      setGeometryRitSummary({ status: result.status, meshes: result.meshes, vertices: result.vertices, triangles: result.triangles, errors: result.errors, warnings: result.warnings });
+      diagnosticSinkRef.current(result.status === 'FAIL' ? 'ERROR' : result.status === 'REVIEW' ? 'WARN' : 'INFO',
+        'Geometry RIT', 'Independent geometry scan completed · ' + result.status, report);
+      setStatus('Geometry RIT complete · ' + result.status + ' · read-only scan');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const report = 'NEXUS3D GEOMETRY RIT · SCAN FAILED\n' + message + '\nNo automatic repair or geometry mutation was attempted.';
+      setGeometryRitReport(report);
+      setGeometryRitSummary({ status: 'INSUFFICIENT EVIDENCE', meshes: 0, vertices: 0, triangles: 0, errors: 0, warnings: 0 });
+      diagnosticSinkRef.current('ERROR', 'Geometry RIT', 'Independent geometry scan failed', message);
+      setStatus('Geometry RIT failed · diagnostic captured');
+    } finally {
+      setGeometryRitBusy(false);
+    }
+  };
+  const copyGeometryRitReport = () => {
+    if (geometryRitSummary.status === 'NOT SCANNED') return;
+    void copyDiagnosticText([{
+      id: 'geometry-rit-001', time: new Date().toLocaleTimeString(),
+      level: geometryRitSummary.status === 'FAIL' ? 'ERROR' : geometryRitSummary.status === 'REVIEW' ? 'WARN' : 'INFO',
+      source: 'Geometry RIT', message: 'Independent Geometry RIT report · ' + geometryRitSummary.status,
+      details: geometryRitReport
+    }]);
+  };
   const runDfiInvestigation = async () => {
     if (dfiBusy) return;
     setDfiBusy(true);
@@ -6096,6 +6146,7 @@ export default function App() {
           <button className="icon-btn" onClick={redo} disabled={!actionRedoStack.length && !redoStack.length} title="Redo scene or timeline action"><Redo2 size={15} /></button>
           <button className={'icon-btn ' + (shapeLibraryOpen ? 'active' : '')} onClick={() => { setShapeLibraryOpen(v => !v); setMenuOpen(false); setPanel(false); setQuickPanel(null); setInspectorOpen(false); setMeshToolsOpen(false); }} title="Open Shape Library" aria-label="Open Shape Library"><Box size={14} /></button>
           <button className={'icon-btn ' + (meshToolsOpen ? 'active' : '')} onClick={() => { const candidate = runtime.current?.selectable.find((o: THREE.Object3D) => String(o.userData.editorId) === selected); if (!(candidate instanceof THREE.Mesh)) { setStatus('Select a mesh to enable Mesh Editing'); return; } const opening = !meshToolsOpen; setMeshToolsOpen(opening); setShapeLibraryOpen(false); setPanel(false); setMenuOpen(false); setQuickPanel(null); setInspectorOpen(false); if (opening) { setEditMode('Object'); editModeRef.current = 'Object'; setEditTool(''); runtime.current?.clearSubSelection?.(); const tr = runtime.current?.transform; if (tr) { tr.detach(); tr.enabled = false; tr.getHelper().visible = false; } } else { const tr = runtime.current?.transform; if (tr) { tr.detach(); tr.attach(candidate); tr.setMode(mode); tr.setSpace(space); tr.enabled = true; tr.getHelper().visible = true; } } }} disabled={!selected || !(runtime.current?.selectable.find((o: THREE.Object3D) => String(o.userData.editorId) === selected) instanceof THREE.Mesh)} title="Toggle Mesh Editing" aria-label="Toggle Mesh Editing"><Scissors size={15}/></button>
+          <button type="button" className={'icon-btn geometry-rit-toolbar-btn ' + (geometryRitOpen ? 'active' : '')} onClick={() => { setGeometryRitOpen(open => !open); setSkyboxOpen(false); setRenderVideoOpen(false); setMeshToolsOpen(false); setShapeLibraryOpen(false); setMenuOpen(false); setPanel(false); setQuickPanel(null); setInspectorOpen(false); }} title="Independent Geometry RIT Diagnostics" aria-label="Open Geometry RIT diagnostics"><ScanSearch size={15}/></button>
           <span className="toolbar-center-spacer" aria-hidden="true" />
           <button className="icon-btn render-toolbar-btn" onClick={exportRenderImage} title="Render Image (PNG)" aria-label="Render Image" disabled={cameraView}><Aperture size={15} /></button>
           <button className={'icon-btn render-toolbar-btn ' + (renderVideoOpen ? 'active' : '')} onClick={() => { setRenderVideoOpen(v => !v); setRenderVideoCategory('Resolution'); setSkyboxOpen(false); setMeshToolsOpen(false); setPanel(false); setMenuOpen(false); setQuickPanel(null); setInspectorOpen(false); setShapeLibraryOpen(false); }} title="Render Video Settings" aria-label="Render Video" disabled={cameraView}><Film size={15} /></button>
@@ -6111,6 +6162,25 @@ export default function App() {
           <button className="icon-btn fullscreen-btn" onClick={enterFullscreen} title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}><Maximize size={16} /></button>
         </div>
       </header>
+
+      {geometryRitOpen && !cameraView && !animationMode && <aside className="geometry-rit-panel" role="dialog" aria-label="Independent Geometry RIT Results Report">
+        <div className="geometry-rit-heading">
+          <div><ScanSearch size={15}/><strong>GEOMETRY RIT</strong><small>INDEPENDENT DIAGNOSTIC</small></div>
+          <button type="button" onClick={() => setGeometryRitOpen(false)} aria-label="Close Geometry RIT panel"><X size={14}/></button>
+        </div>
+        <div className="geometry-rit-summary">
+          <span className={'geometry-rit-status status-' + geometryRitSummary.status.toLowerCase().replace(/\s+/g, '-')}>{geometryRitSummary.status}</span>
+          <span>{geometryRitSummary.meshes} meshes</span>
+          <span>{geometryRitSummary.triangles.toLocaleString()} triangles</span>
+          <span>{geometryRitSummary.errors} errors · {geometryRitSummary.warnings} warnings</span>
+        </div>
+        <div className="geometry-rit-actions">
+          <button type="button" onClick={runGeometryRitScan} disabled={geometryRitBusy}><ScanSearch size={13}/>{geometryRitBusy ? 'SCANNING…' : 'SCAN GEOMETRY'}</button>
+          <button type="button" onClick={copyGeometryRitReport} disabled={geometryRitSummary.status === 'NOT SCANNED'}><ClipboardCopy size={13}/>COPY REPORT</button>
+        </div>
+        <pre className="geometry-rit-report">{geometryRitReport}</pre>
+        <div className="geometry-rit-note">READ-ONLY · No automatic repair. REVIEW findings may include intentional hard edges. Perimeter deformation requires an operation-specific baseline before it can be confirmed.</div>
+      </aside>}
 
       {skyboxOpen && !cameraView && !animationMode && <aside className="skybox-panel" aria-label="Skybox Environment Settings"><div className="skybox-heading"><strong><Globe size={13}/> SKYBOX / ENVIRONMENT</strong><button type="button" aria-label="Close Skybox panel" onClick={() => setSkyboxOpen(false)}><X size={13}/></button></div><nav className="skybox-categories" aria-label="Skybox categories">{[{name:'Time-of-Day Presets',icon:<Sun size={12}/>},{name:'Skybox Type',icon:<Globe size={12}/>},{name:'Atmosphere & Sun',icon:<Aperture size={12}/>},{name:'Clouds & Fog',icon:<CloudFog size={12}/>}].map(category => <button key={category.name} type="button" className={skyboxCategory === category.name ? 'active' : ''} onClick={() => setSkyboxCategory(skyboxCategory === category.name ? '' : category.name)}>{category.icon}<span>{category.name}</span></button>)}</nav>{skyboxCategory && <div className="skybox-body"><strong className="skybox-subtitle">{skyboxCategory}</strong>{skyboxCategory === 'Time-of-Day Presets' && <><div className="skybox-preset-grid">{['Morning','Noon','Afternoon','Night'].map(preset => <button type="button" key={preset} onClick={() => { runtime.current?.applyPreset(preset); setStatus(preset + ' environment preset applied to scene lighting and sky'); }}>{preset}</button>)}</div><p>Presets update sky color and available ambient/directional lights. Add lights from the LIGHTS dock for full lighting changes.</p></>}{skyboxCategory === 'Skybox Type' && <><label>Background Type<select value={skyboxType} onChange={e => { const type = e.target.value as typeof skyboxType; setSkyboxType(type); const scene = runtime.current?.scene; if (scene && type === 'Solid Color') scene.background = new THREE.Color(skyColorBottom); if (scene && type === 'Procedural Gradient') scene.background = new THREE.Color(skyColorTop); setStatus(type + ' selected'); }}><option>Procedural Gradient</option><option>Solid Color</option><option>HDRI Equirectangular</option></select></label><label>Sky Color<input type="color" value={skyColorTop} onChange={e => { setSkyColorTop(e.target.value); if (skyboxType !== 'HDRI Equirectangular' && runtime.current?.scene) runtime.current.scene.background = new THREE.Color(e.target.value); }}/></label><label>Horizon / Solid Color<input type="color" value={skyColorBottom} onChange={e => { setSkyColorBottom(e.target.value); if (skyboxType === 'Solid Color' && runtime.current?.scene) runtime.current.scene.background = new THREE.Color(e.target.value); }}/></label>{skyboxType === 'HDRI Equirectangular' && <label className="upload-control"><Upload size={12}/><span>Load HDR / RGBE Environment</span><input type="file" accept=".hdr,.rgbe" onChange={e => handleTextureUpload(e,true)}/></label>}<p>HDRI loads an equirectangular environment map; the color modes set the scene background.</p></>}{skyboxCategory === 'Atmosphere & Sun' && <><label>Sun Azimuth <output>{sunAzimuth}°</output><input type="range" min="0" max="360" value={sunAzimuth} onChange={e => { const value = Number(e.target.value); setSunAzimuth(value); runtime.current?.lightSources?.filter((light: any) => light.type === 'DirectionalLight' || light.type === 'SpotLight').forEach((light: any) => { light.object.position.x = Math.cos(THREE.MathUtils.degToRad(value)) * 10; light.object.position.z = Math.sin(THREE.MathUtils.degToRad(value)) * 10; }); }}/></label><label>Sun Elevation <output>{sunElevation}°</output><input type="range" min="-5" max="90" value={sunElevation} onChange={e => { const value = Number(e.target.value); setSunElevation(value); runtime.current?.lightSources?.filter((light: any) => light.type === 'DirectionalLight' || light.type === 'SpotLight').forEach((light: any) => { light.object.position.y = Math.sin(THREE.MathUtils.degToRad(value)) * 10; }); }}/></label><label>Light Intensity <output>{sunIntensity.toFixed(1)}</output><input type="range" min="0" max="8" step="0.1" value={sunIntensity} onChange={e => { const value = Number(e.target.value); setSunIntensity(value); runtime.current?.lightSources?.filter((light: any) => light.type === 'DirectionalLight' || light.type === 'SpotLight').forEach((light: any) => { light.object.intensity = value; }); }}/></label><label>Sky Tint<input type="color" value={skyColorTop} onChange={e => { setSkyColorTop(e.target.value); if (runtime.current?.scene && skyboxType !== 'HDRI Equirectangular') runtime.current.scene.background = new THREE.Color(e.target.value); }}/></label><p>Sun controls adjust existing directional and spot lights; create a light in LIGHTS to add a sun source.</p></>}{skyboxCategory === 'Clouds & Fog' && <><label>Cloud Density <output>{cloudDensity.toFixed(2)}</output><input type="range" min="0" max="1" step="0.01" value={cloudDensity} onChange={e => setCloudDensity(Number(e.target.value))}/></label><label>Fog Density <output>{Number(settings.fogDensity).toFixed(2)}</output><input type="range" min="0" max="1" step="0.01" value={Number(settings.fogDensity)} onChange={e => setEditorSetting('fogDensity', Number(e.target.value))}/></label><label>Fog Color<input type="color" value={String(settings.fogColor)} onChange={e => setEditorSetting('fogColor', e.target.value)}/></label><p>Fog density and tint affect the scene; cloud density is a stored environment preference and does not generate volumetric cloud geometry.</p></>}</div>}</aside>}
       {renderVideoOpen && !cameraView && !animationMode && <aside className="render-video-panel" aria-label="Render Video Settings"><div className="render-video-heading"><strong><Film size={13}/> RENDER VIDEO</strong><button type="button" aria-label="Close Render Video panel" onClick={() => setRenderVideoOpen(false)}><X size={13}/></button></div><nav className="render-video-categories" aria-label="Render categories">{[{name:'Resolution',icon:<Aperture size={12}/>},{name:'Time Range',icon:<Film size={12}/>},{name:'Environment',icon:<Globe size={12}/>},{name:'Effects',icon:<Sparkles size={12}/>},{name:'Watermark',icon:<Layers size={12}/>},{name:'Export',icon:<Download size={12}/>}].map(category => <button key={category.name} type="button" className={renderVideoCategory === category.name ? 'active' : ''} onClick={() => setRenderVideoCategory(renderVideoCategory === category.name ? '' : category.name)}>{category.icon}<span>{category.name}</span></button>)}</nav>{renderVideoCategory && <div className="render-video-category-body" key={renderVideoCategory}><strong className="render-video-subtitle">{renderVideoCategory}</strong>{renderVideoCategory === 'Resolution' && <><label>Aspect Ratio<select value={renderAspect} onChange={e => setRenderAspect(e.target.value)}><option>16:9</option><option>21:9</option><option>4:3</option><option>1:1</option></select></label><label>Format<select value={renderFormat} onChange={e => setRenderFormat(e.target.value)}><option>WebM</option><option>MP4</option></select></label><label>FPS<select value={renderFps} onChange={e => setRenderFps(Number(e.target.value))}><option value={24}>24 FPS</option><option value={25}>25 FPS</option><option value={30}>30 FPS</option><option value={60}>60 FPS</option></select></label><p>Recording captures the live viewport canvas at the selected frame rate. Aspect ratio is an export preset, not a viewport crop.</p></>}{renderVideoCategory === 'Time Range' && <><label>Range<select value={renderRange} onChange={e => setRenderRange(e.target.value)}><option>Full Animation</option><option>Work Area IN/OUT</option></select></label><label className="render-video-check"><input type="checkbox" checked={renderLoop} onChange={e => setRenderLoop(e.target.checked)}/>Loop playback preference</label><p>{renderRange === 'Work Area IN/OUT' ? 'Work area markers are configured in the timeline; recording captures until you stop it.' : 'Recording duration is controlled manually with Start / Stop Render.'}</p></>}{renderVideoCategory === 'Environment' && <><label className="render-video-check"><input type="checkbox" checked={renderAlpha} onChange={e => setRenderAlpha(e.target.checked)}/>Alpha transparency preference</label><label className="render-video-check"><input type="checkbox" checked={renderGrid} onChange={e => setRenderGrid(e.target.checked)}/>Show grid preference</label><label className="render-video-check"><input type="checkbox" checked={renderSkybox} onChange={e => setRenderSkybox(e.target.checked)}/>Show skybox preference</label><label>Background color<input type="color" value={renderBackground} onChange={e => setRenderBackground(e.target.value)}/></label><p>These environment options are saved as render preferences; they do not override the live editor viewport yet.</p></>}{renderVideoCategory === 'Effects' && <><label className="render-video-check"><input type="checkbox" checked={Boolean(settings.dofBlur)} onChange={e => setEditorSetting('dofBlur', e.target.checked ? 2 : 0)}/>Depth of Field preference</label><label className="render-video-check"><input type="checkbox" checked={Number(settings.bloomStrength) > 0} onChange={e => setEditorSetting('bloomStrength', e.target.checked ? 0.8 : 0)}/>Bloom / Glow preference</label><label className="render-video-check"><input type="checkbox" checked={Number(settings.ssao) > 0} onChange={e => setEditorSetting('ssao', e.target.checked ? 0.5 : 0)}/>Ambient Occlusion preference</label><label>Color Grading<select defaultValue="Neutral"><option>Neutral</option><option>Cinematic</option><option>Warm</option><option>Cool</option></select></label><p>Effect toggles update editor settings where supported; browser recording captures the current viewport output.</p></>}{renderVideoCategory === 'Watermark' && <><label>Watermark text<input type="text" maxLength={80} value={renderWatermark} onChange={e => setRenderWatermark(e.target.value)} placeholder="Optional watermark text"/></label><label>Position<select defaultValue="Bottom Right"><option>Bottom Right</option><option>Bottom Left</option><option>Top Right</option><option>Top Left</option><option>Center</option></select></label><p>Watermark settings are stored for the render workflow; watermark compositing is not applied to the recording yet.</p></>}{renderVideoCategory === 'Export' && <><div className="render-preview"><span>LIVE VIEWPORT PREVIEW</span><strong>{renderAspect} · {renderFps} FPS · {renderFormat}</strong></div><div className="render-progress-track"><span style={{width: renderProgress + '%'}}/></div><div className="render-progress-label">{renderRecording ? 'Recording…' : renderProgress === 100 ? 'Export complete' : 'Ready'} <span>{renderProgress}%</span></div><button className="render-start-button" type="button" onClick={toggleRenderRecording}><Film size={13}/>{renderRecording ? 'Stop Render & Download' : 'Start Render'}</button><p>MP4 is used only if the browser supports it; otherwise choose WebM for compatible recording.</p></>}</div>}</aside>}
