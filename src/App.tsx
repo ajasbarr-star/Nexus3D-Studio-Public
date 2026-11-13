@@ -5956,11 +5956,6 @@ export default function App() {
           setActionRedoStack([]);
         }
         r.scene.updateMatrixWorld(true);
-        data.objects.forEach((saved: any) => {
-          if (!saved?.faceSelection || !Array.isArray(saved.faceSelection.indices)) return;
-          const mesh = saved.shapeId ? r.selectable.find((candidate: THREE.Object3D) => candidate.userData.shapeId === saved.shapeId) : undefined;
-          if (mesh instanceof THREE.Mesh && saved.faceSelection.indices.length >= 3) r.restoreExtrudedFaceSelection?.(mesh, saved.faceSelection.indices, saved.faceSelection.faceParts, saved.faceSelection.linkedIndices);
-        });
         r.selectable.filter((obj: THREE.Object3D) => obj instanceof THREE.Mesh).forEach((obj: THREE.Object3D) => {
           const identity = ensureShapeIdentity(obj, r.selectable, Number(r.scene.userData.nexusNextShapeId) || 1);
           r.scene.userData.nexusNextShapeId = identity.nextId;
@@ -5977,6 +5972,11 @@ export default function App() {
           : undefined;
         if (firstRestored) r.selectObject?.(firstRestored);
         else r.selectObject?.();
+        data.objects.forEach((saved: any) => {
+          if (!saved?.faceSelection || !Array.isArray(saved.faceSelection.indices)) return;
+          const mesh = saved.shapeId ? r.selectable.find((candidate: THREE.Object3D) => candidate.userData.shapeId === saved.shapeId) : undefined;
+          if (mesh instanceof THREE.Mesh && saved.faceSelection.indices.length >= 3) r.restoreExtrudedFaceSelection?.(mesh, saved.faceSelection.indices, saved.faceSelection.faceParts, saved.faceSelection.linkedIndices);
+        });
         setStatus('PROJECT LOADED SUCCESSFULLY · ' + savedMeshCount + ' shape(s), ' + restoredCount + ' scene objects restored');
       } catch (error) {
         console.error('Nexus3D project load failed:', error);
