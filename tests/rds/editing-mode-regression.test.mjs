@@ -277,9 +277,12 @@ test('Subdivision topology overlay refreshes bounds and keeps quad grid lines vi
   assert.match(source, /color: 0x000000, transparent: false, opacity: 1, depthTest: true, depthWrite: false/);
 });
 
-test('Topology overlay offsets fallback hard edges outward after Extrude and keeps them depth-tested', () => {
+test('Topology overlay welds non-indexed triangle corners for display, hides coplanar diagonals, and offsets visible hard edges', () => {
   assert.match(source, /mesh\.geometry\.computeBoundingSphere\(\);[\s\S]*?const lineOffset = Math\.max\(0\.0012, \(bounds\?\.radius \|\| 1\) \* 0\.002\)/);
-  assert.match(source, /new THREE\.EdgesGeometry\(mesh\.geometry, CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES\)/);
+  assert.match(source, /Build physical edge adjacency from positions, not vertex indices/);
+  assert.match(source, /const edgeMap = new Map<string, \{ a: THREE\.Vector3; b: THREE\.Vector3; normal: THREE\.Vector3; count: number; hard: boolean \}>\(\)/);
+  assert.match(source, /const angleLimit = THREE\.MathUtils\.degToRad\(CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES\)/);
+  assert.match(source, /if \(edge\.count === 1 \|\| edge\.count > 2 \|\| edge\.hard\)/);
   assert.match(source, /const normalSums = new Map<string, \{ normal: THREE\.Vector3; count: number \}>\(\)/);
   assert.match(source, /edgePosition\.setXYZ\(vertex, x \+ normal\.x \* lineOffset, y \+ normal\.y \* lineOffset, z \+ normal\.z \* lineOffset\)/);
   assert.match(source, /depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1/);
