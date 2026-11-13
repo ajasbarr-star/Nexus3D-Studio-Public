@@ -6318,10 +6318,21 @@ export default function App() {
       r.scene.add(importedScene);
       importedNodes.forEach(node => { if (!r.selectable.includes(node)) r.selectable.push(node); });
       assignShapeOwnership(importedNodes);
+      (Array.isArray(projectData.subObjectLocks) ? projectData.subObjectLocks : []).forEach((savedLock: any) => {
+        const mesh = importedNodes.find(node => node.userData.shapeId === savedLock.shapeId);
+        if (!(mesh instanceof THREE.Mesh)) return;
+        if (Array.isArray(savedLock.Vertex) && savedLock.Vertex.length) r.addSubObjectLocks?.(String(mesh.userData.editorId), 'Vertex', savedLock.Vertex);
+        if (Array.isArray(savedLock.Edge) && savedLock.Edge.length) r.addSubObjectLocks?.(String(mesh.userData.editorId), 'Edge', savedLock.Edge);
+      });
       projectData.objects.forEach((saved: any) => {
         if (saved?.kind !== 'Rig') return;
         const rig = saved.editorId ? restoredById.get(saved.editorId) : undefined;
         if (rig) r.restoreRigGroup?.(rig);
+      });
+      projectData.objects.forEach((saved: any) => {
+        if (!saved?.faceSelection || !Array.isArray(saved.faceSelection.indices)) return;
+        const mesh = importedNodes.find(node => node.userData.shapeId === saved.shapeId);
+        if (mesh instanceof THREE.Mesh && saved.faceSelection.indices.length >= 3) r.restoreExtrudedFaceSelection?.(mesh, saved.faceSelection.indices, saved.faceSelection.faceParts, saved.faceSelection.linkedIndices);
       });
       projectData.objects.forEach((saved: any) => {
         if (saved?.kind !== 'IK Target' && saved?.kind !== 'IK Pole') return;
