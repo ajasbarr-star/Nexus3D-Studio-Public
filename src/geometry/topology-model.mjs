@@ -128,6 +128,42 @@ export function subdivideQuadFace(topology, faceId) {
  * render stream ([a,b,c,a,c,d] per face). This is intentionally fail-closed:
  * it does not guess topology from arbitrary triangle soups.
  */
+
+/**
+ * Refresh render-space positions while preserving persistent face loops.
+ * renderIndices address expanded triangle-stream offsets; indexArray maps
+ * those offsets to source position vertices for indexed geometry.
+ * Shared logical vertices must resolve to the same position or fail closed.
+ */
+export function updateTopologyPositionsFromRenderGeometry(topology, positionArray, indexArray = null, options = {}) {
+  if (!topology || topology.version !== 1 || !Array.isArray(topology.faces) ||
+      !Array.isArray(topology.vertices) || !positionArray || typeof positionArray.length !== "number") return null;
+  const digits = Number.isInteger(options.precision) ? Math.max(3, Math.min(9, options.precision)) : 6;
+  const vertexPositions = new Map();
+  for (const face of topology.faces) {
+    if (!Array.isArray(face.vertices) || !Array.isArray(face.renderIndices) ||
+        face.vertices.length < 3 || face.vertices.length !== face.renderIndices.length) return null;
+    for (let corner = 0; corner < face.vertices.length; corner++) {
+      const renderOffset = face.renderIndices[corner];
+      if (!Number.isInteger(renderOffset) || renderOffset < 0 || (indexArray && renderOffset >= indexArray.length)) return null;
+      const sourceIndex = indexArray ? Number(indexArray[renderOffset]) : renderOffset;
+      const base = sourceIndex * 3;
+      if (!Number.isInteger(sourceIndex) || sourceIndex < 0 || base + 2 >= positionArray.length) return null;
+      const position = [Number(positionArray[base]), Number(positionArray[base + 1]), Number(positionArray[base + 2])];
+      if (!position.every(Number.isFinite)) return null;
+      const id = face.vertices[corner], previous = vertexPositions.get(id);
+      if (previous && previous.some((value, axis) => Number(value).toFixed(digits) !== position[axis].toFixed(digits))) return null;
+      vertexPositions.set(id, position);
+    }
+  }
+  if (vertexPositions.size !== topology.vertices.length) return null;
+  const vertices = topology.vertices.map(vertex => {
+    const position = vertexPositions.get(vertex.id);
+    return position ? { id: vertex.id, position } : vertex;
+  });
+  try { return buildTopology({ vertices, faces: topology.faces }); } catch { return null; }
+}
+
 export function buildTopologyFromCanonicalQuadGeometry(positionArray, options = {}) {
   if (!positionArray || typeof positionArray.length !== "number" ||
       positionArray.length < 18 || positionArray.length % 18 !== 0) return null;
