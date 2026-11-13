@@ -5511,12 +5511,12 @@ export default function App() {
   const getProjectData = () => {
     const r = runtime.current;
     const projectNodes = collectObjectOnlyProjectNodes(r?.selectable || []);
-    assignShapeOwnership(projectNodes);
     projectNodes.filter((obj: THREE.Object3D) => obj instanceof THREE.Mesh).forEach((obj: THREE.Object3D) => {
       const identity = ensureShapeIdentity(obj, projectNodes, Number(r?.scene?.userData?.nexusNextShapeId) || 1);
       if (r?.scene) r.scene.userData.nexusNextShapeId = identity.nextId;
       obj.userData.shapeIdentityLabel = formatShapeIdentity(obj.name, identity.shapeId);
     });
+    assignShapeOwnership(projectNodes);
     return {
       app: 'Nexus3D',
       version: 4,
@@ -6274,6 +6274,7 @@ export default function App() {
       });
       r.scene.add(importedScene);
       importedNodes.forEach(node => { if (!r.selectable.includes(node)) r.selectable.push(node); });
+      assignShapeOwnership(importedNodes);
       projectData.objects.forEach((saved: any) => {
         if (saved?.kind !== 'Rig') return;
         const rig = saved.editorId ? restoredById.get(saved.editorId) : undefined;
