@@ -6365,6 +6365,23 @@ export default function App() {
             });
           }
           node.userData.kind = saved.kind || kind;
+          // GLB carries light appearance, but editor-only shadow flags and the
+          // explicit SpotLight target must be restored from Project.nexus metadata.
+          if (node.isLight && saved.light) {
+            if (saved.light.color && node.color?.set) node.color.set('#' + saved.light.color);
+            if (Number.isFinite(saved.light.intensity)) node.intensity = saved.light.intensity;
+            if ((node.isPointLight || node.isSpotLight) && Number.isFinite(saved.light.distance)) node.distance = saved.light.distance;
+            if ((node.isPointLight || node.isSpotLight) && Number.isFinite(saved.light.decay)) node.decay = saved.light.decay;
+            if (node.isSpotLight && Number.isFinite(saved.light.angle)) node.angle = saved.light.angle;
+            if (node.isHemisphereLight && saved.light.groundColor) node.groundColor.set('#' + saved.light.groundColor);
+            if (node.shadow && Number.isFinite(saved.light.shadowBias)) node.shadow.bias = saved.light.shadowBias;
+            if (node.shadow && Number.isFinite(saved.light.shadowRadius)) node.shadow.radius = saved.light.shadowRadius;
+            if (node.isSpotLight && Array.isArray(saved.light.targetPosition) && saved.light.targetPosition.length === 3) {
+              node.target.position.fromArray(saved.light.targetPosition);
+              node.target.updateMatrixWorld(true);
+            }
+            if (typeof saved.castShadow === 'boolean') node.castShadow = saved.castShadow;
+          }
           if (saved.shapeId) {
             node.userData.shapeId = saved.shapeId;
             node.userData.shapeIdentityLabel = formatShapeIdentity(saved.name || node.name, saved.shapeId);
