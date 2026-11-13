@@ -8,3 +8,4 @@ export function moveTopologyVertices(topology: NexusTopology, positionById: Map<
 export function subdivideQuadFace(topology: NexusTopology, faceId: string): NexusTopology;
 
 export function buildTopologyFromCanonicalQuadGeometry(positionArray: ArrayLike<number>, options?: { precision?: number }): NexusTopology | null;
+export function updateTopologyPositionsFromRenderGeometry(topology: NexusTopology, positionArray: ArrayLike<number>, indexArray?: ArrayLike<number> | null, options?: { precision?: number }): NexusTopology | null;
