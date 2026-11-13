@@ -5587,7 +5587,7 @@ export default function App() {
           alphaTest: Number.isFinite(mat.alphaTest) ? mat.alphaTest : 0,
           depthWrite: mat.depthWrite !== false,
           depthTest: mat.depthTest !== false,
-          textures: Object.fromEntries(['map','emissiveMap','normalMap','roughnessMap','metalnessMap','aoMap','alphaMap'].flatMap((slot: string) => {
+          textures: Object.fromEntries(['map','emissiveMap','normalMap','roughnessMap','metalnessMap','aoMap','alphaMap','bumpMap','displacementMap','lightMap','specularMap','clearcoatMap','clearcoatRoughnessMap','clearcoatNormalMap','iridescenceMap','iridescenceThicknessMap','sheenColorMap','sheenRoughnessMap','transmissionMap','thicknessMap','specularIntensityMap','specularColorMap','gradientMap'].flatMap((slot: string) => {
             const texture = mat[slot];
             if (!texture?.image) return [];
             const image: any = texture.image;
@@ -5824,7 +5824,7 @@ export default function App() {
                 const material = materials[materialIndex];
                 const textureSlots = materialData?.textures && typeof materialData.textures === 'object' ? materialData.textures : {};
                 for (const [slot, textureData] of Object.entries(textureSlots) as Array<[string, any]>) {
-                  if (!textureData?.dataUrl || !['map','emissiveMap','normalMap','roughnessMap','metalnessMap','aoMap','alphaMap'].includes(slot)) continue;
+                  if (!textureData?.dataUrl || !['map','emissiveMap','normalMap','roughnessMap','metalnessMap','aoMap','alphaMap','bumpMap','displacementMap','lightMap','specularMap','clearcoatMap','clearcoatRoughnessMap','clearcoatNormalMap','iridescenceMap','iridescenceThicknessMap','sheenColorMap','sheenRoughnessMap','transmissionMap','thicknessMap','specularIntensityMap','specularColorMap','gradientMap'].includes(slot)) continue;
                   const texture = await new THREE.TextureLoader().loadAsync(textureData.dataUrl);
                   if (textureData.colorSpace) texture.colorSpace = textureData.colorSpace;
                   if (Number.isFinite(textureData.wrapS)) texture.wrapS = textureData.wrapS;
