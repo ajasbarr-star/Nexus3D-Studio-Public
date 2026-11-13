@@ -5502,6 +5502,16 @@ export default function App() {
           transparent: Boolean(mat.transparent),
           emissive: mat.emissive?.getHexString?.() || null,
           emissiveIntensity: Number.isFinite(mat.emissiveIntensity) ? mat.emissiveIntensity : 0,
+          clearcoat: Number.isFinite(mat.clearcoat) ? mat.clearcoat : 0,
+          clearcoatRoughness: Number.isFinite(mat.clearcoatRoughness) ? mat.clearcoatRoughness : 0,
+          transmission: Number.isFinite(mat.transmission) ? mat.transmission : 0,
+          ior: Number.isFinite(mat.ior) ? mat.ior : 1.5,
+          sheen: Number.isFinite(mat.sheen) ? mat.sheen : 0,
+          sheenRoughness: Number.isFinite(mat.sheenRoughness) ? mat.sheenRoughness : 1,
+          side: mat.side,
+          wireframe: Boolean(mat.wireframe),
+          vertexColors: Boolean(mat.vertexColors),
+          flatShading: Boolean(mat.flatShading),
           textures: Object.fromEntries(['map','emissiveMap','normalMap','roughnessMap','metalnessMap','aoMap','alphaMap'].flatMap((slot: string) => {
             const texture = mat[slot];
             if (!texture?.image) return [];
@@ -5518,7 +5528,7 @@ export default function App() {
               context.drawImage(image, 0, 0, width, height);
               dataUrl = canvas.toDataURL('image/png');
             }
-            return [[slot, { dataUrl, colorSpace: texture.colorSpace || '', mapping: texture.mapping, wrapS: texture.wrapS, wrapT: texture.wrapT, flipY: texture.flipY }]];
+            return [[slot, { dataUrl, colorSpace: texture.colorSpace || '', mapping: texture.mapping, wrapS: texture.wrapS, wrapT: texture.wrapT, flipY: texture.flipY, repeat: texture.repeat?.toArray?.() || [1,1], offset: texture.offset?.toArray?.() || [0,0], center: texture.center?.toArray?.() || [0,0], rotation: texture.rotation || 0, magFilter: texture.magFilter, minFilter: texture.minFilter, anisotropy: texture.anisotropy, channel: texture.channel }]];
           }))
         })) : undefined,
         meshTopology: obj instanceof THREE.Mesh ? {
@@ -5737,7 +5747,17 @@ export default function App() {
                 opacity: Number.isFinite(mat.opacity) ? mat.opacity : 1,
                 transparent: Boolean(mat.transparent),
                 emissive: mat.emissive ? '#' + mat.emissive : '#000000',
-                emissiveIntensity: Number.isFinite(mat.emissiveIntensity) ? mat.emissiveIntensity : 0
+                emissiveIntensity: Number.isFinite(mat.emissiveIntensity) ? mat.emissiveIntensity : 0,
+                clearcoat: Number.isFinite(mat.clearcoat) ? mat.clearcoat : 0,
+                clearcoatRoughness: Number.isFinite(mat.clearcoatRoughness) ? mat.clearcoatRoughness : 0,
+                transmission: Number.isFinite(mat.transmission) ? mat.transmission : 0,
+                ior: Number.isFinite(mat.ior) ? mat.ior : 1.5,
+                sheen: Number.isFinite(mat.sheen) ? mat.sheen : 0,
+                sheenRoughness: Number.isFinite(mat.sheenRoughness) ? mat.sheenRoughness : 1,
+                side: Number.isFinite(mat.side) ? mat.side : THREE.FrontSide,
+                wireframe: Boolean(mat.wireframe),
+                vertexColors: Boolean(mat.vertexColors),
+                flatShading: Boolean(mat.flatShading)
               }));
               obj.material = materials.length === 1 ? materials[0] : materials;
               for (let materialIndex = 0; materialIndex < materials.length; materialIndex++) {
@@ -5751,6 +5771,14 @@ export default function App() {
                     if (Number.isFinite(textureData.wrapS)) loadedTexture.wrapS = textureData.wrapS;
                     if (Number.isFinite(textureData.wrapT)) loadedTexture.wrapT = textureData.wrapT;
                     if (typeof textureData.flipY === 'boolean') loadedTexture.flipY = textureData.flipY;
+                    if (Array.isArray(textureData.repeat)) loadedTexture.repeat.fromArray(textureData.repeat);
+                    if (Array.isArray(textureData.offset)) loadedTexture.offset.fromArray(textureData.offset);
+                    if (Array.isArray(textureData.center)) loadedTexture.center.fromArray(textureData.center);
+                    if (Number.isFinite(textureData.rotation)) loadedTexture.rotation = textureData.rotation;
+                    if (Number.isFinite(textureData.magFilter)) loadedTexture.magFilter = textureData.magFilter;
+                    if (Number.isFinite(textureData.minFilter)) loadedTexture.minFilter = textureData.minFilter;
+                    if (Number.isFinite(textureData.anisotropy)) loadedTexture.anisotropy = textureData.anisotropy;
+                    if (Number.isFinite(textureData.channel)) loadedTexture.channel = textureData.channel;
                     loadedTexture.needsUpdate = true;
                     material.needsUpdate = true;
                   });
@@ -6089,7 +6117,6 @@ export default function App() {
       const safeBase = (projectName.trim() || 'Nexus3D_Project').replace(/\.(nexus|zip)$/i, '').replace(/[^a-z0-9._-]/gi, '_');
       zip.file('Project.nexus', JSON.stringify({
         ...data,
-        settings: { ...settings },
         projectName: safeBase + '.nexus',
         savedObjectCount: data.objects.length,
         savedMeshCount: data.objects.filter((item: any) => item?.geometry?.attributes?.position?.array?.length).length
