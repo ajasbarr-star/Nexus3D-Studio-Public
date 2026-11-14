@@ -41,12 +41,13 @@ export function validateProjectIdentityData(objects, version = 0) {
           throw new Error('Project validation failed: invalid geometry attribute ' + attributeName);
         }
       }
-      if (!Array.isArray(position?.array) || position.array.length < 9 || position.array.length % 3 !== 0) {
+      if (!Array.isArray(position?.array) || position.array.length < 9 ||
+          position.itemSize !== 3 || position.array.length % position.itemSize !== 0) {
         throw new Error('Project validation failed: invalid position geometry');
       }
       if (saved.geometry.index != null) {
         if (!Array.isArray(saved.geometry.index) ||
-            !saved.geometry.index.every(value => Number.isSafeInteger(value) && value >= 0 && value < position.array.length / 3)) {
+            !saved.geometry.index.every(value => Number.isSafeInteger(value) && value >= 0 && value < position.array.length / position.itemSize)) {
           throw new Error('Project validation failed: invalid geometry index buffer');
         }
       }
