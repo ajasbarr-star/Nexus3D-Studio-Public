@@ -5759,7 +5759,6 @@ export default function App() {
         const restoredById = new Map<string, THREE.Object3D>();
         const restoredByName = new Map<string, THREE.Object3D>();
         const restoredNodeSet = new Set<THREE.Object3D>();
-        r.clearSubObjectLocks?.();
         const seenShapeIds = new Set<string>();
         for (const saved of data.objects) {
           if (!saved || !saved.geometry?.attributes?.position?.array || ['Bone', 'Rig', 'IK Target', 'IK Pole'].includes(saved.kind)) continue;
@@ -5963,14 +5962,6 @@ export default function App() {
 
         assignShapeOwnership(r.selectable || []);
 
-        // Restore Vertex and Edge locks by permanent Shape ID, not transient editor IDs.
-        (Array.isArray(data.subObjectLocks) ? data.subObjectLocks : []).forEach((savedLock: any) => {
-          const mesh = r.selectable.find((candidate: THREE.Object3D) => candidate.userData.shapeId === savedLock.shapeId);
-          if (!(mesh instanceof THREE.Mesh)) return;
-          if (Array.isArray(savedLock.Vertex) && savedLock.Vertex.length) r.addSubObjectLocks?.(String(mesh.userData.editorId), 'Vertex', savedLock.Vertex);
-          if (Array.isArray(savedLock.Edge) && savedLock.Edge.length) r.addSubObjectLocks?.(String(mesh.userData.editorId), 'Edge', savedLock.Edge);
-        });
-
         // Rebuild manual rig chains before reconnecting their IK handles.
         data.objects.forEach((saved: any) => {
           if (saved?.kind !== 'Rig') return;
@@ -6026,6 +6017,18 @@ export default function App() {
           if (!saved?.faceSelection || !Array.isArray(saved.faceSelection.indices)) return;
           const mesh = saved.shapeId ? r.selectable.find((candidate: THREE.Object3D) => candidate.userData.shapeId === saved.shapeId) : undefined;
           if (mesh instanceof THREE.Mesh && saved.faceSelection.indices.length >= 3) r.restoreExtrudedFaceSelection?.(mesh, saved.faceSelection.indices, saved.faceSelection.faceParts, saved.faceSelection.linkedIndices);
+        });
+
+        // Commit sub-object locks only after geometry, hierarchy, rigs, handles,
+        // identity, selection, and face-selection restoration have completed.
+        // A failure in any earlier stage therefore preserves the current scene's locks.
+        r.clearSubObjectLocks?.();
+        // Restore Vertex and Edge locks by permanent Shape ID, not transient editor IDs.
+        (Array.isArray(data.subObjectLocks) ? data.subObjectLocks : []).forEach((savedLock: any) => {
+          const mesh = r.selectable.find((candidate: THREE.Object3D) => candidate.userData.shapeId === savedLock.shapeId);
+          if (!(mesh instanceof THREE.Mesh)) return;
+          if (Array.isArray(savedLock.Vertex) && savedLock.Vertex.length) r.addSubObjectLocks?.(String(mesh.userData.editorId), 'Vertex', savedLock.Vertex);
+          if (Array.isArray(savedLock.Edge) && savedLock.Edge.length) r.addSubObjectLocks?.(String(mesh.userData.editorId), 'Edge', savedLock.Edge);
         });
 
         // Destructive cleanup is the final commit step. Keep the previous scene's
