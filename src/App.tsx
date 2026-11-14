@@ -5669,7 +5669,9 @@ export default function App() {
         try { localStorage.setItem('nexus3d-project-v1', serialized); } catch (storageError) {
           console.warn('Nexus3D local backup unavailable:', storageError);
         }
-        setStatus('PROJECT SAVED SUCCESSFULLY — ' + (saved.name || fileName) + ' · ' + meshCount + ' shape(s)');
+        const verifiedBytes = Number(saved.writtenBytes) || 0;
+        const sizeLabel = verifiedBytes > 0 ? verifiedBytes.toLocaleString() + ' bytes' : 'size not reported';
+        setStatus('PROJECT SAVED SUCCESSFULLY — ' + (saved.name || fileName) + ' · ' + meshCount + ' shape(s) · ' + sizeLabel);
         return;
       }
 
@@ -6258,7 +6260,9 @@ export default function App() {
       const fileName = safeBase.toLowerCase().endsWith('.zip') ? safeBase : safeBase + '.zip';
       if (Capacitor.isNativePlatform()) {
         const saved = await NexusProjectFiles.saveProjectArchive({ fileName, base64 });
-        setStatus('PROJECT ZIP EXPORTED SUCCESSFULLY — ' + (saved.name || fileName));
+        const verifiedBytes = Number(saved.writtenBytes) || 0;
+        const sizeLabel = verifiedBytes > 0 ? verifiedBytes.toLocaleString() + ' bytes' : 'size not reported';
+        setStatus('PROJECT ZIP EXPORTED SUCCESSFULLY — ' + (saved.name || fileName) + ' · ' + sizeLabel);
       } else {
         const binary = atob(base64);
         const bytes = new Uint8Array(binary.length);
