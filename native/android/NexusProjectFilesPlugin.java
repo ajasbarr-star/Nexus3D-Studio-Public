@@ -171,11 +171,12 @@ public class NexusProjectFilesPlugin extends Plugin {
         if (savedUri != null) {
             try {
                 Uri uri = Uri.parse(savedUri);
-                writeArchiveDocument(uri, base64);
+                long writtenBytes = writeArchiveDocument(uri, base64);
                 JSObject response = new JSObject();
                 response.put("uri", uri.toString());
                 response.put("name", fileName);
                 response.put("overwritten", true);
+                response.put("writtenBytes", writtenBytes);
                 call.resolve(response);
                 return;
             } catch (Exception error) {
@@ -207,7 +208,7 @@ public class NexusProjectFilesPlugin extends Plugin {
             } catch (Exception ignored) {
                 // Some document providers grant access only for the current app session.
             }
-            writeArchiveDocument(uri, base64);
+            long writtenBytes = writeArchiveDocument(uri, base64);
             getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .edit().putString("zip:" + requestedName, uri.toString()).apply();
 
@@ -215,19 +216,45 @@ public class NexusProjectFilesPlugin extends Plugin {
             response.put("uri", uri.toString());
             response.put("name", fileNameFromUri(uri));
             response.put("overwritten", false);
+            response.put("writtenBytes", writtenBytes);
             call.resolve(response);
         } catch (Exception error) {
             call.reject("Unable to export project ZIP: " + error.getMessage(), error);
         }
     }
 
-    private void writeArchiveDocument(Uri uri, String base64) throws Exception {
-        byte[] bytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT);
+    /**
+     * Writes the complete ZIP archive and verifies the exact bytes by reading
+     * the selected document back before reporting a successful export.
+     */
+    private long writeArchiveDocument(Uri uri, String base64) throws Exception {
+        byte[] expected = android.util.Base64.decode(base64, android.util.Base64.DEFAULT);
+        if (expected.length == 0) throw new IllegalArgumentException("Project archive is empty");
         try (OutputStream output = getContext().getContentResolver().openOutputStream(uri, "wt")) {
             if (output == null) throw new IllegalStateException("Unable to open selected ZIP destination");
-            output.write(bytes);
+            output.write(expected);
             output.flush();
         }
+
+        long verifiedBytes = 0L;
+        try (InputStream input = getContext().getContentResolver().openInputStream(uri)) {
+            if (input == null) throw new IllegalStateException("Saved ZIP could not be reopened for verification");
+            byte[] buffer = new byte[16384];
+            int count;
+            while ((count = input.read(buffer)) != -1) {
+                for (int i = 0; i < count; i++) {
+                    if (verifiedBytes >= expected.length || buffer[i] != expected[(int) verifiedBytes]) {
+                        throw new IllegalStateException("Saved ZIP verification failed: file contents do not match");
+                    }
+                    verifiedBytes++;
+                }
+            }
+        }
+        if (verifiedBytes != expected.length) {
+            throw new IllegalStateException("Saved ZIP verification failed: expected "
+                + expected.length + " bytes but read back " + verifiedBytes);
+        }
+        return verifiedBytes;
     }
 
     @PluginMethod
