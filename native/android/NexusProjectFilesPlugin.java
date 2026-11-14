@@ -77,8 +77,10 @@ public class NexusProjectFilesPlugin extends Plugin {
                 call.resolve(response);
                 return;
             } catch (Exception error) {
-                // The user may have revoked access or removed the file. Ask for a new destination.
-                prefs.edit().remove("uri:" + fileName).apply();
+                // Do not silently discard the saved destination and create a duplicate.
+                // The existing document may need recovery if the provider failed mid-write.
+                call.reject("Unable to verify overwrite of the existing project. The saved destination was retained; use a different project name for Save As. " + error.getMessage(), error);
+                return;
             }
         }
 
@@ -180,7 +182,10 @@ public class NexusProjectFilesPlugin extends Plugin {
                 call.resolve(response);
                 return;
             } catch (Exception error) {
-                prefs.edit().remove("zip:" + fileName).apply();
+                // Preserve the known destination and surface the failure instead of
+                // silently creating a second archive with a provider-generated suffix.
+                call.reject("Unable to verify overwrite of the existing ZIP archive. The saved destination was retained; use a different archive name for Save As. " + error.getMessage(), error);
+                return;
             }
         }
 
