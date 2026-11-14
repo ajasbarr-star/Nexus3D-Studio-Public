@@ -78,10 +78,10 @@ function createProjectMaterial(data: any): THREE.Material {
 }
 
 type NexusProjectFilesPlugin = {
-  saveProject(options: { fileName: string; content: string }): Promise<{ uri: string; name: string }>;
+  saveProject(options: { fileName: string; content: string }): Promise<{ uri: string; name: string; writtenBytes?: number; overwritten?: boolean }>;
   loadProject(): Promise<{ content: string; name: string }>;
   loadProjectArchive(): Promise<{ base64: string; name: string }>;
-  saveProjectArchive(options: { fileName: string; base64: string }): Promise<{ uri: string; name: string }>;
+  saveProjectArchive(options: { fileName: string; base64: string }): Promise<{ uri: string; name: string; writtenBytes?: number; overwritten?: boolean }>;
   clearAppCache(): Promise<{ cleared: boolean; message: string }>;
 };
 const NexusProjectFiles = registerPlugin<NexusProjectFilesPlugin>('NexusProjectFiles');
