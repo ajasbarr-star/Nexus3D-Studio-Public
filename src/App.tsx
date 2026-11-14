@@ -5754,7 +5754,6 @@ export default function App() {
           preloadedTextures.set(dataUrl, texture);
         }));
 
-        if (data.projectName) setProjectName(String(data.projectName));
         r.scene.userData.nexusNextShapeId = Math.max(Number(r.scene.userData.nexusNextShapeId) || 1, Number(data.nextShapeId) || 1);
         const restoredById = new Map<string, THREE.Object3D>();
         const restoredByName = new Map<string, THREE.Object3D>();
@@ -5986,15 +5985,6 @@ export default function App() {
         });
 
 
-        if (data.keyframes && typeof data.keyframes === 'object') {
-          const restoredKeys = data.keyframes as Keyframes;
-          keysRef.current = restoredKeys;
-          setKeyframes(restoredKeys);
-          setUndoStack([]);
-          setRedoStack([]);
-          setActionUndoStack([]);
-          setActionRedoStack([]);
-        }
         r.scene.updateMatrixWorld(true);
         r.selectable.filter((obj: THREE.Object3D) => isShapeProjectMesh(obj)).forEach((obj: THREE.Object3D) => {
           const identity = ensureShapeIdentity(obj, r.selectable, Number(r.scene.userData.nexusNextShapeId) || 1);
@@ -6030,6 +6020,20 @@ export default function App() {
           if (Array.isArray(savedLock.Vertex) && savedLock.Vertex.length) r.addSubObjectLocks?.(String(mesh.userData.editorId), 'Vertex', savedLock.Vertex);
           if (Array.isArray(savedLock.Edge) && savedLock.Edge.length) r.addSubObjectLocks?.(String(mesh.userData.editorId), 'Edge', savedLock.Edge);
         });
+
+        // Commit project-level UI state only after all scene restoration passes
+        // have completed. Failed loads must not rename the active project or replace
+        // its keyframe/undo state.
+        if (data.projectName) setProjectName(String(data.projectName));
+        if (data.keyframes && typeof data.keyframes === 'object') {
+          const restoredKeys = data.keyframes as Keyframes;
+          keysRef.current = restoredKeys;
+          setKeyframes(restoredKeys);
+          setUndoStack([]);
+          setRedoStack([]);
+          setActionUndoStack([]);
+          setActionRedoStack([]);
+        }
 
         // Destructive cleanup is the final commit step. Keep the previous scene's
         // objects available until hierarchy, rigs, skin bindings, handles, identity,
