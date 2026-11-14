@@ -71,3 +71,22 @@ test('project load delays destructive stale-scene cleanup until all restoration 
   assert.ok(staleCleanup > faceSelectionRestore, 'stale scene objects must not be deleted before restoration passes complete');
   assert.ok(removeStale > staleCleanup, 'stale object removal must follow final cleanup planning');
 });
+
+
+test('project load preserves current sub-object locks until all other restoration passes finish', async () => {
+  const source = await readFile(appPath, 'utf8');
+  const loadStart = source.indexOf('const handleProjectFile =');
+  const loadEnd = source.indexOf('const createNewProject =', loadStart);
+  const load = source.slice(loadStart, loadEnd);
+  const clearLocks = load.indexOf('r.clearSubObjectLocks?.();');
+  const rigRestore = load.indexOf('r.restoreRigGroup?.');
+  const skinRestore = load.indexOf('r.restoreSkinnedMesh?.');
+  const handleRestore = load.indexOf('r.attachRigHandle?.');
+  const faceSelectionRestore = load.indexOf('r.restoreExtrudedFaceSelection?.');
+  const restoreLocks = load.indexOf('Restore Vertex and Edge locks by permanent Shape ID');
+  const staleCleanup = load.indexOf('const staleNodes = collectObjectOnlyProjectNodes');
+  assert.ok(clearLocks > faceSelectionRestore, 'existing locks must not be cleared before face-selection restoration');
+  assert.ok(clearLocks > rigRestore && clearLocks > skinRestore && clearLocks > handleRestore, 'existing locks must survive rig and handle restoration failures');
+  assert.ok(restoreLocks > clearLocks, 'saved locks must be applied only after clearing the old locks');
+  assert.ok(staleCleanup > restoreLocks, 'lock restoration must finish before stale-scene cleanup');
+});
