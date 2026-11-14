@@ -65,6 +65,14 @@ test('rejects non-object entries and malformed geometry buffers', () => {
   ], 4), /invalid geometry index buffer/);
 });
 
+test('rejects position attributes that are not three-dimensional', () => {
+  assert.throws(() => validateProjectIdentityData([
+    { ...mesh('mesh-1', 'No.01'), geometry: { attributes: {
+      position: { itemSize: 2, array: [0, 0, 1, 0, 0, 1, 1, 1, 0, 0] }
+    } } }
+  ], 4), /invalid position geometry/);
+});
+
 test('rejects self-parenting and cyclic scene hierarchies', () => {
   assert.throws(() => validateProjectIdentityData([
     mesh('mesh-1', 'No.01'), { editorId: 'self', parentEditorId: 'self' }
