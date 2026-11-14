@@ -54,3 +54,20 @@ test('failed overwrite keeps the existing project and ZIP destination mapping', 
   assert.ok(!source.includes('remove("uri:" + fileName)'));
   assert.ok(!source.includes('remove("zip:" + fileName)'));
 });
+
+
+test('project load delays destructive stale-scene cleanup until all restoration passes finish', async () => {
+  const source = await readFile(appPath, 'utf8');
+  const loadStart = source.indexOf('const handleProjectFile =');
+  const loadEnd = source.indexOf('const createNewProject =', loadStart);
+  const load = source.slice(loadStart, loadEnd);
+  const rigRestore = load.indexOf('r.restoreSkinnedMesh?.');
+  const handleRestore = load.indexOf('r.attachRigHandle?.');
+  const faceSelectionRestore = load.indexOf('r.restoreExtrudedFaceSelection?.');
+  const staleCleanup = load.indexOf('const staleNodes = collectObjectOnlyProjectNodes');
+  const removeStale = load.indexOf('getObjectOnlyProjectRoots(staleNodes).forEach');
+  assert.ok(rigRestore >= 0 && handleRestore > rigRestore, 'rig and IK handle restoration must occur');
+  assert.ok(faceSelectionRestore > handleRestore, 'saved face selection must be restored before cleanup');
+  assert.ok(staleCleanup > faceSelectionRestore, 'stale scene objects must not be deleted before restoration passes complete');
+  assert.ok(removeStale > staleCleanup, 'stale object removal must follow final cleanup planning');
+});
