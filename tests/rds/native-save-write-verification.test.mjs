@@ -90,3 +90,14 @@ test('project load preserves current sub-object locks until all other restoratio
   assert.ok(restoreLocks > clearLocks, 'saved locks must be applied only after clearing the old locks');
   assert.ok(staleCleanup > restoreLocks, 'lock restoration must finish before stale-scene cleanup');
 });
+
+
+test('SAF save destinations are remembered only when URI permission is persistable', async () => {
+  const source = await readFile(nativePath, 'utf8');
+  assert.equal((source.match(/FLAG_GRANT_PERSISTABLE_URI_PERMISSION/g) || []).length, 2);
+  assert.ok(source.includes('if (permissionPersisted) destinationEditor.putString("uri:" + requestedName, uri.toString())'));
+  assert.ok(source.includes('else destinationEditor.remove("uri:" + requestedName)'));
+  assert.ok(source.includes('if (permissionPersisted) destinationEditor.putString("zip:" + requestedName, uri.toString())'));
+  assert.ok(source.includes('else destinationEditor.remove("zip:" + requestedName)'));
+  assert.ok(source.includes('Do not store a URI that may stop working after this app session.'));
+});
