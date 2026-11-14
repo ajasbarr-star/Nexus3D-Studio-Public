@@ -128,3 +128,14 @@ test('restored face selection and sub-object locks never bind to stale pre-load 
   assert.ok(load.includes('const mesh = saved.shapeId ? [...restoredNodeSet].find((candidate: THREE.Object3D) => candidate.userData.shapeId === saved.shapeId) : undefined;'), 'face selection must resolve only within the restored object set');
   assert.ok(load.includes('const mesh = [...restoredNodeSet].find((candidate: THREE.Object3D) => candidate.userData.shapeId === savedLock.shapeId);'), 'sub-object locks must resolve only within the restored object set');
 });
+
+
+test('normal Save validates the complete project payload before writing', async () => {
+  const source = await readFile(appPath, 'utf8');
+  const saveStart = source.indexOf('const saveProject = async');
+  const saveEnd = source.indexOf('const loadProject = async', saveStart);
+  const save = source.slice(saveStart, saveEnd);
+  const validate = save.indexOf('validateProjectIdentityData(sceneObjects, Number(data.version) || 0)');
+  const serialize = save.indexOf('const serialized = JSON.stringify');
+  assert.ok(validate >= 0 && serialize > validate, 'project data must pass validation before it is serialized or written');
+});
