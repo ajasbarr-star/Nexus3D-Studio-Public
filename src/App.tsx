@@ -6005,7 +6005,7 @@ export default function App() {
         else r.selectObject?.();
         data.objects.forEach((saved: any) => {
           if (!saved?.faceSelection || !Array.isArray(saved.faceSelection.indices)) return;
-          const mesh = saved.shapeId ? r.selectable.find((candidate: THREE.Object3D) => candidate.userData.shapeId === saved.shapeId) : undefined;
+          const mesh = saved.shapeId ? [...restoredNodeSet].find((candidate: THREE.Object3D) => candidate.userData.shapeId === saved.shapeId) : undefined;
           if (mesh instanceof THREE.Mesh && saved.faceSelection.indices.length >= 3) r.restoreExtrudedFaceSelection?.(mesh, saved.faceSelection.indices, saved.faceSelection.faceParts, saved.faceSelection.linkedIndices);
         });
 
@@ -6015,7 +6015,7 @@ export default function App() {
         r.clearSubObjectLocks?.();
         // Restore Vertex and Edge locks by permanent Shape ID, not transient editor IDs.
         (Array.isArray(data.subObjectLocks) ? data.subObjectLocks : []).forEach((savedLock: any) => {
-          const mesh = r.selectable.find((candidate: THREE.Object3D) => candidate.userData.shapeId === savedLock.shapeId);
+          const mesh = [...restoredNodeSet].find((candidate: THREE.Object3D) => candidate.userData.shapeId === savedLock.shapeId);
           if (!(mesh instanceof THREE.Mesh)) return;
           if (Array.isArray(savedLock.Vertex) && savedLock.Vertex.length) r.addSubObjectLocks?.(String(mesh.userData.editorId), 'Vertex', savedLock.Vertex);
           if (Array.isArray(savedLock.Edge) && savedLock.Edge.length) r.addSubObjectLocks?.(String(mesh.userData.editorId), 'Edge', savedLock.Edge);
