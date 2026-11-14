@@ -5653,6 +5653,10 @@ export default function App() {
         setStatus('SAVE CANCELLED: walang 3D shape/mesh na nakuha sa current scene. Hindi gumawa ng empty project file.');
         return;
       }
+      // Validate the exact payload before writing to disk so malformed geometry,
+      // duplicate identities, or broken rig/hierarchy references cannot replace
+      // a previously valid offline project.
+      validateProjectIdentityData(sceneObjects, Number(data.version) || 0);
       const serialized = JSON.stringify({
         ...data,
         projectName: projectName.trim() || 'Project.nexus',
