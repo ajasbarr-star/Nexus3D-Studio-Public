@@ -5963,10 +5963,6 @@ export default function App() {
 
         assignShapeOwnership(r.selectable || []);
 
-        // Replace stale project shapes only after saved parent/child links have been reconnected.
-        const staleNodes = collectObjectOnlyProjectNodes(r.selectable || []).filter((node: THREE.Object3D) => !restoredNodeSet.has(node));
-        getObjectOnlyProjectRoots(staleNodes).forEach((node: THREE.Object3D) => r.removeObject(node, true));
-
         // Restore Vertex and Edge locks by permanent Shape ID, not transient editor IDs.
         (Array.isArray(data.subObjectLocks) ? data.subObjectLocks : []).forEach((savedLock: any) => {
           const mesh = r.selectable.find((candidate: THREE.Object3D) => candidate.userData.shapeId === savedLock.shapeId);
@@ -6031,6 +6027,14 @@ export default function App() {
           const mesh = saved.shapeId ? r.selectable.find((candidate: THREE.Object3D) => candidate.userData.shapeId === saved.shapeId) : undefined;
           if (mesh instanceof THREE.Mesh && saved.faceSelection.indices.length >= 3) r.restoreExtrudedFaceSelection?.(mesh, saved.faceSelection.indices, saved.faceSelection.faceParts, saved.faceSelection.linkedIndices);
         });
+
+        // Destructive cleanup is the final commit step. Keep the previous scene's
+        // objects available until hierarchy, rigs, skin bindings, handles, identity,
+        // selection, and saved sub-object selection have all been restored.
+        const staleNodes = collectObjectOnlyProjectNodes(r.selectable || []).filter((node: THREE.Object3D) => !restoredNodeSet.has(node));
+        getObjectOnlyProjectRoots(staleNodes).forEach((node: THREE.Object3D) => r.removeObject(node, true));
+        r.syncItems?.();
+        if (firstRestored && r.selectable.includes(firstRestored)) r.selectObject?.(firstRestored);
         setStatus('PROJECT LOADED SUCCESSFULLY · ' + savedMeshCount + ' shape(s), ' + restoredCount + ' scene objects restored');
       } catch (error) {
         console.error('Nexus3D project load failed:', error);
