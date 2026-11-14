@@ -45,3 +45,12 @@ test('project load preflights embedded textures before mutating the active scene
   assert.ok(source.includes('preloadedTextures.get(textureData.dataUrl)'));
   assert.ok(source.includes("embedded texture could not be decoded"));
 });
+
+
+test('failed overwrite keeps the existing project and ZIP destination mapping', async () => {
+  const source = await readFile(nativePath, 'utf8');
+  assert.ok(source.includes('Unable to verify overwrite of the existing project'));
+  assert.ok(source.includes('Unable to verify overwrite of the existing ZIP archive'));
+  assert.ok(!source.includes('remove("uri:" + fileName)'));
+  assert.ok(!source.includes('remove("zip:" + fileName)'));
+});
