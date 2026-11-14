@@ -118,3 +118,13 @@ test('project name and keyframe history are committed only after scene restorati
   assert.ok(keyframeCommit > rigRestore && keyframeCommit > handleRestore && keyframeCommit > faceRestore, 'keyframes and undo history must not change before scene restoration finishes');
   assert.ok(staleCleanup > projectCommit && staleCleanup > keyframeCommit, 'project UI state must be committed before stale scene cleanup');
 });
+
+
+test('restored face selection and sub-object locks never bind to stale pre-load objects', async () => {
+  const source = await readFile(appPath, 'utf8');
+  const loadStart = source.indexOf('const handleProjectFile =');
+  const loadEnd = source.indexOf('const createNewProject =', loadStart);
+  const load = source.slice(loadStart, loadEnd);
+  assert.ok(load.includes('const mesh = saved.shapeId ? [...restoredNodeSet].find((candidate: THREE.Object3D) => candidate.userData.shapeId === saved.shapeId) : undefined;'), 'face selection must resolve only within the restored object set');
+  assert.ok(load.includes('const mesh = [...restoredNodeSet].find((candidate: THREE.Object3D) => candidate.userData.shapeId === savedLock.shapeId);'), 'sub-object locks must resolve only within the restored object set');
+});
