@@ -68,8 +68,9 @@ public class NexusProjectFilesPlugin extends Plugin {
         if (savedUri != null) {
             try {
                 Uri uri = Uri.parse(savedUri);
-                writeDocument(uri, content);
+                long writtenBytes = writeDocument(uri, content);
                 JSObject response = new JSObject();
+                response.put("writtenBytes", writtenBytes);
                 response.put("uri", uri.toString());
                 response.put("name", fileName);
                 response.put("overwritten", true);
@@ -105,7 +106,7 @@ public class NexusProjectFilesPlugin extends Plugin {
             } catch (Exception ignored) {
                 // Some document providers grant access only for the current app session.
             }
-            writeDocument(uri, content);
+            long writtenBytes = writeDocument(uri, content);
             getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .edit().putString("uri:" + requestedName, uri.toString()).apply();
 
@@ -113,18 +114,47 @@ public class NexusProjectFilesPlugin extends Plugin {
             response.put("uri", uri.toString());
             response.put("name", fileNameFromUri(uri));
             response.put("overwritten", false);
+            response.put("writtenBytes", writtenBytes);
             call.resolve(response);
         } catch (Exception error) {
             call.reject("Unable to save project: " + error.getMessage(), error);
         }
     }
 
-    private void writeDocument(Uri uri, String content) throws Exception {
+    /**
+     * Writes the complete UTF-8 project and verifies that the document provider
+     * can read back the same bytes before the plugin reports success.
+     */
+    private long writeDocument(Uri uri, String content) throws Exception {
+        if (content == null || content.trim().isEmpty()) {
+            throw new IllegalArgumentException("Project data is empty; nothing was saved");
+        }
+        byte[] expected = content.getBytes(StandardCharsets.UTF_8);
         try (OutputStream output = getContext().getContentResolver().openOutputStream(uri, "wt")) {
             if (output == null) throw new IllegalStateException("Unable to open selected destination");
-            output.write(content.getBytes(StandardCharsets.UTF_8));
+            output.write(expected);
             output.flush();
         }
+
+        long verifiedBytes = 0L;
+        try (InputStream input = getContext().getContentResolver().openInputStream(uri)) {
+            if (input == null) throw new IllegalStateException("Saved project could not be reopened for verification");
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = input.read(buffer)) != -1) {
+                for (int i = 0; i < count; i++) {
+                    if (verifiedBytes >= expected.length || buffer[i] != expected[(int) verifiedBytes]) {
+                        throw new IllegalStateException("Saved project verification failed: file contents do not match");
+                    }
+                    verifiedBytes++;
+                }
+            }
+        }
+        if (verifiedBytes != expected.length) {
+            throw new IllegalStateException("Saved project verification failed: expected "
+                + expected.length + " bytes but read back " + verifiedBytes);
+        }
+        return verifiedBytes;
     }
 
     @PluginMethod
