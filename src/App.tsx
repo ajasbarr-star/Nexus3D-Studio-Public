@@ -5693,6 +5693,9 @@ export default function App() {
     if (Capacitor.isNativePlatform()) {
       try {
         const selectedFile = await NexusProjectFiles.loadProject();
+        if (typeof selectedFile.content !== 'string' || selectedFile.content.trim().length === 0) {
+          throw new Error('Napiling project file ay walang laman (0 bytes). Walang binago sa current scene.');
+        }
         const file = new File([selectedFile.content], selectedFile.name || 'project.nexus', { type: 'application/json' });
         handleProjectFile(file);
       } catch (error) {
