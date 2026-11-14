@@ -102,15 +102,22 @@ public class NexusProjectFilesPlugin extends Plugin {
         String content = call.getString("content", "");
         String requestedName = call.getString("fileName", "Project.nexus");
         try {
-            int flags = result.getData().getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            try {
-                getContext().getContentResolver().takePersistableUriPermission(uri, flags);
-            } catch (Exception ignored) {
-                // Some document providers grant access only for the current app session.
+            int resultFlags = result.getData().getFlags();
+            int flags = resultFlags & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            boolean permissionPersisted = false;
+            if ((resultFlags & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) != 0 && flags != 0) {
+                try {
+                    getContext().getContentResolver().takePersistableUriPermission(uri, flags);
+                    permissionPersisted = true;
+                } catch (Exception ignored) {
+                    // Do not store a URI that may stop working after this app session.
+                }
             }
             long writtenBytes = writeDocument(uri, content);
-            getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .edit().putString("uri:" + requestedName, uri.toString()).apply();
+            SharedPreferences.Editor destinationEditor = getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit();
+            if (permissionPersisted) destinationEditor.putString("uri:" + requestedName, uri.toString());
+            else destinationEditor.remove("uri:" + requestedName);
+            destinationEditor.apply();
 
             JSObject response = new JSObject();
             response.put("uri", uri.toString());
@@ -207,15 +214,22 @@ public class NexusProjectFilesPlugin extends Plugin {
         String base64 = call.getString("base64", "");
         String requestedName = call.getString("fileName", "Nexus3D_Project.zip");
         try {
-            int flags = result.getData().getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            try {
-                getContext().getContentResolver().takePersistableUriPermission(uri, flags);
-            } catch (Exception ignored) {
-                // Some document providers grant access only for the current app session.
+            int resultFlags = result.getData().getFlags();
+            int flags = resultFlags & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            boolean permissionPersisted = false;
+            if ((resultFlags & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) != 0 && flags != 0) {
+                try {
+                    getContext().getContentResolver().takePersistableUriPermission(uri, flags);
+                    permissionPersisted = true;
+                } catch (Exception ignored) {
+                    // Do not store a URI that may stop working after this app session.
+                }
             }
             long writtenBytes = writeArchiveDocument(uri, base64);
-            getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .edit().putString("zip:" + requestedName, uri.toString()).apply();
+            SharedPreferences.Editor destinationEditor = getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit();
+            if (permissionPersisted) destinationEditor.putString("zip:" + requestedName, uri.toString());
+            else destinationEditor.remove("zip:" + requestedName);
+            destinationEditor.apply();
 
             JSObject response = new JSObject();
             response.put("uri", uri.toString());
