@@ -7,14 +7,14 @@ const appPath = new URL('../../src/App.tsx', import.meta.url);
 
 test('native project save verifies the written document before resolving success', async () => {
   const source = await readFile(nativePath, 'utf8');
-  assert.match(source, /private long writeDocument\\(Uri uri, String content\\)/);
-  assert.match(source, /openInputStream\\(uri\\)/);
-  assert.match(source, /Saved project verification failed/);
-  assert.match(source, /response\\.put\\("writtenBytes", writtenBytes\\)/);
+  assert.ok(source.includes('private long writeDocument(Uri uri, String content)'));
+  assert.ok(source.includes('openInputStream(uri)'));
+  assert.ok(source.includes('Saved project verification failed'));
+  assert.ok(source.includes('response.put("writtenBytes", writtenBytes)'));
 });
 
 test('native project load rejects an empty document before JSON parsing', async () => {
   const source = await readFile(appPath, 'utf8');
-  assert.match(source, /selectedFile\\.content\\.trim\\(\\)\\.length === 0/);
-  assert.match(source, /0 bytes/);
+  assert.ok(source.includes('selectedFile.content.trim().length === 0'));
+  assert.ok(source.includes('0 bytes'));
 });
