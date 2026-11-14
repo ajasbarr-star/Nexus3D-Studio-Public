@@ -5729,6 +5729,31 @@ export default function App() {
           return;
         }
         validateProjectIdentityData(data.objects, Number(data.version) || 0);
+
+        // Preload every embedded texture before mutating the active scene. A broken
+        // image/data URL must fail during preflight, not halfway through restoration.
+        const textureDataUrls = new Set<string>();
+        data.objects.forEach((saved: any) => {
+          const materials = Array.isArray(saved?.material) ? saved.material : [];
+          materials.forEach((material: any) => {
+            const textures = material?.textures && typeof material.textures === 'object' ? material.textures : {};
+            Object.values(textures).forEach((textureData: any) => {
+              if (textureData?.dataUrl) {
+                if (typeof textureData.dataUrl !== 'string' || !textureData.dataUrl.startsWith('data:image/')) {
+                  throw new Error('Project validation failed: invalid embedded texture data');
+                }
+                textureDataUrls.add(textureData.dataUrl);
+              }
+            });
+          });
+        });
+        const preloadedTextures = new Map<string, THREE.Texture>();
+        await Promise.all([...textureDataUrls].map(async dataUrl => {
+          const texture = await new THREE.TextureLoader().loadAsync(dataUrl);
+          if (!texture?.image) throw new Error('Project validation failed: embedded texture could not be decoded');
+          preloadedTextures.set(dataUrl, texture);
+        }));
+
         if (data.projectName) setProjectName(String(data.projectName));
         r.scene.userData.nexusNextShapeId = Math.max(Number(r.scene.userData.nexusNextShapeId) || 1, Number(data.nextShapeId) || 1);
         const restoredById = new Map<string, THREE.Object3D>();
@@ -5843,7 +5868,9 @@ export default function App() {
                 const textureSlots = materialData?.textures && typeof materialData.textures === 'object' ? materialData.textures : {};
                 for (const [slot, textureData] of Object.entries(textureSlots) as Array<[string, any]>) {
                   if (!textureData?.dataUrl || !['map','emissiveMap','normalMap','roughnessMap','metalnessMap','aoMap','alphaMap','bumpMap','displacementMap','lightMap','specularMap','clearcoatMap','clearcoatRoughnessMap','clearcoatNormalMap','iridescenceMap','iridescenceThicknessMap','sheenColorMap','sheenRoughnessMap','transmissionMap','thicknessMap','specularIntensityMap','specularColorMap','gradientMap'].includes(slot)) continue;
-                  const texture = await new THREE.TextureLoader().loadAsync(textureData.dataUrl);
+                  const preloadedTexture = preloadedTextures.get(textureData.dataUrl);
+                  if (!preloadedTexture) throw new Error('Project validation failed: embedded texture was not preloaded');
+                  const texture = preloadedTexture.clone();
                   if (textureData.colorSpace) texture.colorSpace = textureData.colorSpace;
                   if (Number.isFinite(textureData.mapping)) texture.mapping = textureData.mapping;
                   if (Number.isFinite(textureData.wrapS)) texture.wrapS = textureData.wrapS;
