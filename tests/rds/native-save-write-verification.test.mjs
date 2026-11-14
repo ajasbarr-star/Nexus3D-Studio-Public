@@ -101,3 +101,20 @@ test('SAF save destinations are remembered only when URI permission is persistab
   assert.ok(source.includes('else destinationEditor.remove("zip:" + requestedName)'));
   assert.ok(source.includes('Do not store a URI that may stop working after this app session.'));
 });
+
+
+test('project name and keyframe history are committed only after scene restoration succeeds', async () => {
+  const source = await readFile(appPath, 'utf8');
+  const loadStart = source.indexOf('const handleProjectFile =');
+  const loadEnd = source.indexOf('const createNewProject =', loadStart);
+  const load = source.slice(loadStart, loadEnd);
+  const rigRestore = load.indexOf('r.restoreRigGroup?.');
+  const handleRestore = load.indexOf('r.attachRigHandle?.');
+  const faceRestore = load.indexOf('r.restoreExtrudedFaceSelection?.');
+  const projectCommit = load.indexOf('if (data.projectName) setProjectName(String(data.projectName))');
+  const keyframeCommit = load.indexOf('keysRef.current = restoredKeys');
+  const staleCleanup = load.indexOf('const staleNodes = collectObjectOnlyProjectNodes');
+  assert.ok(projectCommit > rigRestore && projectCommit > handleRestore && projectCommit > faceRestore, 'project name must not change before scene restoration finishes');
+  assert.ok(keyframeCommit > rigRestore && keyframeCommit > handleRestore && keyframeCommit > faceRestore, 'keyframes and undo history must not change before scene restoration finishes');
+  assert.ok(staleCleanup > projectCommit && staleCleanup > keyframeCommit, 'project UI state must be committed before stale scene cleanup');
+});
