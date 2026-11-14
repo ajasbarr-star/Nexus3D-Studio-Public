@@ -53,7 +53,7 @@ export function validateProjectIdentityData(objects, version = 0) {
     }
 
     if (isShapeMesh && version >= 4 &&
-        (typeof saved.shapeId !== 'string' || !/^No\\.\\d+$/.test(saved.shapeId))) {
+        (typeof saved.shapeId !== 'string' || !/^No\.\d+$/.test(saved.shapeId))) {
       throw new Error('Project validation failed: a Shape is missing its permanent Shape ID');
     }
     if (isShapeMesh && saved.shapeId) {
