@@ -32,3 +32,16 @@ test('native save and ZIP success messages expose verified byte counts', async (
   assert.ok(source.includes("verifiedBytes.toLocaleString() + ' bytes'"));
   assert.ok(source.includes('size not reported'));
 });
+
+
+test('project load preflights embedded textures before mutating the active scene', async () => {
+  const source = await readFile(appPath, 'utf8');
+  const validation = source.indexOf('const preloadedTextures = new Map<string, THREE.Texture>();');
+  const sceneMutation = source.indexOf('r.clearSubObjectLocks?.();', validation);
+  assert.ok(validation >= 0, 'texture preflight map must exist');
+  assert.ok(sceneMutation > validation, 'texture preflight must run before scene mutation');
+  assert.ok(source.includes("textureData.dataUrl.startsWith('data:image/')"));
+  assert.ok(source.includes("new THREE.TextureLoader().loadAsync(dataUrl)"));
+  assert.ok(source.includes('preloadedTextures.get(textureData.dataUrl)'));
+  assert.ok(source.includes("embedded texture could not be decoded"));
+});
