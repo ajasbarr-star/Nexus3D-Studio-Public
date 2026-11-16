@@ -900,7 +900,7 @@ export default function App() {
           existing.geometry.dispose();
           existing.geometry = new THREE.OctahedronGeometry(1, 0);
         }
-        existing.geometry.scale(0.075, length * 0.5, 0.075);
+        existing.scale.set(0.075, length * 0.5, 0.075);
         existing.position.copy(direction).multiplyScalar(0.5);
         existing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
         existing.name = bone.name + ' Diamond Bone';
@@ -914,7 +914,7 @@ export default function App() {
         new THREE.OctahedronGeometry(1, 0),
         new THREE.MeshBasicMaterial({ color: boneVisualColor(bone), depthTest: false, transparent: true, opacity: 0.96, side: THREE.DoubleSide })
       );
-      visual.geometry.scale(0.075, length * 0.5, 0.075);
+      visual.scale.set(0.075, length * 0.5, 0.075);
       visual.position.copy(direction).multiplyScalar(0.5);
       visual.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
       visual.name = bone.name + ' Diamond Bone';
@@ -1868,9 +1868,6 @@ export default function App() {
         chain.helper.updateMatrixWorld(true);
       });
       refreshJointColors();
-    };
-    const toggleSelectedBoneControlHandle
-      });
     };
     const toggleSelectedBoneControlHandle = () => {
       const bone = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
