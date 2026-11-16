@@ -29,3 +29,34 @@ test('compact Manual IK toolbar exposes root, child, attach, bind, handle, lock,
   assert.match(css, /\.ik-rig-actions\{[^}]*display:grid/);
   assert.match(css, /grid-template-columns:repeat\(6,30px\)/);
 });
+
+
+test('manual child creation supports selecting the owning Shape after root attachment', () => {
+  assert.match(app, /const parentBone = selectedObject instanceof THREE\.Bone/);
+  assert.match(app, /object\.userData\.rigRole === 'root'/);
+  assert.match(app, /Attach the Root Bone to its Shape before adding Child Bones/);
+  assert.match(app, /parentBone\.add\(child\)/);
+});
+
+test('IK target and pole resolve the selected rig instead of falling back to the last rig', () => {
+  assert.match(app, /const resolveRigChainForObject = \(object\?: THREE\.Object3D\)/);
+  assert.match(app, /const activeChain = resolveRigChainForObject\(selectedObject\)/);
+  assert.match(app, /const chain = resolveRigChainForObject\(selectedObject\)/);
+  assert.match(app, /target\.userData\.rigRootBoneId = activeChain\.bones\[0\]/);
+  assert.match(app, /target\.userData\.ikEndBoneId = endBone\.userData\.editorId/);
+});
+
+test('pole handles are reused per rig and solver honors the selected rig association', () => {
+  assert.match(app, /let target = chain\.pole as THREE\.Mesh \| null/);
+  assert.match(app, /if \(chain\.pole && bones\.length >= 3\)/);
+});
+
+test('imported skeleton connection lines participate in bone-chain visibility', () => {
+  assert.match(app, /chain\.helper\.visible = chain\.displayVisible !== false/);
+  assert.match(app, /const toggleSelectedRigDisplay = \(\) =>/);
+  assert.match(app, /toggleSelectedRigDisplay, restoreRigGroup/);
+});
+
+test('control-handle lock action is reachable through the shared lock tool', () => {
+  assert.match(app, /if \(bone\?\.userData\.rigControlMarker\) return toggleSelectedControlLock\(\)/);
+});

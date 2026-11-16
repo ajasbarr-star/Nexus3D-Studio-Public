@@ -71,10 +71,15 @@ jobs:
 
       - name: Calculate Test release version
         run: |
-          VERSION_PATCH=$((GITHUB_RUN_NUMBER - 192))
-          if [ "$VERSION_PATCH" -lt 1 ]; then VERSION_PATCH=1; fi
+          # The legacy workflow counter reached 514 while the last verified
+          # Nexus3D release was Build 293. Map run 514 to product Build 294;
+          # subsequent workflow runs advance the product build by exactly one.
+          BUILD_NUMBER=$((GITHUB_RUN_NUMBER - 220))
+          if [ "$BUILD_NUMBER" -lt 294 ]; then BUILD_NUMBER=294; fi
+          VERSION_PATCH=$((BUILD_NUMBER - 192))
+          echo "NEXUS3D_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
           echo "NEXUS3D_VERSION_PATCH=$VERSION_PATCH" >> "$GITHUB_ENV"
-          echo "Nexus3D Test version: 1.0.$VERSION_PATCH (build $GITHUB_RUN_NUMBER)"
+          echo "Nexus3D Test version: 1.0.$VERSION_PATCH (build $BUILD_NUMBER)"
 
       - name: Configure Test release signing and version
         env:
@@ -82,7 +87,7 @@ jobs:
           NEXUS3D_KEYSTORE_PASSWORD: ${{ secrets.TEST_ANDROID_KEYSTORE_PASSWORD }}
           NEXUS3D_KEY_ALIAS: nexus3dtest
           NEXUS3D_KEY_PASSWORD: ${{ secrets.TEST_ANDROID_KEY_PASSWORD }}
-          NEXUS3D_VERSION_CODE: ${{ github.run_number }}
+          NEXUS3D_VERSION_CODE: ${{ env.NEXUS3D_BUILD_NUMBER }}
           NEXUS3D_VERSION_PATCH: ${{ env.NEXUS3D_VERSION_PATCH }}
         run: |
           cat > android/nexus3d-release.gradle <<'GRADLE'
@@ -125,7 +130,7 @@ jobs:
           NEXUS3D_KEYSTORE_PASSWORD: ${{ secrets.TEST_ANDROID_KEYSTORE_PASSWORD }}
           NEXUS3D_KEY_ALIAS: nexus3dtest
           NEXUS3D_KEY_PASSWORD: ${{ secrets.TEST_ANDROID_KEY_PASSWORD }}
-          NEXUS3D_VERSION_CODE: ${{ github.run_number }}
+          NEXUS3D_VERSION_CODE: ${{ env.NEXUS3D_BUILD_NUMBER }}
           NEXUS3D_VERSION_PATCH: ${{ env.NEXUS3D_VERSION_PATCH }}
         working-directory: android
         run: ./gradlew assembleRelease
@@ -143,7 +148,7 @@ jobs:
 
       - name: Rename APK with build number and version
         run: |
-          APK_NAME="Nexus3D_Test_build${GITHUB_RUN_NUMBER}_v1.0.${NEXUS3D_VERSION_PATCH}.apk"
+          APK_NAME="Nexus3D_Test_build${NEXUS3D_BUILD_NUMBER}_v1.0.${NEXUS3D_VERSION_PATCH}.apk"
           cp android/app/build/outputs/apk/release/app-release.apk "android/app/build/outputs/apk/release/$APK_NAME"
           echo "NEXUS3D_APK_NAME=$APK_NAME" >> "$GITHUB_ENV"
           echo "Created $APK_NAME"
@@ -151,7 +156,7 @@ jobs:
       - name: Upload signed Nexus3D Test APK
         uses: actions/upload-artifact@v4
         with:
-          name: Nexus3D_Test_build${{ github.run_number }}_v1.0.${{ env.NEXUS3D_VERSION_PATCH }}
+          name: Nexus3D_Test_build${{ env.NEXUS3D_BUILD_NUMBER }}_v1.0.${{ env.NEXUS3D_VERSION_PATCH }}
           path: android/app/build/outputs/apk/release/${{ env.NEXUS3D_APK_NAME }}
           if-no-files-found: error
           retention-days: 14

@@ -1219,7 +1219,7 @@ export default function App() {
       const chain = rigChains.find(entry => entry.bones.includes(obj));
       if (!chain) { setStatus('No skeleton display group found for this bone'); return; }
       chain.displayVisible = chain.displayVisible === false ? true : false;
-      chain.helper.visible = false;
+      chain.helper.visible = chain.displayVisible !== false;
       chain.bones.forEach(bone => { ensureBoneJoint(bone); const visual = bone.children.find(child => child.userData.nexusJointVisual); if (visual) visual.visible = chain.displayVisible!; });
       syncItems();
       setStatus((chain.displayVisible ? 'IK bones shown: ' : 'IK bones hidden: ') + (chain.bones[0]?.name || obj.name));
@@ -1229,6 +1229,15 @@ export default function App() {
       const chain = rigChains.find(entry => entry.bones.includes(obj));
       return chain ? chain.displayVisible !== false : true;
     };
+    const toggleSelectedRigDisplay = () => {
+      const selectedObject = selectable.find(object => String(object.userData.editorId) === selectedRef.current);
+      const chain = resolveRigChainForObject(selectedObject);
+      if (chain?.bones[0]) return toggleBoneDisplay(chain.bones[0]);
+      if (selectedObject) return toggleBoneDisplay(selectedObject);
+      setStatus('Select a rig, Shape, or bone before changing bone visibility');
+      return false;
+    };
+
     const selectObject = (obj?: THREE.Object3D) => {
       if (String(obj?.userData?.editorId || '') !== selectedRef.current) clearTopologyOverlay();
       if (!obj) {
@@ -1626,24 +1635,31 @@ export default function App() {
       };
 
       if (mode === 'child') {
-        if (!(selectedObject instanceof THREE.Bone)) {
-          setStatus('Select the Root Bone or an existing Child Bone first');
+        const parentBone = selectedObject instanceof THREE.Bone
+          ? selectedObject
+          : selectedObject && !(selectedObject instanceof THREE.Light)
+            ? selectable.find(object => object instanceof THREE.Bone &&
+                object.userData.rigRole === 'root' &&
+                String(object.userData.rigOwnerId || '') === String(selectedObject.userData.editorId || '')) as THREE.Bone | undefined
+            : undefined;
+        if (!(parentBone instanceof THREE.Bone)) {
+          setStatus('Select the Shape or a Root / Child Bone first');
           return false;
         }
-        const root = resolveRoot(selectedObject);
+        const root = resolveRoot(parentBone);
         if (!root.userData.shapeRig || root.userData.rigRole !== 'root') {
           setStatus('Select a Root Bone from a Manual Shape Rig');
           return false;
         }
         const owner = resolveOwner(root);
         if (!owner) {
-          setStatus('This Root Bone has no Shape owner · create a new Root Bone on the Shape');
+          setStatus('Attach the Root Bone to its Shape before adding Child Bones');
           return false;
         }
         const chain = rigChains.find(entry => entry.bones.includes(root)) || makeHelper(root, owner);
         const child = new THREE.Bone();
         child.name = nextManualBoneName();
-        let segmentLength = Number(selectedObject.userData.segmentLength) || Number(root.userData.segmentLength) || 0;
+        let segmentLength = Number(parentBone.userData.segmentLength) || Number(root.userData.segmentLength) || 0;
         if (!segmentLength) {
           owner.updateWorldMatrix(true, false);
           const bounds = new THREE.Box3().setFromObject(owner);
@@ -1662,8 +1678,8 @@ export default function App() {
         child.userData.shapeRig = true;
         child.userData.nexusRigSchema = 3;
         child.userData.rigOwnerId = String(owner.userData.editorId || '');
-        selectedObject.add(child);
-        ensureBoneJoint(selectedObject);
+        parentBone.add(child);
+        ensureBoneJoint(parentBone);
         ensureBoneJoint(child);
         if (!chain.bones.includes(child)) chain.bones.push(child);
         rebuildRigHelper(chain);
@@ -1672,7 +1688,7 @@ export default function App() {
         selectable.push(child);
         syncItems();
         selectObject(child);
-        setStatus(child.name + ' added · connected to ' + selectedObject.name);
+        setStatus(child.name + ' added · connected to ' + parentBone.name);
         return child;
       }
 
@@ -1861,7 +1877,7 @@ export default function App() {
           const visual = bone.children.find(child => child.userData.nexusJointVisual);
           if (visual) visual.visible = chain.displayVisible !== false;
         });
-        chain.helper.visible = chain.shapeRig ? chain.displayVisible !== false : false;
+        chain.helper.visible = chain.displayVisible !== false;
         styleSkeletonHelper(chain.helper, chain.bones);
         const colors = chain.helper.geometry.getAttribute('color');
         if (colors) colors.needsUpdate = true;
@@ -1893,7 +1909,8 @@ export default function App() {
     };
     const toggleSelectedBoneLock = () => {
       const bone = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
-      if (!(bone instanceof THREE.Bone)) { setStatus('Select a bone first to Lock / Unlock'); return false; }
+      if (bone?.userData.rigControlMarker) return toggleSelectedControlLock();
+      if (!(bone instanceof THREE.Bone)) { setStatus('Select a bone or Control Handle first to Lock / Unlock'); return false; }
       bone.userData.locked = !bone.userData.locked; refreshRigVisuals(); selectObject(bone);
       setStatus(bone.name + (bone.userData.locked ? ' locked · gizmo disabled' : ' unlocked · gizmo enabled')); return true;
     };
@@ -1964,21 +1981,52 @@ export default function App() {
       if (chain) { mirrored.traverse(node => { if ((node as THREE.Bone).isBone && !chain.bones.includes(node as THREE.Bone)) chain.bones.push(node as THREE.Bone); }); rebuildRigHelper(chain); }
       syncItems(); selectObject(mirrored); setStatus('Mirror X synchronized · ' + source.name + ' ↔ ' + mirrored.name);
     };
+    const resolveRigChainForObject = (object?: THREE.Object3D) => {
+      if (!object) return null;
+      if (object instanceof THREE.Bone) return [...rigChains].reverse().find(entry => entry.bones.includes(object)) || null;
+      const direct = [...rigChains].reverse().find(entry =>
+        entry.target === object || entry.pole === object || entry.owner === object
+      );
+      if (direct) return direct;
+      const objectId = String(object.userData.editorId || '');
+      if (objectId) {
+        const owned = [...rigChains].reverse().find(entry =>
+          entry.shapeRig === true && String(entry.bones[0]?.userData.rigOwnerId || '') === objectId
+        );
+        if (owned) return owned;
+      }
+      let matched: (typeof rigChains)[number] | null = null;
+      object.traverse((node: any) => {
+        if (!node.isSkinnedMesh || !node.skeleton) return;
+        const skeletonBones = node.skeleton.bones as THREE.Bone[];
+        matched = [...rigChains].reverse().find(entry =>
+          entry.bones.length === skeletonBones.length &&
+          entry.bones.every((bone, index) => bone === skeletonBones[index])
+        ) || matched;
+      });
+      return matched;
+    };
     const createPoleTarget = () => {
-      const selectedBone = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
-      const chain = [...rigChains].reverse().find(entry => selectedBone instanceof THREE.Bone && entry.bones.includes(selectedBone)) || [...rigChains].reverse().find(entry => entry.target);
-      if (!chain || chain.bones.length < 3) { setStatus('Select a rig with at least three connected bones first'); return null; }
-      const endId = selectedBone instanceof THREE.Bone ? selectedBone.userData.editorId : chain.target?.userData.ikEndBoneId;
+      const selectedObject = selectable.find(object => String(object.userData.editorId) === selectedRef.current);
+      const selectedBone = selectedObject instanceof THREE.Bone ? selectedObject : undefined;
+      const chain = resolveRigChainForObject(selectedObject) ||
+        (rigChains.filter(entry => entry.bones.length >= 3).length === 1 ? rigChains.find(entry => entry.bones.length >= 3) : null);
+      if (!chain || chain.bones.length < 3) { setStatus('Select a specific rig with at least three connected bones first'); return null; }
+      const endId = selectedBone && chain.bones.includes(selectedBone) ? selectedBone.userData.editorId : chain.target?.userData.ikEndBoneId;
       const endBone = chain.bones.find(bone => String(bone.userData.editorId) === String(endId)) || chain.bones[chain.bones.length-1];
       const path: THREE.Bone[] = []; let cursor: THREE.Object3D | null = endBone;
       while (cursor && path.length < 32) { if (cursor instanceof THREE.Bone && chain.bones.includes(cursor)) path.push(cursor); cursor = cursor.parent; }
       const middle = path[Math.floor(path.length/2)] || endBone;
-      const target = new THREE.Mesh(new THREE.SphereGeometry(0.11,14,10),new THREE.MeshBasicMaterial({color:0xc58cff,wireframe:true}));
-      target.name = 'IK Pole Target'; target.userData.editorId = uid(); target.userData.kind = 'IK Pole';
-      target.userData.rigRootBoneId = chain.bones[0]?.userData.editorId || null;
-      target.position.copy(middle.getWorldPosition(new THREE.Vector3())).add(new THREE.Vector3(0.8,0,0.8));
-      scene.add(target); selectable.push(target); chain.pole = target; syncItems(); selectObject(target);
-      setStatus('Pole target created · drag it to guide the limb bend plane'); return target;
+      const position = middle.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0.8,0,0.8));
+      let target = chain.pole as THREE.Mesh | null;
+      if (!target) {
+        target = new THREE.Mesh(new THREE.SphereGeometry(0.11,14,10),new THREE.MeshBasicMaterial({color:0xc58cff,wireframe:true}));
+        target.name = 'IK Pole Target'; target.userData.editorId = uid(); target.userData.kind = 'IK Pole';
+        target.userData.rigRootBoneId = chain.bones[0]?.userData.editorId || null;
+        scene.add(target); selectable.push(target); chain.pole = target;
+      }
+      target.position.copy(position); syncItems(); selectObject(target);
+      setStatus('Pole target ready · drag it to guide the selected rig limb bend plane'); return target;
     };
     const deleteSelectedBone = () => {
       const bone = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
@@ -2258,29 +2306,41 @@ export default function App() {
       return found;
     };
     const createIKTarget = () => {
-      const target = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffb45e, wireframe: true }));
-      target.name = 'IK Target Handle';
-      target.position.set(1.4, 2.1, 0.5);
-      target.userData.editorId = uid();
-      target.userData.kind = 'IK Target';
-      scene.add(target);
-      selectable.push(target);
-      const selectedBone = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
-      if (selectedBone instanceof THREE.Bone) target.position.copy(selectedBone.getWorldPosition(new THREE.Vector3()));
-      const activeChain = [...rigChains].reverse().find(chain => selectedBone instanceof THREE.Bone && chain.bones.includes(selectedBone)) || rigChains[rigChains.length - 1];
-      if (!activeChain) { scene.remove(target); selectable.splice(selectable.indexOf(target), 1); setStatus('Create or detect a rig before adding an IK target'); return null; }
-      activeChain.target = target;
-      if (selectedBone instanceof THREE.Bone) target.userData.ikEndBoneId = selectedBone.userData.editorId;
+      const selectedObject = selectable.find(object => String(object.userData.editorId) === selectedRef.current);
+      const selectedBone = selectedObject instanceof THREE.Bone ? selectedObject : undefined;
+      const activeChain = resolveRigChainForObject(selectedObject) ||
+        (rigChains.length === 1 ? rigChains[0] : null);
+      if (!activeChain || !activeChain.bones.length) {
+        setStatus('Select the intended rig, Shape, or one of its bones before creating an IK target');
+        return null;
+      }
+      const endBone = selectedBone && activeChain.bones.includes(selectedBone)
+        ? selectedBone
+        : activeChain.bones[activeChain.bones.length - 1];
+      const targetPosition = endBone.getWorldPosition(new THREE.Vector3());
+      let target = activeChain.target as THREE.Mesh | null;
+      if (!target) {
+        target = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffb45e, wireframe: true }));
+        target.name = 'IK Target Handle';
+        target.userData.editorId = uid();
+        target.userData.kind = 'IK Target';
+        scene.add(target);
+        selectable.push(target);
+        activeChain.target = target;
+      }
+      target.position.copy(targetPosition);
+      target.userData.ikEndBoneId = endBone.userData.editorId;
       target.userData.rigRootBoneId = activeChain.bones[0]?.userData.editorId || null;
       syncItems();
       selectObject(target);
-      setStatus('IK target handle created. Move it with the viewport gizmo, then Solve IK.');
+      setStatus('IK target ready for ' + endBone.name + ' · move it with the gizmo, then Solve Manual IK');
       return target;
     };
     const solveIK = (chainLength = 3) => {
-      const selectedHandle = selectable.find(o => String(o.userData.editorId) === selectedRef.current && (o.userData.kind === 'IK Target' || o.userData.kind === 'IK Pole'));
-      const chain = selectedHandle ? rigChains.find(entry => entry.target === selectedHandle || entry.pole === selectedHandle) : [...rigChains].reverse().find(entry => entry.target);
-      if (!chain || !chain.target) { setStatus('Create a rig and an IK target first'); return; }
+      const selectedObject = selectable.find(object => String(object.userData.editorId) === selectedRef.current);
+      const chain = resolveRigChainForObject(selectedObject) ||
+        (rigChains.filter(entry => entry.target).length === 1 ? rigChains.find(entry => entry.target) : null);
+      if (!chain || !chain.target) { setStatus('Select the intended rig and create its IK target first'); return; }
       const endBone = chain.bones.find(bone => String(bone.userData.editorId) === String(chain.target?.userData.ikEndBoneId)) || chain.bones[chain.bones.length-1];
       const path: THREE.Bone[] = [];
       let cursor: THREE.Object3D | null = endBone;
@@ -3295,7 +3355,7 @@ export default function App() {
     transform.addEventListener('mouseUp', () => {
       if (autoKeyRef.current && selectedRef.current) captureRef.current();
     });
-      runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, ikCamera, ikRenderer, ikOrbit, transform, selectable, syncViewportControls, syncItems, addObject, attachRootToShape, captureRigStateFor, restoreRigState, setPerformanceMode: (enabled: boolean) => { const pixelRatio = Math.min(window.devicePixelRatio || 1, enabled ? 1.15 : 2); renderer.setPixelRatio(pixelRatio); const renderHost = runtime.current?.riggingView && ikHost ? ikHost : host; renderer.setSize(Math.max(renderHost.clientWidth, 1), Math.max(renderHost.clientHeight, 1), false); renderer.shadowMap.enabled = !enabled; renderer.renderLists.dispose(); renderer.info.reset(); }, createManualRig, bindSelectedMeshToRig, createIKTarget, solveIK, mirrorSelectedBone, deleteSelectedBone, createPoleTarget, detectRiggedMeshes, autoRigSelectedMesh, normalizeSelectedSkinWeights, smoothSelectedSkinWeights, addUniversalBone, copySelectedBone, setRigParentTarget, attachSelectedToRigParent, detachSelectedRigObject, toggleSelectedBoneControlHandle, toggleSelectedBoneLock, toggleSelectedControlLock, refreshRigVisuals, toggleBoneDisplay, isBoneDisplayVisible, restoreRigGroup: (rig: THREE.Object3D) => { const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) { bones.push(node as THREE.Bone); ensureBoneJoint(node as THREE.Bone); } }); if (!bones.length || rigChains.some(entry => entry.bones[0] === bones[0])) return; const helper = new THREE.SkeletonHelper(bones[0]); helper.name = rig.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); }, attachRigHandle: (handle: THREE.Object3D, rootId: string, kind: string) => { const chain = rigChains.find(entry => String(entry.bones[0]?.userData.editorId) === String(rootId)); if (!chain) return; if (kind === 'IK Target') chain.target = handle; if (kind === 'IK Pole') chain.pole = handle; }, restoreSkinnedMesh: (mesh: THREE.SkinnedMesh, bones: THREE.Bone[], savedSkeleton?: any) => { const inverses = Array.isArray(savedSkeleton?.boneInverses) && savedSkeleton.boneInverses.length === bones.length ? savedSkeleton.boneInverses.map((elements: number[]) => new THREE.Matrix4().fromArray(elements)) : undefined; const skeleton = new THREE.Skeleton(bones, inverses); if (!inverses) skeleton.calculateInverses(); const bindMatrix = Array.isArray(savedSkeleton?.bindMatrix) && savedSkeleton.bindMatrix.length === 16 ? new THREE.Matrix4().fromArray(savedSkeleton.bindMatrix) : mesh.matrixWorld.clone(); mesh.bind(skeleton, bindMatrix); if (savedSkeleton?.bindMode) mesh.bindMode = savedSkeleton.bindMode; const existingChain = rigChains.find(entry => entry.bones[0] === bones[0]); if (!existingChain) { const helper = new THREE.SkeletonHelper(bones[0]); helper.name = mesh.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); } }, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[], faceParts?: number[][], linkedIndices?: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], faceParts: faceParts?.map(part => [...part]), linkedIndices: linkedIndices ? [...new Set(linkedIndices)] : undefined, lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
+      runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, ikCamera, ikRenderer, ikOrbit, transform, selectable, syncViewportControls, syncItems, addObject, attachRootToShape, captureRigStateFor, restoreRigState, setPerformanceMode: (enabled: boolean) => { const pixelRatio = Math.min(window.devicePixelRatio || 1, enabled ? 1.15 : 2); renderer.setPixelRatio(pixelRatio); const renderHost = runtime.current?.riggingView && ikHost ? ikHost : host; renderer.setSize(Math.max(renderHost.clientWidth, 1), Math.max(renderHost.clientHeight, 1), false); renderer.shadowMap.enabled = !enabled; renderer.renderLists.dispose(); renderer.info.reset(); }, createManualRig, bindSelectedMeshToRig, createIKTarget, solveIK, mirrorSelectedBone, deleteSelectedBone, createPoleTarget, detectRiggedMeshes, autoRigSelectedMesh, normalizeSelectedSkinWeights, smoothSelectedSkinWeights, addUniversalBone, copySelectedBone, setRigParentTarget, attachSelectedToRigParent, detachSelectedRigObject, toggleSelectedBoneControlHandle, toggleSelectedBoneLock, toggleSelectedControlLock, refreshRigVisuals, toggleBoneDisplay, isBoneDisplayVisible, toggleSelectedRigDisplay, restoreRigGroup: (rig: THREE.Object3D) => { const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) { bones.push(node as THREE.Bone); ensureBoneJoint(node as THREE.Bone); } }); if (!bones.length || rigChains.some(entry => entry.bones[0] === bones[0])) return; const helper = new THREE.SkeletonHelper(bones[0]); helper.name = rig.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); }, attachRigHandle: (handle: THREE.Object3D, rootId: string, kind: string) => { const chain = rigChains.find(entry => String(entry.bones[0]?.userData.editorId) === String(rootId)); if (!chain) return; if (kind === 'IK Target') chain.target = handle; if (kind === 'IK Pole') chain.pole = handle; }, restoreSkinnedMesh: (mesh: THREE.SkinnedMesh, bones: THREE.Bone[], savedSkeleton?: any) => { const inverses = Array.isArray(savedSkeleton?.boneInverses) && savedSkeleton.boneInverses.length === bones.length ? savedSkeleton.boneInverses.map((elements: number[]) => new THREE.Matrix4().fromArray(elements)) : undefined; const skeleton = new THREE.Skeleton(bones, inverses); if (!inverses) skeleton.calculateInverses(); const bindMatrix = Array.isArray(savedSkeleton?.bindMatrix) && savedSkeleton.bindMatrix.length === 16 ? new THREE.Matrix4().fromArray(savedSkeleton.bindMatrix) : mesh.matrixWorld.clone(); mesh.bind(skeleton, bindMatrix); if (savedSkeleton?.bindMode) mesh.bindMode = savedSkeleton.bindMode; const existingChain = rigChains.find(entry => entry.bones[0] === bones[0]); if (!existingChain) { const helper = new THREE.SkeletonHelper(bones[0]); helper.name = mesh.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper); rigChains.push({ bones, helper, target: null, pole: null }); } }, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[], faceParts?: number[][], linkedIndices?: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], faceParts: faceParts?.map(part => [...part]), linkedIndices: linkedIndices ? [...new Set(linkedIndices)] : undefined, lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
     const frameLoop = () => {
       orbit.update();
       if (runtime.current?.riggingView && ikOrbit) ikOrbit.update();
@@ -6083,18 +6143,18 @@ export default function App() {
       <div className={'viewport ' + (pathTool ? 'path-tool-active' : '')} ref={hostRef} onPointerDown={e => { if (!pathTool || animationMode) return; const rect = e.currentTarget.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width - .5) * 20; const z = ((e.clientY - rect.top) / rect.height - .5) * -20; setMotionPathPoints(prev => [...prev, {x, y:0.05, z}]); }} onDragOver={e => { if (e.dataTransfer.types.includes('text/nexus3d-object')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }} onDrop={e => { const childId = e.dataTransfer.getData('text/nexus3d-object'); if (!childId) return; e.preventDefault(); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }} />
       <div ref={ikHostRef} className={'ik-dedicated-viewport ' + (riggingView ? 'active' : '')} aria-label="Dedicated IK Rigging 3D viewport" />
        {riggingView && <div className="ik-rig-actions" aria-label="Compact Manual IK tools">
-         <button type="button" title="Create Root Bone" aria-label="Create Root Bone" onClick={() => runtime.current?.addUniversalBone?.('root')}>R</button>
-         <button type="button" title="Create Child Bone" aria-label="Create Child Bone" onClick={() => runtime.current?.addUniversalBone?.('child')}>C</button>
-         <button type="button" title="Attach Root to Shape" aria-label="Attach Root to Shape" onClick={() => runtime.current?.attachRootToShape?.()}>A</button>
-         <button type="button" title="Bind Mesh to Rig" aria-label="Bind Mesh to Rig" onClick={() => runtime.current?.bindSelectedMeshToRig?.()}>B</button>
-         <button type="button" title="Create Control Handle" aria-label="Create Control Handle" onClick={() => runtime.current?.toggleSelectedBoneControlHandle?.()}>H</button>
-         <button type="button" title="Lock or Unlock Bone" aria-label="Lock or Unlock Bone" onClick={() => runtime.current?.toggleSelectedBoneLock?.()}>L</button>
-         <button type="button" title="Detect Existing Rig" aria-label="Detect Existing Rig" onClick={() => runtime.current?.detectRiggedMeshes?.()}>D</button>
-         <button type="button" title="Create IK Target" aria-label="Create IK Target" onClick={() => runtime.current?.createIKTarget?.()}>T</button>
-         <button type="button" title="Create IK Pole" aria-label="Create IK Pole" onClick={() => runtime.current?.createPoleTarget?.()}>P</button>
-         <button type="button" title="Solve Manual IK" aria-label="Solve Manual IK" onClick={() => runtime.current?.solveIK?.()}>S</button>
-         <button type="button" title="Mirror Selected Bone" aria-label="Mirror Selected Bone" onClick={() => { if (runtime.current) { mirrorEnabledRef.current = true; runtime.current.mirrorSelectedBone?.(); } }}>M</button>
-         <button type="button" title="Show or Hide Bone Chain" aria-label="Show or Hide Bone Chain" onClick={() => { const r = runtime.current; const selectedBone = r?.selectable?.find((object: THREE.Object3D) => String(object.userData.editorId) === selectedRef.current); if (selectedBone) r.toggleBoneDisplay?.(selectedBone); }}>V</button>
+         <button type="button" title="Create Root Bone" aria-label="Create Root Bone" onClick={() => runtime.current?.addUniversalBone?.('root')}><Plus size={13}/></button>
+         <button type="button" title="Create Child Bone" aria-label="Create Child Bone" onClick={() => runtime.current?.addUniversalBone?.('child')}><GitBranch size={13}/></button>
+         <button type="button" title="Attach Root to Shape" aria-label="Attach Root to Shape" onClick={() => runtime.current?.attachRootToShape?.()}><Link2 size={13}/></button>
+         <button type="button" title="Bind Mesh to Rig" aria-label="Bind Mesh to Rig" onClick={() => runtime.current?.bindSelectedMeshToRig?.()}><Layers size={13}/></button>
+         <button type="button" title="Create Control Handle" aria-label="Create Control Handle" onClick={() => runtime.current?.toggleSelectedBoneControlHandle?.()}><Target size={13}/></button>
+         <button type="button" title="Lock or Unlock Bone" aria-label="Lock or Unlock Bone" onClick={() => runtime.current?.toggleSelectedBoneLock?.()}><Lock size={13}/></button>
+         <button type="button" title="Detect Existing Rig" aria-label="Detect Existing Rig" onClick={() => runtime.current?.detectRiggedMeshes?.()}><ScanEye size={13}/></button>
+         <button type="button" title="Create IK Target" aria-label="Create IK Target" onClick={() => runtime.current?.createIKTarget?.()}><Target size={13}/></button>
+         <button type="button" title="Create IK Pole" aria-label="Create IK Pole" onClick={() => runtime.current?.createPoleTarget?.()}><Circle size={13}/></button>
+         <button type="button" title="Solve Manual IK" aria-label="Solve Manual IK" onClick={() => runtime.current?.solveIK?.()}><Check size={13}/></button>
+         <button type="button" title="Mirror Selected Bone" aria-label="Mirror Selected Bone" onClick={() => { if (runtime.current) { mirrorEnabledRef.current = true; runtime.current.mirrorSelectedBone?.(); } }}><GitMerge size={13}/></button>
+         <button type="button" title="Show or Hide Bone Chain" aria-label="Show or Hide Bone Chain" onClick={() => runtime.current?.toggleSelectedRigDisplay?.()}><Eye size={13}/></button>
        </div>}
       
       <div className={'camera-mode-hud ' + (cameraView ? 'cine-active' : '')} aria-live="polite"><span className="camera-mode-dot" />{cameraView ? 'CINE CAMERA VIEW' : riggingView ? 'IK RIGGING · FRONT PERSPECTIVE' : 'PERSPECTIVE MODE'}</div>
