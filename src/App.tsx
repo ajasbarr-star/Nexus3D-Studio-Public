@@ -884,32 +884,53 @@ export default function App() {
       do { candidate = 'Bone_' + String(index++).padStart(2, '0'); } while (used.has(candidate));
       return candidate;
     };
+    const boneVisualColor = (bone: THREE.Bone, active?: THREE.Object3D) => {
+      if (bone.userData.locked) return '#ff4d64';
+      if (bone === active) return '#ffffff';
+      if (bone.userData.detached) return '#a879ff';
+      return bone.userData.rigRole === 'root' || !(bone.parent as any)?.isBone ? '#00d9ff' : '#36c2a0';
+    };
     const ensureBoneJoint = (bone: THREE.Bone) => {
       const existing = bone.children.find(child => child.userData.nexusJointVisual) as THREE.Mesh | undefined;
+      const childBone = bone.children.find(child => (child as THREE.Bone).isBone) as THREE.Bone | undefined;
+      const direction = childBone ? childBone.position.clone() : new THREE.Vector3(0, Number(bone.userData.segmentLength) || 0.24, 0);
+      const length = Math.max(direction.length(), 0.12);
       if (existing) {
-        existing.geometry = existing.geometry instanceof THREE.SphereGeometry && existing.geometry.parameters.radius >= 0.06 ? existing.geometry : new THREE.SphereGeometry(0.06, 14, 10);
-        existing.name = bone.name + ' Joint';
+        if (!(existing.geometry instanceof THREE.OctahedronGeometry)) {
+          existing.geometry.dispose();
+          existing.geometry = new THREE.OctahedronGeometry(1, 0);
+        }
+        existing.geometry.scale(0.075, length * 0.5, 0.075);
+        existing.position.copy(direction).multiplyScalar(0.5);
+        existing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
+        existing.name = bone.name + ' Diamond Bone';
         existing.userData.nexusBoneVisual = true;
         existing.userData.nexusBoneOwnerId = String(bone.userData.editorId || '');
+        const material = existing.material as THREE.MeshBasicMaterial;
+        material.color.set(boneVisualColor(bone));
         return;
       }
-      const color = bone.userData.locked ? '#778391' : bone.userData.detached ? '#b56bdb' : '#39c98a';
-      const joint = new THREE.Mesh(new THREE.SphereGeometry(0.06, 14, 10), new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.96 }));
-      joint.name = bone.name + ' Joint';
-      joint.userData.nexusJointVisual = true;
-      joint.userData.nexusBoneVisual = true;
-      joint.userData.nexusBoneOwnerId = String(bone.userData.editorId || '');
-      joint.renderOrder = 18;
-      // Keep joints raycastable so bones inside parent meshes can be selected.
-      bone.add(joint);
+      const visual = new THREE.Mesh(
+        new THREE.OctahedronGeometry(1, 0),
+        new THREE.MeshBasicMaterial({ color: boneVisualColor(bone), depthTest: false, transparent: true, opacity: 0.96, side: THREE.DoubleSide })
+      );
+      visual.geometry.scale(0.075, length * 0.5, 0.075);
+      visual.position.copy(direction).multiplyScalar(0.5);
+      visual.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
+      visual.name = bone.name + ' Diamond Bone';
+      visual.userData.nexusJointVisual = true;
+      visual.userData.nexusBoneVisual = true;
+      visual.userData.nexusBoneOwnerId = String(bone.userData.editorId || '');
+      visual.renderOrder = 18;
+      // The octahedral visual remains raycastable, including when the bone is inside a mesh.
+      bone.add(visual);
     };
     const refreshJointColors = (active?: THREE.Object3D) => {
       selectable.forEach(object => {
         if (!(object instanceof THREE.Bone)) return;
-        const joint = object.children.find(child => child.userData.nexusJointVisual) as THREE.Mesh | undefined;
-        if (!joint) return;
-        const color = object.userData.locked ? '#ffb52e' : object === active ? '#00d9ff' : object.userData.detached ? '#b56bdb' : '#aeb9c4';
-        ((joint as THREE.Mesh).material as THREE.MeshBasicMaterial).color.set(color);
+        const visual = object.children.find(child => child.userData.nexusJointVisual) as THREE.Mesh | undefined;
+        if (!visual) return;
+        ((visual as THREE.Mesh).material as THREE.MeshBasicMaterial).color.set(boneVisualColor(object, active));
       });
     };
     const styleSkeletonHelper = (helper: THREE.SkeletonHelper, _bones: THREE.Bone[]) => {
@@ -918,7 +939,7 @@ export default function App() {
       const helperBones = ((helper as any).bones || []) as THREE.Bone[];
       const colors: number[] = [];
       helperBones.forEach(bone => {
-        const lineColor = bone.userData.locked ? new THREE.Color('#778391') : new THREE.Color('#00d9ff');
+        const lineColor = new THREE.Color(boneVisualColor(bone));
         colors.push(lineColor.r, lineColor.g, lineColor.b, lineColor.r, lineColor.g, lineColor.b);
       });
       helper.geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -1199,7 +1220,7 @@ export default function App() {
       if (!chain) { setStatus('No skeleton display group found for this bone'); return; }
       chain.displayVisible = chain.displayVisible === false ? true : false;
       chain.helper.visible = false;
-      chain.bones.forEach(bone => { const visual = bone.children.find(child => child.userData.nexusJointVisual); if (visual) visual.visible = chain.displayVisible!; });
+      chain.bones.forEach(bone => { ensureBoneJoint(bone); const visual = bone.children.find(child => child.userData.nexusJointVisual); if (visual) visual.visible = chain.displayVisible!; });
       syncItems();
       setStatus((chain.displayVisible ? 'IK bones shown: ' : 'IK bones hidden: ') + (chain.bones[0]?.name || obj.name));
     };
@@ -1846,6 +1867,10 @@ export default function App() {
         if (colors) colors.needsUpdate = true;
         chain.helper.updateMatrixWorld(true);
       });
+      refreshJointColors();
+    };
+    const toggleSelectedBoneControlHandle
+      });
     };
     const toggleSelectedBoneControlHandle = () => {
       const bone = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
@@ -1860,7 +1885,7 @@ export default function App() {
         bone.userData.controlHandle = false;
         setStatus('Control Handle removed from ' + bone.name);
       } else {
-        const marker = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), new THREE.MeshBasicMaterial({ color: '#00d9ff', depthTest: false, transparent: true, opacity: 0.98 }));
+        const marker = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), new THREE.MeshBasicMaterial({ color: '#ffb52e', depthTest: false, transparent: true, opacity: 0.98 }));
         const childBone = bone.children.find(child => child instanceof THREE.Bone) as THREE.Bone | undefined;
         if (childBone) marker.position.copy(childBone.position);
         marker.name = bone.name + ' Control Handle'; marker.userData.rigControlMarker = true; marker.userData.editorId = uid(); marker.userData.kind = 'Control Handle'; marker.userData.controlLocked = false; marker.renderOrder = 20;
@@ -6060,10 +6085,19 @@ export default function App() {
 
       <div className={'viewport ' + (pathTool ? 'path-tool-active' : '')} ref={hostRef} onPointerDown={e => { if (!pathTool || animationMode) return; const rect = e.currentTarget.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width - .5) * 20; const z = ((e.clientY - rect.top) / rect.height - .5) * -20; setMotionPathPoints(prev => [...prev, {x, y:0.05, z}]); }} onDragOver={e => { if (e.dataTransfer.types.includes('text/nexus3d-object')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }} onDrop={e => { const childId = e.dataTransfer.getData('text/nexus3d-object'); if (!childId) return; e.preventDefault(); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }} />
       <div ref={ikHostRef} className={'ik-dedicated-viewport ' + (riggingView ? 'active' : '')} aria-label="Dedicated IK Rigging 3D viewport" />
-       {riggingView && <div className="ik-rig-actions" aria-label="Manual rig attachment actions">
-         <button type="button" onClick={() => runtime.current?.addUniversalBone?.('root')}>＋ ROOT</button>
-         <button type="button" onClick={() => runtime.current?.attachRootToShape?.()}>ATTACH TO SHAPE</button>
-         <button type="button" onClick={() => runtime.current?.bindSelectedMeshToRig?.()}>BIND MESH</button>
+       {riggingView && <div className="ik-rig-actions" aria-label="Compact Manual IK tools">
+         <button type="button" title="Create Root Bone" aria-label="Create Root Bone" onClick={() => runtime.current?.addUniversalBone?.('root')}>R</button>
+         <button type="button" title="Create Child Bone" aria-label="Create Child Bone" onClick={() => runtime.current?.addUniversalBone?.('child')}>C</button>
+         <button type="button" title="Attach Root to Shape" aria-label="Attach Root to Shape" onClick={() => runtime.current?.attachRootToShape?.()}>A</button>
+         <button type="button" title="Bind Mesh to Rig" aria-label="Bind Mesh to Rig" onClick={() => runtime.current?.bindSelectedMeshToRig?.()}>B</button>
+         <button type="button" title="Create Control Handle" aria-label="Create Control Handle" onClick={() => runtime.current?.toggleSelectedBoneControlHandle?.()}>H</button>
+         <button type="button" title="Lock or Unlock Bone" aria-label="Lock or Unlock Bone" onClick={() => runtime.current?.toggleSelectedBoneLock?.()}>L</button>
+         <button type="button" title="Detect Existing Rig" aria-label="Detect Existing Rig" onClick={() => runtime.current?.detectRiggedMeshes?.()}>D</button>
+         <button type="button" title="Create IK Target" aria-label="Create IK Target" onClick={() => runtime.current?.createIKTarget?.()}>T</button>
+         <button type="button" title="Create IK Pole" aria-label="Create IK Pole" onClick={() => runtime.current?.createPoleTarget?.()}>P</button>
+         <button type="button" title="Solve Manual IK" aria-label="Solve Manual IK" onClick={() => runtime.current?.solveIK?.()}>S</button>
+         <button type="button" title="Mirror Selected Bone" aria-label="Mirror Selected Bone" onClick={() => { if (runtime.current) { mirrorEnabledRef.current = true; runtime.current.mirrorSelectedBone?.(); } }}>M</button>
+         <button type="button" title="Show or Hide Bone Chain" aria-label="Show or Hide Bone Chain" onClick={() => { const r = runtime.current; const selectedBone = r?.selectable?.find((object: THREE.Object3D) => String(object.userData.editorId) === selectedRef.current); if (selectedBone) r.toggleBoneDisplay?.(selectedBone); }}>V</button>
        </div>}
       
       <div className={'camera-mode-hud ' + (cameraView ? 'cine-active' : '')} aria-live="polite"><span className="camera-mode-dot" />{cameraView ? 'CINE CAMERA VIEW' : riggingView ? 'IK RIGGING · FRONT PERSPECTIVE' : 'PERSPECTIVE MODE'}</div>
