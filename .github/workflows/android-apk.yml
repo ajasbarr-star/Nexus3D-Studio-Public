@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - test/nexus3d-test-apk
+      - feature/blender-diamond-bones-manual-ik
   workflow_dispatch:
 
 permissions:
@@ -37,7 +38,7 @@ jobs:
         run: npm install
 
       - name: Run RDS and DFI forensic audits and regression tests
-        run: npm run verify:rds && npm run verify:dfi
+        run: npm run verify:rds && npm run verify:dfi && npm run test:rig
 
       - name: Build bundled Nexus3D editor
         run: npm run build
