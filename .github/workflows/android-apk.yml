@@ -71,10 +71,10 @@ jobs:
 
       - name: Calculate Test release version
         run: |
-          # The legacy workflow counter reached 514 while the last verified
-          # Nexus3D release was Build 293. Map run 514 to product Build 294;
-          # subsequent workflow runs advance the product build by exactly one.
-          BUILD_NUMBER=$((GITHUB_RUN_NUMBER - 220))
+          # Runs 514 and 515 were unsuccessful diagnostic attempts.
+          # Map the next run (516) to product Build 294; subsequent runs
+          # advance the product build by exactly one.
+          BUILD_NUMBER=$((GITHUB_RUN_NUMBER - 222))
           if [ "$BUILD_NUMBER" -lt 294 ]; then BUILD_NUMBER=294; fi
           VERSION_PATCH=$((BUILD_NUMBER - 192))
           echo "NEXUS3D_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
