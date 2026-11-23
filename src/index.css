@@ -1926,13 +1926,13 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 
 
 /* Explicit, compact manual-rig workflow controls. */
-.ik-rig-actions{position:absolute;z-index:12;top:58px;right:64px;display:grid;grid-template-columns:repeat(6,40px);gap:3px;align-items:center;padding:5px;background:rgba(7,15,26,.92);border:1px solid rgba(63,190,225,.35);border-radius:8px;backdrop-filter:blur(12px);max-width:260px}
+.ik-rig-actions{position:absolute;z-index:12;top:58px;right:64px;display:grid;grid-template-columns:repeat(5,40px);gap:3px;align-items:center;padding:5px;background:rgba(7,15,26,.92);border:1px solid rgba(63,190,225,.35);border-radius:8px;backdrop-filter:blur(12px);max-width:220px}
 .ik-rig-actions button{width:40px;min-width:40px;height:35px;min-height:35px;padding:2px 1px;border:1px solid #28536b;border-radius:5px;background:#10283a;color:#bdefff;font:700 10px 'DM Mono',monospace;letter-spacing:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;touch-action:manipulation}
 .ik-rig-actions button svg{width:12px;height:12px;flex:0 0 auto}
 .ik-rig-actions button span{font:700 6px/1 'DM Mono',monospace;letter-spacing:0;color:#a9cfe0}
 .ik-rig-actions button:active{background:#16435a;border-color:#35cfff}
 .ik-rig-actions button:focus-visible{outline:2px solid #35cfff;outline-offset:1px}
-@media(max-width:760px){.ik-rig-actions{top:50px;right:54px;grid-template-columns:repeat(6,36px);gap:3px;padding:4px;max-width:232px}.ik-rig-actions button{width:36px;min-width:36px;height:33px;min-height:33px}.ik-rig-actions button span{font-size:5.5px}}
+@media(max-width:760px){.ik-rig-actions{top:50px;right:54px;grid-template-columns:repeat(5,36px);gap:3px;padding:4px;max-width:200px}.ik-rig-actions button{width:36px;min-width:36px;height:33px;min-height:33px}.ik-rig-actions button span{font-size:5.5px}}
 
 /* Built-in runtime diagnostics inside Menu > Help & System Info. */
 .diagnostic-summary{display:flex;justify-content:space-between;gap:6px;padding:5px 4px;color:#9bc5d8;font:700 7px 'DM Mono',monospace}
