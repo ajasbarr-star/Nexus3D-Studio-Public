@@ -30,6 +30,8 @@ import { scanMeshCore, formatMeshForensicReport } from './dfi/mesh-forensics';
 import { CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES } from './geometry/clean-flat-surface-contract';
 import { scanGeometryRit, formatGeometryRitReport } from './geometry/geometry-rit';
 import { RUNTIME_SESSION_ID, RUNTIME_SESSION_STARTED_AT, createRuntimeEventMetadata, formatRuntimeTraceReport } from './diagnostics/runtime-session.mjs';
+import { inferTracePoint, filterDiagnosticEntries, formatDiagnosticReport } from './diagnostics/logcat-diagnostics.mjs';
+import { loadLogcatEntries, loadRitTraceEntries, saveLogcatEntries, saveRitTraceEntries, clearLogcatEntries, clearRitTraceEntries } from './diagnostics/independent-diagnostic-stores.mjs';
 import { buildRdsNoticeSection } from './diagnostics/rds-notice.mjs';
 import './index.css';
 
@@ -158,7 +160,7 @@ function BufferedNumberInput({ value, step = 0.1, disabled = false, ariaLabel, o
   );
 }
 
-type DiagnosticEntry = { id: string; time: string; level: 'ERROR' | 'WARN' | 'INFO'; source: string; message: string; details?: string; sessionId?: string; sequence?: number; timestampISO?: string; origin?: 'USER_ACTION' | 'AUTO_PROCESS' | 'RESTORE' | 'SYSTEM' | 'UNKNOWN_ORIGIN' };
+type DiagnosticEntry = { id: string; time: string; level: 'VERBOSE' | 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL'; source: string; message: string; details?: string; sessionId?: string; sequence?: number; timestampISO?: string; origin?: 'USER_ACTION' | 'AUTO_PROCESS' | 'RESTORE' | 'SYSTEM' | 'UNKNOWN_ORIGIN'; componentTag?: string; tracePoint?: string; objectId?: string };
 type Item = { id: string; name: string; object: THREE.Object3D; kind: string };
 type TransformSnapshot = { position: number[]; rotation: number[]; scale: number[] };
 type FrameData = Record<string, TransformSnapshot>;
@@ -343,58 +345,84 @@ export default function App() {
     window.addEventListener('pointercancel', end);
   };
 
-  const [diagnosticLogs, setDiagnosticLogs] = useState<DiagnosticEntry[]>(() => {
-    try {
-      const saved = localStorage.getItem('nexus3d_realtime_diagnostics_v1');
-      const parsed = saved ? JSON.parse(saved) : [];
-      return Array.isArray(parsed) ? parsed.slice(-400) as DiagnosticEntry[] : [];
-    } catch { return []; }
-  });
+  const [diagnosticLogs, setDiagnosticLogs] = useState<DiagnosticEntry[]>(() => loadLogcatEntries(localStorage));
+  const [ritTraceLogs, setRitTraceLogs] = useState<DiagnosticEntry[]>(() => loadRitTraceEntries(localStorage));
   const [diagnosticFilter, setDiagnosticFilter] = useState<'ALL' | 'ERROR' | 'WARN' | 'INFO'>('ALL');
+  const [logcatPaused, setLogcatPaused] = useState(false);
+  const [logcatSnapshot, setLogcatSnapshot] = useState<DiagnosticEntry[]>([]);
+  const [logcatSearch, setLogcatSearch] = useState('');
+  const [logcatLevel, setLogcatLevel] = useState<'ALL' | 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'VERBOSE' | 'FATAL'>('ALL');
+  const [logcatSourceFilter, setLogcatSourceFilter] = useState('');
+  const [logcatTagFilter, setLogcatTagFilter] = useState('');
+  const [logcatTracePointFilter, setLogcatTracePointFilter] = useState('ALL');
+  const [logcatObjectFilter, setLogcatObjectFilter] = useState('');
+  const [logcatSessionFilter, setLogcatSessionFilter] = useState('');
+  const [logcatFromFilter, setLogcatFromFilter] = useState('');
+  const [logcatToFilter, setLogcatToFilter] = useState('');
+  const [logcatRegex, setLogcatRegex] = useState(false);
   const [diagnosticPanelOpen, setDiagnosticPanelOpen] = useState(false);
   const [rdsPanelOpen, setRdsPanelOpen] = useState(false);
   const [rdsActiveTool, setRdsActiveTool] = useState('Overview');
   const [interactionTraceOpen, setInteractionTraceOpen] = useState(false);
   const diagnosticSinkRef = useRef<(level: DiagnosticEntry['level'], source: string, message: string, details?: string) => void>(() => {});
   const diagnosticQueueRef = useRef<DiagnosticEntry[]>([]);
+  const interactionTraceQueueRef = useRef<DiagnosticEntry[]>([]);
   const pushDiagnostic = (level: DiagnosticEntry['level'], source: string, message: string, details?: string) => {
-    // Capture immediately; UI state and localStorage are flushed in small batches.
     const timestamp = new Date();
     const metadata = createRuntimeEventMetadata(source, message, timestamp);
-    diagnosticQueueRef.current.push({ id: uid(), time: timestamp.toLocaleTimeString(), level, source, message: String(message).slice(0, 1200), details: details ? String(details).slice(0, 5000) : undefined, ...metadata });
-    if (diagnosticQueueRef.current.length > 100) diagnosticQueueRef.current.splice(0, diagnosticQueueRef.current.length - 100);
+    let objectId: string | undefined;
+    try {
+      const parsed = details ? JSON.parse(details) : null;
+      objectId = parsed?.objectId || parsed?.selectedId || parsed?.selectedObjectId;
+    } catch { /* details may be plain text */ }
+    const entry: DiagnosticEntry = {
+      id: uid(), time: timestamp.toLocaleTimeString(), level, source,
+      message: String(message).slice(0, 1200),
+      details: details ? String(details).slice(0, 5000) : undefined,
+      componentTag: source,
+      tracePoint: inferTracePoint(source, message, rdsActiveTool),
+      objectId,
+      timestampISO: timestamp.toISOString(),
+      ...metadata
+    };
+    const queue = source === 'Interaction Trace' ? interactionTraceQueueRef.current : diagnosticQueueRef.current;
+    queue.push(entry);
+    if (queue.length > 100) queue.splice(0, queue.length - 100);
   };
   const clearDiagnosticLogs = () => {
     diagnosticQueueRef.current = [];
     setDiagnosticLogs([]);
-    try { localStorage.removeItem('nexus3d_realtime_diagnostics_v1'); } catch { /* ignore unavailable storage */ }
+    setLogcatSnapshot([]);
+    clearLogcatEntries(localStorage);
+    setStatus('Cleared LogCat events · RIT Trace preserved');
   };
   const clearInteractionTraceLogs = () => {
-    diagnosticQueueRef.current = diagnosticQueueRef.current.filter(entry => entry.source !== 'Interaction Trace');
-    setDiagnosticLogs(previous => {
-      const next = previous.filter(entry => entry.source !== 'Interaction Trace');
-      try { localStorage.setItem('nexus3d_realtime_diagnostics_v1', JSON.stringify(next)); } catch { /* storage may be unavailable or full */ }
-      return next;
-    });
-    setStatus('Cleared all RIT interaction events');
+    interactionTraceQueueRef.current = [];
+    setRitTraceLogs([]);
+    clearRitTraceEntries(localStorage);
+    setStatus('Cleared RIT Trace events · LogCat preserved');
   };
   diagnosticSinkRef.current = pushDiagnostic;
   const recordInteractionTrace = (action: string, details: Record<string, unknown> = {}) => {
     diagnosticSinkRef.current('INFO', 'Interaction Trace', action, JSON.stringify(details));
   };
+  const flushDiagnosticQueues = () => {
+    const logBatch = diagnosticQueueRef.current.splice(0, 100);
+    const traceBatch = interactionTraceQueueRef.current.splice(0, 100);
+    if (logBatch.length) setDiagnosticLogs(previous => {
+      const next = [...previous, ...logBatch].slice(-400);
+      saveLogcatEntries(localStorage, next);
+      return next;
+    });
+    if (traceBatch.length) setRitTraceLogs(previous => {
+      const next = [...previous, ...traceBatch].slice(-400);
+      saveRitTraceEntries(localStorage, next);
+      return next;
+    });
+  };
   useEffect(() => {
-    const flush = () => {
-      if (!diagnosticQueueRef.current.length) return;
-      const batch = diagnosticQueueRef.current.splice(0, 100);
-      setDiagnosticLogs(previous => {
-        const next = [...previous, ...batch].slice(-400);
-        try { localStorage.setItem('nexus3d_realtime_diagnostics_v1', JSON.stringify(next)); } catch { /* storage may be unavailable or full */ }
-        return next;
-      });
-    };
-    // Batch diagnostic state updates and localStorage writes away from active pointer events.
-    const timer = window.setInterval(flush, 1000);
-    return () => { window.clearInterval(timer); flush(); };
+    const timer = window.setInterval(flushDiagnosticQueues, 1000);
+    return () => { window.clearInterval(timer); flushDiagnosticQueues(); };
   }, []);
   const copyDiagnosticText = async (entries: DiagnosticEntry[]) => {
     const report = formatRuntimeTraceReport(entries, { sessionId: RUNTIME_SESSION_ID, startedAt: RUNTIME_SESSION_STARTED_AT });
@@ -408,7 +436,32 @@ export default function App() {
     } catch { setStatus('Copy failed · allow clipboard permission and try again'); }
   };
   const visibleDiagnosticLogs = diagnosticFilter === 'ALL' ? diagnosticLogs : diagnosticLogs.filter(entry => entry.level === diagnosticFilter);
-  const [maintenanceBusy, setMaintenanceBusy] = useState(false);
+  const getLogcatEntries = () => [...diagnosticLogs, ...diagnosticQueueRef.current].slice(-400);
+  const visibleLogcatEntries = filterDiagnosticEntries(logcatPaused ? logcatSnapshot : getLogcatEntries(), {
+    level: logcatLevel, query: logcatSearch, source: logcatSourceFilter, tag: logcatTagFilter,
+    tracePoint: logcatTracePointFilter, objectId: logcatObjectFilter, sessionId: logcatSessionFilter,
+    from: logcatFromFilter, to: logcatToFilter, regex: logcatRegex
+  }) as DiagnosticEntry[];
+  const getRitTraceEntries = () => [...ritTraceLogs, ...interactionTraceQueueRef.current].slice(-400);
+  const pauseLogcat = () => { setLogcatSnapshot(getLogcatEntries()); setLogcatPaused(true); };
+  const resumeLogcat = () => setLogcatPaused(false);
+  const refreshLogcat = () => { flushDiagnosticQueues(); setStatus('LogCat refreshed'); };
+  const exportLogcatReport = () => {
+    const report = formatDiagnosticReport(visibleLogcatEntries, { sessionId: RUNTIME_SESSION_ID });
+    try {
+      const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `Nexus3D_LogCat_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+      setStatus(`Downloaded LogCat report · ${visibleLogcatEntries.length} events`);
+    } catch { setStatus('LogCat report download failed'); }
+  };
+    const [maintenanceBusy, setMaintenanceBusy] = useState(false);
   const [performanceMode, setPerformanceMode] = useState(false);
   const [coreOptimizerOpen, setCoreOptimizerOpen] = useState(false);
   const [coreOptimizerReport, setCoreOptimizerReport] = useState('Run an analysis to inspect current runtime load.');
@@ -6833,8 +6886,8 @@ export default function App() {
         </div>
         <div className="rds-command-body">
           <nav className="rds-command-nav" aria-label="RDS tools">
-            {[['Overview','LayoutDashboard'],['Runtime','Activity'],['RIT Trace','ListTree'],['DFI Core','ScanEye'],['Mesh DFI','Box'],['Root Cause','GitBranch'],['Source Audit','Code2'],['Reports','FileText']].map(([name, icon]) => <button key={name} type="button" className={'rds-nav-item ' + (rdsActiveTool === name ? 'active' : '')} aria-current={rdsActiveTool === name ? 'page' : undefined} onClick={() => setRdsActiveTool(name)}>
-              {name === 'Overview' ? <Layers size={21}/> : name === 'Runtime' ? <Activity size={21}/> : name === 'RIT Trace' ? <GitBranch size={21}/> : name === 'DFI Core' ? <ScanEye size={21}/> : name === 'Mesh DFI' ? <Box size={21}/> : name === 'Root Cause' ? <GitMerge size={21}/> : name === 'Source Audit' ? <Code2 size={21}/> : <FileJson size={21}/>}
+            {[['Overview','LayoutDashboard'],['Runtime','Activity'],['LogCat','Activity'],['RIT Trace','ListTree'],['DFI Core','ScanEye'],['Mesh DFI','Box'],['Root Cause','GitBranch'],['Source Audit','Code2'],['Reports','FileText']].map(([name, icon]) => <button key={name} type="button" className={'rds-nav-item ' + (rdsActiveTool === name ? 'active' : '')} aria-current={rdsActiveTool === name ? 'page' : undefined} onClick={() => setRdsActiveTool(name)}>
+              {name === 'Overview' ? <Layers size={21}/> : name === 'Runtime' ? <Activity size={21}/> : name === 'LogCat' ? <Activity size={21}/> : name === 'RIT Trace' ? <GitBranch size={21}/> : name === 'DFI Core' ? <ScanEye size={21}/> : name === 'Mesh DFI' ? <Box size={21}/> : name === 'Root Cause' ? <GitMerge size={21}/> : name === 'Source Audit' ? <Code2 size={21}/> : <FileJson size={21}/>}
               <span>{name}</span>
             </button>)}
           </nav>
@@ -6851,7 +6904,42 @@ export default function App() {
               <div className="rds-quick-actions"><button type="button" onClick={runRdsFullScan} disabled={rdsScanBusy}><ScanEye size={16}/>{rdsScanBusy ? 'Scanning…' : 'Full Scan'}</button><button type="button" onClick={() => void runDfiInvestigation()} disabled={dfiBusy}><Activity size={16}/>{dfiBusy ? 'Analyzing…' : 'Deep Analysis'}</button><button type="button" onClick={copyAllDfiReport}><Copy size={16}/>Copy All</button></div>
             </>}
             {rdsActiveTool === 'Runtime' && <><div className="rds-summary-strip"><span>{diagnosticLogs.length} captured</span><span>{diagnosticLogs.filter(entry => entry.level === 'ERROR').length} errors</span><span>{diagnosticLogs.filter(entry => entry.level === 'WARN').length} warnings</span></div><div className="rds-command-log-list">{visibleDiagnosticLogs.slice().reverse().map(entry => <article className={'diagnostic-entry diagnostic-' + entry.level.toLowerCase()} key={entry.id}><div><strong>{entry.level}</strong><time>{entry.time}</time></div><b>{entry.source}</b><p>{entry.message}</p>{entry.details && <pre>{entry.details}</pre>}</article>)}{!visibleDiagnosticLogs.length && <div className="diagnostic-empty">No runtime logs match the selected filter.</div>}</div><div className="rds-quick-actions"><button type="button" onClick={() => setDiagnosticFilter('ALL')}>All</button><button type="button" onClick={() => setDiagnosticFilter('ERROR')}>Errors</button><button type="button" onClick={() => setDiagnosticFilter('WARN')}>Warnings</button><button type="button" onClick={() => void copyDiagnosticText(visibleDiagnosticLogs)}><Copy size={14}/>Copy</button></div></>}
-            {rdsActiveTool === 'RIT Trace' && <><div className="rds-summary-strip"><span>Session {RUNTIME_SESSION_ID}</span><span>{diagnosticLogs.filter(entry => entry.source === 'Interaction Trace').length} events</span></div><div className="rds-command-log-list">{diagnosticLogs.filter(entry => entry.source === 'Interaction Trace').slice().reverse().map(entry => <article className="diagnostic-entry diagnostic-info" key={entry.id}><div><strong>{entry.origin || 'UNKNOWN'}</strong><time>{entry.time}</time></div><small className="rit-event-meta">{entry.sessionId === RUNTIME_SESSION_ID ? 'CURRENT SESSION' : entry.sessionId ? 'PREVIOUS SESSION' : 'LEGACY'} · SEQ {entry.sequence ?? '—'}</small><p>{entry.message}</p>{entry.details && <pre>{entry.details}</pre>}</article>)}{!diagnosticLogs.some(entry => entry.source === 'Interaction Trace') && <div className="diagnostic-empty">No interaction events captured yet.</div>}</div><div className="rds-quick-actions"><button type="button" onClick={() => void copyDiagnosticText([...diagnosticLogs.filter(entry => entry.source === 'Interaction Trace'), ...diagnosticQueueRef.current.filter(entry => entry.source === 'Interaction Trace')])}><Copy size={14}/>Copy Trace</button></div></>}
+            {rdsActiveTool === 'LogCat' && <>
+              <div className="rds-summary-strip"><span>{getLogcatEntries().length} runtime events</span><span>{getLogcatEntries().filter(entry => entry.level === 'ERROR' || entry.level === 'FATAL').length} errors</span><span>{getLogcatEntries().filter(entry => entry.level === 'WARN').length} warnings</span><span>{logcatPaused ? 'PAUSED' : 'LIVE'}</span></div>
+              <div className="rds-logcat-toolbar">
+                <input aria-label="Search runtime logs" value={logcatSearch} onChange={event => setLogcatSearch(event.target.value)} placeholder="Search logs…" />
+                <button type="button" className="rds-tool-button" onClick={logcatPaused ? resumeLogcat : pauseLogcat} title={logcatPaused ? 'Resume LogCat' : 'Pause LogCat'} aria-label={logcatPaused ? 'Resume LogCat' : 'Pause LogCat'}>{logcatPaused ? <Play size={14}/> : <Pause size={14}/>}</button>
+                <button type="button" className="rds-tool-button" onClick={refreshLogcat} title="Refresh LogCat" aria-label="Refresh LogCat"><RefreshCw size={14}/></button>
+                <button type="button" className="rds-tool-button" onClick={clearDiagnosticLogs} disabled={!getLogcatEntries().length} title="Clear LogCat only" aria-label="Clear LogCat"><Trash2 size={14}/></button>
+                <button type="button" className="rds-tool-button" onClick={exportLogcatReport} title="Download report" aria-label="Download LogCat report"><Download size={14}/></button>
+              </div>
+              <div className="rds-quick-actions">
+                {(['ALL','VERBOSE','DEBUG','INFO','WARN','ERROR','FATAL'] as const).map(level => <button key={level} type="button" className={logcatLevel === level ? 'active' : ''} onClick={() => setLogcatLevel(level)}>{level === 'ALL' ? 'All' : level}</button>)}
+              </div>
+              <details className="rds-logcat-filters"><summary>Advanced filters</summary>
+                <div><label>Source<input value={logcatSourceFilter} onChange={event => setLogcatSourceFilter(event.target.value)} placeholder="Component / source"/></label>
+                <label>Component tag<input value={logcatTagFilter} onChange={event => setLogcatTagFilter(event.target.value)} placeholder="Tag"/></label>
+                <label>Trace point<select value={logcatTracePointFilter} onChange={event => setLogcatTracePointFilter(event.target.value)}><option value="ALL">All trace points</option>{['MAIN_VIEWPORT','IK_VIEWPORT','SCENE_TREE','RENDER_RUNTIME','APP_EXCEPTION','USER_INTERACTION','RUNTIME_SYSTEM'].map(point => <option key={point} value={point}>{point}</option>)}</select></label>
+                <label>Object ID<input value={logcatObjectFilter} onChange={event => setLogcatObjectFilter(event.target.value)} placeholder="Object ID"/></label>
+                <label>Session ID<input value={logcatSessionFilter} onChange={event => setLogcatSessionFilter(event.target.value)} placeholder="Session ID"/></label>
+                <label>From<input type="datetime-local" value={logcatFromFilter} onChange={event => setLogcatFromFilter(event.target.value)}/></label>
+                <label>To<input type="datetime-local" value={logcatToFilter} onChange={event => setLogcatToFilter(event.target.value)}/></label>
+                <label className="rds-logcat-regex"><input type="checkbox" checked={logcatRegex} onChange={event => setLogcatRegex(event.target.checked)}/> Regex search</label></div>
+              </details>
+              <div className="rds-command-log-list">{visibleLogcatEntries.slice().reverse().map(entry => <article className={'diagnostic-entry diagnostic-' + entry.level.toLowerCase()} key={entry.id}>
+                <div><strong>{entry.level}</strong><time>{entry.timestampISO || entry.time}</time></div>
+                <b>{entry.componentTag || entry.source}</b><small>{entry.tracePoint || 'UNKNOWN_TRACE_POINT'}{entry.objectId ? ' · ' + entry.objectId : ''}</small>
+                <p>{entry.message}</p>{entry.details && <pre>{entry.details}</pre>
+              </article>)}{!visibleLogcatEntries.length && <div className="diagnostic-empty">No LogCat events match these filters.</div>}</div>
+            </>}
+            {rdsActiveTool === 'RIT Trace' && <>
+              <div className="rds-summary-strip"><span>Session {RUNTIME_SESSION_ID}</span><span>{getRitTraceEntries().length} events</span></div>
+              <div className="rds-command-log-list">{getRitTraceEntries().slice().reverse().map(entry => <article className="diagnostic-entry diagnostic-info" key={entry.id}>
+                <div><strong>{entry.origin || 'UNKNOWN'}</strong><time>{entry.time}</time></div><small className="rit-event-meta">{entry.sessionId === RUNTIME_SESSION_ID ? 'CURRENT SESSION' : entry.sessionId ? 'PREVIOUS SESSION' : 'LEGACY'} · SEQ {entry.sequence ?? '—'}</small>
+                <p>{entry.message}</p>{entry.details && <pre>{entry.details}</pre>}
+              </article>)}{!getRitTraceEntries().length && <div className="diagnostic-empty">No interaction events captured yet.</div>}</div>
+              <div className="rds-quick-actions"><button type="button" onClick={() => clearInteractionTraceLogs()} disabled={!getRitTraceEntries().length}><Trash2 size={14}/>Clear Trace</button><button type="button" onClick={() => void copyDiagnosticText(getRitTraceEntries())}><Copy size={14}/>Copy Trace</button></div>
+            </>}
             {rdsActiveTool === 'DFI Core' && <><div className="rds-summary-strip"><span>{dfiSummary.findings} findings</span><span>{dfiSummary.errors} errors</span><span>{dfiSummary.warnings} warnings</span></div><div className="rds-quick-actions"><button type="button" onClick={() => void runDfiInvestigation()} disabled={dfiBusy}><ScanEye size={15}/>{dfiBusy ? 'Investigating…' : 'Run Deep Analysis'}</button><button type="button" onClick={() => void copyDiagnosticText([{id:'dfi-report',time:new Date().toLocaleTimeString(),level:dfiSummary.errors?'ERROR':dfiSummary.warnings?'WARN':'INFO',source:'DFI Core',message:'Forensic investigation report',details:dfiReport}])}><Copy size={14}/>Copy Report</button></div><pre className="rds-command-report">{dfiReport}</pre></>}
             {rdsActiveTool === 'Mesh DFI' && <><div className="rds-quick-actions"><button type="button" onClick={() => runDfiToolScan('Shape Core')} disabled={Boolean(dfiToolBusy)}><Box size={15}/>{dfiToolBusy ? 'Scanning…' : 'Scan Mesh Integrity'}</button></div><pre className="rds-command-report">{dfiToolReports['Shape Core'] || 'Mesh integrity scan has not been run yet.'}</pre></>}
             {rdsActiveTool === 'Root Cause' && <><div className="rds-info-card"><strong>Evidence-based investigation</strong><p>Correlates captured runtime events, DFI findings and source audit evidence. A suspected cause is not confirmed until the first failing state transition is reproduced.</p></div><div className="rds-quick-actions"><button type="button" onClick={() => void runDfiInvestigation()} disabled={dfiBusy}><GitMerge size={15}/>{dfiBusy ? 'Investigating…' : 'Correlate Evidence'}</button></div><pre className="rds-command-report">{dfiReport}</pre></>}
