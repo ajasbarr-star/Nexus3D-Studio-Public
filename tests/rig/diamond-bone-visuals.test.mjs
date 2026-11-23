@@ -8,7 +8,7 @@ const css = readFileSync(new URL('../../src/index.css', import.meta.url), 'utf8'
 test('manual rig visuals use compact spherical bone icons', () => {
   assert.match(app, /createSphereBoneGeometry/);
   assert.match(app, /nexusSphereBoneGeometry/);
-  assert.match(app, /new THREE\.SphereGeometry\(0\.06, 14, 10\)/);
+  assert.match(app, /new THREE\.SphereGeometry\(0\.035, 14, 10\)/);
   assert.match(app, /Sphere Bone/);
   assert.doesNotMatch(app, /createBlenderOctahedralBoneGeometry/);
   assert.doesNotMatch(app, /nexusBlenderBoneGeometry/);
@@ -19,7 +19,7 @@ test('bone colors distinguish root, child, selected, detached, and locked states
   assert.match(app, /if \(bone\.userData\.locked\) return '#ff4d64'/);
   assert.match(app, /if \(bone === active\) return '#00e5ff'/);
   assert.match(app, /bone\.userData\.detached\) return '#a879ff'/);
-  assert.match(app, /return bone\\.userData\\.rigRole === 'root' \\|\\| !\\(bone\\.parent as any\\)\\?\\.isBone \\? '#ffb547' : '#35d7ff'/);
+  assert.ok(app.includes("return bone.userData.rigRole === 'root' || !(bone.parent as any)?.isBone ? '#ffb547' : '#35d7ff'"));
 });
 
 test('control handles use a high-visibility orange material and scalable sphere marker', () => {
