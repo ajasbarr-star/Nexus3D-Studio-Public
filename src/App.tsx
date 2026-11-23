@@ -2523,7 +2523,15 @@ export default function App() {
       const chain = (controlBone ? resolveRigChainForObject(controlBone) : resolveRigChainForObject(selectedObject)) ||
         (rigChains.filter(entry => entry.target).length === 1 ? rigChains.find(entry => entry.target) : null);
       if (!chain || (!chain.target && !controlTarget)) { setStatus('Select the intended rig and create an IK target or Control Handle first'); return; }
-      const endBone = controlBone || chain.bones.find(bone => String(bone.userData.editorId) === String(chain.target?.userData.ikEndBoneId)) || chain.bones[chain.bones.length-1];
+      const controlChildBone = controlBone
+        ? chain.bones.filter(bone => bone.parent === controlBone).sort((a, b) =>
+            a.position.distanceToSquared((controlHandle as THREE.Object3D).position) -
+            b.position.distanceToSquared((controlHandle as THREE.Object3D).position)
+          )[0] || null
+        : null;
+      const endBone = controlChildBone || controlBone ||
+        chain.bones.find(bone => String(bone.userData.editorId) === String(chain.target?.userData.ikEndBoneId)) ||
+        chain.bones[chain.bones.length-1];
       const path: THREE.Bone[] = [];
       let cursor: THREE.Object3D | null = endBone;
       while (cursor && path.length < 32) { if (cursor instanceof THREE.Bone && chain.bones.includes(cursor)) path.push(cursor); cursor = cursor.parent; }
