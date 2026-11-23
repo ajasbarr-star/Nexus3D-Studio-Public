@@ -113,3 +113,17 @@ test('spring-driven IK updates attached skinned mesh through the shared skeleton
   assert.match(app, /activeIkSpring/);
   assert.match(app, /solveIK\(activeIkSpring\.chainLength, activeIkSpring\.current\)/);
 });
+
+
+test('Manual IK spring is optional and adjustable independently from direct IK', () => {
+  assert.match(app, /let ikSpringConfig = \{ enabled: false, strength: 35, damping: 75, followThrough: 40 \}/);
+  assert.match(app, /const configureIkSpring = \(next: Partial<typeof ikSpringConfig>\)/);
+  assert.match(app, /if \(!ikSpringConfig\.enabled\) \{\s*activeIkSpring = null;\s*solveIK\(chainLength, targetWorld\);/);
+  assert.match(app, /const strength = 8 \+ ikSpringConfig\.strength \* 0\.52/);
+  assert.match(app, /const damping = 4 \+ ikSpringConfig\.damping \* 0\.18/);
+  assert.match(app, /aria-label="Manual IK Spring Effect settings"/);
+  assert.match(app, /aria-label="Spring Strength"/);
+  assert.match(app, /aria-label="Spring Damping"/);
+  assert.match(app, /aria-label="Spring Follow-through"/);
+  assert.match(css, /\.ik-spring-panel/);
+});
