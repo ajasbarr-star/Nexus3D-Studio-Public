@@ -17,7 +17,7 @@ test('manual rig visuals use compact spherical bone icons', () => {
 test('bone colors distinguish root, child, selected, detached, and locked states', () => {
   assert.match(app, /new THREE\.Color\('#579bce'\)/);
   assert.match(app, /if \(bone\.userData\.locked\) return '#ff4d64'/);
-  assert.match(app, /if \\(bone === active\\) return '#00e5ff'/);
+  assert.match(app, /if \(bone === active\) return '#00e5ff'/);
   assert.match(app, /bone\.userData\.detached\) return '#a879ff'/);
   assert.match(app, /return bone\\.userData\\.rigRole === 'root' \\|\\| !\\(bone\\.parent as any\\)\\?\\.isBone \\? '#ffb547' : '#35d7ff'/);
 });
