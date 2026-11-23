@@ -1473,9 +1473,9 @@ export default function App() {
           })()
         });
       }
-      const movableLockedRoot = obj instanceof THREE.Bone && obj.userData.shapeRig && obj.userData.rigRole === 'root' && obj.userData.locked;
       const objectMode = editModeRef.current === 'Object';
-      const selectionLocked = Boolean(obj.userData.objectManagerLocked) || (obj instanceof THREE.Bone && obj.userData.locked && !movableLockedRoot) || (obj.userData.rigControlMarker && obj.userData.controlLocked);
+      // A locked bone is never a TransformControls target, including Shape Rig roots.
+      const selectionLocked = Boolean(obj.userData.objectManagerLocked) || (obj instanceof THREE.Bone && obj.userData.locked) || (obj.userData.rigControlMarker && obj.userData.controlLocked);
 
       // One controller owns selection in both workspaces. The active camera is
       // switched by the workspace toggle; attachment never changes controllers.
@@ -1488,7 +1488,7 @@ export default function App() {
         transform.enabled = objectMode;
         transform.getHelper().visible = objectMode;
       }
-      transform.setMode(movableLockedRoot ? 'translate' : mode);
+      transform.setMode(mode);
       transform.setSpace(space);
       if (obj instanceof THREE.Light) {
         setSettings(prev => ({ ...prev, lightIntensity: obj.intensity, lightColor: '#' + obj.color.getHexString(), ...(obj instanceof THREE.DirectionalLight ? { directionalIntensity: obj.intensity } : {}), ...(obj instanceof THREE.SpotLight ? { spotIntensity: obj.intensity, spotDistance: obj.distance, spotDecay: obj.decay, spotAngle: THREE.MathUtils.radToDeg(obj.angle) } : {}), ...(obj instanceof THREE.HemisphereLight ? { sunIntensity: obj.intensity, ambientIntensity: obj.intensity } : {}) }));
@@ -2325,6 +2325,17 @@ export default function App() {
       return true;
     };
     transform.addEventListener('objectChange', () => {
+      const activeControl = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
+      if (activeControl?.userData.rigControlMarker && !activeControl.userData.controlLocked) {
+        const ownerBone = activeControl.parent instanceof THREE.Bone ? activeControl.parent as THREE.Bone : null;
+        const chain = ownerBone ? resolveRigChainForObject(ownerBone) : null;
+        if (chain && ownerBone) {
+          scene.updateMatrixWorld(true);
+          const targetWorld = activeControl.getWorldPosition(new THREE.Vector3());
+          // Keep the root anchor fixed; the IK solver adjusts only unlocked bones in the chain.
+          solveIK(Math.max(1, chain.bones.length - 1), targetWorld);
+        }
+      }
       if (!mirrorEnabledRef.current) return;
       const source = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
       if (!(source instanceof THREE.Bone) || !source.parent || !/\.(L|R)$/i.test(source.name)) return;
@@ -2505,18 +2516,20 @@ export default function App() {
       setStatus('IK target ready for ' + endBone.name + ' · move it with the gizmo, then Solve Manual IK');
       return target;
     };
-    const solveIK = (chainLength = 3) => {
+    const solveIK = (chainLength = 3, controlTarget?: THREE.Vector3) => {
       const selectedObject = selectable.find(object => String(object.userData.editorId) === selectedRef.current);
-      const chain = resolveRigChainForObject(selectedObject) ||
+      const controlHandle = selectedObject?.userData.rigControlMarker ? selectedObject : null;
+      const controlBone = controlHandle?.parent instanceof THREE.Bone ? controlHandle.parent as THREE.Bone : null;
+      const chain = (controlBone ? resolveRigChainForObject(controlBone) : resolveRigChainForObject(selectedObject)) ||
         (rigChains.filter(entry => entry.target).length === 1 ? rigChains.find(entry => entry.target) : null);
-      if (!chain || !chain.target) { setStatus('Select the intended rig and create its IK target first'); return; }
-      const endBone = chain.bones.find(bone => String(bone.userData.editorId) === String(chain.target?.userData.ikEndBoneId)) || chain.bones[chain.bones.length-1];
+      if (!chain || (!chain.target && !controlTarget)) { setStatus('Select the intended rig and create an IK target or Control Handle first'); return; }
+      const endBone = controlBone || chain.bones.find(bone => String(bone.userData.editorId) === String(chain.target?.userData.ikEndBoneId)) || chain.bones[chain.bones.length-1];
       const path: THREE.Bone[] = [];
       let cursor: THREE.Object3D | null = endBone;
       while (cursor && path.length < 32) { if (cursor instanceof THREE.Bone && chain.bones.includes(cursor)) path.push(cursor); cursor = cursor.parent; }
       const bones = path.reverse().slice(-Math.max(1,Math.min(chainLength+1,path.length)));
       if (bones.length < 2) { setStatus('Select a limb bone before creating its IK target'); return; }
-      const targetPosition = chain.target.getWorldPosition(new THREE.Vector3());
+      const targetPosition = controlTarget ? controlTarget.clone() : chain.target!.getWorldPosition(new THREE.Vector3());
       const clampJoint = (bone: THREE.Bone) => {
         const limit = THREE.MathUtils.degToRad(Number(bone.userData.jointLimitDegrees ?? jointLimitDegreesRef.current));
         const euler = new THREE.Euler().setFromQuaternion(bone.quaternion,'XYZ');
@@ -2532,7 +2545,7 @@ export default function App() {
             const origin=bone.getWorldPosition(new THREE.Vector3());
             const end=endBone.getWorldPosition(new THREE.Vector3());
             const from=end.sub(origin); const to=targetPosition.clone().sub(origin);
-            if (from.lengthSq()<1e-8 || to.lengthSq()<1e-8) continue;
+            if (bone.userData.locked || from.lengthSq()<1e-8 || to.lengthSq()<1e-8) continue;
             const delta=new THREE.Quaternion().setFromUnitVectors(from.normalize(),to.normalize());
             const desiredWorld=bone.getWorldQuaternion(new THREE.Quaternion()); desiredWorld.premultiply(delta);
             if (bone.parent) bone.quaternion.copy(bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(desiredWorld)); else bone.quaternion.copy(desiredWorld);
@@ -2558,6 +2571,7 @@ export default function App() {
         }
         for (let i=0;i<bones.length-1;i++) {
           scene.updateMatrixWorld(true); const bone=bones[i];
+          if (bone.userData.locked) continue;
           const origin=bone.getWorldPosition(new THREE.Vector3());
           const currentChild=bones[i+1].getWorldPosition(new THREE.Vector3());
           const currentDirection=currentChild.sub(origin); const desiredDirection=positions[i+1].clone().sub(positions[i]);
@@ -2578,13 +2592,21 @@ export default function App() {
         middle.addScaledVector(axis,-middle.dot(axis)); pole.addScaledVector(axis,-pole.dot(axis));
         if (middle.lengthSq()>1e-8 && pole.lengthSq()>1e-8) {
           const angle = Math.atan2(axis.dot(middle.clone().cross(pole)),middle.dot(pole));
-          const rootBone = bones[0]; const desired = rootBone.getWorldQuaternion(new THREE.Quaternion());
-          desired.premultiply(new THREE.Quaternion().setFromAxisAngle(axis,angle));
-          if (rootBone.parent) rootBone.quaternion.copy(rootBone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(desired));
-          else rootBone.quaternion.copy(desired);
+          const rootBone = bones[0];
+          if (!rootBone.userData.locked) {
+            const desired = rootBone.getWorldQuaternion(new THREE.Quaternion());
+            desired.premultiply(new THREE.Quaternion().setFromAxisAngle(axis,angle));
+            if (rootBone.parent) rootBone.quaternion.copy(rootBone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(desired));
+            else rootBone.quaternion.copy(desired);
+          }
         }
       }
-      chain.helper.updateMatrixWorld(true); syncItems(); setStatus(ikSolverRef.current + ' IK + pole constraint solved · ' + bones.length + ' joints');
+      chain.helper.updateMatrixWorld(true);
+      scene.updateMatrixWorld(true);
+      if (!controlTarget) {
+        syncItems();
+        setStatus(ikSolverRef.current + ' IK + pole constraint solved · ' + bones.length + ' joints');
+      }
     };
     const captureRigStateFor = (obj: THREE.Object3D) => {
       const removedNodes = new Set<THREE.Object3D>();
