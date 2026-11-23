@@ -21,7 +21,7 @@ test('bone colors distinguish root, child, selected, detached, and locked states
 });
 
 test('control handles use the dedicated orange color', () => {
-  assert.match(app, /new THREE\.SphereGeometry\(0\.055, 12, 10\), new THREE\.MeshBasicMaterial\(\{ color: '#ffb52e'/);
+  assert.match(app, /new THREE\.SphereGeometry\(0\.07, 16, 12\), new THREE\.MeshBasicMaterial\(\{ color: '#ffb52e'/);
 });
 
 test('compact Manual IK toolbar exposes root, child, attach, bind, handle, lock, rig detection, IK, mirror and visibility actions', () => {
