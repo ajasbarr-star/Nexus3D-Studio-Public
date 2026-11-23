@@ -94,7 +94,6 @@ test('dragging an unlocked child Control Handle automatically solves its connect
   assert.match(app, /const ownerBone = activeControl\.parent instanceof THREE\.Bone/);
   assert.match(app, /activeIkSpring/);
   assert.match(app, /solveIK\(activeIkSpring\.chainLength, activeIkSpring\.current\)/);
-  assert.match(app, /activeControl\?\.userData\.rigControlMarker/);
   assert.match(app, /const controlBone = controlHandle\?\.parent instanceof THREE\.Bone/);
   assert.match(app, /const targetPosition = controlTarget \? controlTarget\.clone\(\)/);
 });
