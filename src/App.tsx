@@ -1503,8 +1503,10 @@ export default function App() {
         });
       }
       const objectMode = editModeRef.current === 'Object';
-      // A locked bone is never a TransformControls target, including Shape Rig roots.
-      const selectionLocked = Boolean(obj.userData.objectManagerLocked) || (obj instanceof THREE.Bone && obj.userData.locked) || (obj.userData.rigControlMarker && obj.userData.controlLocked);
+      const isControlHandle = Boolean(obj.userData.rigControlMarker);
+      // Locked bones cannot be directly transformed. Control Handles remain
+      // editable in every mode because they are dedicated IK controller objects.
+      const selectionLocked = Boolean(obj.userData.objectManagerLocked) || (obj instanceof THREE.Bone && obj.userData.locked) || (isControlHandle && obj.userData.controlLocked);
 
       // One controller owns selection in both workspaces. The active camera is
       // switched by the workspace toggle; attachment never changes controllers.
@@ -1514,8 +1516,8 @@ export default function App() {
         transform.getHelper().visible = false;
       } else {
         transform.attach(obj);
-        transform.enabled = objectMode;
-        transform.getHelper().visible = objectMode;
+        transform.enabled = objectMode || isControlHandle;
+        transform.getHelper().visible = objectMode || isControlHandle;
       }
       transform.setMode(mode);
       transform.setSpace(space);
@@ -2175,19 +2177,31 @@ export default function App() {
         bone.userData.controlHandle = false;
         setStatus('Control Handle removed from ' + bone.name);
       } else {
-        const marker = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 12), new THREE.MeshBasicMaterial({ color: '#ffb52e', depthTest: false, transparent: true, opacity: 0.98 }));
-        const childBone = bone.children.find(child => child instanceof THREE.Bone) as THREE.Bone | undefined;
-        scene.updateMatrixWorld(true);
-        const ownerWorld = bone.getWorldPosition(new THREE.Vector3());
-        const endWorld = childBone ? childBone.getWorldPosition(new THREE.Vector3()) : ownerWorld.clone().add(bone.getWorldQuaternion(new THREE.Quaternion()).multiply(new THREE.Vector3(0, 1, 0)));
-        const segment = endWorld.clone().sub(ownerWorld);
-        const segmentLength = Math.max(segment.length(), 0.1);
-        const outward = segment.lengthSq() > 1e-8 ? segment.normalize() : new THREE.Vector3(0, 1, 0);
-        marker.position.copy(endWorld).addScaledVector(outward, segmentLength * (handleDistanceConfig.distance / 100));
-        marker.name = bone.name + ' Control Handle'; marker.userData.rigControlMarker = true; marker.userData.editorId = uid(); marker.userData.kind = 'Control Handle'; marker.userData.controlLocked = false; marker.userData.controlOwnerBoneId = bone.userData.editorId; marker.userData.handleDistance = handleDistanceConfig.distance; marker.renderOrder = 20;
-        scene.add(marker); selectable.push(marker); bone.userData.controlHandle = true;
+        const marker = new THREE.Mesh(
+          new THREE.SphereGeometry(0.07, 16, 12),
+          new THREE.MeshBasicMaterial({ color: '#ffb52e', depthTest: false, depthWrite: false, transparent: true, opacity: 1, toneMapped: false })
+        );
+        const placement = getControlHandlePlacement(bone, handleDistanceConfig.distance);
+        marker.position.copy(placement.position);
+        marker.scale.setScalar(placement.radius / 0.07);
+        marker.name = bone.name + ' Control Handle';
+        marker.userData.rigControlMarker = true;
+        marker.userData.editorId = uid();
+        marker.userData.kind = 'Control Handle';
+        marker.userData.controlLocked = false;
+        marker.userData.controlOwnerBoneId = String(bone.userData.editorId);
+        marker.userData.controlOwnerRigRootId = String(placement.rigRootBoneId || '');
+        marker.userData.handleDistance = handleDistanceConfig.distance;
+        marker.userData.handleRadius = placement.radius;
+        marker.renderOrder = 10000;
+        marker.frustumCulled = false;
+        marker.layers.enableAll();
+        marker.visible = true;
+        scene.add(marker);
+        selectable.push(marker);
+        bone.userData.controlHandle = true;
         nextSelection = marker;
-        setStatus('Control Handle enabled · orange controller gizmo on ' + bone.name);
+        setStatus('Control Handle enabled · linked to ' + bone.name);
       }
       refreshRigVisuals(); syncItems(); selectObject(nextSelection); return true;
     };
@@ -2363,20 +2377,36 @@ export default function App() {
     };
     let activeIkSpring: { marker: THREE.Object3D; ownerBone: THREE.Bone; chainLength: number; current: THREE.Vector3; target: THREE.Vector3; velocity: THREE.Vector3; lastTime: number } | null = null;
     let handleDistanceConfig = { distance: 25 };
+    const getControlHandlePlacement = (owner: THREE.Bone, distance: number) => {
+      scene.updateMatrixWorld(true);
+      owner.updateWorldMatrix(true, true);
+      const child = owner.children.find(node => node instanceof THREE.Bone) as THREE.Bone | undefined;
+      const start = owner.getWorldPosition(new THREE.Vector3());
+      const end = child ? child.getWorldPosition(new THREE.Vector3()) : start.clone().add(owner.getWorldQuaternion(new THREE.Quaternion()).multiply(new THREE.Vector3(0, 1, 0)));
+      const direction = end.clone().sub(start);
+      const segmentLength = Math.max(direction.length(), 0.1);
+      if (direction.lengthSq() > 1e-8) direction.normalize(); else direction.set(0, 1, 0);
+      const worldPosition = end.clone().addScaledVector(direction, segmentLength * (distance / 100));
+      const position = scene.worldToLocal(worldPosition.clone());
+      const radius = THREE.MathUtils.clamp(segmentLength * 0.14, 0.05, 0.3);
+      const chain = resolveRigChainForObject(owner);
+      return { position, radius, rigRootBoneId: chain?.bones[0]?.userData.editorId || owner.userData.rigRootBoneId || '' };
+    };
     const configureControlHandleDistance = (distance: number) => {
       handleDistanceConfig.distance = THREE.MathUtils.clamp(Number(distance) || 0, 0, 200);
       scene.updateMatrixWorld(true);
       selectable.filter(object => object.userData.rigControlMarker).forEach(marker => {
         const owner = selectable.find(object => object instanceof THREE.Bone && String(object.userData.editorId) === String(marker.userData.controlOwnerBoneId)) as THREE.Bone | undefined;
         if (!owner) return;
-        const child = owner.children.find(node => node instanceof THREE.Bone) as THREE.Bone | undefined;
-        const start = owner.getWorldPosition(new THREE.Vector3());
-        const end = child ? child.getWorldPosition(new THREE.Vector3()) : start.clone().add(owner.getWorldQuaternion(new THREE.Quaternion()).multiply(new THREE.Vector3(0, 1, 0)));
-        const direction = end.clone().sub(start);
-        const length = Math.max(direction.length(), 0.1);
-        if (direction.lengthSq() > 1e-8) direction.normalize(); else direction.set(0, 1, 0);
-        marker.position.copy(end).addScaledVector(direction, length * (handleDistanceConfig.distance / 100));
+        const placement = getControlHandlePlacement(owner, handleDistanceConfig.distance);
+        marker.position.copy(placement.position);
+        marker.scale.setScalar(placement.radius / 0.07);
+        marker.userData.handleRadius = placement.radius;
+        marker.userData.controlOwnerRigRootId = String(placement.rigRootBoneId || '');
         marker.userData.handleDistance = handleDistanceConfig.distance;
+        marker.visible = true;
+        marker.frustumCulled = false;
+        marker.layers.enableAll();
       });
       scene.updateMatrixWorld(true);
       syncItems();
