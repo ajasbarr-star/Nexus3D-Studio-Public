@@ -1087,39 +1087,61 @@ export default function App() {
       if (bone.userData.detached) return '#a879ff';
       return bone.userData.rigRole === 'root' || !(bone.parent as any)?.isBone ? '#00d9ff' : '#36c2a0';
     };
+    const createBlenderOctahedralBoneGeometry = () => {
+      // Blender-like octahedral armature silhouette: a distinct narrow head,
+      // tapered neck, wider central body and pointed tail. Geometry is visual-only.
+      const vertices = [
+        0,-1,0,
+        -0.22,-0.68,0, 0,-0.68,0.22, 0.22,-0.68,0, 0,-0.68,-0.22,
+        -1,-0.22,0, 0,-0.22,1, 1,-0.22,0, 0,-0.22,-1,
+        0,1,0
+      ];
+      const faces = [
+        0,2,1, 0,3,2, 0,4,3, 0,1,4,
+        1,2,5, 2,6,5, 2,3,6, 3,7,6, 3,4,7, 4,8,7, 4,1,8, 1,5,8,
+        5,6,9, 6,7,9, 7,8,9, 8,5,9
+      ];
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      geometry.setIndex(faces);
+      geometry.computeVertexNormals();
+      return geometry;
+    };
     const ensureBoneJoint = (bone: THREE.Bone) => {
       const existing = bone.children.find(child => child.userData.nexusJointVisual) as THREE.Mesh | undefined;
       const childBone = bone.children.find(child => (child as THREE.Bone).isBone) as THREE.Bone | undefined;
       const direction = childBone ? childBone.position.clone() : new THREE.Vector3(0, Number(bone.userData.segmentLength) || 0.24, 0);
       const length = Math.max(direction.length(), 0.12);
       if (existing) {
-        if (!(existing.geometry instanceof THREE.OctahedronGeometry)) {
+        if (!existing.geometry.userData.nexusBlenderBoneGeometry) {
           existing.geometry.dispose();
-          existing.geometry = new THREE.OctahedronGeometry(1, 0);
+          existing.geometry = createBlenderOctahedralBoneGeometry();
+          existing.geometry.userData.nexusBlenderBoneGeometry = true;
         }
-        existing.scale.set(0.075, length * 0.5, 0.075);
+        existing.scale.set(0.052, length * 0.5, 0.052);
         existing.position.copy(direction).multiplyScalar(0.5);
         existing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
-        existing.name = bone.name + ' Diamond Bone';
+        existing.name = bone.name + ' Octahedral Bone';
         existing.userData.nexusBoneVisual = true;
         existing.userData.nexusBoneOwnerId = String(bone.userData.editorId || '');
         const material = existing.material as THREE.MeshBasicMaterial;
         material.color.set(boneVisualColor(bone));
         return;
       }
+      const geometry = createBlenderOctahedralBoneGeometry();
+      geometry.userData.nexusBlenderBoneGeometry = true;
       const visual = new THREE.Mesh(
-        new THREE.OctahedronGeometry(1, 0),
+        geometry,
         new THREE.MeshBasicMaterial({ color: boneVisualColor(bone), depthTest: false, transparent: true, opacity: 0.96, side: THREE.DoubleSide })
       );
-      visual.scale.set(0.075, length * 0.5, 0.075);
+      visual.scale.set(0.052, length * 0.5, 0.052);
       visual.position.copy(direction).multiplyScalar(0.5);
       visual.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
-      visual.name = bone.name + ' Diamond Bone';
+      visual.name = bone.name + ' Octahedral Bone';
       visual.userData.nexusJointVisual = true;
       visual.userData.nexusBoneVisual = true;
       visual.userData.nexusBoneOwnerId = String(bone.userData.editorId || '');
       visual.renderOrder = 18;
-      // The octahedral visual remains raycastable, including when the bone is inside a mesh.
       bone.add(visual);
     };
     const refreshJointColors = (active?: THREE.Object3D) => {
@@ -2136,6 +2158,7 @@ export default function App() {
       const bone = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
       if (!(bone instanceof THREE.Bone)) { setStatus('Select a bone first to set a Control Handle'); return false; }
       const existing = bone.children.find(child => child.userData.rigControlMarker);
+      let nextSelection: THREE.Object3D = bone;
       if (existing) {
         bone.remove(existing);
         const markerIndex = selectable.indexOf(existing); if (markerIndex >= 0) selectable.splice(markerIndex, 1);
@@ -2150,9 +2173,10 @@ export default function App() {
         if (childBone) marker.position.copy(childBone.position);
         marker.name = bone.name + ' Control Handle'; marker.userData.rigControlMarker = true; marker.userData.editorId = uid(); marker.userData.kind = 'Control Handle'; marker.userData.controlLocked = false; marker.renderOrder = 20;
         bone.add(marker); selectable.push(marker); bone.userData.controlHandle = true;
+        nextSelection = marker;
         setStatus('Control Handle enabled · orange controller gizmo on ' + bone.name);
       }
-      refreshRigVisuals(); syncItems(); selectObject(bone); return true;
+      refreshRigVisuals(); syncItems(); selectObject(nextSelection); return true;
     };
     const toggleSelectedBoneLock = () => {
       const bone = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
@@ -2324,6 +2348,7 @@ export default function App() {
       });
       return true;
     };
+    let activeIkSpring: { marker: THREE.Object3D; ownerBone: THREE.Bone; chainLength: number; current: THREE.Vector3; target: THREE.Vector3; velocity: THREE.Vector3; lastTime: number } | null = null;
     transform.addEventListener('objectChange', () => {
       const activeControl = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
       if (activeControl?.userData.rigControlMarker && !activeControl.userData.controlLocked) {
@@ -2332,8 +2357,16 @@ export default function App() {
         if (chain && ownerBone) {
           scene.updateMatrixWorld(true);
           const targetWorld = activeControl.getWorldPosition(new THREE.Vector3());
-          // Keep the root anchor fixed; the IK solver adjusts only unlocked bones in the chain.
-          solveIK(Math.max(1, chain.bones.length - 1), targetWorld);
+          const childBone = chain.bones.filter(bone => bone.parent === ownerBone).sort((a,b) =>
+            a.position.distanceToSquared((activeControl as THREE.Object3D).position) -
+            b.position.distanceToSquared((activeControl as THREE.Object3D).position)
+          )[0];
+          if (!activeIkSpring || activeIkSpring.marker !== activeControl) {
+            const initial = childBone?.getWorldPosition(new THREE.Vector3()) || ownerBone.getWorldPosition(new THREE.Vector3());
+            activeIkSpring = { marker: activeControl, ownerBone, chainLength: Math.max(1, chain.bones.length - 1), current: initial, target: targetWorld.clone(), velocity: new THREE.Vector3(), lastTime: performance.now() };
+          } else {
+            activeIkSpring.target.copy(targetWorld);
+          }
         }
       }
       if (!mirrorEnabledRef.current) return;
@@ -2553,7 +2586,7 @@ export default function App() {
             const origin=bone.getWorldPosition(new THREE.Vector3());
             const end=endBone.getWorldPosition(new THREE.Vector3());
             const from=end.sub(origin); const to=targetPosition.clone().sub(origin);
-            if (bone.userData.locked || from.lengthSq()<1e-8 || to.lengthSq()<1e-8) continue;
+            if (from.lengthSq()<1e-8 || to.lengthSq()<1e-8) continue;
             const delta=new THREE.Quaternion().setFromUnitVectors(from.normalize(),to.normalize());
             const desiredWorld=bone.getWorldQuaternion(new THREE.Quaternion()); desiredWorld.premultiply(delta);
             if (bone.parent) bone.quaternion.copy(bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(desiredWorld)); else bone.quaternion.copy(desiredWorld);
@@ -2579,7 +2612,6 @@ export default function App() {
         }
         for (let i=0;i<bones.length-1;i++) {
           scene.updateMatrixWorld(true); const bone=bones[i];
-          if (bone.userData.locked) continue;
           const origin=bone.getWorldPosition(new THREE.Vector3());
           const currentChild=bones[i+1].getWorldPosition(new THREE.Vector3());
           const currentDirection=currentChild.sub(origin); const desiredDirection=positions[i+1].clone().sub(positions[i]);
@@ -2601,12 +2633,10 @@ export default function App() {
         if (middle.lengthSq()>1e-8 && pole.lengthSq()>1e-8) {
           const angle = Math.atan2(axis.dot(middle.clone().cross(pole)),middle.dot(pole));
           const rootBone = bones[0];
-          if (!rootBone.userData.locked) {
-            const desired = rootBone.getWorldQuaternion(new THREE.Quaternion());
-            desired.premultiply(new THREE.Quaternion().setFromAxisAngle(axis,angle));
-            if (rootBone.parent) rootBone.quaternion.copy(rootBone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(desired));
-            else rootBone.quaternion.copy(desired);
-          }
+          const desired = rootBone.getWorldQuaternion(new THREE.Quaternion());
+          desired.premultiply(new THREE.Quaternion().setFromAxisAngle(axis,angle));
+          if (rootBone.parent) rootBone.quaternion.copy(rootBone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(desired));
+          else rootBone.quaternion.copy(desired);
         }
       }
       chain.helper.updateMatrixWorld(true);
@@ -3476,6 +3506,21 @@ export default function App() {
       const inCam = Boolean(runtime.current?.cameraView);
       // Keep Manual Shape Rig connection lines synchronized with live bone transforms.
       // SkeletonHelper.update() is not automatic when bones move through TransformControls.
+      if (activeIkSpring) {
+        const now = performance.now();
+        const dt = THREE.MathUtils.clamp((now - activeIkSpring.lastTime) / 1000, 0.001, 0.033);
+        activeIkSpring.lastTime = now;
+        const displacement = activeIkSpring.target.clone().sub(activeIkSpring.current);
+        const acceleration = displacement.multiplyScalar(110).addScaledVector(activeIkSpring.velocity, -21);
+        activeIkSpring.velocity.addScaledVector(acceleration, dt);
+        activeIkSpring.current.addScaledVector(activeIkSpring.velocity, dt);
+        solveIK(activeIkSpring.chainLength, activeIkSpring.current);
+        if (activeIkSpring.current.distanceToSquared(activeIkSpring.target) < 0.000004 && activeIkSpring.velocity.lengthSq() < 0.0004) {
+          activeIkSpring.current.copy(activeIkSpring.target);
+          solveIK(activeIkSpring.chainLength, activeIkSpring.current);
+          activeIkSpring = null;
+        }
+      }
       if (rigChains.some(chain => chain.shapeRig && chain.displayVisible !== false)) {
         scene.updateMatrixWorld(true);
         rigChains.forEach(chain => {
