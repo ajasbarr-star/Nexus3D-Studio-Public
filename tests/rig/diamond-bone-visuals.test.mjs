@@ -25,11 +25,11 @@ test('control handles use the dedicated orange color', () => {
 });
 
 test('compact Manual IK toolbar exposes root, child, attach, bind, handle, lock, rig detection, IK, mirror and visibility actions', () => {
-  for (const action of ['Create Root Bone', 'Create Child Bone', 'Attach Root to Shape', 'Bind Mesh to Rig', 'Create Control Handle', 'Lock or Unlock Bone', 'Detect Existing Rig', 'Create IK Target', 'Create IK Pole', 'Solve Manual IK', 'Mirror Selected Bone', 'Show or Hide Bone Chain']) {
+  for (const action of ['Create Root Bone', 'Create Child Bone', 'Attach Root to Shape', 'Set selected Bone as Object Parent', 'Attach selected Shape or Object to the chosen Bone', 'Detach selected Object from its Rig Parent', 'Bind Mesh to Rig', 'Create Control Handle', 'Lock or Unlock Bone', 'Detect Existing Rig', 'Create IK Target', 'Create IK Pole', 'Solve Manual IK', 'Mirror Selected Bone', 'Show or Hide Bone Chain']) {
     assert.ok(app.includes(action), `missing toolbar action: ${action}`);
   }
   assert.match(css, /\.ik-rig-actions\{[^}]*display:grid/);
-  assert.match(css, /grid-template-columns:repeat\(6,40px\)/);
+  assert.match(css, /grid-template-columns:repeat\(5,40px\)/);
   assert.match(css, /\.ik-rig-actions button span/);
   assert.match(app, /<span>HANDLE<\/span>/);
 });
