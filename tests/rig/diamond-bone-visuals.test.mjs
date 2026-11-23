@@ -72,3 +72,34 @@ test('Manual root creation stays unattached until the separate Attach to Shape a
   assert.doesNotMatch(rootHandler, /attachRootToShape\s*\(/);
   assert.match(app, /const attachRootToShape = \(\) =>/);
 });
+
+
+test('locked root bones cannot be attached to TransformControls or moved by IK solving', () => {
+  const selectionStart = app.indexOf('const selectObject = (obj?: THREE.Object3D)');
+  const selectionEnd = app.indexOf('const addObject =', selectionStart);
+  const selection = app.slice(selectionStart, selectionEnd);
+  assert.doesNotMatch(selection, /movableLockedRoot/);
+  assert.match(selection, /obj instanceof THREE\.Bone && obj\.userData\.locked/);
+  assert.match(app, /if \(bone\.userData\.locked\) continue;/);
+  assert.match(app, /if \(!rootBone\.userData\.locked\)/);
+});
+
+test('dragging an unlocked child Control Handle automatically solves its connected IK chain', () => {
+  assert.match(app, /activeControl\?\.userData\.rigControlMarker && !activeControl\.userData\.controlLocked/);
+  assert.match(app, /const ownerBone = activeControl\.parent instanceof THREE\.Bone/);
+  assert.match(app, /solveIK\(Math\.max\(1, chain\.bones\.length - 1\), targetWorld\)/);
+  assert.match(app, /const controlBone = controlHandle\?\.parent instanceof THREE\.Bone/);
+  assert.match(app, /const targetPosition = controlTarget \? controlTarget\.clone\(\)/);
+});
+
+test('locked bones are skipped by CCD and FABRIK rotation updates and pole adjustment', () => {
+  assert.match(app, /if \(bone\.userData\.locked \|\| from\.lengthSq\(\)/);
+  assert.match(app, /if \(bone\.userData\.locked\) continue;/);
+  assert.match(app, /if \(!rootBone\.userData\.locked\)/);
+});
+
+test('automatic handle IK updates the attached skinned mesh through the shared skeleton', () => {
+  assert.match(app, /const skeleton = new THREE\.Skeleton\(chain\.bones\)/);
+  assert.match(app, /skinned\.bind\(skeleton, skinned\.matrixWorld\.clone\(\)\)/);
+  assert.match(app, /solveIK\(Math\.max\(1, chain\.bones\.length - 1\), targetWorld\)/);
+});
