@@ -20,7 +20,7 @@ import { clone as cloneSkeletonHierarchy } from 'three/examples/jsm/utils/Skelet
 import {
   Box, Camera, Circle, Copy, Cuboid, Cylinder, Cone, Focus, Globe, Grid2X2,
   Layers, Maximize, Move, Rotate3D, Scaling, Trash2, Magnet, Gauge,
-  Play, Pause, Rewind, ClipboardCopy, ClipboardPaste, Diamond, Undo2, Redo2,
+  Play, Pause, Rewind, ClipboardCopy, ClipboardPaste, Undo2, Redo2,
   Film, Lightbulb, X, Check, Eye, EyeOff, Search, ChevronDown, ChevronRight, Download,
   Save, FolderOpen, FileJson, FileText, Settings2, Info, Keyboard, Sun, Flashlight, Palette, Upload,
   Sparkles, Waves, Aperture, SlidersHorizontal, CloudFog, ScanEye, Lock, Unlock, Scissors, GitBranch,
@@ -1094,57 +1094,38 @@ export default function App() {
       if (bone.userData.detached) return '#a879ff';
       return bone.userData.rigRole === 'root' || !(bone.parent as any)?.isBone ? '#00d9ff' : '#36c2a0';
     };
-    const createBlenderOctahedralBoneGeometry = () => {
-      // Blender-like octahedral armature silhouette: a distinct narrow head,
-      // tapered neck, wider central body and pointed tail. Geometry is visual-only.
-      const vertices = [
-        0,-1,0,
-        -0.22,-0.68,0, 0,-0.68,0.22, 0.22,-0.68,0, 0,-0.68,-0.22,
-        -1,-0.22,0, 0,-0.22,1, 1,-0.22,0, 0,-0.22,-1,
-        0,1,0
-      ];
-      const faces = [
-        0,2,1, 0,3,2, 0,4,3, 0,1,4,
-        1,2,5, 2,6,5, 2,3,6, 3,7,6, 3,4,7, 4,8,7, 4,1,8, 1,5,8,
-        5,6,9, 6,7,9, 7,8,9, 8,5,9
-      ];
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-      geometry.setIndex(faces);
-      geometry.computeVertexNormals();
-      return geometry;
-    };
+    const createSphereBoneGeometry = () => new THREE.SphereGeometry(0.06, 14, 10);
     const ensureBoneJoint = (bone: THREE.Bone) => {
       const existing = bone.children.find(child => child.userData.nexusJointVisual) as THREE.Mesh | undefined;
       const childBone = bone.children.find(child => (child as THREE.Bone).isBone) as THREE.Bone | undefined;
       const direction = childBone ? childBone.position.clone() : new THREE.Vector3(0, Number(bone.userData.segmentLength) || 0.24, 0);
       const length = Math.max(direction.length(), 0.12);
       if (existing) {
-        if (!existing.geometry.userData.nexusBlenderBoneGeometry) {
+        if (!existing.geometry.userData.nexusSphereBoneGeometry) {
           existing.geometry.dispose();
-          existing.geometry = createBlenderOctahedralBoneGeometry();
-          existing.geometry.userData.nexusBlenderBoneGeometry = true;
+          existing.geometry = createSphereBoneGeometry();
+          existing.geometry.userData.nexusSphereBoneGeometry = true;
         }
-        existing.scale.set(0.052, length * 0.5, 0.052);
+        existing.scale.setScalar(1);
         existing.position.copy(direction).multiplyScalar(0.5);
         existing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
-        existing.name = bone.name + ' Octahedral Bone';
+        existing.name = bone.name + ' Sphere Bone';
         existing.userData.nexusBoneVisual = true;
         existing.userData.nexusBoneOwnerId = String(bone.userData.editorId || '');
         const material = existing.material as THREE.MeshBasicMaterial;
         material.color.set(boneVisualColor(bone));
         return;
       }
-      const geometry = createBlenderOctahedralBoneGeometry();
-      geometry.userData.nexusBlenderBoneGeometry = true;
+      const geometry = createSphereBoneGeometry();
+      geometry.userData.nexusSphereBoneGeometry = true;
       const visual = new THREE.Mesh(
         geometry,
         new THREE.MeshBasicMaterial({ color: boneVisualColor(bone), depthTest: false, transparent: true, opacity: 0.96, side: THREE.DoubleSide })
       );
-      visual.scale.set(0.052, length * 0.5, 0.052);
+      visual.scale.setScalar(1);
       visual.position.copy(direction).multiplyScalar(0.5);
       visual.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
-      visual.name = bone.name + ' Octahedral Bone';
+      visual.name = bone.name + ' Sphere Bone';
       visual.userData.nexusJointVisual = true;
       visual.userData.nexusBoneVisual = true;
       visual.userData.nexusBoneOwnerId = String(bone.userData.editorId || '');
