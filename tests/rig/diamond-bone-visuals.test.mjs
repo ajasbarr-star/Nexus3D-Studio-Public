@@ -78,14 +78,15 @@ test('Manual root creation stays unattached until the separate Attach to Shape a
 });
 
 
-test('locked root bones cannot be attached to TransformControls or moved by IK solving', () => {
+test('locked bones cannot be directly moved with gizmo but remain available to IK solver', () => {
   const selectionStart = app.indexOf('const selectObject = (obj?: THREE.Object3D)');
   const selectionEnd = app.indexOf('const addObject =', selectionStart);
   const selection = app.slice(selectionStart, selectionEnd);
-  assert.doesNotMatch(selection, /movableLockedRoot/);
   assert.match(selection, /obj instanceof THREE\.Bone && obj\.userData\.locked/);
-  assert.match(app, /if \(bone\.userData\.locked\) continue;/);
-  assert.match(app, /if \(!rootBone\.userData\.locked\)/);
+  const solverStart = app.indexOf('const solveIK =');
+  const solverEnd = app.indexOf('const captureRigStateFor', solverStart);
+  const solver = app.slice(solverStart, solverEnd);
+  assert.doesNotMatch(solver, /userData\.locked/);
 });
 
 test('dragging an unlocked child Control Handle automatically solves its connected IK chain', () => {
@@ -107,8 +108,9 @@ test('bone locks restrict direct gizmo editing but do not block IK-driven hierar
   assert.match(app, /obj instanceof THREE\.Bone && obj\.userData\.locked/);
 });
 
-test('automatic handle IK updates the attached skinned mesh through the shared skeleton', () => {
+test('spring-driven IK updates attached skinned mesh through the shared skeleton', () => {
   assert.match(app, /const skeleton = new THREE\.Skeleton\(chain\.bones\)/);
   assert.match(app, /skinned\.bind\(skeleton, skinned\.matrixWorld\.clone\(\)\)/);
-  assert.match(app, /solveIK\(Math\.max\(1, chain\.bones\.length - 1\), targetWorld\)/);
+  assert.match(app, /activeIkSpring/);
+  assert.match(app, /solveIK\(activeIkSpring\.chainLength, activeIkSpring\.current\)/);
 });
