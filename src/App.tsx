@@ -2395,8 +2395,8 @@ export default function App() {
           scene.updateMatrixWorld(true);
           const targetWorld = activeControl.getWorldPosition(new THREE.Vector3());
           const childBone = chain.bones.filter(bone => bone.parent === ownerBone).sort((a,b) =>
-            a.position.distanceToSquared((activeControl as THREE.Object3D).position) -
-            b.position.distanceToSquared((activeControl as THREE.Object3D).position)
+            a.getWorldPosition(new THREE.Vector3()).distanceToSquared(targetWorld) -
+            b.getWorldPosition(new THREE.Vector3()).distanceToSquared(targetWorld)
           )[0];
           const chainLength = Math.max(1, chain.bones.length - 1);
           if (!ikSpringConfig.enabled) {
@@ -2599,8 +2599,8 @@ export default function App() {
       if (!chain || (!chain.target && !controlTarget)) { setStatus('Select the intended rig and create an IK target or Control Handle first'); return; }
       const controlChildBone = controlBone
         ? chain.bones.filter(bone => bone.parent === controlBone).sort((a, b) =>
-            a.position.distanceToSquared((controlHandle as THREE.Object3D).position) -
-            b.position.distanceToSquared((controlHandle as THREE.Object3D).position)
+            a.getWorldPosition(new THREE.Vector3()).distanceToSquared((controlHandle as THREE.Object3D).getWorldPosition(new THREE.Vector3())) -
+            b.getWorldPosition(new THREE.Vector3()).distanceToSquared((controlHandle as THREE.Object3D).getWorldPosition(new THREE.Vector3()))
           )[0] || null
         : null;
       const endBone = controlChildBone || controlBone ||
