@@ -16,7 +16,8 @@
     "verify:rds": "npm run test:rds && npm run rds:audit",
     "dfi:audit": "node scripts/dfi-source-audit.mjs",
     "test:dfi": "node --test tests/dfi/*.test.mjs",
-    "verify:dfi": "npm run test:dfi && npm run dfi:audit"
+    "verify:dfi": "npm run test:dfi && npm run dfi:audit",
+    "test:rig": "node --test tests/rig/*.test.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
