@@ -6778,18 +6778,18 @@ export default function App() {
       <div className={'viewport ' + (pathTool ? 'path-tool-active' : '')} ref={hostRef} onPointerDown={e => { if (!pathTool || animationMode) return; const rect = e.currentTarget.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width - .5) * 20; const z = ((e.clientY - rect.top) / rect.height - .5) * -20; setMotionPathPoints(prev => [...prev, {x, y:0.05, z}]); }} onDragOver={e => { if (e.dataTransfer.types.includes('text/nexus3d-object')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }} onDrop={e => { const childId = e.dataTransfer.getData('text/nexus3d-object'); if (!childId) return; e.preventDefault(); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }} />
       <div ref={ikHostRef} className={'ik-dedicated-viewport ' + (riggingView ? 'active' : '')} aria-label="Dedicated IK Rigging 3D viewport" />
        {riggingView && <div className="ik-rig-actions" aria-label="Compact Manual IK tools">
-         <button type="button" title="Create Root Bone" aria-label="Create Root Bone" onClick={() => runtime.current?.addUniversalBone?.('root')}><Plus size={13}/></button>
-         <button type="button" title="Create Child Bone" aria-label="Create Child Bone" onClick={() => runtime.current?.addUniversalBone?.('child')}><GitBranch size={13}/></button>
-         <button type="button" title="Attach Root to Shape" aria-label="Attach Root to Shape" onClick={() => runtime.current?.attachRootToShape?.()}><Link2 size={13}/></button>
-         <button type="button" title="Bind Mesh to Rig" aria-label="Bind Mesh to Rig" onClick={() => runtime.current?.bindSelectedMeshToRig?.()}><Layers size={13}/></button>
-         <button type="button" title="Create Control Handle" aria-label="Create Control Handle" onClick={() => runtime.current?.toggleSelectedBoneControlHandle?.()}><Target size={13}/></button>
-         <button type="button" title="Lock or Unlock Bone" aria-label="Lock or Unlock Bone" onClick={() => runtime.current?.toggleSelectedBoneLock?.()}><Lock size={13}/></button>
-         <button type="button" title="Detect Existing Rig" aria-label="Detect Existing Rig" onClick={() => runtime.current?.detectRiggedMeshes?.()}><ScanEye size={13}/></button>
-         <button type="button" title="Create IK Target" aria-label="Create IK Target" onClick={() => runtime.current?.createIKTarget?.()}><Target size={13}/></button>
-         <button type="button" title="Create IK Pole" aria-label="Create IK Pole" onClick={() => runtime.current?.createPoleTarget?.()}><Circle size={13}/></button>
-         <button type="button" title="Solve Manual IK" aria-label="Solve Manual IK" onClick={() => runtime.current?.solveIK?.()}><Check size={13}/></button>
-         <button type="button" title="Mirror Selected Bone" aria-label="Mirror Selected Bone" onClick={() => { if (runtime.current) { mirrorEnabledRef.current = true; runtime.current.mirrorSelectedBone?.(); } }}><GitMerge size={13}/></button>
-         <button type="button" title="Show or Hide Bone Chain" aria-label="Show or Hide Bone Chain" onClick={() => runtime.current?.toggleSelectedRigDisplay?.()}><Eye size={13}/></button>
+         <button type="button" title="Create Root Bone" aria-label="Create Root Bone" onClick={() => runtime.current?.addUniversalBone?.('root')}><Plus size={13}/><span>ROOT</span></button>
+         <button type="button" title="Create Child Bone" aria-label="Create Child Bone" onClick={() => runtime.current?.addUniversalBone?.('child')}><GitBranch size={13}/><span>CHILD</span></button>
+         <button type="button" title="Attach Root to Shape" aria-label="Attach Root to Shape" onClick={() => runtime.current?.attachRootToShape?.()}><Link2 size={13}/><span>ATTACH</span></button>
+         <button type="button" title="Bind Mesh to Rig" aria-label="Bind Mesh to Rig" onClick={() => runtime.current?.bindSelectedMeshToRig?.()}><Layers size={13}/><span>BIND</span></button>
+         <button type="button" title="Create Control Handle" aria-label="Create Control Handle" onClick={() => runtime.current?.toggleSelectedBoneControlHandle?.()}><Target size={13}/><span>HANDLE</span></button>
+         <button type="button" title="Lock or Unlock Bone" aria-label="Lock or Unlock Bone" onClick={() => runtime.current?.toggleSelectedBoneLock?.()}><Lock size={13}/><span>LOCK</span></button>
+         <button type="button" title="Detect Existing Rig" aria-label="Detect Existing Rig" onClick={() => runtime.current?.detectRiggedMeshes?.()}><ScanEye size={13}/><span>DETECT</span></button>
+         <button type="button" title="Create IK Target" aria-label="Create IK Target" onClick={() => runtime.current?.createIKTarget?.()}><Target size={13}/><span>TARGET</span></button>
+         <button type="button" title="Create IK Pole" aria-label="Create IK Pole" onClick={() => runtime.current?.createPoleTarget?.()}><Circle size={13}/><span>POLE</span></button>
+         <button type="button" title="Solve Manual IK" aria-label="Solve Manual IK" onClick={() => runtime.current?.solveIK?.()}><Check size={13}/><span>SOLVE</span></button>
+         <button type="button" title="Mirror Selected Bone" aria-label="Mirror Selected Bone" onClick={() => { if (runtime.current) { mirrorEnabledRef.current = true; runtime.current.mirrorSelectedBone?.(); } }}><GitMerge size={13}/><span>MIRROR</span></button>
+         <button type="button" title="Show or Hide Bone Chain" aria-label="Show or Hide Bone Chain" onClick={() => runtime.current?.toggleSelectedRigDisplay?.()}><Eye size={13}/><span>SHOW</span></button>
        </div>}
       
       <div className={'camera-mode-hud ' + (cameraView ? 'cine-active' : '')} aria-live="polite"><span className="camera-mode-dot" />{cameraView ? 'CINE CAMERA VIEW' : riggingView ? 'IK RIGGING · FRONT PERSPECTIVE' : 'PERSPECTIVE MODE'}</div>
