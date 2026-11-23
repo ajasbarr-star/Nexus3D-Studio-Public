@@ -1932,6 +1932,19 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .ik-rig-actions button span{font:700 6px/1 'DM Mono',monospace;letter-spacing:0;color:#a9cfe0}
 .ik-rig-actions button:active{background:#16435a;border-color:#35cfff}
 .ik-rig-actions button:focus-visible{outline:2px solid #35cfff;outline-offset:1px}
+.ik-rig-actions button.active{background:#12445a;border-color:#35cfff;color:#e0fbff}
+.ik-spring-panel{position:absolute;z-index:13;top:222px;right:64px;width:220px;max-width:calc(100vw - 24px);padding:9px;background:rgba(7,15,26,.96);border:1px solid rgba(63,190,225,.42);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.28);backdrop-filter:blur(12px);color:#d7f3ff}
+.ik-spring-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;font:800 9px 'DM Mono',monospace;letter-spacing:.06em}
+.ik-spring-heading label{display:flex;align-items:center;gap:4px;color:#71ddff;font:700 8px 'DM Mono',monospace}
+.ik-spring-heading input{accent-color:#26c8f3;width:14px;height:14px}
+.ik-spring-panel p{margin:6px 0 9px;color:#8eafc3;font:7px/1.4 'DM Mono',monospace}
+.ik-spring-control{display:block;margin:8px 0;color:#b9dce9;font:700 7px 'DM Mono',monospace}
+.ik-spring-control span{display:flex;justify-content:space-between;gap:6px;margin-bottom:4px}
+.ik-spring-control output{color:#65dfff;font-variant-numeric:tabular-nums}
+.ik-spring-control input{display:block;width:100%;height:15px;margin:0;accent-color:#27c9f2;touch-action:pan-x}
+.ik-spring-control input:disabled{opacity:.38}
+.ik-spring-reset{width:100%;min-height:25px;margin-top:3px;border:1px solid #28536b;border-radius:5px;background:#10283a;color:#bdefff;font:700 7px 'DM Mono',monospace}
+@media(max-width:760px){.ik-spring-panel{top:205px;right:54px;width:200px;padding:7px}}
 @media(max-width:760px){.ik-rig-actions{top:50px;right:54px;grid-template-columns:repeat(5,36px);gap:3px;padding:4px;max-width:200px}.ik-rig-actions button{width:36px;min-width:36px;height:33px;min-height:33px}.ik-rig-actions button span{font-size:5.5px}}
 
 /* Built-in runtime diagnostics inside Menu > Help & System Info. */
