@@ -3511,7 +3511,8 @@ export default function App() {
         const dt = THREE.MathUtils.clamp((now - activeIkSpring.lastTime) / 1000, 0.001, 0.033);
         activeIkSpring.lastTime = now;
         const displacement = activeIkSpring.target.clone().sub(activeIkSpring.current);
-        const acceleration = displacement.multiplyScalar(110).addScaledVector(activeIkSpring.velocity, -21);
+        // Softer, critically damped follow-through: slower response with minimal overshoot.
+        const acceleration = displacement.multiplyScalar(36).addScaledVector(activeIkSpring.velocity, -12);
         activeIkSpring.velocity.addScaledVector(acceleration, dt);
         activeIkSpring.current.addScaledVector(activeIkSpring.velocity, dt);
         solveIK(activeIkSpring.chainLength, activeIkSpring.current);
