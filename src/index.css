@@ -2725,3 +2725,6 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .rds-logcat-filters input,.rds-logcat-filters select{width:100%;min-width:0;padding:6px;border:1px solid #35495b;border-radius:5px;background:#101a28;color:#d2e3ef;font-size:9px}
 .rds-logcat-filters .rds-logcat-regex{display:flex;align-items:center;gap:6px}
 .rds-logcat-filters .rds-logcat-regex input{width:auto}
+
+.ik-handle-distance-panel{top:222px;right:294px;width:220px}
+@media(max-width:760px){.ik-handle-distance-panel{top:205px;right:264px;width:190px}}
