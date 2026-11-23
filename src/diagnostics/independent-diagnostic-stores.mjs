@@ -25,8 +25,12 @@ function writeArray(storage, key, entries) {
 
 /** Split legacy shared records once, without deleting the original recovery copy. */
 export function migrateLegacyDiagnosticEntries(storage) {
-  const logcatExists = Boolean(storage?.getItem(LOGCAT_STORAGE_KEY));
-  const ritExists = Boolean(storage?.getItem(RIT_TRACE_STORAGE_KEY));
+  let logcatExists = false;
+  let ritExists = false;
+  try {
+    logcatExists = Boolean(storage?.getItem(LOGCAT_STORAGE_KEY));
+    ritExists = Boolean(storage?.getItem(RIT_TRACE_STORAGE_KEY));
+  } catch { return { migrated: false, logcat: 0, rit: 0 }; }
   if (logcatExists && ritExists) return { migrated: false, logcat: 0, rit: 0 };
   const legacy = readArray(storage, LEGACY_DIAGNOSTICS_STORAGE_KEY) || [];
   const rit = legacy.filter(entry => entry?.source === 'Interaction Trace');
@@ -55,9 +59,9 @@ export function saveRitTraceEntries(storage, entries) {
 }
 
 export function clearLogcatEntries(storage) {
-  try { storage?.removeItem(LOGCAT_STORAGE_KEY); return true; } catch { return false; }
+  return writeArray(storage, LOGCAT_STORAGE_KEY, []);
 }
 
 export function clearRitTraceEntries(storage) {
-  try { storage?.removeItem(RIT_TRACE_STORAGE_KEY); return true; } catch { return false; }
+  return writeArray(storage, RIT_TRACE_STORAGE_KEY, []);
 }

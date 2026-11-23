@@ -35,6 +35,7 @@ test('clearing LogCat never clears RIT Trace, and vice versa', () => {
   saveRitTraceEntries(storage, [trace]);
   clearLogcatEntries(storage);
   assert.deepEqual(loadLogcatEntries(storage), []);
+  assert.equal(storage.has(LOGCAT_STORAGE_KEY), true);
   assert.deepEqual(loadRitTraceEntries(storage), [trace]);
   saveLogcatEntries(storage, [log]);
   clearRitTraceEntries(storage);
@@ -57,4 +58,14 @@ test('malformed persisted data safely loads as empty arrays', () => {
   const storage = memoryStorage({ [LOGCAT_STORAGE_KEY]: '{bad', [RIT_TRACE_STORAGE_KEY]: 'null' });
   assert.deepEqual(loadLogcatEntries(storage), []);
   assert.deepEqual(loadRitTraceEntries(storage), []);
+});
+
+test('cleared legacy partition does not resurrect on a later app load', () => {
+  const old = [{ id: 'l1', source: 'Renderer' }, { id: 'r1', source: 'Interaction Trace' }];
+  const storage = memoryStorage({ [LEGACY_DIAGNOSTICS_STORAGE_KEY]: JSON.stringify(old) });
+  loadLogcatEntries(storage);
+  loadRitTraceEntries(storage);
+  clearLogcatEntries(storage);
+  assert.deepEqual(loadLogcatEntries(storage), []);
+  assert.deepEqual(loadRitTraceEntries(storage), [old[1]]);
 });
