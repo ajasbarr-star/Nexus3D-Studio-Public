@@ -57,7 +57,7 @@ test('IK target and pole resolve the selected rig instead of falling back to the
 
 test('pole handles are reused per rig and solver honors the selected rig association', () => {
   assert.match(app, /let target = chain\.pole as THREE\.Mesh \| null/);
-  assert.match(app, /if \(chain\.pole && bones\.length >= 3\)/);
+  assert.match(app, /if \(chain\.pole && bones\.length > poleMiddleIndex\)/);
 });
 
 test('imported skeleton connection lines participate in bone-chain visibility', () => {
@@ -87,7 +87,7 @@ test('locked bones cannot be directly moved with gizmo', () => {
   const selectionStart = app.indexOf('const selectObject = (obj?: THREE.Object3D)');
   const selectionEnd = app.indexOf('const addObject =', selectionStart);
   const selection = app.slice(selectionStart, selectionEnd);
-  assert.match(selection, /obj instanceof THREE\\.Bone && obj\\.userData\\.locked/);
+  assert.match(selection, /obj instanceof THREE\.Bone && obj\.userData\.locked/);
 });
 
 test('dragging an unlocked child Control Handle automatically solves its connected IK chain', () => {
@@ -104,11 +104,11 @@ test('IK solver treats the deepest locked bone as a fixed anchor', () => {
   const solverEnd = app.indexOf('const captureRigStateFor', solverStart);
   const solver = app.slice(solverStart, solverEnd);
   assert.match(app, /getIkSolvePath, isIkBoneLocked/);
-  assert.match(solver, /getIkSolvePath\\(path\\.reverse\\(\\), chainLength\\)/);
-  assert.match(solver, /const anchorLocked = isIkBoneLocked\\(bones\\[0\\]\\)/);
-  assert.equal((solver.match(/if \\(isIkBoneLocked\\(bone\\)\\) continue;/g) || []).length, 2);
-  assert.match(solver, /const poleBoneIndex = anchorLocked \\? 1 : 0/);
-  assert.match(solver, /if \\(!isIkBoneLocked\\(rootBone\\)\\)/);
+  assert.match(solver, /getIkSolvePath\(path\.reverse\(\), chainLength\)/);
+  assert.match(solver, /const anchorLocked = isIkBoneLocked\(bones\[0\]\)/);
+  assert.equal((solver.match(/if \(isIkBoneLocked\(bone\)\) continue;/g) || []).length, 2);
+  assert.match(solver, /const poleBoneIndex = anchorLocked \? 1 : 0/);
+  assert.match(solver, /if \(!isIkBoneLocked\(rootBone\)\)/);
 });
 
 test('spring-driven IK updates attached skinned mesh through the shared skeleton', () => {
