@@ -2168,7 +2168,7 @@ export default function App() {
         bone.userData.controlHandle = false;
         setStatus('Control Handle removed from ' + bone.name);
       } else {
-        const marker = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), new THREE.MeshBasicMaterial({ color: '#ffb52e', depthTest: false, transparent: true, opacity: 0.98 }));
+        const marker = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 12), new THREE.MeshBasicMaterial({ color: '#ffb52e', depthTest: false, transparent: true, opacity: 0.98 }));
         const childBone = bone.children.find(child => child instanceof THREE.Bone) as THREE.Bone | undefined;
         if (childBone) marker.position.copy(childBone.position);
         marker.name = bone.name + ' Control Handle'; marker.userData.rigControlMarker = true; marker.userData.editorId = uid(); marker.userData.kind = 'Control Handle'; marker.userData.controlLocked = false; marker.renderOrder = 20;
