@@ -17,7 +17,8 @@
     "dfi:audit": "node scripts/dfi-source-audit.mjs",
     "test:dfi": "node --test tests/dfi/*.test.mjs",
     "verify:dfi": "npm run test:dfi && npm run dfi:audit",
-    "test:rig": "node --test tests/rig/*.test.mjs"
+    "test:rig": "node --test tests/rig/*.test.mjs",
+    "test:logcat": "node --test tests/diagnostics/*.test.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
