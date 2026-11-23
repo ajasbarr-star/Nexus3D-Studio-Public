@@ -20,8 +20,11 @@ test('bone colors distinguish root, child, selected, detached, and locked states
   assert.match(app, /\? '#00d9ff' : '#36c2a0'/);
 });
 
-test('control handles use the dedicated orange color', () => {
-  assert.match(app, /new THREE\.SphereGeometry\(0\.07, 16, 12\), new THREE\.MeshBasicMaterial\(\{ color: '#ffb52e'/);
+test('control handles use a high-visibility orange material and scalable sphere marker', () => {
+  assert.match(app, /new THREE\.SphereGeometry\(0\.07, 16, 12\)/);
+  assert.match(app, /new THREE\.MeshBasicMaterial\(\{ color: '#ffb52e', depthTest: false, depthWrite: false/);
+  assert.match(app, /marker\.renderOrder = 10000/);
+  assert.match(app, /marker\.frustumCulled = false/);
 });
 
 test('compact Manual IK toolbar exposes root, child, attach, bind, handle, lock, rig detection, IK, mirror and visibility actions', () => {
@@ -133,8 +136,35 @@ test('Control Handles are independent Scene-root objects linked by owner bone ID
   assert.match(app, /marker\.userData\.controlOwnerBoneId = bone\.userData\.editorId/);
   assert.match(app, /scene\.add\(marker\); selectable\.push\(marker\)/);
   assert.match(app, /configureControlHandleDistance/);
-  assert.match(app, /handleDistanceConfig\.distance \/ 100/);
+  assert.match(app, /distance \/ 100/);
   assert.match(app, /controlOwnerBoneId\)\) as THREE\.Bone/);
   assert.match(app, /aria-label="Control Handle distance settings"/);
   assert.match(app, /aria-label="Control Handle distance"/);
+});
+
+
+test('Control Handles stay directly editable in Object and non-Object modes', () => {
+  assert.match(app, /const isControlHandle = Boolean\(obj\.userData\.rigControlMarker\)/);
+  assert.match(app, /transform\.enabled = objectMode \|\| isControlHandle/);
+  assert.match(app, /transform\.getHelper\(\)\.visible = objectMode \|\| isControlHandle/);
+  assert.match(app, /editingSubObject \|\| isControlHandle/);
+  assert.match(app, /Boolean\(selectedObject\?\.userData\.rigControlMarker\)/);
+});
+
+test('Control Handles render and raycast in both viewports independent of rig scale', () => {
+  assert.match(app, /marker\.visible = true/);
+  assert.match(app, /marker\.layers\.enableAll\(\)/);
+  assert.match(app, /marker\.frustumCulled = false/);
+  assert.match(app, /marker\.scale\.setScalar\(placement\.radius \/ 0\.07\)/);
+  assert.match(app, /THREE\.MathUtils\.clamp\(segmentLength \* 0\.14, 0\.05, 0\.3\)/);
+  assert.match(app, /scene\.worldToLocal\(worldPosition\.clone\(\)\)/);
+  assert.match(app, /const visibleControlHandles = selectable\.filter\(object => object\.userData\.rigControlMarker && object\.visible\)/);
+  assert.match(app, /const roots = \[\.\.\.selectable\.filter\(object => object\.visible\), \.\.\.visibleHelpers\]/);
+});
+
+test('each Control Handle retains exact Child Bone and rig-root identity for multiple rigs', () => {
+  assert.match(app, /marker\.userData\.controlOwnerBoneId = String\(bone\.userData\.editorId\)/);
+  assert.match(app, /marker\.userData\.controlOwnerRigRootId = String\(placement\.rigRootBoneId \|\| ''\)/);
+  assert.match(app, /const chain = resolveRigChainForObject\(owner\)/);
+  assert.match(app, /const owner = selectable\.find\(object => object instanceof THREE\.Bone && String\(object\.userData\.editorId\) === String\(marker\.userData\.controlOwnerBoneId\)\)/);
 });
