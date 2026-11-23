@@ -243,13 +243,17 @@ test('Extruded side walls receive UVs and keep the verified quad topology stream
   assert.match(source, /\[a, b, bn, a, bn, an\]\.forEach\(v => data\.push\(v\.x, v\.y, v\.z\)\)/);
 });
 
-test('RDS and RIT expose clickable icon-only actions while preserving live trace capture', () => {
+test('RDS LogCat and RIT Trace expose independent controls while preserving live trace capture', () => {
   assert.match(source, /aria-label="Realtime Interaction Trace"/);
-  assert.match(source, /'Interaction Trace'/);
+  assert.match(source, /rdsActiveTool === 'LogCat'/);
+  assert.match(source, /aria-label="Download LogCat report"/);
+  assert.match(source, /aria-label="Copy LogCat report"/);
+  assert.match(source, /aria-label="Clear LogCat"/);
   assert.match(source, /aria-label="Copy all RIT logs"/);
   assert.match(source, /aria-label="Clear all RIT logs"/);
   assert.match(source, /const clearInteractionTraceLogs = \(\) =>/);
-  assert.match(source, /previous\.filter\(entry => entry\.source !== 'Interaction Trace'\)/);
+  assert.match(source, /const interactionTraceQueueRef = useRef/);
+  assert.match(source, /const diagnosticQueueRef = useRef/);
   assert.match(source, /aria-label="Copy filtered RDS logs"/);
   assert.match(source, /aria-label="Copy all RDS logs"/);
   assert.match(source, /aria-label="Clear all RDS logs"/);

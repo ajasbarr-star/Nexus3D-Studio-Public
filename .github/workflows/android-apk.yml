@@ -73,7 +73,7 @@ jobs:
         run: |
           # Android workflow runs 1-2 are already consumed in this public repo.
           # Map run 3 to product Build 482 and continue monotonically.
-          BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 479))
+          BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 477))
           VERSION_PATCH=$((BUILD_NUMBER - 192))
           echo "NEXUS3D_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
           echo "NEXUS3D_VERSION_PATCH=$VERSION_PATCH" >> "$GITHUB_ENV"
