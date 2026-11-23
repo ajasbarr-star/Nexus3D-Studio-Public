@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import * as THREE from 'three';
+import { getIkSolvePath, isIkBoneLocked } from './rig/ik-constraints.mjs';
 import { buildTopologyFromCanonicalQuadGeometry, buildTopologyFromIndexedQuadGeometry, updateTopologyPositionsFromRenderGeometry } from './geometry/topology-model.mjs';
 import { createSubObjectLockStore } from './geometry/subobject-lock-store.mjs';
 import { allocateShapeIdentity, ensureShapeIdentity, formatShapeIdentity } from './identity/shape-identity.mjs';
@@ -2620,8 +2621,12 @@ export default function App() {
       const path: THREE.Bone[] = [];
       let cursor: THREE.Object3D | null = endBone;
       while (cursor && path.length < 32) { if (cursor instanceof THREE.Bone && chain.bones.includes(cursor)) path.push(cursor); cursor = cursor.parent; }
-      const bones = path.reverse().slice(-Math.max(1,Math.min(chainLength+1,path.length)));
-      if (bones.length < 2) { setStatus('Select a limb bone before creating its IK target'); return; }
+      const bones = getIkSolvePath(path.reverse(), chainLength);
+      if (bones.length < 2) {
+        setStatus(isIkBoneLocked(bones[0]) ? 'Locked IK anchor has no movable child segment · select an unlocked child bone or its Control Handle' : 'Select a limb bone before creating its IK target');
+        return;
+      }
+      const anchorLocked = isIkBoneLocked(bones[0]);
       const targetPosition = controlTarget ? controlTarget.clone() : chain.target!.getWorldPosition(new THREE.Vector3());
       const clampJoint = (bone: THREE.Bone) => {
         const limit = THREE.MathUtils.degToRad(Number(bone.userData.jointLimitDegrees ?? jointLimitDegreesRef.current));
@@ -2635,6 +2640,7 @@ export default function App() {
         for (let iteration=0;iteration<16;iteration++) {
           for (let i=bones.length-2;i>=0;i--) {
             scene.updateMatrixWorld(true); const bone=bones[i];
+            if (isIkBoneLocked(bone)) continue;
             const origin=bone.getWorldPosition(new THREE.Vector3());
             const end=endBone.getWorldPosition(new THREE.Vector3());
             const from=end.sub(origin); const to=targetPosition.clone().sub(origin);
@@ -2664,6 +2670,7 @@ export default function App() {
         }
         for (let i=0;i<bones.length-1;i++) {
           scene.updateMatrixWorld(true); const bone=bones[i];
+          if (isIkBoneLocked(bone)) continue;
           const origin=bone.getWorldPosition(new THREE.Vector3());
           const currentChild=bones[i+1].getWorldPosition(new THREE.Vector3());
           const currentDirection=currentChild.sub(origin); const desiredDirection=positions[i+1].clone().sub(positions[i]);
@@ -2674,21 +2681,27 @@ export default function App() {
           clampJoint(bone);
         }
       }
-      if (chain.pole && bones.length >= 3) {
+      const poleMiddleIndex = anchorLocked ? 2 : 1;
+      const poleBoneIndex = anchorLocked ? 1 : 0;
+      if (chain.pole && bones.length > poleMiddleIndex) {
         scene.updateMatrixWorld(true);
         const start = bones[0].getWorldPosition(new THREE.Vector3());
         const end = endBone.getWorldPosition(new THREE.Vector3());
         const axis = end.clone().sub(start).normalize();
-        const middle = bones[1].getWorldPosition(new THREE.Vector3()).sub(start);
+        const middle = bones[poleMiddleIndex].getWorldPosition(new THREE.Vector3()).sub(start);
         const pole = chain.pole.getWorldPosition(new THREE.Vector3()).sub(start);
         middle.addScaledVector(axis,-middle.dot(axis)); pole.addScaledVector(axis,-pole.dot(axis));
         if (middle.lengthSq()>1e-8 && pole.lengthSq()>1e-8) {
           const angle = Math.atan2(axis.dot(middle.clone().cross(pole)),middle.dot(pole));
-          const rootBone = bones[0];
-          const desired = rootBone.getWorldQuaternion(new THREE.Quaternion());
-          desired.premultiply(new THREE.Quaternion().setFromAxisAngle(axis,angle));
-          if (rootBone.parent) rootBone.quaternion.copy(rootBone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(desired));
-          else rootBone.quaternion.copy(desired);
+          // With a locked anchor, apply pole correction to its first movable child,
+          // never to the locked anchor itself.
+          const rootBone = bones[poleBoneIndex];
+          if (!isIkBoneLocked(rootBone)) {
+            const desired = rootBone.getWorldQuaternion(new THREE.Quaternion());
+            desired.premultiply(new THREE.Quaternion().setFromAxisAngle(axis,angle));
+            if (rootBone.parent) rootBone.quaternion.copy(rootBone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(desired));
+            else rootBone.quaternion.copy(desired);
+          }
         }
       }
       chain.helper.updateMatrixWorld(true);
