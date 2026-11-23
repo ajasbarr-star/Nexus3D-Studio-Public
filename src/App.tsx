@@ -30,7 +30,7 @@ import { scanMeshCore, formatMeshForensicReport } from './dfi/mesh-forensics';
 import { CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES } from './geometry/clean-flat-surface-contract';
 import { scanGeometryRit, formatGeometryRitReport } from './geometry/geometry-rit';
 import { RUNTIME_SESSION_ID, RUNTIME_SESSION_STARTED_AT, createRuntimeEventMetadata, formatRuntimeTraceReport } from './diagnostics/runtime-session.mjs';
-import { inferTracePoint, filterDiagnosticEntries, formatDiagnosticReport } from './diagnostics/logcat-diagnostics.mjs';
+import { inferTracePoint, filterDiagnosticEntries, formatDiagnosticReport, summarizeFrameTimes } from './diagnostics/logcat-diagnostics.mjs';
 import { loadLogcatEntries, loadRitTraceEntries, saveLogcatEntries, saveRitTraceEntries, clearLogcatEntries, clearRitTraceEntries } from './diagnostics/independent-diagnostic-stores.mjs';
 import { buildRdsNoticeSection } from './diagnostics/rds-notice.mjs';
 import './index.css';
@@ -655,6 +655,8 @@ export default function App() {
         target.getAttribute('src') || target.getAttribute('href') || target.tagName);
     };
     let longTaskObserver: PerformanceObserver | null = null;
+    let slowFrameObserver: PerformanceObserver | null = null;
+    let lastSlowFrameLog = 0;
     try {
       if (typeof PerformanceObserver !== 'undefined') {
         longTaskObserver = new PerformanceObserver(list => {
@@ -662,8 +664,27 @@ export default function App() {
             'Main Thread', 'Long task blocked UI thread', `${Math.round(entry.duration)} ms`));
         });
         longTaskObserver.observe({ entryTypes: ['longtask'] });
+        const supportedEntries = PerformanceObserver.supportedEntryTypes || [];
+        if (supportedEntries.includes('long-animation-frame')) {
+          slowFrameObserver = new PerformanceObserver(list => {
+            const summary = summarizeFrameTimes(list.getEntries().map(entry => entry.duration));
+            if (!summary.slowFrames) return;
+            const now = performance.now();
+            if (now - lastSlowFrameLog < 1500) return;
+            lastSlowFrameLog = now;
+            diagnosticSinkRef.current(summary.maxMs !== null && summary.maxMs >= 250 ? 'ERROR' : 'WARN',
+              'Frame Monitor', 'Slow frame(s) detected',
+              `Samples: ${summary.samples} · Average: ${summary.averageMs} ms · P95: ${summary.p95Ms} ms · Max: ${summary.maxMs} ms · Frames >33.33ms: ${summary.slowFrames}`);
+          });
+          slowFrameObserver.observe({ entryTypes: ['long-animation-frame'] });
+        } else {
+          diagnosticSinkRef.current('INFO', 'Frame Monitor', 'Slow-frame observer unavailable on this WebView',
+            'Long-task monitoring remains active; no extra animation-frame loop is created.');
+        }
       }
-    } catch { diagnosticSinkRef.current('INFO', 'Performance', 'Long-task observer unavailable on this WebView'); }
+    } catch {
+      diagnosticSinkRef.current('INFO', 'Performance', 'Long-task or slow-frame observer unavailable on this WebView');
+    }
     window.addEventListener('error', onError);
     window.addEventListener('error', onResourceError, true);
     window.addEventListener('unhandledrejection', onRejection);
@@ -674,6 +695,7 @@ export default function App() {
       window.removeEventListener('error', onResourceError, true);
       window.removeEventListener('unhandledrejection', onRejection);
       longTaskObserver?.disconnect();
+      slowFrameObserver?.disconnect();
       document.removeEventListener('webglcontextlost', onWebGL, true);
       document.removeEventListener('webglcontextrestored', onWebGL, true);
       console.error = originalConsoleError;
@@ -1775,7 +1797,7 @@ export default function App() {
     };
     // Manual Shape Rig v2: a private anchor isolates the skeleton transform
     // hierarchy from the mesh object while keeping the rig centered inside it.
-    const addUniversalBone = (mode: 'root' | 'child' | 'auto' = 'auto') => {
+    const addUniversalBone = (mode: 'root' | 'child' = 'root') => {
       const selectedObject = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
       const resolveRoot = (bone: THREE.Bone) => {
         let root = bone;

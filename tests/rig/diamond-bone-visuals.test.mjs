@@ -60,3 +60,15 @@ test('imported skeleton connection lines participate in bone-chain visibility', 
 test('control-handle lock action is reachable through the shared lock tool', () => {
   assert.match(app, /if \(bone\?\.userData\.rigControlMarker\) return toggleSelectedControlLock\(\)/);
 });
+
+test('Manual root creation stays unattached until the separate Attach to Shape action', () => {
+  const start = app.indexOf("const addUniversalBone = (mode: 'root' | 'child' = 'root')");
+  const end = app.indexOf('const attachRootToShape = () =>', start);
+  assert.ok(start >= 0 && end > start, 'Manual IK root and attach handlers must both exist');
+  const rootHandler = app.slice(start, end);
+  assert.match(rootHandler, /anchor\.userData\.pendingShapeAttachment = true/);
+  assert.match(rootHandler, /scene\.add\(anchor\)/);
+  assert.match(rootHandler, /setStatus\('Root Bone created at Shape center · Not attached · Use Attach to Shape'\)/);
+  assert.doesNotMatch(rootHandler, /attachRootToShape\s*\(/);
+  assert.match(app, /const attachRootToShape = \(\) =>/);
+});

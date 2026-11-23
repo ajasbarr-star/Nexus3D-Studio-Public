@@ -42,3 +42,11 @@ test('RIT Trace panel retains a dedicated Clear Trace action', () => {
   assert.match(app, /Clear Trace/);
   assert.match(app, /clearInteractionTraceLogs\(\)/);
 });
+
+test('LogCat captures long tasks and slow-frame samples without a new requestAnimationFrame loop', () => {
+  assert.match(app, /entryTypes: \['longtask'\]/);
+  assert.match(app, /entryTypes: \['long-animation-frame'\]/);
+  assert.match(app, /summarizeFrameTimes\(list\.getEntries\(\)\.map\(entry => entry\.duration\)\)/);
+  assert.match(app, /'Frame Monitor', 'Slow frame\(s\) detected'/);
+  assert.match(app, /slowFrameObserver\?\.disconnect\(\)/);
+});
