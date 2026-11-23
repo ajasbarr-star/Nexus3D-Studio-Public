@@ -91,10 +91,10 @@ test('locked bones cannot be directly moved with gizmo but remain available to I
 
 test('dragging an unlocked child Control Handle automatically solves its connected IK chain', () => {
   assert.match(app, /activeControl\?\.userData\.rigControlMarker && !activeControl\.userData\.controlLocked/);
-  assert.match(app, /const ownerBone = activeControl\.parent instanceof THREE\.Bone/);
+  assert.match(app, /controlOwnerBoneId/);
   assert.match(app, /activeIkSpring/);
   assert.match(app, /solveIK\(activeIkSpring\.chainLength, activeIkSpring\.current\)/);
-  assert.match(app, /const controlBone = controlHandle\?\.parent instanceof THREE\.Bone/);
+  assert.match(app, /controlHandle\.userData\.controlOwnerBoneId/);
   assert.match(app, /const targetPosition = controlTarget \? controlTarget\.clone\(\)/);
 });
 
