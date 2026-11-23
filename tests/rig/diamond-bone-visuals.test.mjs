@@ -5,9 +5,11 @@ import { readFileSync } from 'node:fs';
 const app = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../../src/index.css', import.meta.url), 'utf8');
 
-test('manual rig visuals use octahedral diamond bones, not sphere joints', () => {
-  assert.match(app, /new THREE\.OctahedronGeometry\(1, 0\)/);
-  assert.match(app, /visual\.scale\.set\(0\.075, length \* 0\.5, 0\.075\)/);
+test('manual rig visuals use compact Blender-style octahedral bone geometry', () => {
+  assert.match(app, /createBlenderOctahedralBoneGeometry/);
+  assert.match(app, /nexusBlenderBoneGeometry/);
+  assert.match(app, /visual\.scale\.set\(0\.052, length \* 0\.5, 0\.052\)/);
+  assert.match(app, /Octahedral Bone/);
   assert.doesNotMatch(app, /new THREE\.SphereGeometry\(0\.06, 14, 10\)/);
 });
 
@@ -27,7 +29,9 @@ test('compact Manual IK toolbar exposes root, child, attach, bind, handle, lock,
     assert.ok(app.includes(action), `missing toolbar action: ${action}`);
   }
   assert.match(css, /\.ik-rig-actions\{[^}]*display:grid/);
-  assert.match(css, /grid-template-columns:repeat\(6,30px\)/);
+  assert.match(css, /grid-template-columns:repeat\(6,40px\)/);
+  assert.match(css, /\.ik-rig-actions button span/);
+  assert.match(app, /<span>HANDLE<\/span>/);
 });
 
 
@@ -87,15 +91,20 @@ test('locked root bones cannot be attached to TransformControls or moved by IK s
 test('dragging an unlocked child Control Handle automatically solves its connected IK chain', () => {
   assert.match(app, /activeControl\?\.userData\.rigControlMarker && !activeControl\.userData\.controlLocked/);
   assert.match(app, /const ownerBone = activeControl\.parent instanceof THREE\.Bone/);
-  assert.match(app, /solveIK\(Math\.max\(1, chain\.bones\.length - 1\), targetWorld\)/);
+  assert.match(app, /activeIkSpring/);
+  assert.match(app, /solveIK\(activeIkSpring\.chainLength, activeIkSpring\.current\)/);
+  assert.match(app, /activeControl\.userData\.rigControlMarker/);
   assert.match(app, /const controlBone = controlHandle\?\.parent instanceof THREE\.Bone/);
   assert.match(app, /const targetPosition = controlTarget \? controlTarget\.clone\(\)/);
 });
 
-test('locked bones are skipped by CCD and FABRIK rotation updates and pole adjustment', () => {
-  assert.match(app, /if \(bone\.userData\.locked \|\| from\.lengthSq\(\)/);
-  assert.match(app, /if \(bone\.userData\.locked\) continue;/);
-  assert.match(app, /if \(!rootBone\.userData\.locked\)/);
+test('bone locks restrict direct gizmo editing but do not block IK-driven hierarchy rotation', () => {
+  const solverStart = app.indexOf('const solveIK =');
+  const solverEnd = app.indexOf('const captureRigStateFor', solverStart);
+  const solver = app.slice(solverStart, solverEnd);
+  assert.doesNotMatch(solver, /bone\.userData\.locked\s*\)\s*continue/);
+  assert.doesNotMatch(solver, /if\s*\(!rootBone\.userData\.locked\)/);
+  assert.match(app, /obj instanceof THREE\.Bone && obj\.userData\.locked/);
 });
 
 test('automatic handle IK updates the attached skinned mesh through the shared skeleton', () => {
