@@ -6780,7 +6780,10 @@ export default function App() {
        {riggingView && <div className="ik-rig-actions" aria-label="Compact Manual IK tools">
          <button type="button" title="Create Root Bone" aria-label="Create Root Bone" onClick={() => runtime.current?.addUniversalBone?.('root')}><Plus size={13}/><span>ROOT</span></button>
          <button type="button" title="Create Child Bone" aria-label="Create Child Bone" onClick={() => runtime.current?.addUniversalBone?.('child')}><GitBranch size={13}/><span>CHILD</span></button>
-         <button type="button" title="Attach Root to Shape" aria-label="Attach Root to Shape" onClick={() => runtime.current?.attachRootToShape?.()}><Link2 size={13}/><span>ATTACH</span></button>
+         <button type="button" title="Attach Root to Shape" aria-label="Attach Root to Shape" onClick={() => runtime.current?.attachRootToShape?.()}><Link2 size={13}/><span>ROOT LINK</span></button>
+         <button type="button" title="Set selected Bone as Object Parent" aria-label="Set selected Bone as Object Parent" onClick={() => runtime.current?.setRigParentTarget?.()}><Target size={13}/><span>PARENT</span></button>
+         <button type="button" title="Attach selected Shape or Object to the chosen Bone" aria-label="Attach selected Shape or Object to the chosen Bone" onClick={() => runtime.current?.attachSelectedToRigParent?.()}><Link2 size={13}/><span>LINK</span></button>
+         <button type="button" title="Detach selected Object from its Rig Parent" aria-label="Detach selected Object from its Rig Parent" onClick={() => runtime.current?.detachSelectedRigObject?.()}><Unlink size={13}/><span>DETACH</span></button>
          <button type="button" title="Bind Mesh to Rig" aria-label="Bind Mesh to Rig" onClick={() => runtime.current?.bindSelectedMeshToRig?.()}><Layers size={13}/><span>BIND</span></button>
          <button type="button" title="Create Control Handle" aria-label="Create Control Handle" onClick={() => runtime.current?.toggleSelectedBoneControlHandle?.()}><Target size={13}/><span>HANDLE</span></button>
          <button type="button" title="Lock or Unlock Bone" aria-label="Lock or Unlock Bone" onClick={() => runtime.current?.toggleSelectedBoneLock?.()}><Lock size={13}/><span>LOCK</span></button>
