@@ -406,7 +406,7 @@ export default function App() {
   const recordInteractionTrace = (action: string, details: Record<string, unknown> = {}) => {
     diagnosticSinkRef.current('INFO', 'Interaction Trace', action, JSON.stringify(details));
   };
-  const flushDiagnosticQueues = () => {
+  const flush = () => {
     const logBatch = diagnosticQueueRef.current.splice(0, 100);
     const traceBatch = interactionTraceQueueRef.current.splice(0, 100);
     if (logBatch.length) setDiagnosticLogs(previous => {
@@ -421,8 +421,8 @@ export default function App() {
     });
   };
   useEffect(() => {
-    const timer = window.setInterval(flushDiagnosticQueues, 1000);
-    return () => { window.clearInterval(timer); flushDiagnosticQueues(); };
+    const timer = window.setInterval(flush, 1000);
+    return () => { window.clearInterval(timer); flush(); };
   }, []);
   const copyDiagnosticText = async (entries: DiagnosticEntry[]) => {
     const report = formatRuntimeTraceReport(entries, { sessionId: RUNTIME_SESSION_ID, startedAt: RUNTIME_SESSION_STARTED_AT });
@@ -445,7 +445,7 @@ export default function App() {
   const getRitTraceEntries = () => [...ritTraceLogs, ...interactionTraceQueueRef.current].slice(-400);
   const pauseLogcat = () => { setLogcatSnapshot(getLogcatEntries()); setLogcatPaused(true); };
   const resumeLogcat = () => setLogcatPaused(false);
-  const refreshLogcat = () => { flushDiagnosticQueues(); setStatus('LogCat refreshed'); };
+  const refreshLogcat = () => { flush(); setStatus('LogCat refreshed'); };
   const exportLogcatReport = () => {
     const report = formatDiagnosticReport(visibleLogcatEntries, { sessionId: RUNTIME_SESSION_ID });
     try {
@@ -6791,7 +6791,7 @@ export default function App() {
               <div className="rds-command-log-list">{visibleLogcatEntries.slice().reverse().map(entry => <article className={'diagnostic-entry diagnostic-' + entry.level.toLowerCase()} key={entry.id}>
                 <div><strong>{entry.level}</strong><time>{entry.timestampISO || entry.time}</time></div>
                 <b>{entry.componentTag || entry.source}</b><small>{entry.tracePoint || 'UNKNOWN_TRACE_POINT'}{entry.objectId ? ' · ' + entry.objectId : ''}</small>
-                <p>{entry.message}</p>{entry.details && <pre>{entry.details}</pre>
+                <p>{entry.message}</p>{entry.details && <pre>{entry.details}</pre>}
               </article>)}{!visibleLogcatEntries.length && <div className="diagnostic-empty">No LogCat events match these filters.</div>}</div>
             </>}
             {rdsActiveTool === 'RIT Trace' && <>
