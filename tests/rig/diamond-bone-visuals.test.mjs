@@ -133,8 +133,9 @@ test('Manual IK spring is optional and adjustable independently from direct IK',
 
 
 test('Control Handles are independent Scene-root objects linked by owner bone ID and adjustable outward from the rig', () => {
-  assert.match(app, /marker\.userData\.controlOwnerBoneId = bone\.userData\.editorId/);
-  assert.match(app, /scene\.add\(marker\); selectable\.push\(marker\)/);
+  assert.match(app, /marker\.userData\.controlOwnerBoneId = String\(bone\.userData\.editorId\)/);
+  assert.match(app, /scene\.add\(marker\)/);
+  assert.match(app, /selectable\.push\(marker\)/);
   assert.match(app, /configureControlHandleDistance/);
   assert.match(app, /distance \/ 100/);
   assert.match(app, /controlOwnerBoneId\)\) as THREE\.Bone/);
