@@ -1,3 +1,4 @@
+
 name: Nexus3D Test Android APK
 
 on:
@@ -71,11 +72,9 @@ jobs:
 
       - name: Calculate Test release version
         run: |
-          # Runs 514 and 515 were unsuccessful diagnostic attempts.
-          # Map the next run (516) to product Build 294; subsequent runs
-          # advance the product build by exactly one.
-          BUILD_NUMBER=$((GITHUB_RUN_NUMBER - 222))
-          if [ "$BUILD_NUMBER" -lt 294 ]; then BUILD_NUMBER=294; fi
+          # Public repository run 1 starts at Nexus3D Build 294.
+          # Each subsequent workflow run increments the build by exactly one.
+          BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 293))
           VERSION_PATCH=$((BUILD_NUMBER - 192))
           echo "NEXUS3D_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
           echo "NEXUS3D_VERSION_PATCH=$VERSION_PATCH" >> "$GITHUB_ENV"
