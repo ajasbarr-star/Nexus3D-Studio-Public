@@ -5,12 +5,13 @@ import { readFileSync } from 'node:fs';
 const app = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../../src/index.css', import.meta.url), 'utf8');
 
-test('manual rig visuals use compact Blender-style octahedral bone geometry', () => {
-  assert.match(app, /createBlenderOctahedralBoneGeometry/);
-  assert.match(app, /nexusBlenderBoneGeometry/);
-  assert.match(app, /visual\.scale\.set\(0\.052, length \* 0\.5, 0\.052\)/);
-  assert.match(app, /Octahedral Bone/);
-  assert.doesNotMatch(app, /new THREE\.SphereGeometry\(0\.06, 14, 10\)/);
+test('manual rig visuals use compact spherical bone icons', () => {
+  assert.match(app, /createSphereBoneGeometry/);
+  assert.match(app, /nexusSphereBoneGeometry/);
+  assert.match(app, /new THREE\.SphereGeometry\(0\.06, 14, 10\)/);
+  assert.match(app, /Sphere Bone/);
+  assert.doesNotMatch(app, /createBlenderOctahedralBoneGeometry/);
+  assert.doesNotMatch(app, /nexusBlenderBoneGeometry/);
 });
 
 test('bone colors distinguish root, child, selected, detached, and locked states', () => {
