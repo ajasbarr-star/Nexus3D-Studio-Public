@@ -2939,7 +2939,8 @@ export default function App() {
       const visibleRigHelpers = editModeRef.current === 'Object'
         ? rigChains.filter(chain => chain.shapeRig && chain.displayVisible !== false && chain.helper.visible).map(chain => chain.helper)
         : [];
-      const roots = editModeRef.current === 'Object' ? [...selectable.filter(o => o.visible), ...visibleRigHelpers] : (targetRoot ? [targetRoot] : []);
+      const visibleControlHandles = selectable.filter(object => object.userData.rigControlMarker && object.visible);
+      const roots = editModeRef.current === 'Object' ? [...selectable.filter(o => o.visible), ...visibleRigHelpers] : [...(targetRoot ? [targetRoot] : []), ...visibleControlHandles];
       const hits = raycaster.intersectObjects(roots, true);// Rig controls and joints take priority over enclosing Shape/Character hits.
       const boneHit = hits.find(hit => hit.object.userData.nexusBoneVisual || hit.object.userData.rigControlMarker || hit.object instanceof THREE.SkeletonHelper);
       if (boneHit) {
@@ -3689,8 +3690,10 @@ export default function App() {
     if (transform) {
       transform.setMode(next);
       const active = runtime.current?.getActiveSubSelection?.();
+      const selectedObject = runtime.current?.selectable.find((object: THREE.Object3D) => String(object.userData.editorId) === selectedRef.current);
       const editingSubObject = editModeRef.current !== 'Object' && Boolean(active);
-      transform.enabled = Boolean(selectedRef.current) && (editModeRef.current === 'Object' || editingSubObject);
+      const isControlHandle = Boolean(selectedObject?.userData.rigControlMarker);
+      transform.enabled = Boolean(selectedRef.current) && (editModeRef.current === 'Object' || editingSubObject || isControlHandle);
       transform.getHelper().visible = transform.enabled;
     }
     setStatus(next === 'translate' ? 'Move tool active' : next === 'rotate' ? 'Rotate tool active' : 'Scale tool active');
@@ -4871,9 +4874,10 @@ export default function App() {
       r.transform.getHelper().visible = false;
       const mainSelection = r.selectable.find((object: THREE.Object3D) => String(object.userData.editorId) === selectedRef.current);
       r.selectObject(mainSelection);
-      r.transform.enabled = Boolean(selectedRef.current) && editModeRef.current === 'Object';
+      const isControlHandle = Boolean(mainSelection?.userData.rigControlMarker);
+      r.transform.enabled = Boolean(selectedRef.current) && (editModeRef.current === 'Object' || isControlHandle);
       const helper = r.transform.getHelper?.();
-      if (helper) helper.visible = Boolean(selectedRef.current);
+      if (helper) helper.visible = Boolean(selectedRef.current) && r.transform.enabled;
       setRiggingView(false);
       setRigPanelOpen(false);
       setInspectorOpen(false);
@@ -4901,9 +4905,10 @@ export default function App() {
         r.camBody.quaternion.copy(r.activeCamera.quaternion);
       }
       r.syncViewportControls?.();
-      r.transform.enabled = editModeRef.current === 'Object';
+      const selectedObject = r.selectable.find((object: THREE.Object3D) => String(object.userData.editorId) === selectedRef.current);
+      r.transform.enabled = editModeRef.current === 'Object' || Boolean(selectedObject?.userData.rigControlMarker);
       r.transform.camera = next ? r.activeCamera : r.camera;
-      r.transform.getHelper().visible = Boolean(selectedRef.current);
+      r.transform.getHelper().visible = Boolean(selectedRef.current) && r.transform.enabled;
     setStatus(next ? 'CAM: Cine camera perspective active' : 'Perspective User View restored');
   };
   useEffect(() => {
