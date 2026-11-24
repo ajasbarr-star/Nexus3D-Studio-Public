@@ -52,7 +52,7 @@ test('Alphabet States use a compact touch-scroll sequence with an integrated rul
   assert.match(app, /const id = addAlphabetState\('independent'\); setPendingStateChoice\(id\)/);
   assert.match(app, /setSelectedSequenceState\(state.id\)/);
   assert.doesNotMatch(app, /sequenceDrag|resizeAlphabetState/);
-  assert.match(app, /drag right to move the complete ruler/);
+  assert.match(app, /drag right to expand, left to shrink/);
   assert.match(css, /\.timeline-tools-panel \.timeline-tool-row/);
   assert.match(css, /\.alphabet-state-scroll/);
   assert.match(css, /\.alphabet-state-scroll\{display:flex;flex:0 0 34px;flex-wrap:nowrap/);
@@ -363,9 +363,11 @@ test('Dope Sheet and Graph open as floating panels above the State ruler', () =>
 });
 
 test('Alphabet State ruler appears compact first and expands only on explicit tap', () => {
-  assert.ok(app.includes('expandedSequenceRulerId'));
-  assert.ok(app.includes('className="alphabet-state-ruler-expand"'));
-  assert.ok(app.includes("setExpandedSequenceRulerId(current=>current===state.id?'':state.id)"));
+  assert.ok(app.includes('sequenceRulerDisplayWidths'));
+  assert.ok(app.includes('beginSequenceRulerResize'));
+  assert.ok(app.includes('moveSequenceRulerResize'));
+  assert.ok(app.includes('Math.max(96, drag.startWidth + delta)'));
+  assert.ok(!app.includes('alphabet-state-ruler-expand'));
   assert.ok(css.includes('.alphabet-state-mini-ruler.collapsed'));
   assert.ok(css.includes('.alphabet-state-mini-ruler:not(.active)'));
 });
@@ -383,7 +385,7 @@ test('Keyframe capture stores the selected object plus every bone and control ha
 });
 
 
-test('Dragging an Alphabet State letter moves its complete ruler group to the right', () => {
+test('Dragging an Alphabet State letter resizes its ruler to the right or left without moving its position', () => {
   assert.match(app, /sequenceRulerOffsets/);
   assert.match(app, /beginSequenceRulerDrag/);
   assert.match(app, /moveSequenceRulerDrag/);
