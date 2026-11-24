@@ -6804,7 +6804,7 @@ export default function App() {
         if (data.projectName) setProjectName(String(data.projectName));
         if (data.animationSequence && typeof data.animationSequence === 'object') {
           const savedSequence = data.animationSequence;
-          if (Array.isArray(savedSequence.states)) setSequenceStates(savedSequence.states.filter((state: any) => state && typeof state.id === 'string' && typeof state.label === 'string' && Number.isFinite(Number(state.width))).map((state: any) => ({ id: String(state.id), label: String(state.label), width: Math.max(1, Number(state.width)), mode: state.mode === 'continue' ? 'continue' : 'independent' })));
+          if (Array.isArray(savedSequence.states)) setSequenceStates(savedSequence.states.filter((state: any) => state && typeof state.id === 'string' && typeof state.label === 'string' && Number.isFinite(Number(state.width))).map((state: any) => ({ id: String(state.id), label: String(state.label), width: Math.max(1, Number(state.width)), mode: state.mode === 'continue' ? 'continue' : 'independent', objectId: typeof state.objectId === 'string' ? state.objectId : undefined })));
           if (typeof savedSequence.selectedState === 'string') setSelectedSequenceState(savedSequence.selectedState);
           if (Array.isArray(savedSequence.markers)) setTimelineMarkers(savedSequence.markers.filter((marker: any) => Number.isFinite(Number(marker.frame))).map((marker: any) => ({ id: String(marker.id || marker.frame), frame: Number(marker.frame), label: String(marker.label || 'Marker') })));
         }
