@@ -8089,8 +8089,6 @@ export default function App() {
                  {showGhostPreview && <div className="timeline-tool-empty">GHOST PREVIEW · 3D previous / next pose silhouettes are visible in the viewport.</div>}
                  {importedAnimationClips.length > 0 && <label className="timeline-clip-select">CLIP <select aria-label="Imported animation clip" value={activeAnimationClipId} onChange={event => setActiveAnimationClipId(event.target.value)}><option value="">TRANSFORM ONLY</option>{importedAnimationClips.map(entry => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select></label>}
                  <div className="timeline-settings"><label>DURATION <input type="number" min={1} value={timelineDuration} onChange={event => setTimelineDuration(Math.max(1, Number(event.target.value) || 1))}/> SEC</label><label>FPS <input type="range" min={1} max={60} value={frameRate} onChange={event => setFrameRate(Number(event.target.value))}/><span>{frameRate} · {Math.round(1000 / Math.max(1, frameRate))}ms/frame</span></label><label>INTERPOLATION <select value={interpolation} onChange={event => setInterpolation(event.target.value)}><option>Linear</option><option>Ease In</option><option>Ease Out</option><option>Ease In-Out</option><option>Bounce</option><option>Anticipation</option><option>Spring Damping</option></select></label><button type="button" title="Delete selected keyframe" onClick={deleteFrame}><Trash2 size={13}/></button></div>
-               </div></div>
-             
              </div>}
              </section>
            </div>
