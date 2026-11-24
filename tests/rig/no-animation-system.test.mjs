@@ -386,6 +386,16 @@ test('Keyframe capture stores the selected object plus every bone and control ha
   assert.ok(app.includes('Object.entries(keysRef.current)'));
 });
 
+test('Animated orange Bone Control Handles explicitly drive their owning rig during keyframe playback', () => {
+  const playback = app.slice(app.indexOf('const applyInterpolatedFrame ='), app.indexOf('useEffect(() => {\\n    if (!playing) return;'));
+  assert.match(playback, /candidate\\.userData\\.rigControlMarker/);
+  assert.match(playback, /keysRef\\.current\\[markerId\\]/);
+  assert.match(playback, /controlOwnerBoneId/);
+  assert.match(playback, /r\\.solveIK\\?\\.\\(Math\\.max\\(1, rigBoneCount - 1\\), marker\\.getWorldPosition\\(new THREE\\.Vector3\\(\\)\\), marker\\)/);
+  assert.match(app, /controlHandleOverride\\?: THREE\\.Object3D/);
+  assert.match(app, /controlHandleOverride \\| \\(selectedObject\\?\\.userData\\.rigControlMarker \\? selectedObject : null\\)/);
+});
+
 
 test('Dragging an Alphabet State letter resizes its ruler right or left while the letter stays in place', () => {
   assert.match(app, /beginSequenceRulerResize/);
