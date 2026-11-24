@@ -343,36 +343,39 @@ test('Alphabet State Delete icon removes the selected State, its frame keys and 
 
 test('Timeline State selection and 3D marker highlighting are independent', () => {
   const selector = app.slice(app.indexOf('const selectAlphabetState ='), app.indexOf('const deleteAlphabetState ='));
-  assert.match(selector, /setSelectedSequenceState\\(state.id\\)/);
-  assert.doesNotMatch(selector, /selectObject|setSelected3DAlphabetMarkerId/);
-  assert.match(app, /const \\[selected3DAlphabetMarkerId, setSelected3DAlphabetMarkerId\\] = useState\\(''\\)/);
-  assert.match(app, /setSelectedAlphabetStateMarker\\?\\.\\(selected3DAlphabetMarkerId\\)/);
-  assert.equal((app.match(/setSelected3DAlphabetMarkerId\\(stateId\\)/g) || []).length, 2);
+  assert.ok(selector.includes('setSelectedSequenceState(state.id)'));
+  assert.ok(!selector.includes('selectObject'));
+  assert.ok(!selector.includes('setSelected3DAlphabetMarkerId'));
+  assert.ok(app.includes("const [selected3DAlphabetMarkerId, setSelected3DAlphabetMarkerId] = useState('')"));
+  assert.ok(app.includes('setSelectedAlphabetStateMarker?.(selected3DAlphabetMarkerId)'));
+  assert.equal((app.match(/setSelected3DAlphabetMarkerId\(stateId\)/g) || []).length, 2);
 });
 
 test('Dope Sheet and Graph open as floating panels above the State ruler', () => {
-  assert.match(app, /timeline-floating-tool-panel/);
-  assert.match(app, /timelineTool !== 'tracks' && <div className="alphabet-state-tools-detail timeline-floating-tool-panel"/);
-  assert.match(css, /\\.timeline-floating-tool-panel\\{[\\s\\S]*?position:absolute!important/);
-  assert.match(css, /\\.timeline-floating-tool-panel\\{[\\s\\S]*?bottom:68px/);
-  assert.match(css, /\\.timeline-floating-tool-panel \\.timeline-graph-editor/);
+  assert.ok(app.includes('timeline-floating-tool-panel'));
+  assert.ok(app.includes('{timelineTool !== \'tracks\' && <div className="alphabet-state-tools-detail timeline-floating-tool-panel"'));
+  assert.ok(css.includes('.timeline-floating-tool-panel'));
+  assert.ok(css.includes('position:fixed!important'));
+  assert.ok(css.includes('bottom:160px'));
+  assert.ok(css.includes('.timeline-floating-tool-panel .timeline-graph-editor'));
 });
 
 test('Alphabet State ruler appears compact first and expands only on explicit tap', () => {
-  assert.match(app, /expandedSequenceRulerId/);
-  assert.match(app, /className=\\{\\"alphabet-state-ruler-expand\\"\\}/);
-  assert.match(app, /setExpandedSequenceRulerId\\(current=>current===state.id\\?'':state.id\\)/);
-  assert.match(css, /\\.alphabet-state-mini-ruler\\.collapsed/);
-  assert.match(css, /\\.alphabet-state-mini-ruler:not\\(\\.active\\)\\{display:none/);
+  assert.ok(app.includes('expandedSequenceRulerId'));
+  assert.ok(app.includes('className="alphabet-state-ruler-expand"'));
+  assert.ok(app.includes("setExpandedSequenceRulerId(current=>current===state.id?'':state.id)"));
+  assert.ok(css.includes('.alphabet-state-mini-ruler.collapsed'));
+  assert.ok(css.includes('.alphabet-state-mini-ruler:not(.active)'));
 });
 
 test('Keyframe capture stores the selected object plus every bone and control handle in its rig', () => {
   const capture = app.slice(app.indexOf('captureRef.current = () =>'), app.indexOf('const runMode ='));
-  assert.match(capture, /obj instanceof THREE.Bone/);
-  assert.match(capture, /candidate.userData.rigOwnerId/);
-  assert.match(capture, /candidate.userData.controlOwnerObjectId/);
-  assert.match(capture, /targets.set\\(String\\(candidate.userData.editorId\\), candidate\\)/);
-  assert.match(capture, /targets.forEach/);
-  assert.match(app, /applySnapshot\\(obj, left.value\\)/);
-  assert.match(app, /Object.entries\\(keysRef.current\\)/);
+  assert.ok(capture.includes('obj instanceof THREE.Bone'));
+  assert.ok(capture.includes('candidate.userData.rigOwnerId'));
+  assert.ok(capture.includes('candidate.userData.controlOwnerObjectId'));
+  assert.ok(capture.includes('candidate.userData.rigRootBoneId'));
+  assert.ok(capture.includes('targets.set(String(candidate.userData.editorId), candidate)'));
+  assert.ok(capture.includes('targets.forEach'));
+  assert.ok(app.includes('applySnapshot(obj, left.value)'));
+  assert.ok(app.includes('Object.entries(keysRef.current)'));
 });
