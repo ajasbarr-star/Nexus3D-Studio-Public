@@ -16,7 +16,7 @@ test('Animation workspace has a clickable ANIM entry and dedicated User Camera m
 });
 
 test('Animation timeline supports transform keyframes, playback, recording and interpolation', () => {
-  for (const marker of ['timeline-panel','timeline-transport','timeline-track','timeline-markers','timeline-settings','captureRef.current()','setPlaying','setCurrentFrame','autoKey','interpolation']) {
+  for (const marker of ['timeline-panel','timeline-transport','alphabet-keyframe-track','alphabet-keyframe-markers','timeline-settings','captureRef.current()','setPlaying','setCurrentFrame','autoKey','interpolation']) {
     assert.ok(app.includes(marker), 'missing Animation timeline feature: ' + marker);
   }
   assert.match(app, /min=\{1\} max=\{60\} value=\{frameRate\}/);
@@ -46,7 +46,7 @@ test('Alphabet States use a compact horizontal sequence below a separate accessi
   assert.match(app, /className="alphabet-state-scroll"/);
   assert.match(app, /className="alphabet-state-mini-ruler"/);
   assert.match(app, /className="alphabet-state-add"/);
-  assert.match(app, /className="state-ruler-panel"/);
+  assert.match(app, /className="alphabet-state-keyframe-ruler"/);
   assert.match(app, /className="timeline-keyframe-button"/);
   assert.match(app, /NO STATE SELECTED/);
   assert.match(app, /const id = addAlphabetState\('independent'\); setPendingStateChoice\(id\)/);
@@ -141,30 +141,30 @@ test('Animation Scene List and Transform Inspector remain separate compact panel
 
 
 test('Selected Alphabet State keeps keyframes on its own ruler and extends continuously when scrolled', () => {
-  assert.match(app, /className="state-ruler-scroll" ref=\{timelineScrollRef\} onScroll=\{event =>/);
+  assert.match(app, /className="alphabet-state-keyframe-scroll" ref=\{timelineScrollRef\} onScroll=\{event =>/);
   assert.match(app, /resizeAlphabetState\(activeSequenceState\.id, activeSequenceState\.width \+ Math\.max\(120, activeSequenceState\.width\)\)/);
   assert.match(app, /Number\.MAX_SAFE_INTEGER/);
   assert.match(app, /timelineTool==='tracks' \? null : timelineTool==='dope'/);
-  assert.match(app, /className="timeline-markers"/);
+  assert.match(app, /className="alphabet-keyframe-markers"/);
   assert.doesNotMatch(app, /Math\.min\(10000, Math\.round\(nextWidth\)\)/);
-  assert.match(css, /\.state-ruler-content \.timeline-track/);
+  assert.match(css, /\.alphabet-state-keyframe-content \.alphabet-keyframe-track/);
   assert.match(app, /<input type="number" min=\{1\} value=\{timelineDuration\}/);
 });
 
 
 test('Selected State uses exactly one integrated timeline track for the playhead and keyframe diamonds', () => {
-  const selectedRuler = app.slice(app.indexOf('className="state-ruler-panel"'), app.indexOf('className="state-ruler-empty"'));
-  assert.match(selectedRuler, /className="timeline-track" aria-label="Single timeline track with playhead and keyframes"/);
+  const selectedRuler = app.slice(app.indexOf('className="alphabet-state-keyframe-ruler"'), app.indexOf('className="alphabet-state-keyframe-empty"'));
+  assert.match(selectedRuler, /className="alphabet-keyframe-track" aria-label="Single timeline track with playhead and keyframes"/);
   assert.match(selectedRuler, /aria-label="Current animation frame and playhead" type="range"/);
-  assert.match(selectedRuler, /className="timeline-markers"/);
+  assert.match(selectedRuler, /className="alphabet-keyframe-markers"/);
   assert.match(selectedRuler, /keyframes\[selected\]/);
   assert.match(selectedRuler, /setSelectedKeyframe\(\{id:selected,frame:at\}\); setCurrentFrame\(at\)/);
-  assert.equal((selectedRuler.match(/className="timeline-track"/g) || []).length, 1, 'The selected State must render exactly one integrated timeline track');
+  assert.equal((selectedRuler.match(/className="alphabet-keyframe-track"/g) || []).length, 1, 'The selected State must render exactly one integrated timeline track');
   assert.equal((selectedRuler.match(/aria-label="Current animation frame and playhead" type="range"/g) || []).length, 1, 'The integrated track must have exactly one playhead slider');
-  assert.match(app, /className="state-ruler-scroll" ref=\{timelineScrollRef\}/);
+  assert.match(app, /className="alphabet-state-keyframe-scroll" ref=\{timelineScrollRef\}/);
   assert.match(app, /onClick=\{\(\) => captureRef\.current\(\)\}/);
-  assert.match(css, /\.animation-mode \.timeline-track input\[type=range\]/);
-  assert.match(css, /\.animation-mode \.timeline-markers/);
+  assert.match(css, /\.animation-mode \.alphabet-keyframe-track input\[type=range\]/);
+  assert.match(css, /\.animation-mode \.alphabet-keyframe-markers/);
 });
 
 test('Animation Scene List and Transform Inspector open only from their shared icon switcher', () => {
@@ -208,30 +208,49 @@ test('Playback panel sits at the left of the Alphabet State workspace in one hor
   assert.match(layout, /\.timeline-playback-panel\{[\s\S]*?flex:0 0 112px/);
   assert.match(layout, /\.timeline-editor-stack\{[\s\S]*?flex:1 1 0/);
   assert.match(layout, /\.alphabet-state-panel\{[\s\S]*?flex:1 1 0/);
-  assert.match(layout, /\.state-ruler-panel\{[\s\S]*?flex:1 1 0/);
+  assert.match(layout, /\.alphabet-state-keyframe-ruler\{[\s\S]*?flex:1 1 0/);
 });
 
 test('Keyframe diamonds and their frame numbers are rendered inside the selected State ruler', () => {
-  const selectedRuler = app.slice(app.indexOf('className="state-ruler-panel"'), app.indexOf('className="state-ruler-empty"'));
-  assert.match(selectedRuler, /className="timeline-markers"/);
+  const selectedRuler = app.slice(app.indexOf('className="alphabet-state-keyframe-ruler"'), app.indexOf('className="alphabet-state-keyframe-empty"'));
+  assert.match(selectedRuler, /className="alphabet-keyframe-markers"/);
   assert.match(selectedRuler, /className="keyframe-diamond">◆<\/span>/);
   assert.match(selectedRuler, /className="keyframe-frame-number">\{at\}<\/span>/);
   assert.match(selectedRuler, /aria-label=\{'Select keyframe at frame ' \+ at\}/);
-  assert.match(css, /\.timeline-markers\{[\s\S]*?inset:0 4\.5px/);
-  assert.match(css, /\.animation-mode \.timeline-markers button \.keyframe-frame-number/);
-  assert.match(css, /\.animation-mode \.timeline-markers button\{[\s\S]*?transform:translate\(-50%,-50%\)/);
+  assert.match(css, /\.alphabet-keyframe-markers\{[\s\S]*?inset:0 4\.5px/);
+  assert.match(css, /\.animation-mode \.alphabet-keyframe-markers button \.keyframe-frame-number/);
+  assert.match(css, /\.animation-mode \.alphabet-keyframe-markers button\{[\s\S]*?transform:translate\(-50%,-50%\)/);
 });
 
 
 test('Selected State keyframe ruler is nested inside the Alphabet State panel with room for frame labels', () => {
-  const alphabetPanel = app.slice(app.indexOf('className="alphabet-state-panel"'), app.indexOf('className="state-ruler-empty"'));
-  assert.match(alphabetPanel, /className="state-ruler-panel"/);
-  assert.match(alphabetPanel, /className="timeline-markers"/);
+  const alphabetPanel = app.slice(app.indexOf('className="alphabet-state-panel"'), app.indexOf('className="alphabet-state-keyframe-empty"'));
+  assert.match(alphabetPanel, /className="alphabet-state-keyframe-ruler"/);
+  assert.match(alphabetPanel, /className="alphabet-keyframe-markers"/);
   assert.match(alphabetPanel, /className="keyframe-frame-number">\{at\}<\/span>/);
   const layout = css.slice(css.lastIndexOf('/* Canonical Animation Timeline layout'));
   assert.match(layout, /\.alphabet-state-panel\{[\s\S]*?min-height:0/);
-  assert.match(layout, /\.state-ruler-panel\{[\s\S]*?min-height:0/);
-  assert.match(layout, /\.state-ruler-scroll\{[\s\S]*?flex:1 1 0/);
+  assert.match(layout, /\.alphabet-state-keyframe-ruler\{[\s\S]*?min-height:0/);
+  assert.match(layout, /\.alphabet-state-keyframe-scroll\{[\s\S]*?flex:1 1 0/);
   assert.doesNotMatch(css, /\.animation-mode \.alphabet-state-panel\s*\{[^}]*min-height:104px/);
-  assert.doesNotMatch(css, /\.animation-mode \.alphabet-state-panel \.state-ruler-panel\s*\{[^}]*min-height:58px/);
+  assert.doesNotMatch(css, /\.animation-mode \.alphabet-state-panel \.alphabet-state-keyframe-ruler\s*\{[^}]*min-height:58px/);
+});
+
+test('Alphabet Ruler owns the only expanded Keyframe Timeline; detached legacy timeline selectors are retired', () => {
+  const rulerStart = app.indexOf('className="alphabet-state-keyframe-ruler"');
+  const rulerEnd = app.indexOf('className="alphabet-state-keyframe-empty"');
+  assert.ok(rulerStart > app.indexOf('className="alphabet-state-scroll"'));
+  assert.ok(rulerEnd > rulerStart);
+  const ruler = app.slice(rulerStart, rulerEnd);
+  assert.match(ruler, /className="alphabet-keyframe-track"/);
+  assert.match(ruler, /className="alphabet-keyframe-markers"/);
+  assert.match(ruler, /className="keyframe-diamond"/);
+  assert.match(ruler, /className="keyframe-frame-number"/);
+  assert.equal((app.match(/className="alphabet-keyframe-track"/g)||[]).length,1);
+  for (const retired of ['state-ruler-panel','state-ruler-scroll','timeline-track-row','timeline-track','timeline-markers']) {
+    assert.ok(!app.includes(retired), 'retired component class remains in App.tsx: '+retired);
+    assert.ok(!css.includes('.'+retired), 'retired CSS selector remains: '+retired);
+  }
+  assert.match(css,/\.alphabet-keyframe-track-row\{[^}]*46px/);
+  assert.match(css,/\.alphabet-keyframe-track\{[^}]*height:42px/);
 });
