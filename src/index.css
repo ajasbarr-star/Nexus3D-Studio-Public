@@ -3230,3 +3230,40 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .alphabet-state-mini-ruler.collapsed .alphabet-state-mini-markers,
 .alphabet-state-mini-ruler.collapsed .alphabet-state-mini-key{display:none!important}
 .alphabet-state-mini-ruler.collapsed .alphabet-state-frame-label{top:5px;left:5px}
+
+
+/* Phase 2 refinement: numbered 0–1 ruler scale and a slightly taller bottom-anchored timeline. */
+.alphabet-state-mini-ruler .alphabet-state-ruler-scale{
+  position:absolute;z-index:3;top:2px;left:5px;right:5px;height:13px;
+  display:flex;align-items:flex-start;justify-content:space-between;
+  color:#b9d8e8;font:700 7px 'DM Mono',monospace;line-height:9px;
+  pointer-events:none;
+}
+.alphabet-state-mini-ruler .alphabet-state-ruler-ticks{
+  position:absolute;left:9px;right:9px;top:7px;height:10px;
+  display:flex;align-items:flex-start;justify-content:space-between;
+  border-top:1px solid rgba(105,190,220,.3);
+}
+.alphabet-state-mini-ruler .alphabet-state-ruler-ticks i{
+  display:block;width:1px;height:5px;flex:0 0 1px;background:#6b9eb8;opacity:.85;
+}
+.alphabet-state-mini-ruler .alphabet-state-ruler-ticks::after{
+  content:"";position:absolute;right:0;top:0;width:1px;height:10px;background:#b7edff;
+  box-shadow:0 0 4px rgba(72,220,255,.45);
+}
+.alphabet-state-mini-ruler input[type=range]{
+  top:17px;left:2px;right:2px;width:calc(100% - 4px);height:calc(100% - 25px);
+  opacity:.34;touch-action:pan-x;
+}
+.alphabet-state-mini-ruler .alphabet-state-frame-label{
+  top:auto;right:3px;bottom:2px;left:auto;
+}
+.alphabet-state-mini-ruler.collapsed .alphabet-state-frame-label{
+  top:auto;right:3px;bottom:2px;left:auto;
+}
+.timeline-panel{
+  height:158px;min-height:150px;max-height:48vh;
+}
+@media(max-height:430px){
+  .timeline-panel{height:158px;min-height:150px;max-height:calc(100vh - 12px)}
+}
