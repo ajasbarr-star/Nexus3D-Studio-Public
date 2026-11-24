@@ -446,7 +446,7 @@ test('Timeline ruler uses graduated frame ticks, a taller anchored track, and co
   assert.match(css, /\.timeline-panel\{[\s\S]*?height:148px!important;min-height:136px!important/);
   assert.match(css, /\.alphabet-state-scroll\{[\s\S]*?flex:1 1 58px!important/);
   assert.match(css, /\.alphabet-state-mini-ruler\{[\s\S]*?height:56px!important;min-height:56px!important/);
-  assert.match(css, /\.timeline-playback-panel\{display:flex!important;flex:0 0 104px!important/);
+  assert.match(css, /\.timeline-playback-panel\{display:flex!important;flex:0 0 112px!important/);
   assert.match(css, /\.timeline-custom-range-controls\{display:flex!important;flex:0 0 20px!important/);
 
 });
@@ -463,7 +463,7 @@ test('Playback controls remain compact in one horizontal row', () => {
 
   const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
   assert.match(layout, /\.timeline-playback-panel \.timeline-transport\{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important/);
-  assert.match(layout, /\.timeline-playback-panel \.timeline-transport button\{flex:0 0 17px!important/);
+  assert.match(layout, /\.timeline-playback-panel \.timeline-transport button\{flex:0 0 19px!important/);
 
 });
 
