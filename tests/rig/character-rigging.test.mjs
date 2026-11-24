@@ -66,7 +66,10 @@ test('Nexus3D exposes fitted character rig, body-part detection, and batch bindi
   assert.match(appSource, /const detectCharacterBodyParts = \(\) =>/);
   assert.match(appSource, /const bindAllCharacterMeshesToRig = \(\) =>/);
   assert.match(appSource, /bindAllCharacterMeshesToRig, normalizeSelectedSkinWeights/);
-  assert.match(appSource, /aria-label="Character Rigging Tools"/);\n  assert.match(appSource, /ik-character-rig-panel/);\n  assert.match(appSource, /aria-expanded=\{characterRigPanelOpen\}/);\n  assert.match(appSource, /aria-label="Create Humanoid Rig Template"/);
+  assert.match(appSource, /aria-label="Character Rigging Tools"/);
+  assert.match(appSource, /ik-character-rig-panel/);
+  assert.match(appSource, /aria-expanded=\{characterRigPanelOpen\}/);
+  assert.match(appSource, /aria-label="Create Humanoid Rig Template"/);
   assert.match(appSource, /aria-label="Detect Character Body Parts"/);
   assert.match(appSource, /aria-label="Bind All Character Meshes"/);
 });
