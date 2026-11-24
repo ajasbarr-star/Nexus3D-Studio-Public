@@ -116,7 +116,7 @@ test('Animation workspace exposes the shared Scene List, Transform Inspector and
   assert.match(app, /animation-editor-dock/);
   assert.match(app, /SCENE LIST/);
   assert.match(app, /TRANSFORM INSPECTOR/);
-  assert.match(app, /Animation Gizmo tools/);
+  assert.ok(app.includes("ariaLabel={'Animation '+group+' '+axis.toUpperCase()}"));
   assert.match(app, /runMode\('translate'\)/);
   assert.match(app, /runMode\('rotate'\)/);
   assert.match(app, /runMode\('scale'\)/);
