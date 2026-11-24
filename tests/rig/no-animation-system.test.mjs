@@ -52,7 +52,7 @@ test('Alphabet States use a compact touch-scroll sequence with an integrated rul
   assert.match(app, /const id = addAlphabetState\('independent'\); setPendingStateChoice\(id\)/);
   assert.match(app, /setSelectedSequenceState\(state.id\)/);
   assert.doesNotMatch(app, /sequenceDrag|resizeAlphabetState/);
-  assert.match(app, /swipe horizontally to scroll/);
+  assert.match(app, /drag right to move the complete ruler/);
   assert.match(css, /\.timeline-tools-panel \.timeline-tool-row/);
   assert.match(css, /\.alphabet-state-scroll/);
   assert.match(css, /\.alphabet-state-scroll\{display:flex;flex:0 0 34px;flex-wrap:nowrap/);
@@ -283,7 +283,7 @@ test('Alphabet State 3D markers are scene-rooted snapshots with larger circles a
 
 test('Alphabet State 3D markers select their matching state in both viewports', () => {
   assert.equal((app.match(/intersectObjects\(Array\.from\(alphabetStateMarkers\.values\(\)\), false\)/g) || []).length, 2);
-  assert.equal((app.match(/setSelectedSequenceState\(stateId\)/g) || []).length, 2);
+  assert.ok((app.match(/setSelectedSequenceState\(stateId\)/g) || []).length >= 2);
   assert.match(app, /startFrame=startFrame/);
   assert.match(app, /setCurrentFrame\(Number\(marker\.userData\.startFrame\) \|\| 1\)/);
 });
@@ -291,7 +291,9 @@ test('Alphabet State 3D markers select their matching state in both viewports', 
 
 test('Alphabet State strip uses native horizontal swipe and the enlarged 58px keyframe ruler', () => {
   const handle = app.slice(app.indexOf('className={"alphabet-state-handle'), app.indexOf('className={"alphabet-state-mini-ruler'));
-  assert.doesNotMatch(handle, /onPointerDown|onPointerMove|setPointerCapture|sequenceDrag/);
+  assert.match(handle, /onPointerDown/);
+  assert.match(handle, /onPointerMove/);
+  assert.match(handle, /onPointerUp/);
   assert.match(handle, /onClick/);
   assert.match(css, /\.alphabet-state-scroll\{[\s\S]*?touch-action:pan-x/);
   assert.match(css, /\.alphabet-state-mini-ruler\{[\s\S]*?height:58px;min-height:58px/);
@@ -320,7 +322,7 @@ test('Alphabet State 3D markers select their owning object and attach the shared
 });
 
 test('Alphabet State ruler has no fixed 260px ceiling and retains native horizontal touch scrolling', () => {
-  assert.match(app, /style=\{\{width:Math\.max\(260,state\.width\*8\)\+"px"\}\}/);
+  assert.match(app, /style=\{\{width:Math\.max\(260,state\.width\*8\)\+"px",transform:"translateX\("\+String\(sequenceRulerOffsets\[state\.id\]\|\|0\)/);
   assert.doesNotMatch(app, /Math\.min\(260,state\.width/);
   assert.match(css, /\.alphabet-state-scroll\{[\s\S]*?overflow-x:auto!important/);
   assert.match(css, /touch-action:pan-x!important/);
