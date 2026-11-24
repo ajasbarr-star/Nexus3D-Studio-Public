@@ -178,9 +178,9 @@ test('Animation Scene List and Transform Inspector open only from their shared i
 });
 
 test('Animation workspace aligns playback and Alphabet State at the same left edge and anchors Gizmo top-center', () => {
-  assert.match(css, /\.animation-mode \.animation-state-layout\{display:flex;flex-direction:column/);
-  assert.match(css, /\.animation-mode \.timeline-playback-panel\{flex:0 0 auto;width:100%/);
-  assert.match(css, /\.animation-mode \.alphabet-state-panel\{align-self:stretch\}/);
+  assert.match(css, /\.animation-mode \.animation-state-layout\{[\s\S]*?flex-direction:row/);
+  assert.match(css, /\.animation-mode \.timeline-playback-panel\{[\s\S]*?flex:0 0 142px/);
+  assert.match(css, /\.animation-mode \.timeline-editor-stack\{[\s\S]*?flex:1 1 0/);
   assert.match(css, /\.animation-gizmo-tools\.animation-floating-gizmo\{top:7px!important;bottom:auto!important;left:50%/);
 });
 
@@ -198,4 +198,24 @@ test('Timeline toolbar actions remain real actions with clear state feedback', (
 test('Timeline event markers use the selected State ruler coordinate system', () => {
   assert.match(app, /timelineMarkers\.filter\(marker=>marker\.frame>=activeSequenceRange\.start&&marker\.frame<=activeSequenceRange\.end\)/);
   assert.match(app, /marker\.frame-activeSequenceRange\.start/);
+});
+
+
+test('Playback panel sits at the left of the Alphabet State workspace in one horizontal row', () => {
+  const layout = css.slice(css.lastIndexOf('/* Timeline layout correction:'));
+  assert.match(layout, /flex-direction:row/);
+  assert.match(layout, /\.timeline-playback-panel[\s\S]*?flex:0 0 142px/);
+  assert.match(layout, /\.timeline-editor-stack[\s\S]*?flex:1 1 0/);
+  assert.match(layout, /\.alphabet-state-panel,[\s\S]*?\.state-ruler-panel/);
+});
+
+test('Keyframe diamonds and their frame numbers are rendered inside the selected State ruler', () => {
+  const selectedRuler = app.slice(app.indexOf('className="state-ruler-panel"'), app.indexOf('className="state-ruler-empty"'));
+  assert.match(selectedRuler, /className="timeline-markers"/);
+  assert.match(selectedRuler, /className="keyframe-diamond">◆<\/span>/);
+  assert.match(selectedRuler, /className="keyframe-frame-number">\{at\}<\/span>/);
+  assert.match(selectedRuler, /aria-label=\{'Select keyframe at frame ' \+ at\}/);
+  assert.match(css, /\.animation-mode \.timeline-markers\{[\s\S]*?inset:0 4\.5px/);
+  assert.match(css, /\.animation-mode \.timeline-markers button \.keyframe-frame-number/);
+  assert.match(css, /Marker inset equals half the native range-thumb width/);
 });
