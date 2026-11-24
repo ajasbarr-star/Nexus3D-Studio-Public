@@ -252,7 +252,7 @@ test('Alphabet State keyframe timelines are embedded in each horizontally scroll
   assert.match(app, /State \" \+ state.label \+ \" frame slider/);
   assert.match(app, /alphabet-state-mini-key/);
   assert.doesNotMatch(app, /alphabet-state-keyframe-scroll/);
-  assert.match(css, /\.alphabet-state-item\\{flex:0 0 auto/);
+  assert.match(css, /\.alphabet-state-item\{flex:0 0 auto/);
 });
 
 test('Alphabet State markers attach a labeled circular sprite to the object selected when the state is created', () => {
