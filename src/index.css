@@ -2960,3 +2960,21 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .state-ruler-empty strong{font-size:8px}
 @media(max-width:760px){.animation-mode .timeline-panel{height:148px;min-height:136px;max-height:42vh}.animation-state-layout{gap:4px}.timeline-playback-panel{flex-basis:76px;padding:3px}.timeline-playback-panel .timeline-transport{grid-template-columns:repeat(3,minmax(20px,1fr));gap:3px}.timeline-playback-panel .timeline-transport button{height:23px;min-width:20px}.timeline-tools-panel{padding:2px}.timeline-tools-panel .timeline-tool-row{gap:2px}.timeline-tools-panel .timeline-tool-row button{min-width:34px;padding:0 4px;font-size:6px}.alphabet-state-panel{padding:2px 3px}.alphabet-state-scroll{gap:3px;min-height:25px}.alphabet-state-item .alphabet-state-handle{flex-basis:23px;width:23px;min-width:23px;height:22px}.alphabet-state-mini-ruler{min-width:40px}.alphabet-state-panel .alphabet-state-add{flex-basis:48px;width:48px;min-width:48px}.state-ruler-heading span{font-size:5px}}
 @media(max-height:430px){.animation-mode .timeline-panel{height:126px;min-height:118px}.timeline-playback-panel .timeline-transport{gap:2px}.timeline-playback-panel .timeline-transport button{height:21px}}
+
+
+/* Animation workspace: independent compact Scene List and Transform panels. */
+.animation-floating-panel{position:absolute;z-index:16;left:7px;width:clamp(112px,15vw,148px);min-width:0;max-height:calc(100% - 170px);overflow:hidden;padding:5px;border:1px solid rgba(79,180,255,.3);border-radius:6px;background:rgba(7,14,24,.92);box-shadow:0 5px 18px #0006;backdrop-filter:blur(9px);color:#dce7f7}
+.animation-scene-list.animation-floating-panel{top:7px;bottom:auto;height:28%;min-height:74px;display:flex;flex-direction:column;gap:4px}
+.animation-transform-inspector.animation-floating-panel{top:calc(28% + 15px);bottom:calc(min(34vh,220px) + 18px);height:auto;display:flex;flex-direction:column;gap:3px}
+.animation-floating-panel .animation-dock-heading{min-height:18px;padding-bottom:3px;font-size:7px}
+.animation-floating-panel .animation-scene-items{gap:1px}
+.animation-floating-panel .animation-scene-items button{min-height:18px;padding:2px 4px;font-size:7px}
+.animation-floating-panel .animation-transform-group{gap:2px;padding:2px 0}
+.animation-floating-panel .animation-transform-group label{grid-template-columns:30px minmax(0,1fr);gap:3px}
+.animation-floating-panel .animation-transform-group input{height:17px;font-size:7px}
+.animation-floating-panel .animation-transform-group label>span{font-size:7px}
+.animation-floating-panel .animation-dock-heading button{padding:2px 4px;font-size:7px}
+.animation-floating-gizmo{position:absolute;z-index:16;left:7px;bottom:calc(min(34vh,220px) + 23px);display:flex;gap:3px;padding:3px;border:1px solid #24384d;border-radius:5px;background:rgba(7,14,24,.92)}
+.animation-floating-gizmo button{height:21px;min-width:23px;padding:0 3px}
+@media(max-width:760px){.animation-floating-panel{left:5px;width:clamp(104px,27vw,126px);padding:4px}.animation-scene-list.animation-floating-panel{top:5px;height:25%;min-height:62px}.animation-transform-inspector.animation-floating-panel{top:calc(25% + 10px);bottom:calc(34vh + 18px)}.animation-floating-gizmo{left:5px;bottom:calc(34vh + 20px)}}
+@media(orientation:landscape) and (max-height:430px){.animation-scene-list.animation-floating-panel{height:23%;min-height:52px}.animation-transform-inspector.animation-floating-panel{top:calc(23% + 11px);bottom:calc(min(34vh,220px) + 17px)}.animation-floating-panel .animation-transform-group{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:4px}.animation-floating-panel .animation-transform-group>strong{grid-column:1/-1}.animation-floating-panel .animation-transform-group label{grid-template-columns:16px minmax(0,1fr)}}
