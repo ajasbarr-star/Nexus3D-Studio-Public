@@ -98,6 +98,10 @@ test('Dope Sheet and Graph Editor provide working keyframe editing actions', () 
   assert.match(app, /timeline-graph-editor/);
   assert.match(app, /Graph value updated/);
   assert.match(app, /selectedGraphChannel/);
+  assert.match(app, /timeline-graph-plot/);
+  assert.match(app, /graphEntries\.map/);
+  assert.match(app, /NO CURVE DATA/);
+  assert.match(app, /NO KEYFRAMES YET/);
   assert.match(css, /\.timeline-dope-sheet/);
   assert.match(css, /\.timeline-graph-editor/);
 });
