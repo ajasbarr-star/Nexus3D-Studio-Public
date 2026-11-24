@@ -435,3 +435,18 @@ test('Timeline panel is slightly taller while remaining bottom anchored on compa
   assert.match(css, /@media\(max-height:430px\)\{\s*\.timeline-panel\{height:158px;min-height:150px/);
   assert.match(css, /\.timeline-panel\{display:flex!important;position:absolute;z-index:14;left:8px;right:8px;bottom:8px/);
 });
+
+
+test('Timeline ruler uses graduated frame ticks, a taller anchored track, and compact transport controls', () => {
+  assert.match(app, /alphabet-state-ruler-labels/);
+  assert.match(app, /Array\.from\(\{length:11\}/);
+  assert.match(app, /Array\.from\(\{length:101\}/);
+  assert.match(app, /index%10===0\?"major":index%5===0\?"medium":"minor"/);
+  assert.match(css, /\.timeline-panel\{\s*position:fixed!important/);
+  assert.match(css, /\.alphabet-state-scroll\{\s*flex:0 0 84px!important/);
+  assert.match(css, /\.alphabet-state-mini-ruler\{\s*height:84px!important;min-height:84px!important/);
+  assert.match(css, /\.alphabet-state-mini-ruler\.collapsed\{\s*height:25px!important/);
+  assert.match(css, /\.timeline-playback-panel\{\s*flex:0 0 66px!important/);
+  assert.match(css, /\.timeline-playback-panel \.timeline-transport\{\s*display:grid!important;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important/);
+  assert.doesNotMatch(css.slice(css.lastIndexOf('/* Phase 2 refinement')), /height:158px|min-height:150px/);
+});
