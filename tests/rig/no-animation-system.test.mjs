@@ -219,3 +219,13 @@ test('Keyframe diamonds and their frame numbers are rendered inside the selected
   assert.match(css, /\.animation-mode \.timeline-markers button \.keyframe-frame-number/);
   assert.match(css, /Marker inset equals half the native range-thumb width/);
 });
+
+
+test('Selected State keyframe ruler is nested inside the Alphabet State panel with room for frame labels', () => {
+  const alphabetPanel = app.slice(app.indexOf('className="alphabet-state-panel"'), app.indexOf('className="state-ruler-empty"'));
+  assert.match(alphabetPanel, /className="state-ruler-panel"/);
+  assert.match(alphabetPanel, /className="timeline-markers"/);
+  assert.match(alphabetPanel, /className="keyframe-frame-number">\{at\}<\/span>/);
+  assert.match(css, /\.animation-mode \.alphabet-state-panel\{[\s\S]*?min-height:76px/);
+  assert.match(css, /\.animation-mode \.alphabet-state-panel \.state-ruler-panel\{[\s\S]*?min-height:43px/);
+});
