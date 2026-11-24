@@ -2395,8 +2395,14 @@ export default function App() {
     const resolveRigChainForObject = (object?: THREE.Object3D) => {
       if (!object) return null;
       if (object instanceof THREE.Bone) return [...rigChains].reverse().find(entry => entry.bones.includes(object)) || null;
+      const isWithinOwner = (owner: THREE.Object3D | null | undefined, candidate: THREE.Object3D) => {
+        let current: THREE.Object3D | null = candidate;
+        while (current) { if (current === owner) return true; current = current.parent; }
+        return false;
+      };
       const direct = [...rigChains].reverse().find(entry =>
-        entry.target === object || entry.pole === object || entry.owner === object
+        entry.target === object || entry.pole === object || entry.owner === object ||
+        isWithinOwner(entry.owner, object) || entry.bones.some(bone => object.getObjectById(bone.id))
       );
       if (direct) return direct;
       const objectId = String(object.userData.editorId || '');
