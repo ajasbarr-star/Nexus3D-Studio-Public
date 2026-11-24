@@ -605,9 +605,9 @@ export default function App() {
   const [shapeLibraryOpen, setShapeLibraryOpen] = useState(false);
   const [frameRate, setFrameRate] = useState(30);
   const [timelineDuration, setTimelineDuration] = useState(10);
-  const [customRulerStart, setCustomRulerStart] = useState(0.1);
+  const [customRulerStart, setCustomRulerStart] = useState(0);
   const [customRulerStartUnit, setCustomRulerStartUnit] = useState<'s' | 'm'>('s');
-  const [customRulerEnd, setCustomRulerEnd] = useState(0.25);
+  const [customRulerEnd, setCustomRulerEnd] = useState(0);
   const [customRulerEndUnit, setCustomRulerEndUnit] = useState<'s' | 'm'>('s');
   useEffect(() => { setWorkEnd(Math.max(1, Math.round(timelineDuration * frameRate))); }, [timelineDuration, frameRate]);
   const [loopPlayback, setLoopPlayback] = useState(true);
@@ -7037,9 +7037,9 @@ export default function App() {
           const restoredRate = Math.max(1, Math.min(60, Number(settings.frameRate) || 30));
           const restoredDuration = Math.max(1, Math.min(60, Number(settings.timelineDuration) || 10));
           setFrameRate(restoredRate); setTimelineDuration(restoredDuration);
-          setCustomRulerStart(Math.max(0, Number.isFinite(Number(settings.customRulerStart)) ? Number(settings.customRulerStart) : 0.1));
+          setCustomRulerStart(Math.max(0, Number.isFinite(Number(settings.customRulerStart)) ? Number(settings.customRulerStart) : 0));
           setCustomRulerStartUnit(settings.customRulerStartUnit === 'm' ? 'm' : 's');
-          setCustomRulerEnd(Math.max(0, Number.isFinite(Number(settings.customRulerEnd)) ? Number(settings.customRulerEnd) : 0.25));
+          setCustomRulerEnd(Math.max(0, Number.isFinite(Number(settings.customRulerEnd)) ? Number(settings.customRulerEnd) : 0));
           setCustomRulerEndUnit(settings.customRulerEndUnit === 'm' ? 'm' : 's');
           setWorkStart(Math.max(0, Number(settings.workStart) || 0));
           setWorkEnd(Math.max(1, Number(settings.workEnd) || restoredRate * restoredDuration));
