@@ -3230,9 +3230,3 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .alphabet-state-mini-ruler.collapsed .alphabet-state-mini-markers,
 .alphabet-state-mini-ruler.collapsed .alphabet-state-mini-key{display:none!important}
 .alphabet-state-mini-ruler.collapsed .alphabet-state-frame-label{top:5px;left:5px}
-.alphabet-state-ruler-expand{
-  position:absolute;z-index:4;right:3px;top:3px;width:20px;height:18px;min-height:18px;
-  padding:0;border:1px solid rgba(79,205,238,.45);border-radius:4px;
-  background:rgba(7,22,35,.92);color:#a7edff;font-size:12px;line-height:16px;
-}
-.alphabet-state-mini-ruler.expanded .alphabet-state-ruler-expand{top:3px}
