@@ -3135,3 +3135,43 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .alphabet-state-tools-detail{flex:0 0 auto;max-height:95px;min-width:0;overflow:auto;padding:2px 4px;border-top:1px solid #203c52}
 .alphabet-state-tools-detail .timeline-dope-sheet,.alphabet-state-tools-detail .timeline-graph-editor{max-height:70px;overflow:auto}
 .alphabet-state-tools-detail .timeline-settings{display:none}
+
+/* Canonical Alphabet State ruler — native horizontal swipe and enlarged keyframe track. */
+.alphabet-state-panel{min-width:0;min-height:0;overflow:hidden}
+.alphabet-state-scroll{
+  display:flex;flex:0 0 64px;align-items:center;flex-wrap:nowrap;gap:7px;
+  width:100%;max-width:100%;min-width:0;min-height:64px;
+  overflow-x:auto;overflow-y:hidden;white-space:nowrap;
+  touch-action:pan-x;overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;scrollbar-width:thin;
+}
+.alphabet-state-item{display:flex;flex:0 0 auto;align-items:center;min-width:max-content;gap:4px}
+.alphabet-state-item .alphabet-state-handle{
+  display:flex;flex:0 0 25px;align-items:center;justify-content:center;
+  width:25px;min-width:25px;height:58px;min-height:58px;
+  padding:0;touch-action:pan-x;cursor:pointer;
+}
+.alphabet-state-mini-ruler{
+  position:relative;display:flex;flex:0 0 auto;align-items:center;
+  height:58px;min-height:58px;min-width:110px;max-width:none;
+  overflow:hidden;border:1px solid #28536b;border-radius:5px;
+  background:repeating-linear-gradient(90deg,#102438 0,#102438 12px,#1b3c52 13px,#102438 14px);
+}
+.alphabet-state-mini-ruler input[type=range]{
+  position:absolute;inset:0;z-index:1;width:100%;height:100%;margin:0;
+  opacity:.3;accent-color:#4be2ff;cursor:ew-resize;touch-action:pan-x;
+}
+.alphabet-state-mini-markers{position:absolute;inset:0 4px;z-index:2;pointer-events:none}
+.alphabet-state-mini-markers button{pointer-events:auto;min-height:28px}
+.alphabet-state-frame-label{top:3px;font-size:8px}
+.alphabet-state-mini-key{bottom:3px;height:17px;min-width:28px;font-size:8px}
+.alphabet-state-panel .alphabet-state-add{
+  display:flex;flex:0 0 48px;align-items:center;justify-content:center;
+  width:48px;min-width:48px;height:58px;min-height:58px;
+}
+@media(max-height:430px){
+  .alphabet-state-scroll{flex-basis:64px;min-height:64px}
+  .alphabet-state-item .alphabet-state-handle,
+  .alphabet-state-mini-ruler,
+  .alphabet-state-panel .alphabet-state-add{height:58px;min-height:58px}
+}
