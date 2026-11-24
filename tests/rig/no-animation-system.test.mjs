@@ -362,7 +362,7 @@ test('Dope Sheet and Graph open as floating panels above the State ruler', () =>
   assert.ok(css.includes('.timeline-floating-tool-panel .timeline-graph-editor'));
 });
 
-test('Alphabet State ruler appears compact first and expands only on explicit tap', () => {
+test('Alphabet State ruler appears as a short preview on tap and expands by dragging its letter', () => {
   assert.ok(app.includes('sequenceRulerDisplayWidths'));
   assert.ok(app.includes('beginSequenceRulerResize'));
   assert.ok(app.includes('moveSequenceRulerResize'));
