@@ -159,7 +159,8 @@ test('Selected State uses exactly one integrated timeline track for the playhead
   assert.match(selectedRuler, /className="timeline-markers"/);
   assert.match(selectedRuler, /keyframes\[selected\]/);
   assert.match(selectedRuler, /setSelectedKeyframe\(\{id:selected,frame:at\}\); setCurrentFrame\(at\)/);
-  assert.equal((selectedRuler.match(/type="range"/g) || []).length, 1, 'State Ruler must not render a second frame slider');
+  const integratedTrack = selectedRuler.slice(selectedRuler.indexOf('className="timeline-track"'), selectedRuler.indexOf("timelineTool==='tracks'"));
+  assert.equal((integratedTrack.match(/type="range"/g) || []).length, 1, 'The integrated track must contain exactly one frame slider');
   assert.match(app, /className="state-ruler-scroll" ref=\{timelineScrollRef\}/);
   assert.match(app, /onClick=\{\(\) => captureRef\.current\(\)\}/);
   assert.match(css, /\.animation-mode \.timeline-track input\[type=range\]/);
@@ -192,4 +193,9 @@ test('Timeline toolbar actions remain real actions with clear state feedback', (
   assert.match(app, /Add a marker at the current frame/);
   assert.match(app, /timelineTool==='dope'/);
   assert.match(app, /timelineTool==='graph'/);
+});
+
+test('Timeline event markers use the selected State ruler coordinate system', () => {
+  assert.match(app, /timelineMarkers\.filter\(marker=>marker\.frame>=activeSequenceRange\.start&&marker\.frame<=activeSequenceRange\.end\)/);
+  assert.match(app, /marker\.frame-activeSequenceRange\.start/);
 });
