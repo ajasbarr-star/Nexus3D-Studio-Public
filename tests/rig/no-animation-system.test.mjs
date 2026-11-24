@@ -521,15 +521,17 @@ test('Frame ruler labels every frame in sequence with graduated ticks at 5-frame
 });
 
 
-test('Custom START and END controls independently edit ruler values and units', () => {
-  assert.match(app, /aria-label="Custom ruler start time"/);
-  assert.match(app, /aria-label="Custom ruler end time"/);
+test('Custom START and END use buffered editable decimal inputs and independent s/m units', () => {
+  assert.match(app, /BufferedNumberInput ariaLabel="Custom ruler start time" value=\\{customRulerStart\\} step=\\{0\\.01\\}/);
+  assert.match(app, /BufferedNumberInput ariaLabel="Custom ruler end time" value=\\{customRulerEnd\\} step=\\{0\\.01\\}/);
+  assert.match(app, /setCustomRulerStart\\(Math\\.max\\(0,value\\)\\)/);
+  assert.match(app, /setCustomRulerEnd\\(Math\\.max\\(0,value\\)\\)/);
   assert.match(app, /aria-label="Custom ruler start unit"/);
   assert.match(app, /aria-label="Custom ruler end unit"/);
-  assert.match(app, /setCustomRulerStart\(Math\.max\(0,Number\(event\.target\.value\)\|\|0\)\)/);
-  assert.match(app, /setCustomRulerEnd\(Math\.max\(0,Number\(event\.target\.value\)\|\|0\)\)/);
-  assert.match(app, /getCustomRulerLabel\(index,4\)/);
-  assert.match(app, /customRulerStartUnit === customRulerEndUnit \? customRulerStartUnit : 's'/);
+  assert.match(app, /const toSeconds = \\(value: number, unit: 's' \\| 'm'\\)/);
+  assert.match(app, /unit === 'm' \\? 60 : 1/);
+  assert.match(app, /getCustomRulerLabel\\(index,4\\)/);
+  assert.match(app, /customRulerStartUnit === customRulerEndUnit \\? customRulerStartUnit : 's'/);
 });
 
 test('Custom ruler values persist in project data while legacy projects receive safe defaults', () => {
@@ -553,6 +555,18 @@ test('Custom time labels use four evenly spaced ruler positions and include exac
   assert.match(app, /left:\(index\/3\*100\)\+"%"/);
   assert.match(app, /index \/ Math\.max\(1, labelCount - 1\)/);
   assert.match(app, /getCustomRulerLabel\(index,4\)/);
+});
+
+test('Timeline ruler positions graduated tick lines at the top and centers custom time labels', () => {
+  const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
+  assert.match(layout, /\\.alphabet-state-mini-ruler \\.alphabet-state-ruler-ticks\\{[\\s\\S]*?top:3px!important/);
+  assert.match(layout, /\\.alphabet-state-mini-ruler \\.alphabet-state-ruler-labels span\\{position:absolute!important;top:18px!important/);
+});
+
+test('Add Keyframe icon turns pink when the selected object has a keyframe at the current frame', () => {
+  assert.match(app, /Object\\.prototype\\.hasOwnProperty\\.call\\(keyframes\\[selected\\] \\|\\| \\{\\}, frame\\)/);
+  assert.match(app, /has-current-keyframe/);
+  assert.match(css, /\\.timeline-tool-row \\.timeline-add-keyframe\\.has-current-keyframe\\{color:#ff72c8!important/);
 });
 
 test('REC and LOOP controls align in the Timeline tools row beside the Alphabet State Delete icon', () => {
