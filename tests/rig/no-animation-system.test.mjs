@@ -267,7 +267,7 @@ test('Alphabet State marker object ownership survives project save and load', ()
   assert.match(app, /animationSequence: \{ states: sequenceStates/);
   assert.match(app, /objectId: selectedRef\.current/);
   assert.match(app, /objectId: typeof state\.objectId === 'string' \? state\.objectId : undefined/);
-  assert.match(app, /ownerMarkerCount \* diameter \* 1\.12/);
+  assert.match(app, /ownerMarkerCount \* diameter \* 1\.18/);
 });
 
 
