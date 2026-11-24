@@ -599,6 +599,9 @@ export default function App() {
   const subdivideCutCount = useRef<Record<string, number>>({});
   const extrudeContext = useRef<{ meshId: string; indices: number[]; faceParts?: number[][] } | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [importedAnimationClips, setImportedAnimationClips] = useState<Array<{ id: string; label: string; object: THREE.Object3D; clip: THREE.AnimationClip }>>([]);
+  const [activeAnimationClipId, setActiveAnimationClipId] = useState('');
+  const animationMixerRef = useRef<{ id: string; mixer: THREE.AnimationMixer; action: THREE.AnimationAction } | null>(null);
   const [frame, setFrame] = useState(32);
   const frameRef = useRef(32);
   const [autoKey, setAutoKey] = useState(false);
@@ -744,6 +747,24 @@ export default function App() {
   useEffect(() => { frameRef.current = frame; }, [frame]);
   useEffect(() => { autoKeyRef.current = autoKey; }, [autoKey]);
   useEffect(() => { keysRef.current = keyframes; }, [keyframes]);
+  useEffect(() => {
+    const entry = importedAnimationClips.find(item => item.id === activeAnimationClipId);
+    if (!entry) { animationMixerRef.current = null; return; }
+    const mixer = new THREE.AnimationMixer(entry.object);
+    const action = mixer.clipAction(entry.clip);
+    action.setLoop(loopPlayback ? THREE.LoopRepeat : THREE.LoopOnce, loopPlayback ? Infinity : 1);
+    action.clampWhenFinished = !loopPlayback;
+    action.play();
+    action.paused = !playing;
+    mixer.setTime(Math.max(0, frameRef.current) / Math.max(1, frameRate));
+    animationMixerRef.current = { id: entry.id, mixer, action };
+    return () => {
+      mixer.stopAllAction();
+      mixer.uncacheRoot(entry.object);
+      if (animationMixerRef.current?.id === entry.id) animationMixerRef.current = null;
+    };
+  }, [activeAnimationClipId, importedAnimationClips, loopPlayback]);
+  useEffect(() => { if (animationMixerRef.current) animationMixerRef.current.action.paused = !playing; }, [playing]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -5391,6 +5412,7 @@ export default function App() {
         const nextFrame = current >= workEnd ? (loopPlayback ? workStart : workEnd) : Math.min(workEnd, current + Math.max(1, Math.round(frameRate / 30)));
         frameRef.current = nextFrame;
         applyInterpolatedFrame(nextFrame);
+        if (animationMixerRef.current) animationMixerRef.current.mixer.update(1 / Math.max(1, frameRate));
         if (nextFrame === workEnd && !loopPlayback) setPlaying(false);
         return nextFrame;
       });
@@ -5404,6 +5426,13 @@ export default function App() {
     frameRef.current = clamped;
     setFrame(clamped);
     applyInterpolatedFrame(clamped);
+    if (animationMixerRef.current) {
+      const action = animationMixerRef.current.action;
+      const wasPaused = action.paused;
+      action.paused = false;
+      animationMixerRef.current.mixer.setTime(Math.max(0, clamped - workStart) / Math.max(1, frameRate));
+      action.paused = wasPaused || !playing;
+    }
     if (autoKeyRef.current) captureRef.current();
   };
   const copyFrame = () => {
@@ -6107,6 +6136,7 @@ export default function App() {
       savedAt: new Date().toISOString(),
       nextShapeId: Number(r?.scene?.userData?.nexusNextShapeId) || 1,
       // Project payload keeps editable Shapes, rig data and scene lights; viewport cameras and transient UI state are excluded.
+      keyframes: keysRef.current,
       objects: projectNodes.map((obj: THREE.Object3D) => ({
         editorId: obj.userData.editorId || null,
         shapeId: obj.userData.shapeId || null,
@@ -6213,6 +6243,8 @@ export default function App() {
         parentEditorId: obj.parent?.userData?.editorId || null,
         parentName: obj.parent?.userData?.editorId ? obj.parent.name : null
       })),
+      animationSettings: { frameRate, timelineDuration, workStart, workEnd, loopPlayback, interpolation },
+      animationClips: importedAnimationClips.map(entry => ({ objectEditorId: String(entry.object.userData.editorId || ''), clip: THREE.AnimationClip.toJSON(entry.clip) })),
       subObjectLocks: (r?.getSubObjectLockSnapshot?.() || []).flatMap((entry: any) => {
         const owner = projectNodes.find((obj: THREE.Object3D) => String(obj.userData.editorId) === String(entry.objectId));
         return owner?.userData?.shapeId ? [{ shapeId: owner.userData.shapeId, Vertex: [...(entry.Vertex || [])], Edge: [...(entry.Edge || [])] }] : [];
@@ -6604,6 +6636,28 @@ export default function App() {
         // have completed. Failed loads must not rename the active project or replace
         // its keyframe/undo state.
         if (data.projectName) setProjectName(String(data.projectName));
+        if (data.animationSettings && typeof data.animationSettings === 'object') {
+          const settings = data.animationSettings;
+          const restoredRate = Math.max(1, Math.min(60, Number(settings.frameRate) || 30));
+          const restoredDuration = Math.max(1, Math.min(60, Number(settings.timelineDuration) || 10));
+          setFrameRate(restoredRate); setTimelineDuration(restoredDuration);
+          setWorkStart(Math.max(0, Number(settings.workStart) || 0));
+          setWorkEnd(Math.max(1, Number(settings.workEnd) || restoredRate * restoredDuration));
+          setLoopPlayback(settings.loopPlayback !== false);
+          if (typeof settings.interpolation === 'string') setInterpolation(settings.interpolation);
+        }
+        if (Array.isArray(data.animationClips)) {
+          const clips = data.animationClips.flatMap((savedClip: any) => {
+            const owner = restoredById.get(String(savedClip?.objectEditorId || ''));
+            if (!owner || !savedClip?.clip) return [];
+            try {
+              const clip = THREE.AnimationClip.parse(savedClip.clip);
+              return [{ id: String(owner.userData.editorId || owner.uuid) + ':' + clip.name, label: owner.name + ' · ' + (clip.name || 'Imported Clip'), object: owner, clip }];
+            } catch (error) { console.warn('Animation clip restore skipped:', error); return []; }
+          });
+          setImportedAnimationClips(clips);
+          setActiveAnimationClipId(clips[0]?.id || '');
+        }
         if (data.keyframes && typeof data.keyframes === 'object') {
           const restoredKeys = data.keyframes as Keyframes;
           keysRef.current = restoredKeys;
@@ -6798,6 +6852,16 @@ export default function App() {
         }
       });
       r.scene.add(object);
+      if (importedAnimations.length) {
+        const entries = importedAnimations.map((clip, index) => ({
+          id: String(object.userData.editorId || object.uuid) + ':' + index,
+          label: object.name + ' · ' + (clip.name || 'Clip ' + (index + 1)),
+          object,
+          clip
+        }));
+        setImportedAnimationClips(previous => [...previous, ...entries]);
+        setActiveAnimationClipId(current => current || entries[0].id);
+      }
       importedNodes.forEach(node => { if (!r.selectable.includes(node)) r.selectable.push(node); });
       assignShapeOwnership(importedNodes);
       r.detectRiggedMeshes?.(object);
@@ -7813,6 +7877,7 @@ export default function App() {
           <label className="timeline-loop"><input type="checkbox" checked={loopPlayback} onChange={event => setLoopPlayback(event.target.checked)}/> LOOP</label>
         </div>
         <div className="timeline-track-row"><span className="timeline-track-name">{items.find(item => item.id === selected)?.name || 'Select an object'}</span><div className="timeline-track"><input aria-label="Current animation frame" type="range" min={workStart} max={Math.max(workStart + 1, workEnd)} value={Math.min(frame, workEnd)} onChange={event => setCurrentFrame(Number(event.target.value))}/><div className="timeline-markers">{Object.keys(keyframes[selected] || {}).map(value => { const at = Number(value); return <button key={value} type="button" title={'Keyframe ' + at} style={{left: ((at - workStart) / Math.max(1, workEnd - workStart) * 100) + '%'}} onClick={() => { setSelectedKeyframe({id:selected,frame:at}); setCurrentFrame(at); }}>◆</button>; })}</div></div></div>
+        {importedAnimationClips.length > 0 && <label className="timeline-clip-select">CLIP <select aria-label="Imported animation clip" value={activeAnimationClipId} onChange={event => setActiveAnimationClipId(event.target.value)}><option value="">TRANSFORM ONLY</option>{importedAnimationClips.map(entry => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select></label>}
         <div className="timeline-settings"><label>DURATION <input type="number" min={1} max={60} value={timelineDuration} onChange={event => setTimelineDuration(Math.max(1, Math.min(60, Number(event.target.value) || 1)))}/> SEC</label><label>FPS <input type="range" min={1} max={60} value={frameRate} onChange={event => setFrameRate(Number(event.target.value))}/><span>{frameRate} · {Math.round(1000 / Math.max(1, frameRate))}ms/frame</span></label><label>INTERPOLATION <select value={interpolation} onChange={event => setInterpolation(event.target.value)}><option>Linear</option><option>Ease In</option><option>Ease Out</option><option>Ease In-Out</option><option>Bounce</option><option>Anticipation</option><option>Spring Damping</option></select></label><button type="button" title="Delete selected keyframe" onClick={deleteFrame}><Trash2 size={13}/></button></div>
       </section>}
       {!cameraView && !animationMode && <div className={'bottom-bar action-dock ' + (animOpen ? 'timeline-open' : '')} aria-label="Object actions"><button onClick={duplicate} disabled={!selected || items.some(item => item.id === selected && item.kind === 'Camera')} title="Duplicate selected object" aria-label="Duplicate selected object"><Copy size={17}/></button><button className="delete-btn" onClick={deleteSelected} disabled={!selected || items.some(item => item.id === selected && item.kind === 'Camera')} title="Delete selected object" aria-label="Delete selected object"><Trash2 size={17}/></button></div>}

@@ -21,6 +21,12 @@ test('Animation timeline supports transform keyframes, playback, recording and i
   }
   assert.match(app, /min=\{1\} max=\{60\} value=\{frameRate\}/);
   assert.match(app, /min=\{1\} max=\{60\} value=\{timelineDuration\}/);
+  assert.match(app, /THREE\.AnimationMixer\(entry\.object\)/);
+  assert.match(app, /THREE\.AnimationClip\.toJSON\(entry\.clip\)/);
+  assert.match(app, /THREE\.AnimationClip\.parse\(savedClip\.clip\)/);
+  assert.match(app, /animationSettings:/);
+  assert.match(app, /keyframes: keysRef\.current/);
+  assert.match(app, /timeline-clip-select/);
   assert.match(css, /\.timeline-panel/);
 });
 
