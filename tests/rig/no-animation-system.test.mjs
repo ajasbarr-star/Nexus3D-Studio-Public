@@ -471,7 +471,7 @@ test('Playback controls remain compact in one horizontal row', () => {
 test('Selected Alphabet State ruler uses vertical frame labels and ticks while scrubbing remains horizontal', () => {
   const layout = css.slice(css.lastIndexOf('/* Timeline interaction cleanup'));
   assert.match(layout, /\.alphabet-state-ruler-labels\{position:absolute!important;inset:0!important;display:flex!important;flex-direction:column!important/);
-  assert.match(layout, /\.alphabet-state-ruler-ticks i\{left:0!important;top:auto!important;width:5px!important;height:1px!important/);
+  assert.match(layout, /\.alphabet-state-ruler-ticks i\{left:0!important;top:auto;width:5px!important;height:1px!important/);
   assert.match(layout, /\.alphabet-state-mini-ruler input\[type=range\].*touch-action:pan-x!important/);
   assert.match(app, /onChange=\{event=>setCurrentFrame\(Number\(event\.target\.value\)\)\}/);
 });
