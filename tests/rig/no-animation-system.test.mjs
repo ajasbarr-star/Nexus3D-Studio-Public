@@ -51,7 +51,8 @@ test('Alphabet States use a compact touch-scroll sequence with an integrated rul
   assert.doesNotMatch(app, /alphabet-state-keyframe-scroll/);
   assert.match(app, /const id = addAlphabetState\('independent'\); setPendingStateChoice\(id\)/);
   assert.match(app, /setSelectedSequenceState\(state.id\)/);
-  assert.match(app, /resizeAlphabetState\(state.id, drag.startWidth \+ delta \* 1\.25\)/);
+  assert.doesNotMatch(app, /sequenceDrag|resizeAlphabetState/);
+  assert.match(app, /swipe horizontally to scroll/);
   assert.match(css, /\.timeline-tools-panel \.timeline-tool-row/);
   assert.match(css, /\.alphabet-state-scroll/);
   assert.match(css, /\.alphabet-state-scroll\{display:flex;flex:0 0 34px;flex-wrap:nowrap/);
@@ -285,4 +286,14 @@ test('Alphabet State 3D markers select their matching state in both viewports', 
   assert.equal((app.match(/setSelectedSequenceState\(stateId\)/g) || []).length, 2);
   assert.match(app, /startFrame=startFrame/);
   assert.match(app, /setCurrentFrame\(Number\(marker\.userData\.startFrame\) \|\| 1\)/);
+});
+
+
+test('Alphabet State strip uses native horizontal swipe and the enlarged 58px keyframe ruler', () => {
+  const handle = app.slice(app.indexOf('className={"alphabet-state-handle'), app.indexOf('className={"alphabet-state-mini-ruler'));
+  assert.doesNotMatch(handle, /onPointerDown|onPointerMove|setPointerCapture|sequenceDrag/);
+  assert.match(handle, /onClick/);
+  assert.match(css, /\.alphabet-state-scroll\{[\s\S]*?touch-action:pan-x/);
+  assert.match(css, /\.alphabet-state-mini-ruler\{[\s\S]*?height:58px;min-height:58px/);
+  assert.match(css, /\.alphabet-state-item \.alphabet-state-handle\{[\s\S]*?height:58px;min-height:58px/);
 });
