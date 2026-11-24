@@ -83,3 +83,15 @@ test('automatic rigid binding preserves world transforms through Object3D.attach
   assert.match(appSource, /needsReview: assignment\.needsReview/);
   assert.match(appSource, /rigPartKey/);
 });
+
+test('manual body-part correction records rigid bone ownership without merging meshes', () => {
+  assert.match(appSource, /if \(child instanceof THREE\.Mesh && parent instanceof THREE\.Bone\)/);
+  assert.match(appSource, /source: 'manual'/);
+  assert.match(appSource, /parent\.attach\(child\)/);
+});
+
+test('saved and imported rig chains restore their character owner for Control Handle alignment', () => {
+  assert.match(appSource, /shapeRig: true, owner \}\); \}, attachRigHandle/);
+  assert.match(appSource, /let owner: THREE\.Object3D = mesh; while \(owner\.parent && owner\.parent !== scene\) owner = owner\.parent/);
+  assert.match(appSource, /entry\.shapeRig === true \|\| Boolean\(entry\.owner\)/);
+});
