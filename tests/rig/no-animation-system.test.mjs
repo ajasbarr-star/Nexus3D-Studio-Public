@@ -536,8 +536,8 @@ test('Custom START and END use buffered editable decimal inputs and independent 
 
 test('Custom ruler values persist in project data while legacy projects receive safe defaults', () => {
   assert.match(app, /customRulerStart, customRulerStartUnit, customRulerEnd, customRulerEndUnit/);
-  assert.match(app, /setCustomRulerStart\(Math\.max\(0, Number\.isFinite\(Number\(settings\.customRulerStart\)\) \? Number\(settings\.customRulerStart\) : 0\.1\)\)/);
-  assert.match(app, /setCustomRulerEnd\(Math\.max\(0, Number\.isFinite\(Number\(settings\.customRulerEnd\)\) \? Number\(settings\.customRulerEnd\) : 0\.25\)\)/);
+  assert.match(app, /setCustomRulerStart\(Math\.max\(0, Number\.isFinite\(Number\(settings\.customRulerStart\)\) \? Number\(settings\.customRulerStart\) : 0\)\)/);
+  assert.match(app, /setCustomRulerEnd\(Math\.max\(0, Number\.isFinite\(Number\(settings\.customRulerEnd\)\) \? Number\(settings\.customRulerEnd\) : 0\)\)/);
 });
 
 test('Timeline layout keeps its bottom anchor visible with a bounded, internally scrollable State strip', () => {
