@@ -2276,6 +2276,17 @@ export default function App() {
     const createManualRig = () => {
       const selectedObject = selectable.find(o => String(o.userData.editorId) === selectedRef.current);
       if (!selectedObject) { setStatus('Select the complete Character Group before creating its Humanoid Rig'); return null; }
+      let ancestor: THREE.Object3D | null = selectedObject;
+      let existingCharacterChain = rigChains.find(entry => entry.bones.some(bone => selectedObject === bone || selectedObject.getObjectById(bone.id)));
+      while (!existingCharacterChain && ancestor) {
+        existingCharacterChain = rigChains.find(entry => entry.owner === ancestor || entry.bones.includes(ancestor as THREE.Bone));
+        ancestor = ancestor.parent;
+      }
+      if (existingCharacterChain) {
+        setStatus('This Character already has a Rig · use Detect Parts or Bind All instead of creating another skeleton');
+        selectObject(existingCharacterChain.bones[0]);
+        return null;
+      }
       let owner: THREE.Object3D = selectedObject;
       while (owner instanceof THREE.Bone && owner.parent) owner = owner.parent;
       if (!owner.userData.editorId) owner.userData.editorId = uid();
