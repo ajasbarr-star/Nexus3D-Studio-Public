@@ -3175,3 +3175,34 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   .alphabet-state-mini-ruler,
   .alphabet-state-panel .alphabet-state-add{height:58px;min-height:58px}
 }
+
+
+/* Alphabet State horizontal strip: native touch scrolling with no fixed ruler-width ceiling. */
+.alphabet-state-scroll{
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  touch-action:pan-x!important;
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-gutter:stable;
+  user-select:none;
+  -webkit-user-select:none;
+}
+.alphabet-state-scroll>.alphabet-state-item,
+.alphabet-state-scroll .alphabet-state-handle{
+  flex-shrink:0;
+  touch-action:pan-x!important;
+}
+.alphabet-state-mini-ruler{flex-shrink:0;max-width:none!important}
+.timeline-tool-row .timeline-delete-state{
+  display:inline-flex;
+  flex:0 0 26px!important;
+  align-items:center;
+  justify-content:center;
+  min-width:26px!important;
+  width:26px;
+  padding:0!important;
+  color:#ffb2b2;
+  border-color:#75414b;
+}
+.timeline-tool-row .timeline-delete-state:disabled{opacity:.35}
