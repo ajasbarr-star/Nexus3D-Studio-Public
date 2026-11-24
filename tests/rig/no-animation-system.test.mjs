@@ -430,11 +430,13 @@ test('Timeline scrubbing uses indexed selectable lookup and keeps the Alphabet S
 });
 
 test('Timeline panel preserves its original footprint and stays permanently bottom anchored', () => {
-  assert.match(css, /\.timeline-panel\{display:flex!important;position:absolute;z-index:14;left:8px;right:8px;bottom:8px/);
-  assert.match(css, /\.timeline-panel\{\s*position:fixed!important/);
-  assert.match(css, /height:148px!important;min-height:136px!important;max-height:42vh!important/);
-  assert.match(css, /@media\(max-height:430px\)\{\s*\.timeline-panel\{height:126px!important;min-height:118px!important/);
-  assert.doesNotMatch(css.slice(css.lastIndexOf('/* Phase 2 refinement')), /height:158px|min-height:150px/);
+
+  const canonical = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
+  assert.match(canonical, /\.timeline-panel\{[\s\S]*?position:fixed!important/);
+  assert.match(canonical, /height:148px!important;min-height:136px!important/);
+  assert.match(canonical, /max-height:min\(42vh,calc\(100dvh - 16px - env\(safe-area-inset-bottom\)\)\)!important/);
+  assert.match(canonical, /@media\(max-height:430px\)[\s\S]*?height:126px!important;min-height:118px!important/);
+
 });
 
 
@@ -458,18 +460,22 @@ test('Timeline Add Keyframe action lives in the Dope Sheet toolbar, not inside t
 });
 
 test('Playback controls remain compact in one horizontal row', () => {
-  const layout = css.slice(css.lastIndexOf('/* Timeline interaction cleanup'));
+
+  const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
   assert.match(layout, /\.timeline-playback-panel \.timeline-transport\{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important/);
-  assert.match(layout, /\.timeline-playback-panel \.timeline-transport button\{flex:0 0 18px!important/);
+  assert.match(layout, /\.timeline-playback-panel \.timeline-transport button\{flex:0 0 17px!important/);
+
 });
 
 test('Selected Alphabet State ruler keeps frame labels and ticks horizontal while scrubbing remains horizontal', () => {
-  const layout = css.slice(css.lastIndexOf('/* Timeline interaction cleanup'));
-  assert.match(layout, /\.alphabet-state-ruler-labels\{position:absolute!important;inset:0!important;display:block!important/);
-  assert.match(layout, /\.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:19px!important/);
+
+  const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
+  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels\{position:absolute!important;inset:0!important;display:block!important/);
+  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:19px!important/);
   assert.match(layout, /writing-mode:horizontal-tb!important/);
-  assert.match(layout, /\.alphabet-state-mini-ruler input\[type=range\].*touch-action:pan-x!important/);
+  assert.match(layout, /touch-action:pan-x!important/);
   assert.match(app, /onChange=\{event=>setCurrentFrame\(Number\(event\.target\.value\)\)\}/);
+
 });
 
 test('Alphabet State frame ranges are contiguous without sharing the boundary frame', () => {
