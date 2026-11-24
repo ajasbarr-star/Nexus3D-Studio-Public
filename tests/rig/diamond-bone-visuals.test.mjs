@@ -8,7 +8,7 @@ const css = readFileSync(new URL('../../src/index.css', import.meta.url), 'utf8'
 test('manual rig visuals use compact spherical bone icons', () => {
   assert.match(app, /createSphereBoneGeometry/);
   assert.match(app, /nexusSphereBoneGeometry/);
-  assert.match(app, /new THREE\.SphereGeometry\(0\.035, 14, 10\)/);
+  assert.match(app, /new THREE\.SphereGeometry\(0\.025, 12, 8\)/);
   assert.match(app, /Sphere Bone/);
   assert.doesNotMatch(app, /createBlenderOctahedralBoneGeometry/);
   assert.doesNotMatch(app, /nexusBlenderBoneGeometry/);
@@ -190,4 +190,20 @@ test('each Control Handle retains exact Child Bone and rig-root identity for mul
   assert.match(app, /marker\.userData\.controlOwnerRigRootId = String\(placement\.rigRootBoneId \|\| ''\)/);
   assert.match(app, /const chain = resolveRigChainForObject\(owner\)/);
   assert.match(app, /const owner = selectable\.find\(object => object instanceof THREE\.Bone && String\(object\.userData\.editorId\) === String\(marker\.userData\.controlOwnerBoneId\)\)/);
+});
+
+test('orange Control Handle Rotate mode applies incremental orientation to its exact unlocked owner bone', () => {
+  assert.match(app, /marker\.quaternion\.copy\(bone\.getWorldQuaternion\(new THREE\.Quaternion\(\)\)\)/);
+  assert.match(app, /controlLastWorldQuaternion/);
+  assert.match(app, /if \(transform\.getMode\(\) === 'rotate'\)/);
+  assert.match(app, /const rotationDelta = currentHandleWorld\.clone\(\)\.multiply\(previousHandleWorld\.clone\(\)\.invert\(\)\)/);
+  assert.match(app, /!isIkBoneLocked\(ownerBone\)/);
+  assert.match(app, /ownerBone\.quaternion\.copy\(parentWorld\.invert\(\)\.multiply\(desiredOwnerWorld\)\)\.normalize\(\)/);
+  assert.match(app, /else if \(transform\.getMode\(\) === 'translate'\)/);
+});
+
+test('bone joint spheres and hierarchy lines use reduced visual emphasis', () => {
+  assert.match(app, /new THREE\.SphereGeometry\(0\.025, 12, 8\)/);
+  assert.match(app, /material\.opacity = 0\.68/);
+  assert.match(app, /material\.linewidth = 1/);
 });
