@@ -2989,3 +2989,11 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .timeline-graph-point.active{fill:#fff;stroke:#53e4ff;stroke-width:2}
 .timeline-graph-empty{display:flex;align-items:center;justify-content:center;width:100%;padding:5px;color:#8ba8c2;text-align:center;font:7px 'DM Mono',monospace}
 .timeline-dope-sheet .timeline-tool-empty{padding:3px 5px;border:1px dashed #29445d;border-radius:4px}
+
+
+/* Selected Alphabet State is one continuous ruler: keyframe diamonds stay on its main track. */
+.state-ruler-scroll { overflow-x:auto; overflow-y:hidden; scroll-behavior:auto; }
+.state-ruler-content .timeline-track { min-height:22px; background-image:repeating-linear-gradient(90deg,transparent 0,transparent 13px,rgba(78,174,211,.16) 13px,rgba(78,174,211,.16) 14px); border-bottom:1px solid rgba(72,190,225,.28); }
+.state-ruler-content .timeline-track input[type=range] { position:relative; z-index:1; }
+.state-ruler-content .timeline-markers { z-index:2; }
+.state-ruler-content .timeline-markers button { font-size:13px; }
