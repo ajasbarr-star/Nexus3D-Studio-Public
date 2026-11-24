@@ -202,11 +202,12 @@ test('Timeline event markers use the selected State ruler coordinate system', ()
 
 
 test('Playback panel sits at the left of the Alphabet State workspace in one horizontal row', () => {
-  const layout = css.slice(css.lastIndexOf('/* Timeline layout correction:'));
-  assert.match(layout, /flex-direction:row/);
-  assert.match(layout, /\.timeline-playback-panel[\s\S]*?flex:0 0 142px/);
-  assert.match(layout, /\.timeline-editor-stack[\s\S]*?flex:1 1 0/);
-  assert.match(layout, /\.alphabet-state-panel,[\s\S]*?\.state-ruler-panel/);
+  const layout = css.slice(css.lastIndexOf('/* Canonical Animation Timeline layout'));
+  assert.match(layout, /\.animation-state-layout\{[\s\S]*?flex-direction:row/);
+  assert.match(layout, /\.timeline-playback-panel\{[\s\S]*?flex:0 0 112px/);
+  assert.match(layout, /\.timeline-editor-stack\{[\s\S]*?flex:1 1 0/);
+  assert.match(layout, /\.alphabet-state-panel\{[\s\S]*?flex:1 1 0/);
+  assert.match(layout, /\.state-ruler-panel\{[\s\S]*?flex:1 1 0/);
 });
 
 test('Keyframe diamonds and their frame numbers are rendered inside the selected State ruler', () => {
@@ -226,7 +227,10 @@ test('Selected State keyframe ruler is nested inside the Alphabet State panel wi
   assert.match(alphabetPanel, /className="state-ruler-panel"/);
   assert.match(alphabetPanel, /className="timeline-markers"/);
   assert.match(alphabetPanel, /className="keyframe-frame-number">\{at\}<\/span>/);
-  assert.match(css, /\.animation-mode \.alphabet-state-panel\{[\s\S]*?min-height:104px/);
-  assert.match(css, /\.animation-mode \.alphabet-state-panel \.state-ruler-panel\{[\s\S]*?min-height:58px/);
-  assert.doesNotMatch(css.slice(css.lastIndexOf('/* Keep the keyframe ruler inside Alphabet State')), /\.timeline-panel\s*\{/);
+  const layout = css.slice(css.lastIndexOf('/* Canonical Animation Timeline layout'));
+  assert.match(layout, /\.alphabet-state-panel\{[\s\S]*?min-height:0/);
+  assert.match(layout, /\.state-ruler-panel\{[\s\S]*?min-height:0/);
+  assert.match(layout, /\.state-ruler-scroll\{[\s\S]*?flex:1 1 0/);
+  assert.doesNotMatch(css, /\.animation-mode \.alphabet-state-panel\s*\{[^}]*min-height:104px/);
+  assert.doesNotMatch(css, /\.animation-mode \.alphabet-state-panel \.state-ruler-panel\s*\{[^}]*min-height:58px/);
 });
