@@ -3366,7 +3366,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .alphabet-state-mini-ruler .alphabet-state-ruler-labels{position:absolute!important;inset:0!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:space-between!important}
 .alphabet-state-mini-ruler .alphabet-state-ruler-labels span{position:static!important;transform:none!important;display:block!important;line-height:8px!important;font-size:6px!important}
 .alphabet-state-mini-ruler .alphabet-state-ruler-ticks{position:absolute!important;left:29px!important;right:auto!important;top:3px!important;bottom:3px!important;width:1px!important;height:auto!important;border-top:0!important;border-left:1px solid rgba(105,190,220,.3)!important}
-.alphabet-state-mini-ruler .alphabet-state-ruler-ticks i{left:0!important;top:auto!important;width:5px!important;height:1px!important;transform:translateY(-.5px)!important}
+.alphabet-state-mini-ruler .alphabet-state-ruler-ticks i{left:0!important;top:auto;width:5px!important;height:1px!important;transform:translateY(-.5px)!important}
 .alphabet-state-mini-ruler .alphabet-state-ruler-ticks i.medium{width:9px!important;height:1px!important}
 .alphabet-state-mini-ruler .alphabet-state-ruler-ticks i.major{width:14px!important;height:1px!important}
 .alphabet-state-mini-ruler input[type=range]{top:auto!important;left:48px!important;right:3px!important;bottom:3px!important;width:calc(100% - 52px)!important;height:14px!important;touch-action:pan-x!important;cursor:ew-resize!important}
