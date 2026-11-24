@@ -2603,7 +2603,7 @@ export default function App() {
         return false;
       };
       const chain = [...rigChains].reverse().find(entry =>
-        entry.shapeRig === true && entry.bones.length > 1 &&
+        entry.bones.length > 1 && (entry.shapeRig === true || Boolean(entry.owner)) &&
         (entry.owner === selectedObject || isWithinOwner(entry.owner, selectedObject) ||
           (!entry.owner && String(entry.bones[0]?.userData.rigOwnerId || '') === selectedOwnerId))
       );
