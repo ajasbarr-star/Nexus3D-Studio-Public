@@ -387,7 +387,7 @@ test('Keyframe capture stores the selected object plus every bone and control ha
 });
 
 test('Animated orange Bone Control Handles explicitly drive their owning rig during keyframe playback', () => {
-  const playback = app.slice(app.indexOf('const applyInterpolatedFrame ='), app.indexOf('useEffect(() => {\\n    if (!playing) return;'));
+  const playback = app.slice(app.indexOf('const applyInterpolatedFrame ='), app.indexOf('useEffect(() => {\n    if (!playing) return;'));
   assert.match(playback, /candidate\\.userData\\.rigControlMarker/);
   assert.match(playback, /keysRef\\.current\\[markerId\\]/);
   assert.match(playback, /controlOwnerBoneId/);
