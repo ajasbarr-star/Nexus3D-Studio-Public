@@ -73,11 +73,11 @@ test('Alphabet State sequence and timeline markers persist with project data', (
   assert.match(app, /timelineMarkers/);
 });
 
-test('One continuous frame range displays per-object tracks across all Alphabet States', () => {
+test('One continuous frame range drives the single Alphabet Ruler keyframe track across all States', () => {
   assert.match(app, /setCurrentFrame\(previousEnd\)/);
   assert.match(app, /max=\{Math\.max\(activeSequenceRange\.start \+ 1, activeSequenceRange\.end\)\}/);
-  assert.match(app, /items\.filter\(item=>item\.kind/);
-  assert.match(app, /keyframes\[item\.id\]/);
+  assert.match(app, /className="alphabet-keyframe-track"/);
+  assert.match(app, /keyframes\[selected\]/);
   assert.match(app, /loopPlayback/);
 });
 
@@ -263,7 +263,7 @@ test('Dope Sheet removes the detached lower keyframe timeline and compacts to it
   assert.match(app, /moveSelectedKeyframe\(-1\)/);
   assert.match(app, /moveSelectedKeyframe\(1\)/);
   assert.match(app, /onClick=\{deleteFrame\}/);
-  assert.doesNotMatch(css, /\\.timeline-object-tracks|\\.timeline-object-row/);
-  assert.match(css, /\\.timeline-dope-sheet\\{display:flex;flex:0 0 auto/);
-  assert.match(css, /\\.timeline-graph-editor\\{display:flex;flex:1/);
+  assert.doesNotMatch(css, /\.timeline-object-tracks|\.timeline-object-row/);
+  assert.match(css, /\.timeline-dope-sheet\{display:flex;flex:0 0 auto/);
+  assert.match(css, /\.timeline-graph-editor\{display:flex;flex:1/);
 });
