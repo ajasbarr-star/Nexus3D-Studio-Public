@@ -563,8 +563,8 @@ export default function App() {
   const [status, setStatus] = useState('Nothing selected');
   const [objectCount, setObjectCount] = useState(0);
   const [snapOn, setSnapOn] = useState(false);
-  const animOpen = false;
-  const animationMode = false;
+  const [animOpen, setAnimOpen] = useState(false);
+  const [animationMode, setAnimationMode] = useState(false);
   const [sequenceStates, setSequenceStates] = useState<Array<{ id: string; label: string; width: number }>>([]);
   const [selectedSequenceState, setSelectedSequenceState] = useState('');
   const [playbackControlsOpen, setPlaybackControlsOpen] = useState(false);
@@ -575,6 +575,7 @@ export default function App() {
   const [frameRate, setFrameRate] = useState(30);
   const [timeUnit, setTimeUnit] = useState<'seconds' | 'milliseconds'>('seconds');
   const [timelineDuration, setTimelineDuration] = useState(10);
+  useEffect(() => { setWorkEnd(Math.max(1, Math.round(timelineDuration * frameRate))); }, [timelineDuration, frameRate]);
   const [loopPlayback, setLoopPlayback] = useState(true);
   const [interpolation, setInterpolation] = useState('Ease In-Out');
   const [curveWeight, setCurveWeight] = useState(50);
@@ -1052,7 +1053,7 @@ export default function App() {
     };
     const syncViewportControls = (dragging = Boolean(transform.dragging)) => {
       const inRigView = Boolean(runtime.current?.riggingView);
-      const inCameraView = Boolean(runtime.current?.cameraView);
+      const inCameraView = Boolean(runtime.current?.cameraView || runtime.current?.animationView);
       orbit.enabled = !dragging && !inRigView && !inCameraView;
       activeOrbit.enabled = !dragging && inCameraView && !inRigView;
       ikOrbit.enabled = !dragging && inRigView;
@@ -3887,13 +3888,13 @@ export default function App() {
     const frameLoop = () => {
       orbit.update();
       if (runtime.current?.riggingView && ikOrbit) ikOrbit.update();
-      if (!runtime.current?.cameraView) {
+      if (!runtime.current?.cameraView && !runtime.current?.animationView) {
         activeCamera.position.copy(camBody.position);
         activeCamera.quaternion.copy(camBody.quaternion);
       } else {
         activeOrbit.update();
       }
-      const inCam = Boolean(runtime.current?.cameraView);
+      const inCam = Boolean(runtime.current?.cameraView || runtime.current?.animationView);
       // Keep Manual Shape Rig connection lines synchronized with live bone transforms.
       // SkeletonHelper.update() is not automatic when bones move through TransformControls.
       if (activeIkSpring) {
@@ -5214,6 +5215,36 @@ export default function App() {
       setPanel(true);
       setStatus('Main Viewport restored');
     }
+  };
+
+  const toggleAnimationWorkspace = () => {
+    const r = runtime.current;
+    if (!r) return;
+    if (!animationMode && (r.riggingView || riggingView)) { setStatus('Exit IK Rigging before opening Animation'); return; }
+    if (!animationMode && (r.cameraView || cameraView)) { setStatus('Exit CAM view before opening Animation'); return; }
+    const opening = !animationMode;
+    if (opening) {
+      r.animationView = true;
+      r.activeCamera.position.copy(r.camBody.position);
+      r.activeCamera.quaternion.copy(r.camBody.quaternion);
+      r.activeOrbit.target.copy(r.activeCamera.position).add(new THREE.Vector3(0, 0, -3).applyQuaternion(r.activeCamera.quaternion));
+      r.transform.camera = r.activeCamera;
+      setAnimationMode(true);
+      setAnimOpen(false);
+      setPlaying(false);
+      setMenuOpen(false); setPanel(false); setQuickPanel(null); setInspectorOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false);
+      setStatus('Animation workspace opened · User Camera view');
+    } else {
+      r.animationView = false;
+      r.camBody.position.copy(r.activeCamera.position);
+      r.camBody.quaternion.copy(r.activeCamera.quaternion);
+      r.transform.camera = r.camera;
+      setAnimationMode(false);
+      setAnimOpen(false);
+      setPlaying(false);
+      setStatus('Animation workspace closed · User View restored');
+    }
+    r.syncViewportControls?.();
   };
 
   const toggleCamera = () => {
@@ -7182,7 +7213,7 @@ export default function App() {
 
 
   return (
-    <main className={'editor-shell' + (riggingView ? ' rigging-mode' : '')}>
+    <main className={'editor-shell' + (riggingView ? ' rigging-mode' : '') + (animationMode ? ' animation-mode' : '')}>
 
 
       <div className={'viewport ' + (pathTool ? 'path-tool-active' : '')} ref={hostRef} onPointerDown={e => { if (!pathTool || animationMode) return; const rect = e.currentTarget.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width - .5) * 20; const z = ((e.clientY - rect.top) / rect.height - .5) * -20; setMotionPathPoints(prev => [...prev, {x, y:0.05, z}]); }} onDragOver={e => { if (e.dataTransfer.types.includes('text/nexus3d-object')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }} onDrop={e => { const childId = e.dataTransfer.getData('text/nexus3d-object'); if (!childId) return; e.preventDefault(); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }} />
@@ -7226,7 +7257,7 @@ export default function App() {
         <label className="ik-spring-control"><span>FOLLOW-THROUGH <output>{ikSpringFollowThrough}%</output></span><input aria-label="Spring Follow-through" type="range" min="0" max="100" value={ikSpringFollowThrough} disabled={!ikSpringEnabled} onChange={event => { const value = Number(event.target.value); setIkSpringFollowThrough(value); runtime.current?.configureIkSpring?.({ followThrough: value }); }}/></label>
         <button type="button" className="ik-spring-reset" onClick={() => { setIkSpringStrength(35); setIkSpringDamping(75); setIkSpringFollowThrough(40); runtime.current?.configureIkSpring?.({ strength: 35, damping: 75, followThrough: 40 }); }}>RESET SETTINGS</button>
       </section>}
-      <div className={'camera-mode-hud ' + (cameraView ? 'cine-active' : '')} aria-live="polite"><span className="camera-mode-dot" />{cameraView ? 'CINE CAMERA VIEW' : riggingView ? 'IK RIGGING · FRONT PERSPECTIVE' : 'PERSPECTIVE MODE'}</div>
+      <div className={'camera-mode-hud ' + (cameraView ? 'cine-active' : '')} aria-live="polite"><span className="camera-mode-dot" />{animationMode ? 'ANIMATION · USER CAMERA VIEW' : cameraView ? 'CINE CAMERA VIEW' : riggingView ? 'IK RIGGING · FRONT PERSPECTIVE' : 'PERSPECTIVE MODE'}</div>
       {!animationMode && !cameraView && <div className="quick-access-rail" aria-label="Quick access controls">
         <button type="button" className={quickPanel === 'lights' ? 'active' : ''} onClick={() => { setQuickPanel(quickPanel === 'lights' ? null : 'lights'); setInspectorOpen(false); setPanel(false); setMenuOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); }} title="Quick Light Controls"><Sun size={14}/><span>LIGHTS</span></button>
         <button type="button" className={quickPanel === 'materials' ? 'active' : ''} onClick={() => { setQuickPanel(quickPanel === 'materials' ? null : 'materials'); setInspectorOpen(false); setPanel(false); setMenuOpen(false); setShapeLibraryOpen(false); setMeshToolsOpen(false); }} title="Quick Material and Color Controls"><Palette size={14}/><span>MATERIAL</span></button>
@@ -7758,6 +7789,7 @@ export default function App() {
         <button className={'rail-btn ' + (cameraView ? 'active' : '')} onClick={toggleCamera} title={cameraView ? 'Return to User View' : 'Directly view through MainCamera'}><Camera size={17} /><span>{cameraView ? 'USER' : 'CAM'}</span></button>
         
         <button className={'rail-btn rig-rail-btn ' + (riggingView ? 'active' : '')} onClick={toggleRiggingWorkspace} title={riggingView ? 'Return to User Workspace' : 'Switch to IK Rigging Workspace · Front Perspective'} aria-label="Rigging workspace"><GitBranch size={17}/><span>{riggingView ? 'USER' : 'RIG'}</span></button>
+        <button className={'rail-btn animation-rail-btn ' + (animationMode ? 'active' : '')} onClick={toggleAnimationWorkspace} title="Open Animation Workspace" aria-label="Open Animation Workspace"><Film size={17}/><span>ANIM</span></button>
       </div>
 
       
@@ -7767,6 +7799,22 @@ export default function App() {
 
       
 
+      {animationMode && <div className="animation-mode-controls" aria-label="Animation workspace controls"><button type="button" onClick={toggleAnimationWorkspace} title="Exit Animation and return to User View" aria-label="Exit Animation"><X size={16}/></button><button type="button" className={animOpen ? 'active' : ''} onClick={() => setAnimOpen(value => !value)} title={animOpen ? 'Hide Timeline' : 'Show Timeline'} aria-label="Toggle Animation Timeline"><Film size={15}/><span>TIME</span></button></div>}
+      {animationMode && animOpen && <section className="timeline-panel" aria-label="Animation Timeline">
+        <div className="timeline-heading"><strong><Film size={13}/> ANIMATION TIMELINE</strong><span>F {String(frame).padStart(3, '0')} · {(frame / Math.max(1, frameRate)).toFixed(2)}s</span><div className="timeline-heading-actions"><button type="button" onClick={() => setAnimOpen(false)} aria-label="Hide timeline"><X size={13}/></button></div></div>
+        <div className="timeline-transport">
+          <button type="button" title="Go to start" onClick={() => { setPlaying(false); setCurrentFrame(workStart); }}><Rewind size={13}/></button>
+          <button type="button" title="Previous keyframe" onClick={() => { const frames = Object.keys(keyframes[selected] || {}).map(Number).filter(value => value < frame).sort((x,y) => y-x); if (frames.length) setCurrentFrame(frames[0]); }}><ChevronDown size={13}/></button>
+          <button type="button" className="timeline-play" title={playing ? 'Pause' : 'Play'} onClick={() => setPlaying(value => !value)}>{playing ? <Pause size={14}/> : <Play size={14}/>}</button>
+          <button type="button" title="Stop" onClick={() => { setPlaying(false); setCurrentFrame(workStart); }}><span className="timeline-stop-square"/></button>
+          <button type="button" title="Next keyframe" onClick={() => { const frames = Object.keys(keyframes[selected] || {}).map(Number).filter(value => value > frame).sort((x,y) => x-y); if (frames.length) setCurrentFrame(frames[0]); }}><ChevronRight size={13}/></button>
+          <button type="button" className="timeline-key" title="Insert keyframe for selected object" disabled={!selected} onClick={() => captureRef.current()}><span>◆</span> KEY</button>
+          <button type="button" className={autoKey ? 'record-active' : ''} title="Toggle Auto Key recording" onClick={() => setAutoKey(value => !value)}><span className="record-dot"/> REC</button>
+          <label className="timeline-loop"><input type="checkbox" checked={loopPlayback} onChange={event => setLoopPlayback(event.target.checked)}/> LOOP</label>
+        </div>
+        <div className="timeline-track-row"><span className="timeline-track-name">{items.find(item => item.id === selected)?.name || 'Select an object'}</span><div className="timeline-track"><input aria-label="Current animation frame" type="range" min={workStart} max={Math.max(workStart + 1, workEnd)} value={Math.min(frame, workEnd)} onChange={event => setCurrentFrame(Number(event.target.value))}/><div className="timeline-markers">{Object.keys(keyframes[selected] || {}).map(value => { const at = Number(value); return <button key={value} type="button" title={'Keyframe ' + at} style={{left: ((at - workStart) / Math.max(1, workEnd - workStart) * 100) + '%'}} onClick={() => { setSelectedKeyframe({id:selected,frame:at}); setCurrentFrame(at); }}>◆</button>; })}</div></div></div>
+        <div className="timeline-settings"><label>DURATION <input type="number" min={1} max={60} value={timelineDuration} onChange={event => setTimelineDuration(Math.max(1, Math.min(60, Number(event.target.value) || 1)))}/> SEC</label><label>FPS <input type="range" min={1} max={60} value={frameRate} onChange={event => setFrameRate(Number(event.target.value))}/><span>{frameRate} · {Math.round(1000 / Math.max(1, frameRate))}ms/frame</span></label><label>INTERPOLATION <select value={interpolation} onChange={event => setInterpolation(event.target.value)}><option>Linear</option><option>Ease In</option><option>Ease Out</option><option>Ease In-Out</option><option>Bounce</option><option>Anticipation</option><option>Spring Damping</option></select></label><button type="button" title="Delete selected keyframe" onClick={deleteFrame}><Trash2 size={13}/></button></div>
+      </section>}
       {!cameraView && !animationMode && <div className={'bottom-bar action-dock ' + (animOpen ? 'timeline-open' : '')} aria-label="Object actions"><button onClick={duplicate} disabled={!selected || items.some(item => item.id === selected && item.kind === 'Camera')} title="Duplicate selected object" aria-label="Duplicate selected object"><Copy size={17}/></button><button className="delete-btn" onClick={deleteSelected} disabled={!selected || items.some(item => item.id === selected && item.kind === 'Camera')} title="Delete selected object" aria-label="Delete selected object"><Trash2 size={17}/></button></div>}
 
       
