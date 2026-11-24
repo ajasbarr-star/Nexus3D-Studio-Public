@@ -2128,7 +2128,25 @@ export default function App() {
       anchor.userData.pendingShapeAttachment = false;
       root.userData.rigPendingAttachment = false; root.userData.nexusRigSchema = 3;
       const chain = rigChains.find(entry => entry.bones.includes(root!));
-      if (chain) { chain.owner = owner; rebuildRigHelper(chain); chain.helper.updateMatrixWorld(true); chain.helper.visible = chain.displayVisible !== false; }
+      if (chain) {
+        chain.owner = owner;
+        // Handles created while the root was still pending live at Scene root.
+        // Reparent every handle in this rig to its owner while preserving its
+        // world transform, so it follows every Shape/Character transform.
+        scene.updateMatrixWorld(true);
+        const chainBoneIds = new Set(chain.bones.map(bone => String(bone.userData.editorId || '')));
+        selectable.filter(object =>
+          object.userData.rigControlMarker &&
+          chainBoneIds.has(String(object.userData.controlOwnerBoneId || ''))
+        ).forEach(marker => {
+          owner.attach(marker);
+          marker.visible = true;
+          marker.updateMatrixWorld(true);
+        });
+        rebuildRigHelper(chain);
+        chain.helper.updateMatrixWorld(true);
+        chain.helper.visible = chain.displayVisible !== false;
+      }
       scene.updateMatrixWorld(true); syncItems(); selectObject(owner);
       setStatus('Root Bone attached · Bind Mesh remains a separate step'); return true;
     };
