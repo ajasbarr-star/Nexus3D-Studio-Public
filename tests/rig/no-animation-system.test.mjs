@@ -177,10 +177,11 @@ test('Animation Scene List and Transform Inspector open only from their shared i
   assert.match(css, /\.animation-panel-switcher/);
 });
 
-test('Animation workspace aligns playback and Alphabet State at the same left edge and anchors Gizmo top-center', () => {
-  assert.match(css, /\.animation-mode \.animation-state-layout\{[\s\S]*?flex-direction:row/);
-  assert.match(css, /\.animation-mode \.timeline-playback-panel\{[\s\S]*?flex:0 0 142px/);
-  assert.match(css, /\.animation-mode \.timeline-editor-stack\{[\s\S]*?flex:1 1 0/);
+test('Animation workspace uses the canonical horizontal playback and Alphabet State replacement', () => {
+  const layout = css.slice(css.lastIndexOf('/* Canonical Animation Timeline layout'));
+  assert.match(layout, /\.animation-state-layout\{[\s\S]*?flex-direction:row/);
+  assert.match(layout, /\.timeline-playback-panel\{[\s\S]*?flex:0 0 112px/);
+  assert.match(layout, /\.timeline-editor-stack\{[\s\S]*?flex:1 1 0/);
   assert.match(css, /\.animation-gizmo-tools\.animation-floating-gizmo\{top:7px!important;bottom:auto!important;left:50%/);
 });
 
@@ -216,7 +217,7 @@ test('Keyframe diamonds and their frame numbers are rendered inside the selected
   assert.match(selectedRuler, /className="keyframe-diamond">◆<\/span>/);
   assert.match(selectedRuler, /className="keyframe-frame-number">\{at\}<\/span>/);
   assert.match(selectedRuler, /aria-label=\{'Select keyframe at frame ' \+ at\}/);
-  assert.match(css, /\.animation-mode \.timeline-markers\{[\s\S]*?inset:0 4\.5px/);
+  assert.match(css, /\.timeline-markers\{[\s\S]*?inset:0 4\.5px/);
   assert.match(css, /\.animation-mode \.timeline-markers button \.keyframe-frame-number/);
   assert.match(css, /Marker inset equals half the native range-thumb width/);
 });
