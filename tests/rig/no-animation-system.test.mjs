@@ -492,8 +492,8 @@ test('Horizontal ruler ticks are individually positioned across the track and St
 
 
 test('Opening an Alphabet State reveals a horizontal numbered ruler beside its letter', () => {
-  assert.match(app, /sequenceRulerDisplayWidths\[state\.id\] \|\| 220/);
-  assert.match(app, /previous\[state\.id\] \|\| 220/);
+  assert.match(app, /sequenceRulerDisplayWidths\[state\.id\] \|\| 360/);
+  assert.match(app, /previous\[state\.id\] \|\| 360/);
   assert.match(app, /style=\{\{left:\(index\/Math\.max\(1,Math\.round\(state\.width\)\)\*100\)\+"%",top:0\}\}/);
   assert.match(css.slice(css.lastIndexOf('/* Timeline interaction cleanup')), /\.alphabet-state-ruler-labels span\{position:absolute!important;top:0!important/);
   assert.match(css.slice(css.lastIndexOf('/* Timeline interaction cleanup')), /\.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:19px!important/);
