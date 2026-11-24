@@ -120,14 +120,17 @@ test('Timeline toolbar actions remain connected to undo, redo, copy, paste, fit 
 });
 
 
-test('Animation workspace exposes the shared Scene List, Transform Inspector and Gizmo controls', () => {
-  assert.match(app, /animation-editor-dock/);
-  assert.match(app, /SCENE LIST/);
-  assert.match(app, /TRANSFORM INSPECTOR/);
+test('Animation Scene List and Transform Inspector remain separate compact panels', () => {
+  assert.match(app, /className="animation-scene-list animation-floating-panel"/);
+  assert.match(app, /className="animation-transform-inspector animation-floating-panel"/);
+  assert.match(app, /SC LIST/);
+  assert.match(app, /TRANSFORM/);
   assert.ok(app.includes("ariaLabel={'Animation '+group+' '+axis.toUpperCase()}"));
   assert.match(app, /runMode\('translate'\)/);
   assert.match(app, /runMode\('rotate'\)/);
   assert.match(app, /runMode\('scale'\)/);
   assert.match(app, /title=\{keyed\?'Keyframe exists at current frame':'Add keyframe at current frame'\}/);
-  assert.match(css, /\.animation-editor-dock/);
+  assert.match(css, /\.animation-scene-list\.animation-floating-panel/);
+  assert.match(css, /\.animation-transform-inspector\.animation-floating-panel/);
+  assert.doesNotMatch(app, /animation-editor-dock/);
 });
