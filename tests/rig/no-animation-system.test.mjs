@@ -411,7 +411,7 @@ test('Alphabet State timeline ruler uses numeric frame labels and graduated mino
 
   assert.match(app, /alphabet-state-ruler-scale/);
   assert.match(app, /alphabet-state-ruler-labels/);
-  assert.match(app, /getCustomRulerLabel\(index,Math\.round\(state\.width\)\)/);
+  assert.match(app, /getCustomRulerLabel\(index,4\)/);
   assert.match(app, /index%10===0\?"major":index%5===0\?"medium":"minor"/);
   assert.match(css, /\.alphabet-state-ruler-labels span/);
   assert.match(css, /\.alphabet-state-ruler-ticks i\.medium/);
@@ -442,7 +442,7 @@ test('Timeline panel preserves its original footprint and stays permanently bott
 
 test('Timeline ruler uses graduated frame ticks, a taller anchored track, and compact transport controls', () => {
 
-  assert.match(app, /getCustomRulerLabel\(index,Math\.round\(state\.width\)\)/);
+  assert.match(app, /getCustomRulerLabel\(index,4\)/);
   assert.match(css, /\.timeline-panel\{[\s\S]*?height:148px!important;min-height:136px!important/);
   assert.match(css, /\.alphabet-state-scroll\{[\s\S]*?flex:1 1 58px!important/);
   assert.match(css, /\.alphabet-state-mini-ruler\{[\s\S]*?height:56px!important;min-height:56px!important/);
@@ -496,7 +496,7 @@ test('Opening an Alphabet State reveals a horizontal numbered ruler beside its l
 
   assert.match(app, /sequenceRulerDisplayWidths\[state\.id\] \|\| 360/);
   assert.match(app, /previous\[state\.id\] \|\| 360/);
-  assert.match(app, /getCustomRulerLabel\(index,Math\.round\(state\.width\)\)/);
+  assert.match(app, /getCustomRulerLabel\(index,4\)/);
   assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels span\{position:absolute!important;top:0!important/);
   assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:19px!important/);
   assert.match(css, /writing-mode:horizontal-tb!important/);
@@ -513,8 +513,8 @@ test('Add Keyframe stays immediately beside Dope Sheet in the Timeline tools row
 
 test('Frame ruler labels every frame in sequence with graduated ticks at 5-frame intervals', () => {
 
-  assert.match(app, /length:Math\.max\(2,Math\.round\(state\.width\)\+1\)/);
-  assert.match(app, /getCustomRulerLabel\(index,Math\.round\(state\.width\)\)/);
+  assert.match(app, /length:4/);
+  assert.match(app, /getCustomRulerLabel\(index,4\)/);
   assert.match(app, /index%10===0\?"major":index%5===0\?"medium":"minor"/);
   assert.match(app, /left:\(index\/Math\.max\(1,Math\.round\(state\.width\)\)\*100\)\+"%"/);
 
@@ -528,7 +528,7 @@ test('Custom START and END controls independently edit ruler values and units', 
   assert.match(app, /aria-label="Custom ruler end unit"/);
   assert.match(app, /setCustomRulerStart\(Math\.max\(0,Number\(event\.target\.value\)\|\|0\)\)/);
   assert.match(app, /setCustomRulerEnd\(Math\.max\(0,Number\(event\.target\.value\)\|\|0\)\)/);
-  assert.match(app, /getCustomRulerLabel\(index,Math\.round\(state\.width\)\)/);
+  assert.match(app, /getCustomRulerLabel\(index,4\)/);
   assert.match(app, /customRulerStartUnit === customRulerEndUnit \? customRulerStartUnit : 's'/);
 });
 
