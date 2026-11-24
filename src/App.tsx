@@ -1495,6 +1495,15 @@ export default function App() {
       outline.raycast = () => {};
       frame.add(face, outline);
       frame.traverse(node => { node.raycast = () => {}; });
+      // Keep the selection frame a consistent world-space size for every
+      // Shape/Character rig, regardless of the Control Handle's inherited scale.
+      obj.updateWorldMatrix(true, false);
+      const handleWorldScale = obj.getWorldScale(new THREE.Vector3());
+      frame.scale.set(
+        1 / Math.max(Math.abs(handleWorldScale.x), 1e-4),
+        1 / Math.max(Math.abs(handleWorldScale.y), 1e-4),
+        1 / Math.max(Math.abs(handleWorldScale.z), 1e-4)
+      );
       frame.visible = true;
       obj.add(frame);
       activeControlSelectionFrame = frame;
