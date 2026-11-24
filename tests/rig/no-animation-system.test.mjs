@@ -138,3 +138,15 @@ test('Animation Scene List and Transform Inspector remain separate compact panel
   assert.match(css, /\.animation-transform-inspector\.animation-floating-panel/);
   assert.doesNotMatch(app, /animation-editor-dock/);
 });
+
+
+test('Selected Alphabet State keeps keyframes on its own ruler and extends continuously when scrolled', () => {
+  assert.match(app, /className="state-ruler-scroll" onScroll=\{event =>/);
+  assert.match(app, /resizeAlphabetState\(activeSequenceState\.id, activeSequenceState\.width \+ Math\.max\(120, activeSequenceState\.width\)\)/);
+  assert.match(app, /Number\.MAX_SAFE_INTEGER/);
+  assert.match(app, /timelineTool==='tracks' \? null : timelineTool==='dope'/);
+  assert.match(app, /className="timeline-markers"/);
+  assert.doesNotMatch(app, /Math\.min\(10000, Math\.round\(nextWidth\)\)/);
+  assert.match(css, /\.state-ruler-content \.timeline-track/);
+  assert.match(app, /<input type="number" min=\{1\} value=\{timelineDuration\}/);
+});
