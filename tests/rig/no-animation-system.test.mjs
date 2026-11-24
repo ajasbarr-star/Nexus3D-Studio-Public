@@ -37,3 +37,38 @@ test('Automatic IK / Auto Rig entry points remain absent', () => {
 });
 
 // Animation workspace regression coverage is now enabled on the Test integration branch.
+
+
+test('Alphabet State timeline exposes draggable letter handles and horizontal expansion', () => {
+  assert.match(app, /alphabet-state-row/);
+  assert.match(app, /alphabet-state-handle/);
+  assert.match(app, /onPointerDown/);
+  assert.match(app, /onPointerMove/);
+  assert.match(app, /setSequenceStates/);
+  assert.match(css, /\.alphabet-state-scroll/);
+  assert.match(css, /overflow-x:auto/);
+});
+
+test('New Alphabet States offer manual Continue or Independent pose behavior', () => {
+  assert.match(app, /CONTINUE POSE/);
+  assert.match(app, /INDEPENDENT/);
+  assert.match(app, /addAlphabetState\('continue'\)/);
+  assert.match(app, /addAlphabetState\('independent'\)/);
+  assert.match(app, /mode === 'continue'/);
+  assert.match(app, /previousEnd/);
+});
+
+test('Alphabet State sequence and timeline markers persist with project data', () => {
+  assert.match(app, /animationSequence:/);
+  assert.match(app, /savedSequence\.states/);
+  assert.match(app, /savedSequence\.markers/);
+  assert.match(app, /timelineMarkers/);
+});
+
+test('One continuous frame range displays per-object tracks across all Alphabet States', () => {
+  assert.match(app, /setCurrentFrame\(previousEnd\)/);
+  assert.match(app, /max=\{Math\.max\(workStart \+ 1, workEnd\)\}/);
+  assert.match(app, /items\.filter\(item=>item\.kind/);
+  assert.match(app, /keyframes\[item\.id\]/);
+  assert.match(app, /loopPlayback/);
+});
