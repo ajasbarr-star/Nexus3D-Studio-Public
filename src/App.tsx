@@ -2533,7 +2533,7 @@ export default function App() {
         position: start,
         radius: THREE.MathUtils.clamp(segmentLength * 0.14, 0.05, 0.3),
         rigRootBoneId: chain?.bones[0]?.userData.editorId || owner.userData.rigRootBoneId || '',
-        rigOwnerObjectId: chain?.owner?.userData?.editorId || ''
+        rigOwnerObjectId: chain?.owner?.userData?.editorId || owner.userData.rigOwnerId || ''
       };
     };
     const placeControlHandleAtBone = (marker: THREE.Object3D, bone: THREE.Bone, placement: { position: THREE.Vector3 }) => {
