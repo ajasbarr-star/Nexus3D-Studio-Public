@@ -150,3 +150,46 @@ test('Selected Alphabet State keeps keyframes on its own ruler and extends conti
   assert.match(css, /\.state-ruler-content \.timeline-track/);
   assert.match(app, /<input type="number" min=\{1\} value=\{timelineDuration\}/);
 });
+
+
+test('Selected State uses exactly one integrated timeline track for the playhead and keyframe diamonds', () => {
+  const selectedRuler = app.slice(app.indexOf('className="state-ruler-panel"'), app.indexOf('className="state-ruler-empty"'));
+  assert.match(selectedRuler, /className="timeline-track" aria-label="Single timeline track with playhead and keyframes"/);
+  assert.match(selectedRuler, /aria-label="Current animation frame and playhead" type="range"/);
+  assert.match(selectedRuler, /className="timeline-markers"/);
+  assert.match(selectedRuler, /keyframes\[selected\]/);
+  assert.match(selectedRuler, /setSelectedKeyframe\(\{id:selected,frame:at\}\); setCurrentFrame\(at\)/);
+  assert.equal((selectedRuler.match(/type="range"/g) || []).length, 1, 'State Ruler must not render a second frame slider');
+  assert.match(app, /className="state-ruler-scroll" ref=\{timelineScrollRef\}/);
+  assert.match(app, /onClick=\{\(\) => captureRef\.current\(\)\}/);
+  assert.match(css, /\.animation-mode \.timeline-track input\[type=range\]/);
+  assert.match(css, /\.animation-mode \.timeline-markers/);
+});
+
+test('Animation Scene List and Transform Inspector open only from their shared icon switcher', () => {
+  assert.match(app, /const \[animationDock, setAnimationDock\] = useState<'scene' \| 'transform' \| null>\(null\)/);
+  assert.match(app, /className="animation-panel-switcher"/);
+  assert.match(app, /animationDock==='scene' && <aside className="animation-scene-list animation-floating-panel"/);
+  assert.match(app, /animationDock==='transform' && <aside className="animation-transform-inspector animation-floating-panel"/);
+  assert.match(app, /setAnimationDock\(value=>value==='scene'\?null:'scene'\)/);
+  assert.match(app, /setAnimationDock\(value=>value==='transform'\?null:'transform'\)/);
+  assert.match(css, /\.animation-panel-switcher/);
+});
+
+test('Animation workspace aligns playback and Alphabet State at the same left edge and anchors Gizmo top-center', () => {
+  assert.match(css, /\.animation-mode \.animation-state-layout\{display:flex;flex-direction:column/);
+  assert.match(css, /\.animation-mode \.timeline-playback-panel\{flex:0 0 auto;width:100%/);
+  assert.match(css, /\.animation-mode \.alphabet-state-panel\{align-self:stretch\}/);
+  assert.match(css, /\.animation-gizmo-tools\.animation-floating-gizmo\{top:7px!important;bottom:auto!important;left:50%/);
+});
+
+test('Timeline toolbar actions remain real actions with clear state feedback', () => {
+  assert.match(app, /onClick=\{undo\} title="Undo last scene or keyframe edit"/);
+  assert.match(app, /onClick=\{redo\} title="Redo last scene or keyframe edit"/);
+  assert.match(app, /onClick=\{copyFrame\}/);
+  assert.match(app, /onClick=\{pasteFrame\}/);
+  assert.match(app, /onClick=\{v=>setShowGhostPreview\(v=>!v\)\}/);
+  assert.match(app, /Add a marker at the current frame/);
+  assert.match(app, /timelineTool==='dope'/);
+  assert.match(app, /timelineTool==='graph'/);
+});
