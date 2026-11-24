@@ -62,6 +62,7 @@ const appSource = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'u
 
 test('Nexus3D exposes fitted character rig, body-part detection, and batch binding actions', () => {
   assert.match(appSource, /owner\.add\(rig\)/);
+  assert.match(appSource, /This Character already has a Rig/);
   assert.match(appSource, /const detectCharacterBodyParts = \(\) =>/);
   assert.match(appSource, /const bindAllCharacterMeshesToRig = \(\) =>/);
   assert.match(appSource, /bindAllCharacterMeshesToRig, normalizeSelectedSkinWeights/);
