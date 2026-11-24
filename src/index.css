@@ -2809,22 +2809,17 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .alphabet-state-choice button:hover,.timeline-tool-row button.active { color:#06131c; border-color:#78e7ff; background:#78e7ff; }
 .timeline-tool-row { display:flex; align-items:center; gap:3px; overflow-x:auto; min-height:23px; scrollbar-width:none; }
 .timeline-tool-row button { min-width:38px; }
-.timeline-object-tracks { display:flex; flex-direction:column; gap:2px; min-height:0; flex:1; overflow:auto; border-top:1px solid #1e3449; }
-.timeline-object-row { display:flex; align-items:center; min-height:17px; gap:6px; }
-.timeline-object-row > span { flex:0 0 82px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#9bb5cb; font:7px 'DM Mono',monospace; }
-.timeline-object-row > div { position:relative; flex:1; height:15px; border-bottom:1px solid #1a2c40; background:repeating-linear-gradient(90deg,transparent 0,transparent 24px,#1c3044 25px); }
-.timeline-object-row button { position:absolute; top:0; transform:translateX(-50%); padding:0; border:0; color:#42dfff; background:transparent; font-size:10px; line-height:13px; }
 .alphabet-keyframe-markers .timeline-event-marker { color:#ffcf72; text-shadow:0 0 6px #ffb84d; }
 .timeline-tool-empty { display:flex; align-items:center; min-height:22px; color:#819db8; font:7px 'DM Mono',monospace; }
 @media (max-width:760px) {
   .alphabet-state-handle { min-width:40px; }
-  .timeline-object-row > span { flex-basis:64px; }
   .timeline-tool-row button { padding:0 5px; }
 }
 
 
 /* Functional Animation Timeline editors: Dope Sheet, Graph channel editing and 3D ghosts. */
-.timeline-dope-sheet,.timeline-graph-editor{display:flex;flex:1;min-height:0;flex-direction:column;gap:4px;overflow:hidden}
+.timeline-dope-sheet{display:flex;flex:0 0 auto;min-height:0;flex-direction:column;gap:4px;overflow:hidden}
+.timeline-graph-editor{display:flex;flex:1;min-height:0;flex-direction:column;gap:4px;overflow:hidden}
 .timeline-dope-actions,.timeline-graph-toolbar{display:flex;align-items:center;gap:5px;min-height:24px;overflow-x:auto}
 .timeline-dope-actions span{margin-right:auto;color:#a8c4df;font:7px 'DM Mono',monospace;white-space:nowrap}
 .timeline-dope-actions button,.timeline-graph-toolbar button{min-height:21px;padding:0 6px;border:1px solid #31536d;border-radius:4px;background:#102033;color:#b9d8eb;font:700 7px 'DM Mono',monospace;white-space:nowrap}
@@ -2836,8 +2831,6 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .timeline-curve-controls input{width:55px;accent-color:#42dfff}
 .timeline-curve-controls span{color:#b8d7eb}
 .timeline-curve-controls p{flex-basis:100%;margin:0;color:#819db8;font:7px 'DM Mono',monospace}
-.timeline-object-row button.selected-keyframe{color:#ff63ad;text-shadow:0 0 8px #ff4fa3}
-.timeline-object-row button:focus-visible{outline:1px solid #ff63ad;outline-offset:2px}
 @media(max-width:760px){.timeline-graph-toolbar{gap:3px}.timeline-graph-toolbar label{font-size:6px}.timeline-graph-toolbar input{width:48px}.timeline-curve-controls{gap:4px}}
 
 
@@ -2882,7 +2875,6 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .alphabet-state-keyframe-empty{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:0;color:#83a4bf;text-align:center;font:8px 'DM Mono',monospace}
 .alphabet-state-keyframe-empty strong{color:#a9eaff;font-size:9px}
 .alphabet-state-keyframe-empty span{max-width:220px;line-height:1.5}
-.alphabet-state-keyframe-content .timeline-object-tracks{min-height:40px}
 @media(max-width:760px){.alphabet-state-handle{width:32px;min-width:32px}.alphabet-state-add{min-width:32px}.alphabet-state-keyframe-heading span{font-size:5px}}
 .timeline-playback-panel .timeline-transport button{min-width:0;width:100%;height:25px;padding:0 3px}
 .timeline-tools-panel{display:flex;flex:0 0 auto;min-width:0;max-width:100%;padding:2px 4px;border:1px solid #203c52;border-radius:6px;background:rgba(10,25,40,.76)}
@@ -2901,7 +2893,6 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .alphabet-state-keyframe-heading span{margin-left:auto;white-space:nowrap}
 .timeline-keyframe-button{flex:0 0 auto;height:19px;padding:0 6px;border:1px solid #3b718a;border-radius:4px;color:#83eaff;background:#10283a;font:700 7px "DM Mono",monospace}
 .timeline-keyframe-button:disabled{opacity:.35}
-.alphabet-state-keyframe-content .timeline-object-tracks{min-height:24px}
 .alphabet-state-keyframe-empty{flex:1 1 auto;min-height:18px;font-size:7px}
 .alphabet-state-keyframe-empty strong{font-size:8px}
 @media(max-width:760px){.timeline-playback-panel .timeline-transport button{height:23px;min-width:20px}.timeline-tools-panel{padding:2px}.timeline-tools-panel .timeline-tool-row{gap:2px}.timeline-tools-panel .timeline-tool-row button{min-width:34px;padding:0 4px;font-size:6px}.alphabet-state-item .alphabet-state-handle{flex-basis:23px;width:23px;min-width:23px;height:22px}.alphabet-state-mini-ruler{min-width:40px}.alphabet-state-panel .alphabet-state-add{flex-basis:48px;width:48px;min-width:48px}.alphabet-state-keyframe-heading span{font-size:5px}}
@@ -3096,7 +3087,6 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .alphabet-keyframe-track{position:relative;flex:1 1 0;width:auto;min-width:0;height:42px;overflow:visible;border-radius:4px;background:repeating-linear-gradient(90deg,#0c1c2b 0,#0c1c2b 13px,#18344a 14px)}
 .alphabet-keyframe-markers{position:absolute;inset:0 4.5px;z-index:2;overflow:visible;pointer-events:none}
 .alphabet-keyframe-markers button{pointer-events:auto}
-.alphabet-state-keyframe-content .timeline-object-tracks{min-height:24px}
 .alphabet-state-keyframe-content .alphabet-keyframe-track{min-height:42px;background-image:repeating-linear-gradient(90deg,transparent 0,transparent 13px,rgba(78,174,211,.16) 13px,rgba(78,174,211,.16) 14px);border-bottom:1px solid rgba(72,190,225,.28)}
 .alphabet-state-keyframe-content .alphabet-keyframe-track input[type=range]{position:relative;z-index:1}
 .alphabet-state-keyframe-content .alphabet-keyframe-markers{z-index:2}

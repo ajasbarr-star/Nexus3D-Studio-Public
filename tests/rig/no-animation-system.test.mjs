@@ -254,3 +254,16 @@ test('Alphabet Ruler owns the only expanded Keyframe Timeline; detached legacy t
   assert.match(css,/\.alphabet-keyframe-track-row\{[^}]*46px/);
   assert.match(css,/\.alphabet-keyframe-track\{[^}]*height:42px/);
 });
+
+
+test('Dope Sheet removes the detached lower keyframe timeline and compacts to its edit controls', () => {
+  assert.doesNotMatch(app, /className="timeline-object-tracks"/);
+  assert.doesNotMatch(app, /className="timeline-object-row"/);
+  assert.match(app, /className="timeline-dope-sheet"/);
+  assert.match(app, /moveSelectedKeyframe\(-1\)/);
+  assert.match(app, /moveSelectedKeyframe\(1\)/);
+  assert.match(app, /onClick=\{deleteFrame\}/);
+  assert.doesNotMatch(css, /\\.timeline-object-tracks|\\.timeline-object-row/);
+  assert.match(css, /\\.timeline-dope-sheet\\{display:flex;flex:0 0 auto/);
+  assert.match(css, /\\.timeline-graph-editor\\{display:flex;flex:1/);
+});
