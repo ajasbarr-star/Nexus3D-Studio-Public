@@ -228,5 +228,7 @@ test('Selected State keyframe ruler is nested inside the Alphabet State panel wi
   assert.match(alphabetPanel, /className="keyframe-frame-number">\{at\}<\/span>/);
   assert.match(css, /\.animation-mode \.alphabet-state-panel\{[\s\S]*?min-height:76px/);
   assert.match(css, /\.animation-mode \.alphabet-state-panel \.state-ruler-panel\{[\s\S]*?min-height:43px/);
-  assert.match(css, /\.animation-mode \.timeline-panel\{height:184px;min-height:172px;max-height:52vh\}/);
+  assert.match(css, /\.animation-mode \.alphabet-state-panel\{[\s\S]*?min-height:104px/);
+  assert.match(css, /\.animation-mode \.alphabet-state-panel \.state-ruler-panel\{[\s\S]*?min-height:58px/);
+  assert.doesNotMatch(css.slice(css.lastIndexOf('/* Keep the keyframe ruler inside Alphabet State')), /\.timeline-panel\s*\{/);
 });
