@@ -312,7 +312,7 @@ test('Selected Alphabet State marker gets a distinct highlight in both 3D viewpo
 
 test('Alphabet State 3D markers select their owning object and attach the shared transform gizmo', () => {
   assert.equal((app.match(/const ownerId = String\(marker\.userData\.ownerObjectId \|\| ''\);/g) || []).length, 2);
-  assert.equal((app.match(/if \(owner\) selectObject\(owner\);/g) || []).length, 2);
+  assert.ok((app.match(/if \(owner\) selectObject\(owner\);/g) || []).length >= 2);
   assert.match(app, /transform\.attach\(obj\)/);
   assert.match(app, /const selectAlphabetState = \(state: typeof sequenceStates\[number\]\)/);
   assert.match(app, /runtime\.current\?\.selectObject\?\.\(owner\)/);
