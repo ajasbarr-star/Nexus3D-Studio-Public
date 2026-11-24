@@ -219,7 +219,7 @@ test('Keyframe diamonds and their frame numbers are rendered inside the selected
   assert.match(selectedRuler, /aria-label=\{'Select keyframe at frame ' \+ at\}/);
   assert.match(css, /\.timeline-markers\{[\s\S]*?inset:0 4\.5px/);
   assert.match(css, /\.animation-mode \.timeline-markers button \.keyframe-frame-number/);
-  assert.match(css, /Marker inset equals half the native range-thumb width/);
+  assert.match(css, /\.animation-mode \.timeline-markers button\{[\s\S]*?transform:translate\(-50%,-50%\)/);
 });
 
 
