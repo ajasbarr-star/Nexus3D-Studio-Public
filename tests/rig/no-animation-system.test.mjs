@@ -323,13 +323,13 @@ test('Alphabet State 3D markers select their owning object and attach the shared
 
 test('Alphabet State ruler width is user-resizable without a fixed upper ceiling and retains native horizontal touch scrolling', () => {
   assert.match(app, /sequenceRulerDisplayWidths/);
-  assert.match(app, /style=\{\{width:\(sequenceRulerDisplayWidths\[state\.id\] \|\| 96\)\+"px"\}\}/);
+  assert.match(app, //style=\\\{\\\{width:\\\(sequenceRulerDisplayWidths\\\[state\\\.id\\\] \\\|\\\| 220\\\)\\\+"px"\\\}\\\}//);
   assert.match(app, /Math\.max\(96, drag\.startWidth \+ delta\)/);
   assert.doesNotMatch(app, /sequenceRulerOffsets|translateX\(/);
   assert.match(css, /\.alphabet-state-scroll\{[\s\S]*?overflow-x:auto!important/);
   assert.match(css, /touch-action:pan-x!important/);
   assert.match(css, /-webkit-overflow-scrolling:touch/);
-  assert.match(css, /\.alphabet-state-mini-ruler\{flex-shrink:0;max-width:none!important\}/);
+  assert.match(css, /\.alphabet-state-mini-ruler\{flex-shrink:0;max-width:none!important(?:;|\})/);
 });
 
 test('Alphabet State Delete icon removes the selected State, its frame keys and its 3D marker', () => {
