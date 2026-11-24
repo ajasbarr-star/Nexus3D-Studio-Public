@@ -110,3 +110,17 @@ test('Timeline toolbar actions remain connected to undo, redo, copy, paste, fit 
   assert.match(app, /timelineScrollRef\.current\?\.scrollTo/);
   assert.match(app, /Add a marker at the current frame/);
 });
+
+
+test('Animation workspace exposes the shared Scene List, Transform Inspector and Gizmo controls', () => {
+  assert.match(app, /animation-editor-dock/);
+  assert.match(app, /SCENE LIST/);
+  assert.match(app, /TRANSFORM INSPECTOR/);
+  assert.match(app, /Animation Gizmo tools/);
+  assert.match(app, /runMode\('translate'\)/);
+  assert.match(app, /runMode\('rotate'\)/);
+  assert.match(app, /runMode\('scale'\)/);
+  assert.match(app, /Animation \+group\+' \+axis\.toUpperCase\(\)/);
+  assert.match(app, /title=\{keyed\?'Keyframe exists at current frame':'Add keyframe at current frame'\}/);
+  assert.match(css, /\.animation-editor-dock/);
+});
