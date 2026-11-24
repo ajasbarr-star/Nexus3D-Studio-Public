@@ -249,9 +249,9 @@ test('Dope Sheet removes the detached lower keyframe timeline and compacts to it
 });
 
 
-test('Alphabet State keyframe timelines remain embedded in each horizontally scrollable state ruler without an inline KEY button', () => {
+test('Alphabet State frame sliders remain embedded in each horizontally scrollable state ruler without a separate keyframe scroll area', () => {
   assert.match(app, /State \" \+ state.label \+ \" frame slider/);
-  assert.match(app, /alphabet-state-mini-key/);
+  assert.doesNotMatch(app, /alphabet-state-mini-key/);
   assert.doesNotMatch(app, /alphabet-state-keyframe-scroll/);
   assert.match(css, /\.alphabet-state-item\{flex:0 0 auto/);
 });
