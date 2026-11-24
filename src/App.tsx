@@ -8051,7 +8051,6 @@ export default function App() {
                  <button type="button" className="alphabet-state-add" onClick={() => { const id = addAlphabetState('independent'); setPendingStateChoice(id); }} aria-label="Add State">＋<small>STATE</small></button>
                </div>
                {pendingStateChoice && <div className="alphabet-state-choice"><span>START POSE</span><button type="button" onClick={() => setAlphabetStateMode(pendingStateChoice,'continue')}>CONTINUE</button><button type="button" onClick={() => setAlphabetStateMode(pendingStateChoice,'independent')}>INDEPENDENT</button></div>}
-             </section>
              {activeSequenceState ? <div className="state-ruler-panel" aria-label={"State " + activeSequenceState.label + " Ruler"}>
                <div className="state-ruler-heading"><strong>STATE {activeSequenceState.label} · RULER</strong><span>{activeSequenceRange.start}–{activeSequenceRange.end}F · DRAG LETTER TO RESIZE</span><button type="button" className="timeline-keyframe-button" title="Add Keyframe at current frame" disabled={!selected} onClick={() => captureRef.current()}>◆ KEY</button></div>
                <div className="state-ruler-scroll" ref={timelineScrollRef} onScroll={event => { const viewport = event.currentTarget; if (viewport.scrollLeft + viewport.clientWidth >= viewport.scrollWidth - 96) { const now = Date.now(); const last = sequenceExtendAt.current[activeSequenceState.id] || 0; if (now - last > 250) { sequenceExtendAt.current[activeSequenceState.id] = now; resizeAlphabetState(activeSequenceState.id, activeSequenceState.width + Math.max(120, activeSequenceState.width)); } } }}><div className="state-ruler-content" style={{minWidth:Math.max(100,activeSequenceState.width*14)+"px"}}>
@@ -8062,6 +8061,7 @@ export default function App() {
                  <div className="timeline-settings"><label>DURATION <input type="number" min={1} value={timelineDuration} onChange={event => setTimelineDuration(Math.max(1, Number(event.target.value) || 1))}/> SEC</label><label>FPS <input type="range" min={1} max={60} value={frameRate} onChange={event => setFrameRate(Number(event.target.value))}/><span>{frameRate} · {Math.round(1000 / Math.max(1, frameRate))}ms/frame</span></label><label>INTERPOLATION <select value={interpolation} onChange={event => setInterpolation(event.target.value)}><option>Linear</option><option>Ease In</option><option>Ease Out</option><option>Ease In-Out</option><option>Bounce</option><option>Anticipation</option><option>Spring Damping</option></select></label><button type="button" title="Delete selected keyframe" onClick={deleteFrame}><Trash2 size={13}/></button></div>
                </div></div>
              </div> : <div className="state-ruler-empty"><strong>NO STATE SELECTED</strong><span>Tap + STATE to create A, then tap A to open its ruler timeline.</span></div>}
+             </section>
            </div>
          </div>
       </section>}
