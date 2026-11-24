@@ -410,14 +410,15 @@ test('Dragging an Alphabet State letter resizes its ruler right or left while th
 });
 
 
-test('Alphabet State timeline ruler has a numbered 0–1 scale with short divisions and a long final tick', () => {
+test('Alphabet State timeline ruler uses numeric frame labels and graduated minor, medium and major ticks', () => {
   assert.match(app, /alphabet-state-ruler-scale/);
-  assert.match(app, /<span>0<\/span>/);
-  assert.match(app, /<span>1<\/span>/);
-  assert.match(app, /Array\.from\(\{length:9\}/);
-  assert.match(css, /\.alphabet-state-ruler-ticks i/);
-  assert.match(css, /\.alphabet-state-ruler-ticks::after/);
-  assert.match(css, /height:10px;background:#b7edff/);
+  assert.match(app, /alphabet-state-ruler-labels/);
+  assert.match(app, /Array\.from\(\{length:11\}/);
+  assert.match(app, /Array\.from\(\{length:101\}/);
+  assert.match(app, /index%10===0\?"major":index%5===0\?"medium":"minor"/);
+  assert.match(css, /\.alphabet-state-ruler-labels span/);
+  assert.match(css, /\.alphabet-state-ruler-ticks i\.medium/);
+  assert.match(css, /\.alphabet-state-ruler-ticks i\.major/);
 });
 
 test('Timeline scrubbing uses indexed selectable lookup and keeps the Alphabet State reveal workflow intact', () => {
@@ -430,10 +431,12 @@ test('Timeline scrubbing uses indexed selectable lookup and keeps the Alphabet S
   assert.match(app, /drag right to expand, left to shrink/);
 });
 
-test('Timeline panel is slightly taller while remaining bottom anchored on compact landscape screens', () => {
-  assert.match(css, /\.timeline-panel\{[\s\S]*?height:158px;min-height:150px;max-height:48vh/);
-  assert.match(css, /@media\(max-height:430px\)\{\s*\.timeline-panel\{height:158px;min-height:150px/);
+test('Timeline panel preserves its original footprint and stays permanently bottom anchored', () => {
   assert.match(css, /\.timeline-panel\{display:flex!important;position:absolute;z-index:14;left:8px;right:8px;bottom:8px/);
+  assert.match(css, /\.timeline-panel\{\s*position:fixed!important/);
+  assert.match(css, /height:148px!important;min-height:136px!important;max-height:42vh!important/);
+  assert.match(css, /@media\(max-height:430px\)\{\s*\.timeline-panel\{height:126px!important;min-height:118px!important/);
+  assert.doesNotMatch(css.slice(css.lastIndexOf('/* Phase 2 refinement')), /height:158px|min-height:150px/);
 });
 
 
