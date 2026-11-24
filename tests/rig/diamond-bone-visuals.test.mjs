@@ -143,15 +143,16 @@ test('Manual IK spring is optional and adjustable independently from direct IK',
 });
 
 
-test('Control Handles are independent Scene-root objects linked by owner bone ID and adjustable outward from the rig', () => {
+test('Control Handles are independent Scene-root objects created at the exact source-bone position with no adjustment system', () => {
   assert.match(app, /marker\.userData\.controlOwnerBoneId = String\(bone\.userData\.editorId\)/);
   assert.match(app, /scene\.add\(marker\)/);
   assert.match(app, /selectable\.push\(marker\)/);
-  assert.match(app, /configureControlHandleDistance/);
-  assert.match(app, /distance \/ 100/);
+  assert.match(app, /position: start/);
+  assert.match(app, /marker\.position\.copy\(scene\.worldToLocal\(placement\.position\.clone\(\)\)\)/);
+  assert.match(app, /marker\.parent !== scene\) scene\.attach\(marker\)/);
   assert.match(app, /controlOwnerBoneId\)\) as THREE\.Bone/);
-  assert.match(app, /aria-label="Control Handle distance settings"/);
-  assert.match(app, /aria-label="Control Handle distance"/);
+  assert.match(app, /syncControlHandleOwnerTransforms/);
+  assert.doesNotMatch(app, /configureControlHandleDistance|handleDistanceConfig|HANDLE DIST|Control Handle distance settings|distance \/ 100/);
 });
 
 
@@ -180,7 +181,8 @@ test('Control Handles render and raycast in both viewports independent of rig sc
   assert.match(app, /marker\.frustumCulled = false/);
   assert.match(app, /marker\.scale\.setScalar\(placement\.radius \/ 0\.07\)/);
   assert.match(app, /THREE\.MathUtils\.clamp\(segmentLength \* 0\.14, 0\.05, 0\.3\)/);
-  assert.match(app, /scene\.worldToLocal\(worldPosition\.clone\(\)\)/);
+  assert.match(app, /position: start/);
+  assert.match(app, /marker\.quaternion\.copy\(bone\.getWorldQuaternion\(new THREE\.Quaternion\(\)\)\)/);
   assert.match(app, /const visibleControlHandles = selectable\.filter\(object => object\.userData\.rigControlMarker && object\.visible\)/);
   assert.match(app, /const roots = \[\.\.\.selectable\.filter\(object => object\.visible\), \.\.\.visibleHelpers\]/);
 });
@@ -227,12 +229,13 @@ test('selected orange Control Handle gets a transparent square with white outlin
 });
 
 
-test('Control Handles created before Shape attachment are reparented to the rig owner and remain selectable in Scene Tree', () => {
+test('Control Handles stay outside the Shape and Root hierarchy while following owner transforms and remaining selectable in Scene Tree', () => {
   const attachStart = app.indexOf('const attachRootToShape =');
   const attachEnd = app.indexOf('const copySelectedBone =', attachStart);
   const attach = app.slice(attachStart, attachEnd);
   assert.match(attach, /chainBoneIds\.has\(String\(object\.userData\.controlOwnerBoneId \|\| ''\)\)/);
-  assert.match(attach, /owner\.attach\(marker\)/);
+  assert.doesNotMatch(attach, /owner\.attach\(marker\)/);
+  assert.match(attach, /setControlHandleOwnerBaseline\(marker, String\(owner\.userData\.editorId \|\| ''\)\)/);
   assert.match(attach, /marker\.visible = true/);
   assert.match(attach, /marker\.updateMatrixWorld\(true\)/);
   assert.match(attach, /syncItems\(\)/);
@@ -265,4 +268,19 @@ test('universal Control Handle creation immediately selects the orange marker an
   assert.match(frame, /handleWorldScale = obj\.getWorldScale/);
   assert.match(frame, /frame\.scale\.set\(/);
   assert.match(app.slice(app.indexOf('const selectObject ='), app.indexOf('const addObject =')), /transform\.attach\(obj\)/);
+});
+
+
+test('Control Handle selection frame is an internal viewport helper and never a Scene Tree item', () => {
+  const frameStart = app.indexOf('const updateControlHandleSelectionFrame =');
+  const frameEnd = app.indexOf('const selectObject =', frameStart);
+  const frame = app.slice(frameStart, frameEnd);
+  assert.match(frame, /frame\.userData\.nexusControlHandleSelectionFrame = true/);
+  assert.doesNotMatch(frame, /editorId/);
+  assert.match(frame, /obj\.add\(frame\)/);
+  const syncStart = app.indexOf('const syncItems =');
+  const syncEnd = app.indexOf('syncItems();', syncStart);
+  const sync = app.slice(syncStart, syncEnd);
+  assert.match(sync, /child\.userData\.editorId && selectable\.includes\(child\)/);
+  assert.match(sync, /selectable\.forEach/);
 });
