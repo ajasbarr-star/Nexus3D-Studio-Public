@@ -83,12 +83,22 @@ test('Manual root creation stays unattached until the separate Attach to Shape a
 });
 
 
-test('locked bones cannot be directly moved with gizmo', () => {
+test('locked bones remain selectable and permit Rotate only, not Move or Scale', () => {
   const selectionStart = app.indexOf('const selectObject = (obj?: THREE.Object3D)');
   const selectionEnd = app.indexOf('const addObject =', selectionStart);
   const selection = app.slice(selectionStart, selectionEnd);
-  assert.match(selection, /obj instanceof THREE\.Bone && obj\.userData\.locked/);
+  assert.match(selection, /const lockedBone = obj instanceof THREE\\.Bone && isIkBoneLocked\\(obj\\)/);
+  assert.match(selection, /const canTransform = \\(objectMode \\|\\| isControlHandle\\) && \\(!lockedBone \\|\\| \\(objectMode && modeRef\\.current === 'rotate'\\)\\)/);
+  assert.match(selection, /transform\\.attach\\(obj\\)/);
+  assert.doesNotMatch(selection, /selectionLocked[^\\n]*lockedBone/);
+
+  const modeStart = app.indexOf('const runMode = (next:');
+  const modeEnd = app.indexOf('const setAxisSpace =', modeStart);
+  const mode = app.slice(modeStart, modeEnd);
+  assert.match(mode, /!lockedBone \\|\\| \\(editModeRef\\.current === 'Object' && next === 'rotate'\\)/);
+  assert.match(mode, /if \\(!canTransform && transform\\.object === selectedObject\\) transform\\.detach\\(\\)/);
 });
+
 
 test('dragging an unlocked child Control Handle automatically solves its connected IK chain', () => {
   assert.match(app, /activeControl\?\.userData\.rigControlMarker && !activeControl\.userData\.controlLocked/);
@@ -145,13 +155,24 @@ test('Control Handles are independent Scene-root objects linked by owner bone ID
 });
 
 
-test('Control Handles stay directly editable in Object and non-Object modes', () => {
-  assert.match(app, /const isControlHandle = Boolean\(obj\.userData\.rigControlMarker\)/);
-  assert.match(app, /transform\.enabled = objectMode \|\| isControlHandle/);
-  assert.match(app, /transform\.getHelper\(\)\.visible = objectMode \|\| isControlHandle/);
-  assert.match(app, /editingSubObject \|\| isControlHandle/);
-  assert.match(app, /Boolean\(selectedObject\?\.userData\.rigControlMarker\)/);
+test('Control Handles remain editable through shared lock-aware transform gating', () => {
+  const selectionStart = app.indexOf('const selectObject = (obj?: THREE.Object3D)');
+  const selectionEnd = app.indexOf('const addObject =', selectionStart);
+  const selection = app.slice(selectionStart, selectionEnd);
+  assert.match(selection, /const isControlHandle = Boolean\\(obj\\.userData\\.rigControlMarker\\)/);
+  assert.match(selection, /const canTransform = \\(objectMode \\|\\| isControlHandle\\)/);
+  assert.match(selection, /transform\\.attach\\(obj\\)/);
+  assert.match(selection, /transform\\.enabled = true/);
+  assert.match(selection, /transform\\.getHelper\\(\\)\\.visible = true/);
+
+  const modeStart = app.indexOf('const runMode = (next:');
+  const modeEnd = app.indexOf('const setAxisSpace =', modeStart);
+  const mode = app.slice(modeStart, modeEnd);
+  assert.match(mode, /editingSubObject \\|\\| isControlHandle/);
+  assert.match(mode, /transform\\.enabled = canTransform/);
+  assert.match(mode, /transform\\.getHelper\\(\\)\\.visible = canTransform/);
 });
+
 
 test('Control Handles render and raycast in both viewports independent of rig scale', () => {
   assert.match(app, /marker\.visible = true/);
