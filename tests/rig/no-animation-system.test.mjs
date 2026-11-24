@@ -39,23 +39,27 @@ test('Automatic IK / Auto Rig entry points remain absent', () => {
 // Animation workspace regression coverage is now enabled on the Test integration branch.
 
 
-test('Alphabet State timeline exposes draggable letter handles and horizontal expansion', () => {
-  assert.match(app, /alphabet-state-row/);
-  assert.match(app, /alphabet-state-handle/);
-  assert.match(app, /onPointerDown/);
-  assert.match(app, /onPointerMove/);
-  assert.match(app, /setSequenceStates/);
-  assert.match(css, /\.alphabet-state-scroll/);
-  assert.match(css, /overflow-x:auto/);
+test('Alphabet States stay hidden until plus is tapped, then appear in a left rail and open their own ruler on selection', () => {
+  assert.match(app, /alphabet-state-rail/);
+  assert.match(app, /Add State/);
+  assert.match(app, /const id = addAlphabetState\('independent'\); setPendingStateChoice\(id\)/);
+  assert.match(app, /setSelectedSequenceState\(''\)/);
+  assert.match(app, /activeSequenceState \? <div className="state-ruler-panel"/);
+  assert.match(app, /NO STATE SELECTED/);
+  assert.doesNotMatch(app, /if \(!sequenceStates\.length\) \{ const initial/);
+  assert.match(css, /\.alphabet-state-rail/);
+  assert.match(css, /\.state-ruler-panel/);
+  assert.match(app, /activeSequenceState\.width\*14/);
+  assert.match(app, /resizeAlphabetState\(state\.id, drag\.startWidth \+ delta \* 1\.25\)/);
 });
 
 test('New Alphabet States offer manual Continue or Independent pose behavior', () => {
-  assert.match(app, /CONTINUE POSE/);
+  assert.match(app, /CONTINUE/);
   assert.match(app, /INDEPENDENT/);
-  assert.match(app, /addAlphabetState\('continue'\)/);
+  assert.match(app, /setAlphabetStateMode\(pendingStateChoice,'continue'\)/);
   assert.match(app, /addAlphabetState\('independent'\)/);
-  assert.match(app, /mode === 'continue'/);
-  assert.match(app, /previousEnd/);
+  assert.match(app, /setAlphabetStateMode = \(stateId: string, mode: 'continue' \| 'independent'\)/);
+  assert.match(app, /const previousEnd = sequenceStates\.reduce/);
 });
 
 test('Alphabet State sequence and timeline markers persist with project data', () => {
@@ -67,7 +71,7 @@ test('Alphabet State sequence and timeline markers persist with project data', (
 
 test('One continuous frame range displays per-object tracks across all Alphabet States', () => {
   assert.match(app, /setCurrentFrame\(previousEnd\)/);
-  assert.match(app, /max=\{Math\.max\(workStart \+ 1, workEnd\)\}/);
+  assert.match(app, /max=\{Math\.max\(activeSequenceRange\.start \+ 1, activeSequenceRange\.end\)\}/);
   assert.match(app, /items\.filter\(item=>item\.kind/);
   assert.match(app, /keyframes\[item\.id\]/);
   assert.match(app, /loopPlayback/);
