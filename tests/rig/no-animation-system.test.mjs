@@ -141,7 +141,7 @@ test('Animation Scene List and Transform Inspector remain separate compact panel
 
 
 test('Selected Alphabet State keeps keyframes on its own ruler and extends continuously when scrolled', () => {
-  assert.match(app, /className="state-ruler-scroll" onScroll=\{event =>/);
+  assert.match(app, /className="state-ruler-scroll" ref=\{timelineScrollRef\} onScroll=\{event =>/);
   assert.match(app, /resizeAlphabetState\(activeSequenceState\.id, activeSequenceState\.width \+ Math\.max\(120, activeSequenceState\.width\)\)/);
   assert.match(app, /Number\.MAX_SAFE_INTEGER/);
   assert.match(app, /timelineTool==='tracks' \? null : timelineTool==='dope'/);
@@ -159,8 +159,8 @@ test('Selected State uses exactly one integrated timeline track for the playhead
   assert.match(selectedRuler, /className="timeline-markers"/);
   assert.match(selectedRuler, /keyframes\[selected\]/);
   assert.match(selectedRuler, /setSelectedKeyframe\(\{id:selected,frame:at\}\); setCurrentFrame\(at\)/);
-  const integratedTrack = selectedRuler.slice(selectedRuler.indexOf('className="timeline-track"'), selectedRuler.indexOf("timelineTool==='tracks'"));
-  assert.equal((integratedTrack.match(/type="range"/g) || []).length, 1, 'The integrated track must contain exactly one frame slider');
+  assert.equal((selectedRuler.match(/className="timeline-track"/g) || []).length, 1, 'The selected State must render exactly one integrated timeline track');
+  assert.equal((selectedRuler.match(/aria-label="Current animation frame and playhead" type="range"/g) || []).length, 1, 'The integrated track must have exactly one playhead slider');
   assert.match(app, /className="state-ruler-scroll" ref=\{timelineScrollRef\}/);
   assert.match(app, /onClick=\{\(\) => captureRef\.current\(\)\}/);
   assert.match(css, /\.animation-mode \.timeline-track input\[type=range\]/);
