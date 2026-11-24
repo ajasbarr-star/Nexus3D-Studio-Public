@@ -20,7 +20,7 @@ test('Animation timeline supports transform keyframes, playback, recording and i
     assert.ok(app.includes(marker), 'missing Animation timeline feature: ' + marker);
   }
   assert.match(app, /min=\{1\} max=\{60\} value=\{frameRate\}/);
-  assert.match(app, /min=\{1\} max=\{60\} value=\{timelineDuration\}/);
+  assert.match(app, /<input type="number" min=\{1\} value=\{timelineDuration\}/);
   assert.match(app, /THREE\.AnimationMixer\(entry\.object\)/);
   assert.match(app, /THREE\.AnimationClip\.toJSON\(entry\.clip\)/);
   assert.match(app, /THREE\.AnimationClip\.parse\(savedClip\.clip\)/);
