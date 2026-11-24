@@ -3166,3 +3166,33 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   .animation-mode .timeline-playback-panel .timeline-transport button:nth-child(6){flex-basis:34px;width:34px}
   .animation-mode .timeline-track-name{flex-basis:48px;width:48px;min-width:40px}
 }
+
+
+/* Keep the selected State ruler INSIDE the Alphabet State panel.
+   Give the combined panel enough height for diamond + frame-number labels. */
+.animation-mode .timeline-panel{height:184px;min-height:172px;max-height:52vh}
+.animation-mode .alphabet-state-panel{
+  flex:1 1 auto;
+  min-height:76px;
+  padding:4px 5px;
+  gap:4px;
+}
+.animation-mode .alphabet-state-scroll{flex:0 0 auto;min-height:27px}
+.animation-mode .alphabet-state-panel .state-ruler-panel{
+  display:flex;
+  flex:1 1 auto;
+  min-height:43px;
+  padding-top:3px;
+  border-top:1px solid #203c52;
+  gap:2px;
+}
+.animation-mode .alphabet-state-panel .state-ruler-heading{min-height:17px}
+.animation-mode .alphabet-state-panel .state-ruler-scroll{flex:1 1 auto;min-height:24px}
+.animation-mode .alphabet-state-panel .timeline-track{height:34px}
+.animation-mode .alphabet-state-panel .timeline-markers button{min-height:29px}
+@media(max-height:430px){
+  .animation-mode .timeline-panel{height:164px;min-height:154px;max-height:58vh}
+  .animation-mode .alphabet-state-panel{min-height:68px;padding:3px 4px}
+  .animation-mode .alphabet-state-panel .state-ruler-panel{min-height:37px}
+  .animation-mode .alphabet-state-panel .timeline-track{height:30px}
+}
