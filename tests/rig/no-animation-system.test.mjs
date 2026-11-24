@@ -484,7 +484,7 @@ test('Alphabet State frame ranges are contiguous without sharing the boundary fr
 
 
 test('Horizontal ruler ticks are individually positioned across the track and State B starts after State A ends', () => {
-  assert.match(app, /style=\{\{left:index\+"%",top:0\}\}/);
+  assert.match(app, /style=\{\{left:\(index\/Math\.max\(1,Math\.round\(state\.width\)\)\*100\)\+"%",top:0\}\}/);
   assert.match(app, /const nextEnd = previousEnd \+ nextState\.width - 1/);
   assert.match(app, /const start = cursor; const end = start \+ Math\.max\(1, state\.width\) - 1/);
   assert.match(app, /cursor = end \+ 1/);
@@ -494,7 +494,7 @@ test('Horizontal ruler ticks are individually positioned across the track and St
 test('Opening an Alphabet State reveals a horizontal numbered ruler beside its letter', () => {
   assert.match(app, /sequenceRulerDisplayWidths\[state\.id\] \|\| 220/);
   assert.match(app, /previous\[state\.id\] \|\| 220/);
-  assert.match(app, /style=\{\{left:index\+"%",top:0\}\}/);
+  assert.match(app, /style=\{\{left:\(index\/Math\.max\(1,Math\.round\(state\.width\)\)\*100\)\+"%",top:0\}\}/);
   assert.match(css.slice(css.lastIndexOf('/* Timeline interaction cleanup')), /\.alphabet-state-ruler-labels span\{position:absolute!important;top:0!important/);
   assert.match(css.slice(css.lastIndexOf('/* Timeline interaction cleanup')), /\.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:19px!important/);
   assert.match(css.slice(css.lastIndexOf('/* Timeline interaction cleanup')), /writing-mode:horizontal-tb!important/);
