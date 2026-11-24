@@ -569,14 +569,12 @@ export default function App() {
   const [sequenceStates, setSequenceStates] = useState<Array<{ id: string; label: string; width: number; mode: 'continue' | 'independent'; objectId?: string }>>([]);
   const [selectedSequenceState, setSelectedSequenceState] = useState('');
   const [pendingStateChoice, setPendingStateChoice] = useState('');
-  const suppressSequenceClick = useRef(false);
   const [timelineTool, setTimelineTool] = useState<'tracks' | 'dope' | 'graph'>('tracks');
   const [selectedGraphChannel, setSelectedGraphChannel] = useState<'position.x' | 'position.y' | 'position.z' | 'rotation.x' | 'rotation.y' | 'rotation.z' | 'scale.x' | 'scale.y' | 'scale.z'>('position.x');
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
   const [timelineMarkers, setTimelineMarkers] = useState<Array<{id:string;frame:number;label:string}>>([]);
   const [showGhostPreview, setShowGhostPreview] = useState(false);
   const [playbackControlsOpen, setPlaybackControlsOpen] = useState(false);
-  const sequenceDrag = useRef<{ targetIndex: number; startX: number; startWidth: number; moved: boolean } | null>(null);
   const sequenceExtendAt = useRef<Record<string, number>>({});
   const [animationObjectsOpen, setAnimationObjectsOpen] = useState(true);
   const [shapeLibraryOpen, setShapeLibraryOpen] = useState(false);
@@ -5346,13 +5344,6 @@ export default function App() {
     setPendingStateChoice('');
     setStatus('State ' + (sequenceStates.find(state => state.id === stateId)?.label || '') + ' · ' + (mode === 'continue' ? 'continue previous pose' : 'independent pose'));
   };
-  const resizeAlphabetState = (stateId: string, nextWidth: number) => {
-    const width = Math.max(12, Math.min(Number.MAX_SAFE_INTEGER, Math.round(nextWidth)));
-    setSequenceStates(prev => prev.map(state => state.id === stateId ? { ...state, width } : state));
-    const total = sequenceStates.reduce((sum, state) => sum + (state.id === stateId ? width : state.width), workStart);
-    setWorkEnd(total);
-    setTimelineDuration(total / Math.max(1, frameRate));
-  };
   const toggleAnimationWorkspace = () => {
     const r = runtime.current;
     if (!r) return;
@@ -8106,7 +8097,7 @@ export default function App() {
              <section className="alphabet-state-panel" aria-label="Alphabet State Panel">
                <div className="alphabet-state-scroll" ref={timelineScrollRef} aria-label="Alphabet State sequence">
                  {sequenceStates.map(state => <div className="alphabet-state-item" key={state.id}>
-                   <button type="button" className={"alphabet-state-handle " + (selectedSequenceState === state.id ? "active" : "")} title={"State " + state.label + " · tap to open ruler · drag to resize"} onClick={() => { if (suppressSequenceClick.current) { suppressSequenceClick.current = false; return; } setSelectedSequenceState(state.id); setPendingStateChoice(""); const range = getSequenceRange(state.id); setCurrentFrame(range.start); }} onPointerDown={event => { sequenceDrag.current = { targetIndex: sequenceStates.findIndex(entry => entry.id === state.id), startX:event.clientX, startWidth:state.width, moved:false }; suppressSequenceClick.current = false; event.currentTarget.setPointerCapture(event.pointerId); }} onPointerMove={event => { const drag = sequenceDrag.current; if (!drag || drag.targetIndex !== sequenceStates.findIndex(entry => entry.id === state.id)) return; const delta = event.clientX - drag.startX; if (Math.abs(delta) < 2) return; drag.moved = true; suppressSequenceClick.current = true; resizeAlphabetState(state.id, drag.startWidth + delta * 1.25); }} onPointerUp={() => { sequenceDrag.current = null; }} onPointerCancel={() => { sequenceDrag.current = null; }}>{state.label}</button>
+                   <button type="button" className={"alphabet-state-handle " + (selectedSequenceState === state.id ? "active" : "")} title={"State " + state.label + " · tap to select · swipe horizontally to scroll"} onClick={() => { setSelectedSequenceState(state.id); setPendingStateChoice(""); const range = getSequenceRange(state.id); setCurrentFrame(range.start); }}>{state.label}</button>
                    <div className={"alphabet-state-mini-ruler " + (selectedSequenceState === state.id ? "active" : "")} style={{width:Math.max(110,Math.min(260,state.width*1.1))+"px"}} aria-label={"State " + state.label + " keyframe timeline"}>
                      <span className="alphabet-state-frame-label">{Math.round(state.width)}f</span>
                      <input aria-label={"State " + state.label + " frame slider"} type="range" min={getSequenceRange(state.id).start} max={Math.max(getSequenceRange(state.id).start+1,getSequenceRange(state.id).end)} value={Math.max(getSequenceRange(state.id).start,Math.min(frame,getSequenceRange(state.id).end))} onChange={event=>setCurrentFrame(Number(event.target.value))}/>
