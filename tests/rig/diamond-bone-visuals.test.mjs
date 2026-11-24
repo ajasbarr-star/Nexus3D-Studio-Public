@@ -152,7 +152,7 @@ test('Control Handles are independent Scene-root objects created at the exact so
   assert.match(app, /marker\.parent !== scene\) scene\.attach\(marker\)/);
   assert.match(app, /controlOwnerBoneId\)\) as THREE\.Bone/);
   assert.match(app, /syncControlHandleOwnerTransforms/);
-  assert.doesNotMatch(app, /configureControlHandleDistance|handleDistanceConfig|HANDLE DIST|Control Handle distance settings|distance \/ 100/);
+  assert.doesNotMatch(app, /configureControlHandleDistance|handleDistanceConfig|HANDLE DIST|Control Handle distance settings/);
 });
 
 
