@@ -2923,3 +2923,40 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .state-ruler-empty span{max-width:220px;line-height:1.5}
 .state-ruler-content .timeline-object-tracks{min-height:40px}
 @media(max-width:760px){.animation-state-layout{gap:5px}.alphabet-state-rail{flex-basis:38px;min-width:38px}.alphabet-state-handle{width:32px;min-width:32px}.alphabet-state-add{min-width:32px}.state-ruler-heading span{font-size:5px}}
+
+
+/* Compact shared Animation Timeline Mother Panel. */
+.animation-mode .timeline-panel{height:148px;min-height:136px;max-height:42vh;overflow:hidden}
+.animation-state-layout{display:flex;align-items:stretch;gap:6px;min-width:0;min-height:0;flex:1;overflow:hidden}
+.timeline-playback-panel{display:flex;flex:0 0 96px;align-items:center;justify-content:center;min-width:0;padding:4px;border:1px solid #203c52;border-radius:6px;background:rgba(10,25,40,.76)}
+.timeline-playback-panel .timeline-transport{display:grid;grid-template-columns:repeat(3,minmax(23px,1fr));align-content:center;gap:4px;width:100%;min-height:0}
+.timeline-playback-panel .timeline-transport button{min-width:0;width:100%;height:25px;padding:0 3px}
+.timeline-playback-panel .timeline-loop{grid-column:span 3;justify-content:center}
+.timeline-editor-stack{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-width:0;min-height:0;overflow:hidden}
+.timeline-tools-panel{display:flex;flex:0 0 auto;min-width:0;max-width:100%;padding:2px 4px;border:1px solid #203c52;border-radius:6px;background:rgba(10,25,40,.76)}
+.timeline-tools-panel .timeline-tool-row{width:100%;min-width:0;min-height:23px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:#28536d transparent;touch-action:pan-x}
+.timeline-tools-panel .timeline-tool-row button{flex:0 0 auto;min-width:38px}
+.alphabet-state-panel{display:flex;flex:0 0 auto;flex-direction:column;gap:3px;min-width:0;max-width:100%;padding:3px 4px;border:1px solid #203c52;border-radius:6px;background:rgba(10,25,40,.76);overflow:hidden}
+.alphabet-state-scroll{display:flex;align-items:center;gap:5px;min-width:0;min-height:27px;overflow-x:auto;overflow-y:hidden;padding:1px 1px 3px;scrollbar-width:thin;scrollbar-color:#28536d transparent;touch-action:pan-x}
+.alphabet-state-item{display:flex;flex:0 0 auto;align-items:center;gap:3px;min-width:0}
+.alphabet-state-item .alphabet-state-handle{display:flex;flex:0 0 25px;align-items:center;justify-content:center;width:25px;min-width:25px;height:23px;padding:0;border-radius:4px;font:800 10px "DM Mono",monospace;touch-action:pan-y;cursor:ew-resize}
+.alphabet-state-mini-ruler{position:relative;flex:0 0 auto;height:12px;max-width:150px;min-width:52px;border:1px solid #29445d;border-radius:3px;background:repeating-linear-gradient(90deg,#14283a 0,#14283a 8px,#31536d 9px,#14283a 10px);overflow:hidden}
+.alphabet-state-mini-ruler span{position:absolute;right:3px;top:-1px;color:#91abc1;background:#102033;font:6px "DM Mono",monospace}
+.alphabet-state-panel .alphabet-state-add{display:flex;flex:0 0 54px;align-items:center;justify-content:center;gap:2px;width:54px;min-width:54px;height:23px;padding:0;border-radius:4px;font-size:13px}
+.alphabet-state-panel .alphabet-state-add small{font:6px "DM Mono",monospace}
+.alphabet-state-panel .alphabet-state-choice{flex-direction:row;align-self:flex-start;width:auto;max-width:100%;padding:2px 4px}
+.alphabet-state-panel .alphabet-state-choice span{margin-right:3px}
+.alphabet-state-panel .alphabet-state-choice button{min-height:19px;padding:1px 5px;font-size:6px}
+.state-ruler-panel{flex:1 1 auto;min-height:0;gap:2px}
+.state-ruler-heading{flex:0 0 auto;min-height:19px;justify-content:flex-start}
+.state-ruler-heading strong{white-space:nowrap}
+.state-ruler-heading span{margin-left:auto;white-space:nowrap}
+.timeline-keyframe-button{flex:0 0 auto;height:19px;padding:0 6px;border:1px solid #3b718a;border-radius:4px;color:#83eaff;background:#10283a;font:700 7px "DM Mono",monospace}
+.timeline-keyframe-button:disabled{opacity:.35}
+.state-ruler-scroll{flex:1 1 auto;min-height:0}
+.state-ruler-content{gap:2px}
+.state-ruler-content .timeline-object-tracks{min-height:24px}
+.state-ruler-empty{flex:1 1 auto;min-height:18px;font-size:7px}
+.state-ruler-empty strong{font-size:8px}
+@media(max-width:760px){.animation-mode .timeline-panel{height:148px;min-height:136px;max-height:42vh}.animation-state-layout{gap:4px}.timeline-playback-panel{flex-basis:76px;padding:3px}.timeline-playback-panel .timeline-transport{grid-template-columns:repeat(3,minmax(20px,1fr));gap:3px}.timeline-playback-panel .timeline-transport button{height:23px;min-width:20px}.timeline-tools-panel{padding:2px}.timeline-tools-panel .timeline-tool-row{gap:2px}.timeline-tools-panel .timeline-tool-row button{min-width:34px;padding:0 4px;font-size:6px}.alphabet-state-panel{padding:2px 3px}.alphabet-state-scroll{gap:3px;min-height:25px}.alphabet-state-item .alphabet-state-handle{flex-basis:23px;width:23px;min-width:23px;height:22px}.alphabet-state-mini-ruler{min-width:40px}.alphabet-state-panel .alphabet-state-add{flex-basis:48px;width:48px;min-width:48px}.state-ruler-heading span{font-size:5px}}
+@media(max-height:430px){.animation-mode .timeline-panel{height:126px;min-height:118px}.timeline-playback-panel .timeline-transport{gap:2px}.timeline-playback-panel .timeline-transport button{height:21px}}
