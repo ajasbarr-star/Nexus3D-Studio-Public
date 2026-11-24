@@ -49,7 +49,7 @@ test('Alphabet States use a compact horizontal sequence below a separate accessi
   assert.match(app, /className="state-ruler-panel"/);
   assert.match(app, /className="timeline-keyframe-button"/);
   assert.match(app, /NO STATE SELECTED/);
-  assert.match(app, /const id = addAlphabetState\("independent"\); setPendingStateChoice\(id\)/);
+  assert.match(app, /const id = addAlphabetState\('independent'\); setPendingStateChoice\(id\)/);
   assert.match(app, /setSelectedSequenceState\(state.id\)/);
   assert.match(app, /resizeAlphabetState\(state.id, drag.startWidth \+ delta \* 1\.25\)/);
   assert.match(css, /\.timeline-tools-panel \.timeline-tool-row/);
