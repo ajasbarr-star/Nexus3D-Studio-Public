@@ -149,7 +149,7 @@ test('Selected Alphabet State keeps keyframes in its own ruler and the full stat
   assert.match(app, /className="alphabet-state-scroll" ref=\{timelineScrollRef\}/);
   assert.match(app, /State \" \+ state.label \+ \" keyframe timeline/);
   assert.match(app, /alphabet-state-mini-markers/);
-  assert.match(app, /alphabet-state-mini-key/);
+  assert.doesNotMatch(app, /alphabet-state-mini-key/);
   assert.match(app, /timelineTool==='tracks' \? null : timelineTool==='dope'/);
   assert.doesNotMatch(app, /alphabet-state-keyframe-scroll/);
   assert.match(css, /\.alphabet-state-scroll\{display:flex;flex:0 0 34px;flex-wrap:nowrap/);
@@ -249,7 +249,7 @@ test('Dope Sheet removes the detached lower keyframe timeline and compacts to it
 });
 
 
-test('Alphabet State keyframe timelines are embedded in each horizontally scrollable state ruler', () => {
+test('Alphabet State keyframe timelines remain embedded in each horizontally scrollable state ruler without an inline KEY button', () => {
   assert.match(app, /State \" \+ state.label \+ \" frame slider/);
   assert.match(app, /alphabet-state-mini-key/);
   assert.doesNotMatch(app, /alphabet-state-keyframe-scroll/);
