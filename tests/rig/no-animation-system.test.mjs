@@ -468,10 +468,11 @@ test('Playback controls remain compact in one horizontal row', () => {
   assert.match(layout, /\.timeline-playback-panel \.timeline-transport button\{flex:0 0 18px!important/);
 });
 
-test('Selected Alphabet State ruler uses vertical frame labels and ticks while scrubbing remains horizontal', () => {
+test('Selected Alphabet State ruler keeps frame labels and ticks horizontal while scrubbing remains horizontal', () => {
   const layout = css.slice(css.lastIndexOf('/* Timeline interaction cleanup'));
-  assert.match(layout, /\.alphabet-state-ruler-labels\{position:absolute!important;inset:0!important;display:flex!important;flex-direction:column!important/);
-  assert.match(layout, /\.alphabet-state-ruler-ticks i\{left:0!important;top:auto;width:5px!important;height:1px!important/);
+  assert.match(layout, /\.alphabet-state-ruler-labels\{position:absolute!important;inset:0!important;display:block!important/);
+  assert.match(layout, /\.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:19px!important/);
+  assert.match(layout, /writing-mode:horizontal-tb!important/);
   assert.match(layout, /\.alphabet-state-mini-ruler input\[type=range\].*touch-action:pan-x!important/);
   assert.match(app, /onChange=\{event=>setCurrentFrame\(Number\(event\.target\.value\)\)\}/);
 });
@@ -482,9 +483,27 @@ test('Alphabet State frame ranges are contiguous without sharing the boundary fr
 });
 
 
-test('Vertical ruler ticks are individually positioned down the track and State B starts after State A ends', () => {
-  assert.match(app, /style=\{\{left:0,top:index\+"%"\}\}/);
+test('Horizontal ruler ticks are individually positioned across the track and State B starts after State A ends', () => {
+  assert.match(app, /style=\{\{left:index\+"%",top:0\}\}/);
   assert.match(app, /const nextEnd = previousEnd \+ nextState\.width - 1/);
   assert.match(app, /const start = cursor; const end = start \+ Math\.max\(1, state\.width\) - 1/);
   assert.match(app, /cursor = end \+ 1/);
+});
+
+
+test('Opening an Alphabet State reveals a horizontal numbered ruler beside its letter', () => {
+  assert.match(app, /sequenceRulerDisplayWidths\[state\.id\] \|\| 220/);
+  assert.match(app, /previous\[state\.id\] \|\| 220/);
+  assert.match(app, /style=\{\{left:index\+"%",top:0\}\}/);
+  assert.match(css.slice(css.lastIndexOf('/* Timeline interaction cleanup')), /\.alphabet-state-ruler-labels span\{position:absolute!important;top:0!important/);
+  assert.match(css.slice(css.lastIndexOf('/* Timeline interaction cleanup')), /\.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:19px!important/);
+  assert.match(css.slice(css.lastIndexOf('/* Timeline interaction cleanup')), /writing-mode:horizontal-tb!important/);
+  assert.match(app, /style=\{\{left:\(\(\(at-range\.start\)\/Math\.max\(1,range\.end-range\.start\)\)\*100\)\+'%',top:'50%'\}\}/);
+});
+
+test('Add Keyframe stays immediately beside Dope Sheet in the Timeline tools row', () => {
+  const toolbar = app.slice(app.indexOf('className="timeline-tool-row"'), app.indexOf('className="alphabet-state-panel"'));
+  assert.ok(toolbar.indexOf('DOPE SHEET') < toolbar.indexOf('timeline-add-keyframe'));
+  assert.ok(toolbar.indexOf('timeline-add-keyframe') < toolbar.indexOf('GRAPH'));
+  assert.match(app, /className="timeline-add-keyframe" onClick=\{\(\)=>captureRef\.current\(\)\}/);
 });
