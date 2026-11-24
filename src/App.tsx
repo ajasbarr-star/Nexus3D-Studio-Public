@@ -4144,23 +4144,39 @@ export default function App() {
     targets.set(id, obj);
     if (ownerId) {
       const owner = r.selectable.find((candidate: THREE.Object3D) => String(candidate.userData.editorId || '') === ownerId);
+      const rigBoneIds = new Set<string>();
       if (owner) {
         targets.set(ownerId, owner);
-        // Imported skinned characters may contain bones that are not Scene Tree
-        // selectable entries. Give each one a persistent editor ID and include it.
+        // Include both ordinary descendant bones and bones referenced by imported
+        // SkinnedMesh skeletons (which are not always children of the selected mesh).
         owner.traverse((node: THREE.Object3D) => {
-          if (!(node instanceof THREE.Bone)) return;
-          if (!node.userData.editorId) node.userData.editorId = uid();
-          node.userData.rigOwnerId = ownerId;
-          targets.set(String(node.userData.editorId), node);
+          if (node instanceof THREE.Bone) {
+            if (!node.userData.editorId) node.userData.editorId = uid();
+            node.userData.rigOwnerId = ownerId;
+            const boneId = String(node.userData.editorId);
+            rigBoneIds.add(boneId);
+            targets.set(boneId, node);
+          }
+          if ((node as THREE.SkinnedMesh).isSkinnedMesh) {
+            ((node as THREE.SkinnedMesh).skeleton?.bones || []).forEach((bone: THREE.Bone) => {
+              if (!bone.userData.editorId) bone.userData.editorId = uid();
+              bone.userData.rigOwnerId = ownerId;
+              const boneId = String(bone.userData.editorId);
+              rigBoneIds.add(boneId);
+              targets.set(boneId, bone);
+            });
+          }
         });
       }
       const rigBones = r.selectable.filter((candidate: THREE.Object3D) =>
         candidate instanceof THREE.Bone && String(candidate.userData.rigOwnerId || '') === ownerId
       );
-      const rigBoneIds = new Set(rigBones.map((bone: THREE.Object3D) => String(bone.userData.editorId || '')));
       rigBones.forEach((bone: THREE.Object3D) => {
-        if (bone.userData.editorId) targets.set(String(bone.userData.editorId), bone);
+        if (bone.userData.editorId) {
+          const boneId = String(bone.userData.editorId);
+          rigBoneIds.add(boneId);
+          targets.set(boneId, bone);
+        }
       });
       r.selectable.forEach((candidate: THREE.Object3D) => {
         const isHandle = Boolean(candidate.userData.rigControlMarker) && String(candidate.userData.controlOwnerObjectId || '') === ownerId;
