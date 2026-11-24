@@ -225,3 +225,24 @@ test('selected orange Control Handle gets a transparent square with white outlin
   assert.match(app.slice(app.indexOf('const selectObject ='), app.indexOf('const addObject =')), /updateControlHandleSelectionFrame\(obj\)/);
   assert.match(frame, /nexusControlHandleSelectionFrame/);
 });
+
+
+test('Control Handles created before Shape attachment are reparented to the rig owner and remain selectable in Scene Tree', () => {
+  const attachStart = app.indexOf('const attachRootToShape =');
+  const attachEnd = app.indexOf('const copySelectedBone =', attachStart);
+  const attach = app.slice(attachStart, attachEnd);
+  assert.match(attach, /chainBoneIds\.has\(String\(object\.userData\.controlOwnerBoneId \|\| ''\)\)/);
+  assert.match(attach, /owner\.attach\(marker\)/);
+  assert.match(attach, /marker\.visible = true/);
+  assert.match(attach, /marker\.updateMatrixWorld\(true\)/);
+  assert.match(attach, /syncItems\(\)/);
+
+  const treeStart = app.indexOf("items.filter(item => {");
+  const treeEnd = app.indexOf("}).map(item => {", treeStart);
+  const tree = app.slice(treeStart, treeEnd);
+  assert.match(tree, /item\.name\.toLowerCase\(\)/);
+  const rowStart = app.indexOf("className={'tree-item ' + (selected === item.id ? 'selected' : '')}");
+  assert.ok(rowStart >= 0, 'Scene Tree exposes selectable rows for all synchronized items');
+  const row = app.slice(rowStart, app.indexOf('</button>}', rowStart));
+  assert.match(row, /runtime\.current\?\.selectObject\(item\.object\)/);
+});
