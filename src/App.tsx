@@ -7179,9 +7179,9 @@ export default function App() {
          <div className="ik-character-rig-heading"><strong>CHARACTER RIGGING</strong><button type="button" onClick={() => setCharacterRigPanelOpen(false)} aria-label="Close Character Rigging Tools">×</button></div>
          <p>Workflow: select the complete Character Group, create one template, detect parts, review assignments, then bind.</p>
          <div className="ik-character-rig-grid">
-           <button type="button" onClick={() => runtime.current?.createManualRig?.()}><GitBranch size={13}/><span>TEMPLATE</span></button>
-           <button type="button" onClick={() => runtime.current?.detectCharacterBodyParts?.()}><ScanSearch size={13}/><span>DETECT PARTS</span></button>
-           <button type="button" onClick={() => runtime.current?.bindAllCharacterMeshesToRig?.()}><Layers size={13}/><span>BIND ALL</span></button>
+           <button type="button" aria-label="Create Humanoid Rig Template" onClick={() => runtime.current?.createManualRig?.()}><GitBranch size={13}/><span>TEMPLATE</span></button>
+           <button type="button" aria-label="Detect Character Body Parts" onClick={() => runtime.current?.detectCharacterBodyParts?.()}><ScanSearch size={13}/><span>DETECT PARTS</span></button>
+           <button type="button" aria-label="Bind All Character Meshes" onClick={() => runtime.current?.bindAllCharacterMeshesToRig?.()}><Layers size={13}/><span>BIND ALL</span></button>
            <button type="button" onClick={() => runtime.current?.normalizeSelectedSkinWeights?.()}><SlidersHorizontal size={13}/><span>WEIGHT NORM</span></button>
            <button type="button" onClick={() => runtime.current?.smoothSelectedSkinWeights?.()}><Waves size={13}/><span>WEIGHT SMOOTH</span></button>
          </div>
