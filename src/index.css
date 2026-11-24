@@ -3286,7 +3286,10 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   align-content:center;gap:2px!important;width:100%;
 }
 .timeline-playback-panel .timeline-transport button{
-  height:20px!important;min-height:20px!important;padding:0!important;
+  height:18px!important;min-height:18px!important;padding:0!important;line-height:1!important;
+}
+.timeline-playback-panel .timeline-loop{
+  height:12px!important;min-height:12px!important;line-height:12px!important;
 }
 .timeline-playback-panel .timeline-transport button:nth-child(6),
 .timeline-playback-panel .timeline-loop{grid-column:1/-1!important}
