@@ -269,3 +269,20 @@ test('Alphabet State marker object ownership survives project save and load', ()
   assert.match(app, /objectId: typeof state\.objectId === 'string' \? state\.objectId : undefined/);
   assert.match(app, /ownerMarkerCount \* diameter \* 1\.12/);
 });
+
+
+test('Alphabet State 3D markers are scene-rooted snapshots with larger circles and letters', () => {
+  assert.match(app, /scene\.add\(sprite\); sprite\.position\.copy\(worldPosition\)/);
+  assert.match(app, /sprite\.scale\.set\(diameter\*1\.55,diameter\*1\.55,1\)/);
+  assert.match(app, /canvas\.width=512; canvas\.height=512/);
+  assert.match(app, /font='800 220px Arial,sans-serif'/);
+  assert.match(app, /ownerObjectId=ownerId/);
+  assert.doesNotMatch(app, /owner\.add\(sprite\)/);
+});
+
+test('Alphabet State 3D markers select their matching state in both viewports', () => {
+  assert.equal((app.match(/intersectObjects\(Array\.from\(alphabetStateMarkers\.values\(\)\), false\)/g) || []).length, 2);
+  assert.equal((app.match(/setSelectedSequenceState\(stateId\)/g) || []).length, 2);
+  assert.match(app, /startFrame=startFrame/);
+  assert.match(app, /setCurrentFrame\(Number\(marker\.userData\.startFrame\) \|\| 1\)/);
+});
