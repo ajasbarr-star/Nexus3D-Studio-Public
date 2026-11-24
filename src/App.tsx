@@ -4133,18 +4133,29 @@ export default function App() {
     const next: Keyframes = JSON.parse(JSON.stringify(keysRef.current));
     // Capture the selected object and every bone/control belonging to its rig.
     // Each rig element gets an independent editor-ID track for pose editing.
+    const selectedRigRootId = String(obj.userData.rigRootBoneId || '');
+    const selectedRigRoot = selectedRigRootId
+      ? r.selectable.find((candidate: THREE.Object3D) => String(candidate.userData.editorId || '') === selectedRigRootId)
+      : null;
     const ownerId = obj instanceof THREE.Bone
       ? String(obj.userData.rigOwnerId || '')
-      : String(obj.userData.rigControlMarker ? obj.userData.controlOwnerObjectId || '' : obj.userData.editorId || '');
+      : String(obj.userData.rigControlMarker ? obj.userData.controlOwnerObjectId || '' : selectedRigRoot?.userData.rigOwnerId || obj.userData.editorId || '');
     const targets = new Map<string, THREE.Object3D>();
     targets.set(id, obj);
     if (ownerId) {
       const owner = r.selectable.find((candidate: THREE.Object3D) => String(candidate.userData.editorId || '') === ownerId);
       if (owner) targets.set(ownerId, owner);
+      const rigBones = r.selectable.filter((candidate: THREE.Object3D) =>
+        candidate instanceof THREE.Bone && String(candidate.userData.rigOwnerId || '') === ownerId
+      );
+      const rigBoneIds = new Set(rigBones.map((bone: THREE.Object3D) => String(bone.userData.editorId || '')));
+      rigBones.forEach((bone: THREE.Object3D) => {
+        if (bone.userData.editorId) targets.set(String(bone.userData.editorId), bone);
+      });
       r.selectable.forEach((candidate: THREE.Object3D) => {
-        const isBone = candidate instanceof THREE.Bone && String(candidate.userData.rigOwnerId || '') === ownerId;
         const isHandle = Boolean(candidate.userData.rigControlMarker) && String(candidate.userData.controlOwnerObjectId || '') === ownerId;
-        if ((isBone || isHandle) && candidate.userData.editorId) targets.set(String(candidate.userData.editorId), candidate);
+        const isIkTarget = Boolean(candidate.userData.rigRootBoneId) && rigBoneIds.has(String(candidate.userData.rigRootBoneId));
+        if ((isHandle || isIkTarget) && candidate.userData.editorId) targets.set(String(candidate.userData.editorId), candidate);
       });
     }
     targets.forEach((target, targetId) => {
