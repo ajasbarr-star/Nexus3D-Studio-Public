@@ -572,6 +572,7 @@ export default function App() {
   const [expandedSequenceRulerId, setExpandedSequenceRulerId] = useState('');
   const [sequenceRulerOffsets, setSequenceRulerOffsets] = useState<Record<string, number>>({});
   const sequenceRulerDrag = useRef<{ stateId: string; pointerId: number; startX: number; startOffset: number } | null>(null);
+  const suppressSequenceRulerClick = useRef(false);
   const beginSequenceRulerDrag = (event: React.PointerEvent<HTMLButtonElement>, stateId: string) => {
     if (event.button !== 0) return;
     event.preventDefault();
@@ -579,18 +580,22 @@ export default function App() {
     sequenceRulerDrag.current = { stateId, pointerId: event.pointerId, startX: event.clientX, startOffset: sequenceRulerOffsets[stateId] || 0 };
     event.currentTarget.setPointerCapture(event.pointerId);
     setSelectedSequenceState(stateId);
-    setExpandedSequenceRulerId(stateId);
   };
   const moveSequenceRulerDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
     const drag = sequenceRulerDrag.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     event.preventDefault();
     const delta = event.clientX - drag.startX;
+    if (Math.abs(delta) > 3) suppressSequenceRulerClick.current = true;
     setSequenceRulerOffsets(previous => ({ ...previous, [drag.stateId]: Math.max(0, drag.startOffset + delta) }));
   };
   const endSequenceRulerDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (sequenceRulerDrag.current?.pointerId !== event.pointerId) return;
     sequenceRulerDrag.current = null;
+  };
+  const handleAlphabetStateHandleClick = (state: typeof sequenceStates[number]) => {
+    if (suppressSequenceRulerClick.current) { suppressSequenceRulerClick.current = false; return; }
+    selectAlphabetState(state);
   };
   const [pendingStateChoice, setPendingStateChoice] = useState('');
   const [timelineTool, setTimelineTool] = useState<'tracks' | 'dope' | 'graph'>('tracks');
@@ -8260,7 +8265,7 @@ export default function App() {
              <section className="alphabet-state-panel" aria-label="Alphabet State Panel">
                <div className="alphabet-state-scroll" ref={timelineScrollRef} aria-label="Alphabet State sequence">
                  {sequenceStates.map(state => <div className="alphabet-state-item" key={state.id}>
-                   <button type="button" className={"alphabet-state-handle " + (selectedSequenceState === state.id ? "active" : "")} title={"State " + state.label + " · tap to select · drag right to move the complete ruler"} onPointerDown={event=>beginSequenceRulerDrag(event,state.id)} onPointerMove={moveSequenceRulerDrag} onPointerUp={endSequenceRulerDrag} onPointerCancel={endSequenceRulerDrag} onClick={() => selectAlphabetState(state)}>{state.label}</button>
+                   <button type="button" className={"alphabet-state-handle " + (selectedSequenceState === state.id ? "active" : "")} title={"State " + state.label + " · tap to select · drag right to move the complete ruler"} onPointerDown={event=>beginSequenceRulerDrag(event,state.id)} onPointerMove={moveSequenceRulerDrag} onPointerUp={endSequenceRulerDrag} onPointerCancel={endSequenceRulerDrag} onClick={() => handleAlphabetStateHandleClick(state)}>{state.label}</button>
                    <div className={"alphabet-state-mini-ruler " + (selectedSequenceState === state.id ? "active" : "") + (expandedSequenceRulerId === state.id ? " expanded" : " collapsed")} style={{width:Math.max(260,state.width*8)+"px",transform:"translateX("+String(sequenceRulerOffsets[state.id]||0)+"px)"}} aria-label={"State " + state.label + " keyframe timeline"}>
                      <span className="alphabet-state-frame-label">{Math.round(state.width)}f</span>
                      <button type="button" className="alphabet-state-ruler-expand" aria-label={(expandedSequenceRulerId === state.id ? 'Collapse' : 'Expand')+' State '+state.label+' ruler'} title={expandedSequenceRulerId === state.id ? 'Collapse ruler' : 'Expand ruler'} onClick={event=>{event.stopPropagation();setExpandedSequenceRulerId(current=>current===state.id?'':state.id);}}>{expandedSequenceRulerId === state.id ? '−' : '＋'}</button>
