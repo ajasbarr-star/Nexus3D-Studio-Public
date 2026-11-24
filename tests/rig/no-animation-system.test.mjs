@@ -379,3 +379,13 @@ test('Keyframe capture stores the selected object plus every bone and control ha
   assert.ok(app.includes('applySnapshot(obj, left.value)'));
   assert.ok(app.includes('Object.entries(keysRef.current)'));
 });
+
+
+test('Dragging an Alphabet State letter moves its complete ruler group to the right', () => {
+  assert.match(app, /sequenceRulerOffsets/);
+  assert.match(app, /beginSequenceRulerDrag/);
+  assert.match(app, /moveSequenceRulerDrag/);
+  assert.match(app, /onPointerMove=\{moveSequenceRulerDrag\}/);
+  assert.match(app, /transform:"translateX\("\+String\(sequenceRulerOffsets\[state\.id\]\|\|0\)/);
+  assert.match(app, /drag right to move the complete ruler/);
+});
