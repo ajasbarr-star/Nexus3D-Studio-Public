@@ -98,7 +98,7 @@ test('Ghost Preview creates non-selectable transparent 3D previous and next pose
   assert.match(app, /Nexus3D ' \+ label \+ ' Ghost/);
   assert.match(app, /cloneSkeletonHierarchy\(source\)/);
   assert.match(app, /internalAnimationGhost/);
-  assert.match(app, /copy\.opacity = 0\.2/);
+  assert.match(app, /\(copy as any\)\.opacity = 0\.2/);
   assert.match(app, /node\.raycast = \(\) => \{\}/);
 });
 
