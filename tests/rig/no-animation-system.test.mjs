@@ -39,20 +39,24 @@ test('Automatic IK / Auto Rig entry points remain absent', () => {
 // Animation workspace regression coverage is now enabled on the Test integration branch.
 
 
-test('Alphabet States stay hidden until plus is tapped, then appear in a left rail and open their own ruler on selection', () => {
-  assert.match(app, /alphabet-state-rail/);
-  assert.match(app, /Add State/);
-  assert.match(app, /const id = addAlphabetState\('independent'\); setPendingStateChoice\(id\)/);
-  assert.match(app, /setSelectedSequenceState\(''\)/);
-  assert.match(app, /activeSequenceState \? <div className="state-ruler-panel"/);
+test('Alphabet States use a compact horizontal sequence below a separate accessible tools panel', () => {
+  assert.match(app, /className="timeline-playback-panel"/);
+  assert.match(app, /className="timeline-tools-panel"/);
+  assert.match(app, /className="alphabet-state-panel"/);
+  assert.match(app, /className="alphabet-state-scroll"/);
+  assert.match(app, /className="alphabet-state-mini-ruler"/);
+  assert.match(app, /className="alphabet-state-add"/);
+  assert.match(app, /className="state-ruler-panel"/);
+  assert.match(app, /className="timeline-keyframe-button"/);
   assert.match(app, /NO STATE SELECTED/);
-  assert.doesNotMatch(app, /if \(!sequenceStates\.length\) \{ const initial/);
-  assert.match(css, /\.alphabet-state-rail/);
-  assert.match(css, /\.state-ruler-panel/);
-  assert.match(app, /activeSequenceState\.width\*14/);
-  assert.match(app, /resizeAlphabetState\(state\.id, drag\.startWidth \+ delta \* 1\.25\)/);
+  assert.match(app, /const id = addAlphabetState\("independent"\); setPendingStateChoice\(id\)/);
+  assert.match(app, /setSelectedSequenceState\(state.id\)/);
+  assert.match(app, /resizeAlphabetState\(state.id, drag.startWidth \+ delta \* 1\.25\)/);
+  assert.match(css, /\.timeline-tools-panel \.timeline-tool-row/);
+  assert.match(css, /\.alphabet-state-scroll/);
+  assert.match(css, /\.timeline-playback-panel/);
+  assert.doesNotMatch(app, /alphabet-state-rail/);
 });
-
 test('New Alphabet States offer manual Continue or Independent pose behavior', () => {
   assert.match(app, /CONTINUE/);
   assert.match(app, /INDEPENDENT/);
