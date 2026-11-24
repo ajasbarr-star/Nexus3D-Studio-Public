@@ -3314,6 +3314,13 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   color:#c5e8f7;font:700 7px 'DM Mono',monospace;line-height:10px;
   pointer-events:none;
 }
+.alphabet-state-mini-ruler .alphabet-state-ruler-labels{
+  position:absolute;inset:0;
+}
+.alphabet-state-mini-ruler .alphabet-state-ruler-labels span{
+  position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;
+  color:#c5e8f7;font:700 7px 'DM Mono',monospace;line-height:10px;
+}
 .alphabet-state-mini-ruler .alphabet-state-ruler-ticks{
   position:absolute;left:5px;right:5px;top:19px;height:15px;
   display:block;border-top:1px solid rgba(105,190,220,.3);
