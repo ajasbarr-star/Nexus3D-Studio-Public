@@ -2821,3 +2821,33 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .timeline-clip-select { display:flex; align-items:center; gap:5px; margin-left:2px; color:#8da8c2; font:8px 'DM Mono',monospace; }
 .timeline-clip-select select { max-width:160px; height:21px; padding:0 4px; border:1px solid #31536d; border-radius:4px; color:#c7e9f8; background:#0d1b2a; font:8px 'DM Mono',monospace; }
 @media (max-width:760px) { .timeline-clip-select { max-width:46vw; } .timeline-clip-select select { max-width:34vw; } }
+
+
+/* Alphabet State Timeline: draggable letter handles define expandable continuous ranges. */
+.alphabet-state-row { display:flex; flex-direction:column; gap:4px; min-height:34px; }
+.alphabet-state-scroll { display:flex; align-items:stretch; gap:4px; overflow-x:auto; overflow-y:hidden; min-height:32px; padding:1px 1px 4px; touch-action:pan-x; scrollbar-width:thin; scrollbar-color:#28536d transparent; }
+.alphabet-state-handle { position:relative; flex:0 0 auto; min-width:42px; height:29px; display:flex; align-items:center; justify-content:center; gap:5px; border:1px solid #29445d; border-radius:5px; color:#a8c3da; background:#102033; font:800 12px 'DM Mono',monospace; touch-action:pan-y; cursor:ew-resize; user-select:none; }
+.alphabet-state-handle small { color:#6f91ad; font:7px 'DM Mono',monospace; }
+.alphabet-state-handle.active { color:#07131c; border-color:#78e7ff; background:#78e7ff; box-shadow:0 0 10px #36c9ee55; }
+.alphabet-state-handle.active small { color:#24576a; }
+.alphabet-state-add { flex:0 0 30px; height:29px; border:1px dashed #3c6a86; border-radius:5px; color:#83eaff; background:#10283a; font-size:18px; }
+.alphabet-state-choice { display:flex; align-items:center; gap:5px; padding:4px 6px; border:1px solid #31536d; border-radius:5px; background:#0a1928; }
+.alphabet-state-choice span { color:#8ca8c2; font:7px 'DM Mono',monospace; margin-right:auto; }
+.alphabet-state-choice button,.timeline-tool-row button { min-height:23px; padding:0 7px; border:1px solid #29445d; border-radius:4px; color:#9fc2d9; background:#102033; font:700 7px 'DM Mono',monospace; white-space:nowrap; }
+.alphabet-state-choice button:hover,.timeline-tool-row button.active { color:#06131c; border-color:#78e7ff; background:#78e7ff; }
+.timeline-tool-row { display:flex; align-items:center; gap:3px; overflow-x:auto; min-height:23px; scrollbar-width:none; }
+.timeline-tool-row button { min-width:38px; }
+.timeline-object-tracks { display:flex; flex-direction:column; gap:2px; min-height:0; flex:1; overflow:auto; border-top:1px solid #1e3449; }
+.timeline-object-row { display:flex; align-items:center; min-height:17px; gap:6px; }
+.timeline-object-row > span { flex:0 0 82px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#9bb5cb; font:7px 'DM Mono',monospace; }
+.timeline-object-row > div { position:relative; flex:1; height:15px; border-bottom:1px solid #1a2c40; background:repeating-linear-gradient(90deg,transparent 0,transparent 24px,#1c3044 25px); }
+.timeline-object-row button { position:absolute; top:0; transform:translateX(-50%); padding:0; border:0; color:#42dfff; background:transparent; font-size:10px; line-height:13px; }
+.timeline-markers .timeline-event-marker { color:#ffcf72; text-shadow:0 0 6px #ffb84d; }
+.timeline-tool-empty { display:flex; align-items:center; min-height:22px; color:#819db8; font:7px 'DM Mono',monospace; }
+.timeline-panel { height:min(34vh,220px); min-height:150px; max-height:220px; }
+@media (max-width:760px) {
+  .timeline-panel { height:34vh; min-height:148px; max-height:220px; }
+  .alphabet-state-handle { min-width:40px; }
+  .timeline-object-row > span { flex-basis:64px; }
+  .timeline-tool-row button { padding:0 5px; }
+}
