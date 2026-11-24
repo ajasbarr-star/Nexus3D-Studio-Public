@@ -246,3 +246,23 @@ test('Control Handles created before Shape attachment are reparented to the rig 
   const row = app.slice(rowStart, app.indexOf('</button>}', rowStart));
   assert.match(row, /runtime\.current\?\.selectObject\(item\.object\)/);
 });
+
+
+test('universal Control Handle creation immediately selects the orange marker and frames it for any Shape or Character rig', () => {
+  const createStart = app.indexOf('const toggleSelectedBoneControlHandle =');
+  const createEnd = app.indexOf('const toggleSelectedBoneLock =', createStart);
+  const create = app.slice(createStart, createEnd);
+  assert.match(create, /if (!(bone instanceof THREE\.Bone))/);
+  assert.doesNotMatch(create, /Character|character|SkinnedMesh|MeshPhysicalMaterial/);
+  assert.match(create, /new THREE\.SphereGeometry\(0\.07, 16, 12\)/);
+  assert.match(create, /color: '#ffb52e'/);
+  assert.match(create, /selectable\.push\(marker\)/);
+  assert.match(create, /syncItems\(\); selectObject\(nextSelection\)/);
+
+  const selectionStart = app.indexOf('const updateControlHandleSelectionFrame =');
+  const selectionEnd = app.indexOf('const selectObject =', selectionStart);
+  const frame = app.slice(selectionStart, selectionEnd);
+  assert.match(frame, /handleWorldScale = obj\.getWorldScale/);
+  assert.match(frame, /frame\.scale\.set\(/);
+  assert.match(app.slice(app.indexOf('const selectObject ='), app.indexOf('const addObject =')), /transform\.attach\(obj\)/);
+});
