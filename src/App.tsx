@@ -574,7 +574,7 @@ export default function App() {
   const suppressSequenceRulerClick = useRef(false);
   const beginSequenceRulerResize = (event: React.PointerEvent<HTMLButtonElement>, stateId: string) => {
     if (event.button !== 0) return;
-    sequenceRulerDrag.current = { stateId, pointerId: event.pointerId, startX: event.clientX, startWidth: sequenceRulerDisplayWidths[stateId] || 220 };
+    sequenceRulerDrag.current = { stateId, pointerId: event.pointerId, startX: event.clientX, startWidth: sequenceRulerDisplayWidths[stateId] || 360 };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const moveSequenceRulerResize = (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -591,7 +591,7 @@ export default function App() {
   const handleAlphabetStateHandleClick = (state: typeof sequenceStates[number]) => {
     if (suppressSequenceRulerClick.current) { suppressSequenceRulerClick.current = false; return; }
     selectAlphabetState(state);
-    setSequenceRulerDisplayWidths(previous => ({ ...previous, [state.id]: previous[state.id] || 220 }));
+    setSequenceRulerDisplayWidths(previous => ({ ...previous, [state.id]: previous[state.id] || 360 }));
   };
   const [pendingStateChoice, setPendingStateChoice] = useState('');
   const [timelineTool, setTimelineTool] = useState<'tracks' | 'dope' | 'graph'>('tracks');
@@ -8287,7 +8287,7 @@ export default function App() {
                <div className="alphabet-state-scroll" ref={timelineScrollRef} aria-label="Alphabet State sequence">
                  {sequenceStates.map(state => <div className="alphabet-state-item" key={state.id}>
                    <button type="button" className={"alphabet-state-handle " + (selectedSequenceState === state.id ? "active" : "")} title={"State " + state.label + " · tap to show ruler · drag right to expand, left to shrink"} onPointerDown={event=>beginSequenceRulerResize(event,state.id)} onPointerMove={moveSequenceRulerResize} onPointerUp={endSequenceRulerResize} onPointerCancel={endSequenceRulerResize} onClick={() => handleAlphabetStateHandleClick(state)}>{state.label}</button>
-                   <div className={"alphabet-state-mini-ruler " + (selectedSequenceState === state.id ? "active" : "") + ((sequenceRulerDisplayWidths[state.id] || 220) > 96 ? " expanded" : " collapsed")} style={{width:(sequenceRulerDisplayWidths[state.id] || 220)+"px"}} aria-label={"State " + state.label + " keyframe timeline"}>
+                   <div className={"alphabet-state-mini-ruler " + (selectedSequenceState === state.id ? "active" : "") + ((sequenceRulerDisplayWidths[state.id] || 360) > 96 ? " expanded" : " collapsed")} style={{width:(sequenceRulerDisplayWidths[state.id] || 360)+"px"}} aria-label={"State " + state.label + " keyframe timeline"}>
                      <span className="alphabet-state-frame-label">{Math.round(state.width)}f</span>
                      <div className="alphabet-state-ruler-scale" aria-label={"Frame ruler from "+getSequenceRange(state.id).start+" to "+getSequenceRange(state.id).end}><div className="alphabet-state-ruler-labels">{Array.from({length:Math.max(2,Math.round(state.width)+1)},(_,index)=>{const range=getSequenceRange(state.id);const value=range.start+index;return <span key={index} style={{left:(index/Math.max(1,Math.round(state.width))*100)+"%"}}>{value}</span>;})}</div><div className="alphabet-state-ruler-ticks" aria-hidden="true">{Array.from({length:Math.max(2,Math.round(state.width)+1)},(_,index)=><i key={index} className={index%10===0?"major":index%5===0?"medium":"minor"} style={{left:(index/Math.max(1,Math.round(state.width))*100)+"%",top:0}}/>)}</div></div>
                      <input aria-label={"State " + state.label + " frame slider"} type="range" min={getSequenceRange(state.id).start} max={Math.max(getSequenceRange(state.id).start+1,getSequenceRange(state.id).end)} value={Math.max(getSequenceRange(state.id).start,Math.min(frame,getSequenceRange(state.id).end))} onChange={event=>setCurrentFrame(Number(event.target.value))}/>
