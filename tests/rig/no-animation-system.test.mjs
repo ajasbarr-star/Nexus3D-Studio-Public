@@ -453,3 +453,30 @@ test('Timeline ruler uses graduated frame ticks, a taller anchored track, and co
   assert.match(css, /\.timeline-playback-panel \.timeline-transport\{\s*display:grid!important;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important/);
   assert.doesNotMatch(css.slice(css.lastIndexOf('/* Phase 2 refinement')), /height:158px|min-height:150px/);
 });
+
+
+test('Timeline Add Keyframe action lives in the Dope Sheet toolbar, not inside the State ruler', () => {
+  assert.match(app, /className="timeline-add-keyframe" onClick=\{\(\)=>captureRef\.current\(\)\}/);
+  const ruler = app.slice(app.indexOf('className={"alphabet-state-mini-ruler'), app.indexOf('className="alphabet-state-add"'));
+  assert.doesNotMatch(ruler, /alphabet-state-mini-key/);
+  assert.match(css, /\.timeline-tool-row \.timeline-add-keyframe/);
+});
+
+test('Playback controls remain compact in one horizontal row', () => {
+  const layout = css.slice(css.lastIndexOf('/* Timeline interaction cleanup'));
+  assert.match(layout, /\.timeline-playback-panel \.timeline-transport\{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important/);
+  assert.match(layout, /\.timeline-playback-panel \.timeline-transport button\{flex:0 0 18px!important/);
+});
+
+test('Selected Alphabet State ruler uses vertical frame labels and ticks while scrubbing remains horizontal', () => {
+  const layout = css.slice(css.lastIndexOf('/* Timeline interaction cleanup'));
+  assert.match(layout, /\.alphabet-state-ruler-labels\{position:absolute!important;inset:0!important;display:flex!important;flex-direction:column!important/);
+  assert.match(layout, /\.alphabet-state-ruler-ticks i\{left:0!important;top:auto!important;width:5px!important;height:1px!important/);
+  assert.match(layout, /\.alphabet-state-mini-ruler input\[type=range\].*touch-action:pan-x!important/);
+  assert.match(app, /onChange=\{event=>setCurrentFrame\(Number\(event\.target\.value\)\)\}/);
+});
+
+test('Alphabet State frame ranges are contiguous without sharing the boundary frame', () => {
+  assert.match(app, /const start = cursor; const end = start \+ Math\.max\(1, state\.width\) - 1/);
+  assert.match(app, /cursor = end \+ 1/);
+});
