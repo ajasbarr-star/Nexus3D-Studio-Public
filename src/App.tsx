@@ -8021,7 +8021,7 @@ export default function App() {
           </aside>
           {activeSequenceState ? <div className="state-ruler-panel" aria-label={'State '+activeSequenceState.label+' Ruler'}>
             <div className="state-ruler-heading"><strong>STATE {activeSequenceState.label} · RULER</strong><span>{activeSequenceRange.start}–{activeSequenceRange.end}F · DRAG LETTER ↔ TO RESIZE</span></div>
-            <div className="state-ruler-scroll"><div className="state-ruler-content" style={{minWidth:Math.max(100,activeSequenceState.width*4)+'px'}}>
+            <div className="state-ruler-scroll"><div className="state-ruler-content" style={{minWidth:Math.max(100,activeSequenceState.width*14)+'px'}}>
         <div className="timeline-transport">
           <button type="button" title="Go to start" onClick={() => { setPlaying(false); setCurrentFrame(workStart); }}><Rewind size={13}/></button>
           <button type="button" title="Previous keyframe" onClick={() => { const frames = Object.keys(keyframes[selected] || {}).map(Number).filter(value => value < frame).sort((x,y) => y-x); if (frames.length) setCurrentFrame(frames[0]); }}><ChevronDown size={13}/></button>
