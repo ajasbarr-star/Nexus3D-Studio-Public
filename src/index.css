@@ -3132,9 +3132,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .alphabet-state-mini-markers button.selected-keyframe{color:#ffe18a;text-shadow:0 0 6px #ffca50}
 .alphabet-state-mini-key{position:absolute;left:3px;bottom:1px;z-index:4;height:11px;min-width:20px;padding:0 3px;border:1px solid #3a829b;border-radius:3px;color:#dffaff;background:#102d40;font:700 5px 'DM Mono',monospace}
 .alphabet-state-panel .alphabet-state-add{flex:0 0 48px;width:48px;min-width:48px;height:28px}
-.alphabet-state-tools-detail{flex:0 0 auto;max-height:95px;min-width:0;overflow:auto;padding:2px 4px;border-top:1px solid #203c52}
-.alphabet-state-tools-detail .timeline-dope-sheet,.alphabet-state-tools-detail .timeline-graph-editor{max-height:70px;overflow:auto}
-.alphabet-state-tools-detail .timeline-settings{display:none}
+/* Legacy inline Dope Sheet / Graph detail layout removed; use timeline-floating-tool-panel below. */
 
 /* Canonical Alphabet State ruler — native horizontal swipe and enlarged keyframe track. */
 .alphabet-state-panel{min-width:0;min-height:0;overflow:hidden}
