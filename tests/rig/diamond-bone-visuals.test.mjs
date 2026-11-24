@@ -207,3 +207,20 @@ test('bone joint spheres and hierarchy lines use reduced visual emphasis', () =>
   assert.match(app, /material\.opacity = 0\.68/);
   assert.match(app, /material\.linewidth = 1/);
 });
+
+
+test('selected orange Control Handle gets a transparent square with white outline, hidden and disposed on deselection', () => {
+  const frameStart = app.indexOf('const updateControlHandleSelectionFrame =');
+  const frameEnd = app.indexOf('const selectObject =', frameStart);
+  const frame = app.slice(frameStart, frameEnd);
+  assert.match(frame, /obj\?\.userData\?\.rigControlMarker/);
+  assert.match(frame, /new THREE\.BoxGeometry\(0\.24, 0\.24, 0\.24\)/);
+  assert.match(frame, /opacity: 0\.035/);
+  assert.match(frame, /new THREE\.EdgesGeometry\(new THREE\.BoxGeometry/);
+  assert.match(frame, /color: '#ffffff'/);
+  assert.match(frame, /opacity: 0\.98/);
+  assert.match(frame, /node\.raycast = \(\) => \{\}/);
+  assert.match(frame, /previousFrame\.parent\?\.remove\(previousFrame\)/);
+  assert.match(app.slice(app.indexOf('const selectObject ='), app.indexOf('const addObject =')), /updateControlHandleSelectionFrame\(obj\)/);
+  assert.match(frame, /nexusControlHandleSelectionFrame/);
+});
