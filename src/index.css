@@ -3206,3 +3206,35 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   border-color:#75414b;
 }
 .timeline-tool-row .timeline-delete-state:disabled{opacity:.35}
+
+
+/* New floating Dope Sheet / Graph workspace: replaces the former inline detail row. */
+.timeline-editor-stack{position:relative;overflow:visible!important}
+.alphabet-state-panel{position:relative;overflow:visible!important}
+.timeline-floating-tool-panel{
+  position:absolute!important;z-index:24;left:4px;right:4px;bottom:68px;
+  display:block;max-height:74px;min-height:38px;overflow:auto;
+  padding:5px 7px;border:1px solid rgba(72,190,225,.48);border-radius:8px;
+  background:rgba(7,16,28,.97);box-shadow:0 10px 28px rgba(0,0,0,.55),0 0 18px rgba(46,190,225,.12);
+  backdrop-filter:blur(14px);
+}
+.timeline-floating-tool-panel .timeline-dope-sheet,
+.timeline-floating-tool-panel .timeline-graph-editor{max-height:none;overflow:visible}
+.timeline-floating-tool-panel .timeline-graph-editor{display:grid;grid-template-columns:minmax(0,1fr);gap:4px}
+.timeline-floating-tool-panel .timeline-graph-plot{min-height:36px;height:36px}
+.timeline-floating-tool-panel .timeline-curve-controls{display:flex;flex-wrap:wrap;gap:5px}
+.timeline-floating-tool-panel .timeline-settings{display:none}
+.alphabet-state-mini-ruler:not(.active){display:none!important}
+.alphabet-state-mini-ruler.collapsed{
+  flex-basis:96px!important;width:96px!important;height:25px!important;min-height:25px!important;
+}
+.alphabet-state-mini-ruler.collapsed input[type=range],
+.alphabet-state-mini-ruler.collapsed .alphabet-state-mini-markers,
+.alphabet-state-mini-ruler.collapsed .alphabet-state-mini-key{display:none!important}
+.alphabet-state-mini-ruler.collapsed .alphabet-state-frame-label{top:5px;left:5px}
+.alphabet-state-ruler-expand{
+  position:absolute;z-index:4;right:3px;top:3px;width:20px;height:18px;min-height:18px;
+  padding:0;border:1px solid rgba(79,205,238,.45);border-radius:4px;
+  background:rgba(7,22,35,.92);color:#a7edff;font-size:12px;line-height:16px;
+}
+.alphabet-state-mini-ruler.expanded .alphabet-state-ruler-expand{top:3px}
