@@ -49,6 +49,8 @@ test('Alphabet States stay hidden until plus is tapped, then appear in a left ra
   assert.doesNotMatch(app, /if \(!sequenceStates\.length\) \{ const initial/);
   assert.match(css, /\.alphabet-state-rail/);
   assert.match(css, /\.state-ruler-panel/);
+  assert.match(app, /activeSequenceState\.width\*14/);
+  assert.match(app, /resizeAlphabetState\(state\.id, drag\.startWidth \+ delta \* 1\.25\)/);
 });
 
 test('New Alphabet States offer manual Continue or Independent pose behavior', () => {
