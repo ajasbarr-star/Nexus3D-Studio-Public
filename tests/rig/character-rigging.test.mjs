@@ -56,3 +56,30 @@ test('batch assignment reports ready, review, and unassigned counts', () => {
   assert.equal(summary.review, 1);
   assert.equal(summary.rigid, 2);
 });
+
+import { readFileSync } from 'node:fs';
+const appSource = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
+
+test('Nexus3D exposes fitted character rig, body-part detection, and batch binding actions', () => {
+  assert.match(appSource, /owner\.add\(rig\)/);
+  assert.match(appSource, /const detectCharacterBodyParts = \(\) =>/);
+  assert.match(appSource, /const bindAllCharacterMeshesToRig = \(\) =>/);
+  assert.match(appSource, /bindAllCharacterMeshesToRig, normalizeSelectedSkinWeights/);
+  assert.match(appSource, /aria-label="Create Humanoid Rig Template"/);
+  assert.match(appSource, /aria-label="Detect Character Body Parts"/);
+  assert.match(appSource, /aria-label="Bind All Character Meshes"/);
+});
+
+test('Control Handles inherit the character root transform while retaining world placement', () => {
+  assert.match(appSource, /const placeControlHandleAtBone =/);
+  assert.match(appSource, /const parent = chain\?\.owner && chain\.owner !== scene \? chain\.owner : scene/);
+  assert.match(appSource, /placeControlHandleAtBone\(marker, bone, placement\)/);
+  assert.match(appSource, /marker\.userData\.controlLastWorldQuaternion = marker\.getWorldQuaternion/);
+});
+
+test('automatic rigid binding preserves world transforms through Object3D.attach and records correction metadata', () => {
+  assert.match(appSource, /bone\.attach\(mesh\)/);
+  assert.match(appSource, /mode: 'rigid'/);
+  assert.match(appSource, /needsReview: assignment\.needsReview/);
+  assert.match(appSource, /rigPartKey/);
+});
