@@ -3924,7 +3924,8 @@ export default function App() {
         if (bounds.isEmpty()) return;
         const size = bounds.getSize(new THREE.Vector3()), center = bounds.getCenter(new THREE.Vector3());
         const diameter = THREE.MathUtils.clamp(Math.max(size.x,size.z,size.y*0.65)*0.24,0.28,1.35);
-        const worldPosition = new THREE.Vector3(center.x,bounds.min.y-diameter*0.58,center.z);
+        const ownerMarkerCount = Array.from(alphabetStateMarkers.values()).filter(marker => marker.parent === owner).length;
+        const worldPosition = new THREE.Vector3(center.x + ownerMarkerCount * diameter * 1.12,bounds.min.y-diameter*0.58,center.z);
         const localPosition = owner.worldToLocal(worldPosition);
         const canvas=document.createElement('canvas'); canvas.width=256; canvas.height=256;
         const context=canvas.getContext('2d'); if(!context)return;
