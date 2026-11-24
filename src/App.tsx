@@ -1448,7 +1448,58 @@ export default function App() {
       return false;
     };
 
+    let activeControlSelectionFrame: THREE.Group | null = null;
+    const updateControlHandleSelectionFrame = (obj?: THREE.Object3D) => {
+      const nextIsControlHandle = Boolean(obj?.userData?.rigControlMarker);
+      const currentOwner = activeControlSelectionFrame?.parent;
+      if (activeControlSelectionFrame && (!nextIsControlHandle || currentOwner !== obj)) {
+        const previousFrame = activeControlSelectionFrame;
+        previousFrame.parent?.remove(previousFrame);
+        previousFrame.traverse(node => {
+          const visual = node as THREE.Mesh | THREE.LineSegments;
+          visual.geometry?.dispose();
+          const materials = Array.isArray(visual.material) ? visual.material : visual.material ? [visual.material] : [];
+          materials.forEach(material => material.dispose());
+        });
+        activeControlSelectionFrame = null;
+      }
+      if (!nextIsControlHandle || !obj) return;
+      if (activeControlSelectionFrame?.parent === obj) {
+        activeControlSelectionFrame.visible = true;
+        return;
+      }
+      const frame = new THREE.Group();
+      frame.name = 'Control Handle Selection Frame';
+      frame.userData.nexusControlHandleSelectionFrame = true;
+      const face = new THREE.Mesh(
+        new THREE.BoxGeometry(0.24, 0.24, 0.24),
+        new THREE.MeshBasicMaterial({
+          color: '#ffffff', transparent: true, opacity: 0.035,
+          depthTest: false, depthWrite: false, side: THREE.DoubleSide, toneMapped: false
+        })
+      );
+      face.name = 'Transparent Control Handle Selection Box';
+      face.renderOrder = 10001;
+      face.raycast = () => {};
+      const outline = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.BoxGeometry(0.24, 0.24, 0.24)),
+        new THREE.LineBasicMaterial({
+          color: '#ffffff', transparent: true, opacity: 0.98,
+          depthTest: false, depthWrite: false, toneMapped: false
+        })
+      );
+      outline.name = 'White Control Handle Selection Outline';
+      outline.renderOrder = 10002;
+      outline.raycast = () => {};
+      frame.add(face, outline);
+      frame.traverse(node => { node.raycast = () => {}; });
+      frame.visible = true;
+      obj.add(frame);
+      activeControlSelectionFrame = frame;
+    };
+
     const selectObject = (obj?: THREE.Object3D) => {
+      updateControlHandleSelectionFrame(obj);
       if (String(obj?.userData?.editorId || '') !== selectedRef.current) clearTopologyOverlay();
       if (!obj) {
         transform.detach();
