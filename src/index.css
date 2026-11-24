@@ -2851,3 +2851,21 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   .timeline-object-row > span { flex-basis:64px; }
   .timeline-tool-row button { padding:0 5px; }
 }
+
+
+/* Functional Animation Timeline editors: Dope Sheet, Graph channel editing and 3D ghosts. */
+.timeline-dope-sheet,.timeline-graph-editor{display:flex;flex:1;min-height:0;flex-direction:column;gap:4px;overflow:hidden}
+.timeline-dope-actions,.timeline-graph-toolbar{display:flex;align-items:center;gap:5px;min-height:24px;overflow-x:auto}
+.timeline-dope-actions span{margin-right:auto;color:#a8c4df;font:7px 'DM Mono',monospace;white-space:nowrap}
+.timeline-dope-actions button,.timeline-graph-toolbar button{min-height:21px;padding:0 6px;border:1px solid #31536d;border-radius:4px;background:#102033;color:#b9d8eb;font:700 7px 'DM Mono',monospace;white-space:nowrap}
+.timeline-dope-actions button:disabled,.timeline-graph-toolbar button:disabled{opacity:.35}
+.timeline-graph-toolbar label,.timeline-curve-controls label{display:flex;align-items:center;gap:4px;color:#91abc1;font:7px 'DM Mono',monospace;white-space:nowrap}
+.timeline-graph-toolbar select{height:21px;max-width:95px;padding:0 3px;border:1px solid #31536d;border-radius:4px;background:#0d1b2a;color:#d5e9fa;font:7px 'DM Mono',monospace}
+.timeline-graph-toolbar input{width:58px;min-width:48px;height:20px;padding:0 3px;border:1px solid #31536d;border-radius:4px;background:#0d1b2a;color:#d5e9fa;font:8px 'DM Mono',monospace}
+.timeline-curve-controls{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:24px}
+.timeline-curve-controls input{width:55px;accent-color:#42dfff}
+.timeline-curve-controls span{color:#b8d7eb}
+.timeline-curve-controls p{flex-basis:100%;margin:0;color:#819db8;font:7px 'DM Mono',monospace}
+.timeline-object-row button.selected-keyframe{color:#ff63ad;text-shadow:0 0 8px #ff4fa3}
+.timeline-object-row button:focus-visible{outline:1px solid #ff63ad;outline-offset:2px}
+@media(max-width:760px){.timeline-graph-toolbar{gap:3px}.timeline-graph-toolbar label{font-size:6px}.timeline-graph-toolbar input{width:48px}.timeline-curve-controls{gap:4px}}
