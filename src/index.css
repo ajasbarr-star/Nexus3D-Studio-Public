@@ -3028,3 +3028,141 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .animation-floating-panel .animation-dock-heading button{display:grid;place-items:center;min-width:22px;min-height:22px}
 .animation-gizmo-tools.animation-floating-gizmo{top:7px!important;bottom:auto!important;left:50%!important;right:auto!important;transform:translateX(-50%);z-index:19}
 @media(max-width:760px){.animation-panel-switcher{top:5px;left:5px}.animation-floating-panel{top:38px!important;left:5px!important;width:clamp(145px,34vw,205px)!important}.animation-gizmo-tools.animation-floating-gizmo{top:5px!important;left:50%!important}}
+
+
+/* Timeline layout correction: playback controls occupy a dedicated left panel;
+   Alphabet State / State Ruler stay horizontally beside it. */
+.animation-mode .animation-state-layout{
+  display:flex;
+  flex-direction:row;
+  align-items:stretch;
+  gap:6px;
+  min-width:0;
+  min-height:0;
+  overflow:hidden;
+}
+.animation-mode .timeline-playback-panel{
+  flex:0 0 142px;
+  width:142px;
+  min-width:112px;
+  align-self:flex-start;
+  min-height:34px;
+  justify-content:flex-start;
+  padding:4px;
+}
+.animation-mode .timeline-playback-panel .timeline-transport{
+  display:flex;
+  flex-direction:row;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-start;
+  gap:3px;
+  width:100%;
+}
+.animation-mode .timeline-playback-panel .timeline-transport button{
+  flex:0 0 25px;
+  width:25px;
+  height:23px;
+  min-width:25px;
+}
+.animation-mode .timeline-playback-panel .timeline-transport button:nth-child(6){flex-basis:38px;width:38px}
+.animation-mode .timeline-playback-panel .timeline-loop{flex:0 0 auto;margin:0 0 0 2px}
+.animation-mode .timeline-editor-stack{
+  flex:1 1 0;
+  width:auto;
+  min-width:0;
+  margin:0;
+  gap:3px;
+}
+.animation-mode .alphabet-state-panel,
+.animation-mode .state-ruler-panel{width:100%;min-width:0;margin-left:0;margin-right:0}
+.animation-mode .alphabet-state-scroll{width:100%;min-width:0}
+.animation-mode .state-ruler-scroll{width:100%;min-width:0;overflow-x:auto;overflow-y:hidden}
+.animation-mode .state-ruler-content{width:100%;min-width:100%}
+.animation-mode .timeline-track-row{display:flex;width:100%;min-width:0;align-items:center;gap:5px}
+.animation-mode .timeline-track-name{flex:0 0 68px;width:68px;min-width:48px}
+.animation-mode .timeline-track{
+  position:relative;
+  flex:1 1 0;
+  width:auto;
+  min-width:0;
+  height:32px;
+  overflow:visible;
+  border-radius:4px;
+  background:repeating-linear-gradient(90deg,#0c1c2b 0,#0c1c2b 13px,#18344a 14px);
+}
+.animation-mode .timeline-track input[type=range]{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  width:100%;
+  height:100%;
+  margin:0;
+  appearance:none;
+  background:transparent;
+  pointer-events:auto;
+}
+.animation-mode .timeline-track input[type=range]::-webkit-slider-runnable-track{height:3px;background:#34556b;border-radius:3px}
+.animation-mode .timeline-track input[type=range]::-moz-range-track{height:3px;background:#34556b;border-radius:3px}
+.animation-mode .timeline-track input[type=range]::-webkit-slider-thumb{
+  appearance:none;width:9px;height:9px;margin-top:-3px;border:1px solid #e9fbff;
+  border-radius:50%;background:#41dafa;box-shadow:0 0 7px #36dfff
+}
+.animation-mode .timeline-track input[type=range]::-moz-range-thumb{
+  width:9px;height:9px;border:1px solid #e9fbff;border-radius:50%;
+  background:#41dafa;box-shadow:0 0 7px #36dfff
+}
+/* Marker inset equals half the native range-thumb width, so both use the
+   same start/end centers and therefore the same frame-to-pixel mapping. */
+.animation-mode .timeline-markers{
+  position:absolute;
+  inset:0 4.5px;
+  z-index:2;
+  overflow:visible;
+  pointer-events:none;
+}
+.animation-mode .timeline-markers button{
+  position:absolute;
+  top:50%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:0;
+  min-width:15px;
+  min-height:26px;
+  padding:0 1px;
+  transform:translate(-50%,-50%);
+  border:0;
+  color:#48e3ff;
+  background:rgba(7,18,29,.72);
+  font:700 8px 'DM Mono',monospace;
+  line-height:9px;
+  white-space:nowrap;
+  text-shadow:0 0 6px #00d9ff;
+  pointer-events:auto;
+}
+.animation-mode .timeline-markers button .keyframe-diamond{font-size:12px;line-height:12px}
+.animation-mode .timeline-markers button .keyframe-frame-number{font-size:7px;line-height:8px;color:#d6f8ff}
+.animation-mode .timeline-markers button.selected-keyframe{
+  color:#fff3a6;
+  background:rgba(67,52,13,.82);
+  text-shadow:0 0 7px #ffcf55;
+}
+.animation-mode .timeline-markers button.selected-keyframe .keyframe-frame-number{color:#ffe08a}
+.animation-mode .timeline-markers .timeline-event-marker{
+  z-index:4;
+  top:2px;
+  transform:translateX(-50%);
+  min-height:12px;
+  color:#f4c66f;
+  background:transparent;
+}
+@media(max-width:760px){
+  .animation-mode .animation-state-layout{flex-direction:row;gap:4px}
+  .animation-mode .timeline-playback-panel{flex:0 0 112px;width:112px;min-width:100px;padding:3px}
+  .animation-mode .timeline-playback-panel .timeline-transport{gap:2px}
+  .animation-mode .timeline-playback-panel .timeline-transport button{flex-basis:23px;width:23px;min-width:23px;height:22px}
+  .animation-mode .timeline-playback-panel .timeline-transport button:nth-child(6){flex-basis:34px;width:34px}
+  .animation-mode .timeline-track-name{flex-basis:48px;width:48px;min-width:40px}
+}
