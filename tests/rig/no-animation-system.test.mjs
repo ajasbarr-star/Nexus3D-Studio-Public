@@ -297,3 +297,15 @@ test('Alphabet State strip uses native horizontal swipe and the enlarged 58px ke
   assert.match(css, /\.alphabet-state-mini-ruler\{[\s\S]*?height:58px;min-height:58px/);
   assert.match(css, /\.alphabet-state-item \.alphabet-state-handle\{[\s\S]*?height:58px;min-height:58px/);
 });
+
+
+test('Selected Alphabet State marker gets a distinct highlight in both 3D viewports', () => {
+  assert.equal((app.match(/setSelectedAlphabetStateMarker\?\.\(stateId\)/g) || []).length, 2);
+  assert.match(app, /setSelectedAlphabetStateMarker, syncViewportControls/);
+  assert.match(app, /markerCanvas=canvas/);
+  assert.match(app, /markerTexture=texture/);
+  assert.match(app, /strokeStyle = selected \? '#ffe45c' : '#43dfff'/);
+  assert.match(app, /fillStyle = selected \? '#fff4a6' : '#e8fbff'/);
+  assert.match(app, /selected \? 1\.68 : 1\.55/);
+  assert.match(app, /setSelectedAlphabetStateMarker\?\.\(selectedSequenceState\)/);
+});
