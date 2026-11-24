@@ -275,6 +275,7 @@ export default function App() {
   const [items, setItems] = useState<Item[]>([]);
   const [selected, setSelected] = useState('');
   const [ikSpringPanelOpen, setIkSpringPanelOpen] = useState(false);
+  const [characterRigPanelOpen, setCharacterRigPanelOpen] = useState(false);
   const [ikSpringEnabled, setIkSpringEnabled] = useState(false);
   const [ikSpringStrength, setIkSpringStrength] = useState(35);
   const [ikSpringDamping, setIkSpringDamping] = useState(75);
@@ -7160,12 +7161,8 @@ export default function App() {
          <button type="button" title="Set selected Bone as Object Parent" aria-label="Set selected Bone as Object Parent" onClick={() => runtime.current?.setRigParentTarget?.()}><Target size={13}/><span>PARENT</span></button>
          <button type="button" title="Attach selected Shape or Object to the chosen Bone" aria-label="Attach selected Shape or Object to the chosen Bone" onClick={() => runtime.current?.attachSelectedToRigParent?.()}><Link2 size={13}/><span>LINK</span></button>
          <button type="button" title="Detach selected Object from its Rig Parent" aria-label="Detach selected Object from its Rig Parent" onClick={() => runtime.current?.detachSelectedRigObject?.()}><Unlink size={13}/><span>DETACH</span></button>
-         <button type="button" title="Bind selected mesh to Rig using deforming skin weights" aria-label="Bind Mesh to Rig" onClick={() => runtime.current?.bindSelectedMeshToRig?.()}><Layers size={13}/><span>SKIN</span></button>
-         <button type="button" title="Create a fitted Humanoid Rig Template for the selected Character Group" aria-label="Create Humanoid Rig Template" onClick={() => runtime.current?.createManualRig?.()}><GitBranch size={13}/><span>TEMPLATE</span></button>
-         <button type="button" title="Detect separate body-part meshes and suggest bone assignments" aria-label="Detect Character Body Parts" onClick={() => runtime.current?.detectCharacterBodyParts?.()}><ScanSearch size={13}/><span>DETECT PARTS</span></button>
-         <button type="button" title="Bind all detected body-part meshes to the shared skeleton" aria-label="Bind All Character Meshes" onClick={() => runtime.current?.bindAllCharacterMeshesToRig?.()}><Layers size={13}/><span>BIND ALL</span></button>
-         <button type="button" title="Normalize the selected skinned mesh vertex weights" aria-label="Normalize Skin Weights" onClick={() => runtime.current?.normalizeSelectedSkinWeights?.()}><SlidersHorizontal size={13}/><span>WEIGHT NORM</span></button>
-         <button type="button" title="Smooth the selected skinned mesh vertex weights" aria-label="Smooth Skin Weights" onClick={() => runtime.current?.smoothSelectedSkinWeights?.()}><Waves size={13}/><span>WEIGHT SMOOTH</span></button>
+          <button type="button" title="Open Character Rigging workflow" aria-label="Character Rigging Tools" className={characterRigPanelOpen ? 'active' : ''} aria-expanded={characterRigPanelOpen} onClick={() => setCharacterRigPanelOpen(value => !value)}><GitBranch size={13}/><span>CHAR RIG</span></button>
+          <button type="button" title="Bind selected mesh to Rig using deforming skin weights" aria-label="Bind Mesh to Rig" onClick={() => runtime.current?.bindSelectedMeshToRig?.()}><Layers size={13}/><span>SKIN</span></button>
          <button type="button" title="Create Control Handle" aria-label="Create Control Handle" onClick={() => runtime.current?.toggleSelectedBoneControlHandle?.()}><Target size={13}/><span>HANDLE</span></button>
          <button type="button" title="Lock or Unlock Bone" aria-label="Lock or Unlock Bone" onClick={() => runtime.current?.toggleSelectedBoneLock?.()}><Lock size={13}/><span>LOCK</span></button>
          <button type="button" title="Detect Existing Rig" aria-label="Detect Existing Rig" onClick={() => runtime.current?.detectRiggedMeshes?.()}><ScanEye size={13}/><span>DETECT</span></button>
@@ -7178,6 +7175,17 @@ export default function App() {
           <button type="button" className={ikHandleDistancePanelOpen ? 'active' : ''} title="Adjust Control Handle distance from the Shape" aria-label="Control Handle distance settings" aria-expanded={ikHandleDistancePanelOpen} onClick={() => setIkHandleDistancePanelOpen(value => !value)}><Target size={13}/><span>HANDLE DIST</span></button>
        </div>}
       
+       {riggingView && characterRigPanelOpen && <section className="ik-character-rig-panel" aria-label="Character Rigging Tools">
+         <div className="ik-character-rig-heading"><strong>CHARACTER RIGGING</strong><button type="button" onClick={() => setCharacterRigPanelOpen(false)} aria-label="Close Character Rigging Tools">×</button></div>
+         <p>Workflow: select the complete Character Group, create one template, detect parts, review assignments, then bind.</p>
+         <div className="ik-character-rig-grid">
+           <button type="button" onClick={() => runtime.current?.createManualRig?.()}><GitBranch size={13}/><span>TEMPLATE</span></button>
+           <button type="button" onClick={() => runtime.current?.detectCharacterBodyParts?.()}><ScanSearch size={13}/><span>DETECT PARTS</span></button>
+           <button type="button" onClick={() => runtime.current?.bindAllCharacterMeshesToRig?.()}><Layers size={13}/><span>BIND ALL</span></button>
+           <button type="button" onClick={() => runtime.current?.normalizeSelectedSkinWeights?.()}><SlidersHorizontal size={13}/><span>WEIGHT NORM</span></button>
+           <button type="button" onClick={() => runtime.current?.smoothSelectedSkinWeights?.()}><Waves size={13}/><span>WEIGHT SMOOTH</span></button>
+         </div>
+       </section>}
       {riggingView && ikHandleDistancePanelOpen && <section className="ik-spring-panel ik-handle-distance-panel" aria-label="Control Handle distance settings">
         <div className="ik-spring-heading"><strong>HANDLE DISTANCE</strong><output>{ikHandleDistance}%</output></div>
         <p>Move the selected Child Bone Control Handle farther outside the Shape</p>
