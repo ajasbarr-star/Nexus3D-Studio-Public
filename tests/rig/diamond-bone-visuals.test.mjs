@@ -252,7 +252,7 @@ test('universal Control Handle creation immediately selects the orange marker an
   const createStart = app.indexOf('const toggleSelectedBoneControlHandle =');
   const createEnd = app.indexOf('const toggleSelectedBoneLock =', createStart);
   const create = app.slice(createStart, createEnd);
-  assert.match(create, /if (!(bone instanceof THREE\.Bone))/);
+  assert.ok(create.includes('if (!(bone instanceof THREE.Bone))'), 'Control Handle creation accepts any THREE.Bone owner');
   assert.doesNotMatch(create, /Character|character|SkinnedMesh|MeshPhysicalMaterial/);
   assert.match(create, /new THREE\.SphereGeometry\(0\.07, 16, 12\)/);
   assert.match(create, /color: '#ffb52e'/);
