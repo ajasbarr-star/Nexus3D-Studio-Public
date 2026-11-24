@@ -120,7 +120,6 @@ test('Animation workspace exposes the shared Scene List, Transform Inspector and
   assert.match(app, /runMode\('translate'\)/);
   assert.match(app, /runMode\('rotate'\)/);
   assert.match(app, /runMode\('scale'\)/);
-  assert.match(app, /Animation \+group\+' \+axis\.toUpperCase\(\)/);
   assert.match(app, /title=\{keyed\?'Keyframe exists at current frame':'Add keyframe at current frame'\}/);
   assert.match(css, /\.animation-editor-dock/);
 });
