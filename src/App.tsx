@@ -8080,7 +8080,7 @@ export default function App() {
                      <div className="alphabet-state-mini-markers">{Object.keys(keyframes[selected] || {}).map(value=>{const at=Number(value);const range=getSequenceRange(state.id);if(at<range.start||at>range.end)return null;return <button key={value} type="button" className={selectedKeyframe?.id===selected&&selectedKeyframe.frame===at?'selected-keyframe':''} title={'Keyframe F'+at} aria-label={'Select keyframe at frame '+at} style={{left:(((at-range.start)/Math.max(1,range.end-range.start))*100)+'%'}} onClick={event=>{event.stopPropagation();setSelectedKeyframe({id:selected,frame:at});setCurrentFrame(at);}}><span>◆</span></button>;})}</div>
                      {selectedSequenceState === state.id && <button type="button" className="alphabet-state-mini-key" title="Add Keyframe at current frame" aria-label={"Add keyframe to State "+state.label} disabled={!selected} onClick={event=>{event.stopPropagation();captureRef.current();}}>KEY</button>}
                    </div>
-                 </div>)
+                 </div>)}
                  <button type="button" className="alphabet-state-add" onClick={() => { const id = addAlphabetState('independent'); setPendingStateChoice(id); }} aria-label="Add State">＋<small>STATE</small></button>
                </div>
                {pendingStateChoice && <div className="alphabet-state-choice"><span>START POSE</span><button type="button" onClick={() => setAlphabetStateMode(pendingStateChoice,'continue')}>CONTINUE</button><button type="button" onClick={() => setAlphabetStateMode(pendingStateChoice,'independent')}>INDEPENDENT</button></div>}
