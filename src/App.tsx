@@ -1095,7 +1095,7 @@ export default function App() {
       if (bone.userData.detached) return '#a879ff';
       return bone.userData.rigRole === 'root' || !(bone.parent as any)?.isBone ? '#ffb547' : '#35d7ff';
     };
-    const createSphereBoneGeometry = () => new THREE.SphereGeometry(0.035, 14, 10);
+    const createSphereBoneGeometry = () => new THREE.SphereGeometry(0.025, 12, 8);
     const ensureBoneJoint = (bone: THREE.Bone) => {
       const existing = bone.children.find(child => child.userData.nexusJointVisual) as THREE.Mesh | undefined;
       const childBone = bone.children.find(child => (child as THREE.Bone).isBone) as THREE.Bone | undefined;
@@ -1155,8 +1155,8 @@ export default function App() {
       material.vertexColors = true;
       material.color.set('#ffffff');
       material.transparent = true;
-      material.opacity = 0.96;
-      material.linewidth = 2;
+      material.opacity = 0.68;
+      material.linewidth = 1;
       helper.frustumCulled = false;
       helper.visible = false;
     };
@@ -2171,6 +2171,8 @@ export default function App() {
         const placement = getControlHandlePlacement(bone, handleDistanceConfig.distance);
         marker.position.copy(placement.position);
         marker.scale.setScalar(placement.radius / 0.07);
+        marker.quaternion.copy(bone.getWorldQuaternion(new THREE.Quaternion()));
+        marker.userData.controlLastWorldQuaternion = marker.quaternion.toArray();
         marker.name = bone.name + ' Control Handle';
         marker.userData.rigControlMarker = true;
         marker.userData.editorId = uid();
@@ -2411,19 +2413,40 @@ export default function App() {
         if (chain && ownerBone) {
           scene.updateMatrixWorld(true);
           const targetWorld = activeControl.getWorldPosition(new THREE.Vector3());
-          const childBone = chain.bones.filter(bone => bone.parent === ownerBone).sort((a,b) =>
-            a.getWorldPosition(new THREE.Vector3()).distanceToSquared(targetWorld) -
-            b.getWorldPosition(new THREE.Vector3()).distanceToSquared(targetWorld)
-          )[0];
           const chainLength = Math.max(1, chain.bones.length - 1);
-          if (!ikSpringConfig.enabled) {
+          if (transform.getMode() === 'rotate') {
+            // The orange Control Handle is an orientation target in Rotate mode.
+            // Apply only the handle's incremental world-space rotation to its exact owner bone.
+            const currentHandleWorld = activeControl.getWorldQuaternion(new THREE.Quaternion());
+            const previousValues = activeControl.userData.controlLastWorldQuaternion;
+            const previousHandleWorld = Array.isArray(previousValues) && previousValues.length === 4
+              ? new THREE.Quaternion().fromArray(previousValues)
+              : currentHandleWorld.clone();
+            const rotationDelta = currentHandleWorld.clone().multiply(previousHandleWorld.clone().invert());
+            if (rotationDelta.angleTo(new THREE.Quaternion()) > 1e-7 && !isIkBoneLocked(ownerBone)) {
+              const ownerWorld = ownerBone.getWorldQuaternion(new THREE.Quaternion());
+              const desiredOwnerWorld = rotationDelta.multiply(ownerWorld);
+              const parentWorld = ownerBone.parent?.getWorldQuaternion(new THREE.Quaternion()) || new THREE.Quaternion();
+              ownerBone.quaternion.copy(parentWorld.invert().multiply(desiredOwnerWorld)).normalize();
+              ownerBone.updateMatrixWorld(true);
+              refreshRigVisuals();
+            }
+            activeControl.userData.controlLastWorldQuaternion = currentHandleWorld.toArray();
             activeIkSpring = null;
-            solveIK(chainLength, targetWorld);
-          } else if (!activeIkSpring || activeIkSpring.marker !== activeControl) {
-            const initial = childBone?.getWorldPosition(new THREE.Vector3()) || ownerBone.getWorldPosition(new THREE.Vector3());
-            activeIkSpring = { marker: activeControl, ownerBone, chainLength, current: initial, target: targetWorld.clone(), velocity: new THREE.Vector3(), lastTime: performance.now() };
-          } else {
-            activeIkSpring.target.copy(targetWorld);
+          } else if (transform.getMode() === 'translate') {
+            const childBone = chain.bones.filter(bone => bone.parent === ownerBone).sort((a,b) =>
+              a.getWorldPosition(new THREE.Vector3()).distanceToSquared(targetWorld) -
+              b.getWorldPosition(new THREE.Vector3()).distanceToSquared(targetWorld)
+            )[0];
+            if (!ikSpringConfig.enabled) {
+              activeIkSpring = null;
+              solveIK(chainLength, targetWorld);
+            } else if (!activeIkSpring || activeIkSpring.marker !== activeControl) {
+              const initial = childBone?.getWorldPosition(new THREE.Vector3()) || ownerBone.getWorldPosition(new THREE.Vector3());
+              activeIkSpring = { marker: activeControl, ownerBone, chainLength, current: initial, target: targetWorld.clone(), velocity: new THREE.Vector3(), lastTime: performance.now() };
+            } else {
+              activeIkSpring.target.copy(targetWorld);
+            }
           }
         }
       }
