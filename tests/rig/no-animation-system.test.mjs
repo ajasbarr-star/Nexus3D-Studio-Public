@@ -307,7 +307,7 @@ test('Selected Alphabet State marker gets a distinct highlight in both 3D viewpo
   assert.match(app, /strokeStyle = selected \? '#ffe45c' : '#43dfff'/);
   assert.match(app, /fillStyle = selected \? '#fff4a6' : '#e8fbff'/);
   assert.match(app, /selected \? 1\.68 : 1\.55/);
-  assert.match(app, /setSelectedAlphabetStateMarker\?\.\(selectedSequenceState\)/);
+  assert.match(app, /setSelectedAlphabetStateMarker\?\.\(selected3DAlphabetMarkerId\)/);
 });
 
 test('Alphabet State 3D markers select their owning object and attach the shared transform gizmo', () => {
@@ -315,7 +315,8 @@ test('Alphabet State 3D markers select their owning object and attach the shared
   assert.ok((app.match(/if \(owner\) selectObject\(owner\);/g) || []).length >= 2);
   assert.match(app, /transform\.attach\(obj\)/);
   assert.match(app, /const selectAlphabetState = \(state: typeof sequenceStates\[number\]\)/);
-  assert.match(app, /runtime\.current\?\.selectObject\?\.\(owner\)/);
+  const timelineSelection = app.slice(app.indexOf('const selectAlphabetState ='), app.indexOf('const deleteAlphabetState ='));
+  assert.doesNotMatch(timelineSelection, /selectObject/);
 });
 
 test('Alphabet State ruler has no fixed 260px ceiling and retains native horizontal touch scrolling', () => {
