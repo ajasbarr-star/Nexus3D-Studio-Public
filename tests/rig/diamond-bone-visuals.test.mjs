@@ -193,7 +193,8 @@ test('each Control Handle retains exact Child Bone and rig-root identity for mul
 });
 
 test('orange Control Handle Rotate mode applies incremental orientation to its exact unlocked owner bone', () => {
-  assert.match(app, /marker\.quaternion\.copy\(bone\.getWorldQuaternion\(new THREE\.Quaternion\(\)\)\)/);
+  assert.match(app, /placeControlHandleAtBone\(marker, bone, placement\)/);
+  assert.match(app, /marker\.userData\.controlLastWorldQuaternion = marker\.getWorldQuaternion\(new THREE\.Quaternion\(\)\)\.toArray\(\)/);
   assert.match(app, /controlLastWorldQuaternion/);
   assert.match(app, /if \(transform\.getMode\(\) === 'rotate'\)/);
   assert.match(app, /const rotationDelta = currentHandleWorld\.clone\(\)\.multiply\(previousHandleWorld\.clone\(\)\.invert\(\)\)/);
