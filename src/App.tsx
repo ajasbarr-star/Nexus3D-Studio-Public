@@ -2584,10 +2584,15 @@ export default function App() {
       // Only bind to the selected Shape's own attached Manual Shape Rig.
       // Do not silently select the last unrelated skeleton in the scene.
       const selectedOwnerId = String(selectedObject?.userData.editorId || '');
+      const isWithinOwner = (owner: THREE.Object3D | null | undefined, object: THREE.Object3D | null | undefined) => {
+        let current = object;
+        while (current) { if (current === owner) return true; current = current.parent; }
+        return false;
+      };
       const chain = [...rigChains].reverse().find(entry =>
         entry.shapeRig === true && entry.bones.length > 1 &&
-        String(entry.bones[0]?.userData.rigOwnerId || '') === selectedOwnerId &&
-        entry.owner === selectedObject
+        (entry.owner === selectedObject || isWithinOwner(entry.owner, selectedObject) ||
+          (!entry.owner && String(entry.bones[0]?.userData.rigOwnerId || '') === selectedOwnerId))
       );
       if (!chain) { setStatus('No attached Manual Root Bone with Child Bones found for this selected Shape'); return false; }
       if (mesh.geometry.getAttribute('skinIndex')) { setStatus('This mesh already has skinning data. Use its existing skeleton instead of binding twice'); return false; }
