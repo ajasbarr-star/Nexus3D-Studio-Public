@@ -546,3 +546,22 @@ test('Timeline layout keeps its bottom anchor visible with a bounded, internally
   assert.match(canonical, /\.animation-state-layout\{[\s\S]*?min-height:0!important;overflow:hidden!important/);
   assert.match(canonical, /\.alphabet-state-scroll\{[\s\S]*?overflow-x:auto!important;overflow-y:hidden!important/);
 });
+
+
+test('Custom time labels use four evenly spaced ruler positions and include exact START and END endpoints', () => {
+  assert.match(app, /Array\.from\(\{length:4\},\(_,index\)=>/);
+  assert.match(app, /left:\(index\/3\*100\)\+"%"/);
+  assert.match(app, /index \/ Math\.max\(1, labelCount - 1\)/);
+  assert.match(app, /getCustomRulerLabel\(index,4\)/);
+});
+
+test('REC and LOOP controls align in the Timeline tools row beside the Alphabet State Delete icon', () => {
+  const toolbar = app.slice(app.indexOf('className="timeline-tool-row"'), app.indexOf('className="alphabet-state-panel"'));
+  assert.ok(toolbar.indexOf('timeline-record-toggle') < toolbar.indexOf('timeline-delete-state'));
+  assert.ok(toolbar.indexOf('timeline-loop-toggle') < toolbar.indexOf('timeline-delete-state'));
+  const transport = app.slice(app.indexOf('className="timeline-transport"'), app.indexOf('</div>', app.indexOf('className="timeline-transport"')));
+  assert.doesNotMatch(transport, /timeline-record-toggle|timeline-loop-toggle/);
+  assert.match(css, /\.timeline-playback-panel\{display:flex!important;flex:0 0 112px!important;width:112px!important/);
+  assert.match(css, /\.timeline-tools-panel \.timeline-record-toggle/);
+  assert.match(css, /\.timeline-tools-panel \.timeline-loop-toggle/);
+});
