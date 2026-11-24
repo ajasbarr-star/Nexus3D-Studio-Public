@@ -46,7 +46,7 @@ test('Alphabet States use a compact touch-scroll sequence with an integrated rul
   assert.match(app, /className="alphabet-state-scroll" ref=\{timelineScrollRef\}/);
   assert.match(app, /alphabet-state-mini-ruler/);
   assert.match(app, /alphabet-state-mini-markers/);
-  assert.match(app, /alphabet-state-mini-key/);
+  assert.doesNotMatch(app, /alphabet-state-mini-key/);
   assert.doesNotMatch(app, /STATE \{activeSequenceState\.label\} · RULER/);
   assert.doesNotMatch(app, /alphabet-state-keyframe-scroll/);
   assert.match(app, /const id = addAlphabetState\('independent'\); setPendingStateChoice\(id\)/);
@@ -163,7 +163,7 @@ test('Each Alphabet State mini ruler contains its playhead slider and keyframe d
   assert.match(ruler, /className="alphabet-state-mini-markers"/);
   assert.match(ruler, /keyframes\[selected\]/);
   assert.match(ruler, /setSelectedKeyframe\(\{id:selected,frame:at\}\)/);
-  assert.match(ruler, /className="alphabet-state-mini-key"/);
+  assert.doesNotMatch(ruler, /alphabet-state-mini-key/);
   assert.match(app, /className="alphabet-state-scroll" ref=\{timelineScrollRef\}/);
   assert.match(app, /captureRef\.current\(\)/);
 });
@@ -477,6 +477,14 @@ test('Selected Alphabet State ruler uses vertical frame labels and ticks while s
 });
 
 test('Alphabet State frame ranges are contiguous without sharing the boundary frame', () => {
+  assert.match(app, /const start = cursor; const end = start \+ Math\.max\(1, state\.width\) - 1/);
+  assert.match(app, /cursor = end \+ 1/);
+});
+
+
+test('Vertical ruler ticks are individually positioned down the track and State B starts after State A ends', () => {
+  assert.match(app, /style=\{\{left:0,top:index\+"%"\}\}/);
+  assert.match(app, /const nextEnd = previousEnd \+ nextState\.width - 1/);
   assert.match(app, /const start = cursor; const end = start \+ Math\.max\(1, state\.width\) - 1/);
   assert.match(app, /cursor = end \+ 1/);
 });
