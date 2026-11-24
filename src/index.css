@@ -1925,6 +1925,18 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 }
 
 
+/* Expandable character-rig workflow: separated from core IK controls so every action is reachable. */
+.ik-character-rig-panel{position:absolute;z-index:14;top:50px;right:64px;width:236px;max-width:calc(100vw - 18px);max-height:min(56vh,390px);overflow-y:auto;overscroll-behavior:contain;padding:9px;background:rgba(7,15,26,.97);border:1px solid rgba(63,190,225,.48);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.38);backdrop-filter:blur(12px);color:#d7f3ff}
+.ik-character-rig-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;font:800 9px 'DM Mono',monospace;letter-spacing:.06em;color:#bcefff}
+.ik-character-rig-heading button{width:24px;min-width:24px;height:24px;min-height:24px;border:1px solid #28536b;border-radius:5px;background:#10283a;color:#c9f5ff;font-size:16px}
+.ik-character-rig-panel p{margin:7px 0 9px;color:#91b6c8;font:8px/1.5 'DM Mono',monospace}
+.ik-character-rig-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.ik-character-rig-grid button{display:flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0;min-height:34px;padding:5px 7px;border:1px solid #28536b;border-radius:5px;background:#10283a;color:#bdefff;font:700 7px 'DM Mono',monospace;touch-action:manipulation}
+.ik-character-rig-grid button:active{background:#16435a;border-color:#35cfff}
+.ik-character-rig-grid button svg{width:13px;height:13px;flex:0 0 auto}
+.ik-character-rig-grid button span{white-space:nowrap}
+@media(max-width:760px){.ik-character-rig-panel{top:48px;right:54px;width:218px;max-height:54vh;padding:8px}}
+ 
 /* Explicit, compact manual-rig workflow controls. */
 .ik-rig-actions{position:absolute;z-index:12;top:58px;right:64px;display:grid;grid-template-columns:repeat(5,40px);gap:3px;align-items:center;padding:5px;background:rgba(7,15,26,.92);border:1px solid rgba(63,190,225,.35);border-radius:8px;backdrop-filter:blur(12px);max-width:220px}
 .ik-rig-actions button{width:40px;min-width:40px;height:35px;min-height:35px;padding:2px 1px;border:1px solid #28536b;border-radius:5px;background:#10283a;color:#bdefff;font:700 10px 'DM Mono',monospace;letter-spacing:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;touch-action:manipulation}
