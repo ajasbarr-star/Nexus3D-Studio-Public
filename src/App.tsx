@@ -1487,23 +1487,25 @@ export default function App() {
       }
       const objectMode = editModeRef.current === 'Object';
       const isControlHandle = Boolean(obj.userData.rigControlMarker);
-      // Locked bones cannot be directly transformed. Control Handles remain
-      // editable in every mode because they are dedicated IK controller objects.
-      const selectionLocked = Boolean(obj.userData.objectManagerLocked) || (obj instanceof THREE.Bone && obj.userData.locked) || (isControlHandle && obj.userData.controlLocked);
+      // A locked IK bone remains selectable. Its lock prevents Move/Scale,
+      // but Rotate is allowed for deliberate manual joint posing.
+      const lockedBone = obj instanceof THREE.Bone && isIkBoneLocked(obj);
+      const selectionLocked = Boolean(obj.userData.objectManagerLocked) || (isControlHandle && obj.userData.controlLocked);
+      const canTransform = (objectMode || isControlHandle) && (!lockedBone || (objectMode && modeRef.current === 'rotate'));
 
       // One controller owns selection in both workspaces. The active camera is
       // switched by the workspace toggle; attachment never changes controllers.
       transform.detach();
-      if (selectionLocked) {
+      if (selectionLocked || !canTransform) {
         transform.enabled = false;
         transform.getHelper().visible = false;
       } else {
         transform.attach(obj);
-        transform.enabled = objectMode || isControlHandle;
-        transform.getHelper().visible = objectMode || isControlHandle;
+        transform.enabled = true;
+        transform.getHelper().visible = true;
       }
-      transform.setMode(mode);
-      transform.setSpace(space);
+      transform.setMode(modeRef.current);
+      transform.setSpace(spaceRef.current);
       if (obj instanceof THREE.Light) {
         setSettings(prev => ({ ...prev, lightIntensity: obj.intensity, lightColor: '#' + obj.color.getHexString(), ...(obj instanceof THREE.DirectionalLight ? { directionalIntensity: obj.intensity } : {}), ...(obj instanceof THREE.SpotLight ? { spotIntensity: obj.intensity, spotDistance: obj.distance, spotDecay: obj.decay, spotAngle: THREE.MathUtils.radToDeg(obj.angle) } : {}), ...(obj instanceof THREE.HemisphereLight ? { sunIntensity: obj.intensity, ambientIntensity: obj.intensity } : {}) }));
       }
@@ -2138,8 +2140,10 @@ export default function App() {
           const visual = bone.children.find(child => child.userData.nexusJointVisual);
           if (visual) visual.visible = chain.displayVisible !== false;
         });
-        chain.helper.visible = chain.displayVisible !== false;
         styleSkeletonHelper(chain.helper, chain.bones);
+        // Styling resets line materials only; visibility is controlled by the
+        // rig's Show/Hide state and must survive every bone transform refresh.
+        chain.helper.visible = chain.displayVisible !== false;
         const colors = chain.helper.geometry.getAttribute('color');
         if (colors) colors.needsUpdate = true;
         chain.helper.updateMatrixWorld(true);
@@ -2193,7 +2197,7 @@ export default function App() {
       if (bone?.userData.rigControlMarker) return toggleSelectedControlLock();
       if (!(bone instanceof THREE.Bone)) { setStatus('Select a bone or Control Handle first to Lock / Unlock'); return false; }
       bone.userData.locked = !bone.userData.locked; refreshRigVisuals(); selectObject(bone);
-      setStatus(bone.name + (bone.userData.locked ? ' locked · gizmo disabled' : ' unlocked · gizmo enabled')); return true;
+      setStatus(bone.name + (bone.userData.locked ? ' locked · selectable and Rotate-only' : ' unlocked · Move / Rotate / Scale')); return true;
     };
     const createManualRig = () => {
       const rig = new THREE.Group();
@@ -3596,7 +3600,12 @@ export default function App() {
       if (rigChains.some(chain => chain.displayVisible !== false)) {
         scene.updateMatrixWorld(true);
         rigChains.forEach(chain => {
-          if (chain.displayVisible !== false) chain.helper.updateMatrixWorld(true);
+          if (chain.displayVisible !== false) {
+            // SkeletonHelper.update() refreshes line positions from live bone
+            // world matrices; updateMatrixWorld() alone leaves stale segments.
+            chain.helper.update();
+            chain.helper.updateMatrixWorld(true);
+          }
         });
       }
       const topologyTarget = topologyOverlay.userData.targetMesh as THREE.Mesh | null;
