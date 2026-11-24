@@ -2167,6 +2167,19 @@ export default function App() {
       const previous = child.parent || scene;
       scene.updateMatrixWorld(true); parent.attach(child); scene.updateMatrixWorld(true);
       if (child instanceof THREE.Bone) child.userData.detached = false;
+      if (child instanceof THREE.Mesh && parent instanceof THREE.Bone) {
+        child.userData.rigBinding = {
+          rigId: String(parent.userData.rigOwnerId || parent.userData.editorId || ''),
+          boneId: String(parent.userData.editorId || ''),
+          mode: 'rigid',
+          source: 'manual',
+          needsReview: false
+        };
+        child.userData.rigPartKey = child.userData.rigPartKey || child.name;
+        const boundIds = Array.isArray(parent.userData.rigBoundMeshIds) ? parent.userData.rigBoundMeshIds : [];
+        if (!boundIds.includes(String(child.userData.editorId || ''))) boundIds.push(String(child.userData.editorId || ''));
+        parent.userData.rigBoundMeshIds = boundIds;
+      }
       syncItems(); selectObject(child); refreshRigVisuals();
       const affectedChain = child instanceof THREE.Bone ? rigChains.find(entry => entry.bones.includes(child)) : null;
       if (affectedChain) rebuildRigHelper(affectedChain);
