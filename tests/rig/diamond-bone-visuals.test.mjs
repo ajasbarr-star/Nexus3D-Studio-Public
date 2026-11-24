@@ -87,16 +87,16 @@ test('locked bones remain selectable and permit Rotate only, not Move or Scale',
   const selectionStart = app.indexOf('const selectObject = (obj?: THREE.Object3D)');
   const selectionEnd = app.indexOf('const addObject =', selectionStart);
   const selection = app.slice(selectionStart, selectionEnd);
-  assert.match(selection, /const lockedBone = obj instanceof THREE\\.Bone && isIkBoneLocked\\(obj\\)/);
-  assert.match(selection, /const canTransform = \\(objectMode \\|\\| isControlHandle\\) && \\(!lockedBone \\|\\| \\(objectMode && modeRef\\.current === 'rotate'\\)\\)/);
-  assert.match(selection, /transform\\.attach\\(obj\\)/);
-  assert.doesNotMatch(selection, /selectionLocked[^\\n]*lockedBone/);
+  assert.match(selection, /const lockedBone = obj instanceof THREE\.Bone && isIkBoneLocked\(obj\)/);
+  assert.match(selection, /const canTransform = \(objectMode \|\| isControlHandle\) && \(!lockedBone \|\| \(objectMode && modeRef\.current === 'rotate'\)\)/);
+  assert.match(selection, /transform\.attach\(obj\)/);
+  assert.doesNotMatch(selection, /selectionLocked[^\n]*lockedBone/);
 
   const modeStart = app.indexOf('const runMode = (next:');
   const modeEnd = app.indexOf('const setAxisSpace =', modeStart);
   const mode = app.slice(modeStart, modeEnd);
-  assert.match(mode, /!lockedBone \\|\\| \\(editModeRef\\.current === 'Object' && next === 'rotate'\\)/);
-  assert.match(mode, /if \\(!canTransform && transform\\.object === selectedObject\\) transform\\.detach\\(\\)/);
+  assert.match(mode, /!lockedBone \|\| \(editModeRef\.current === 'Object' && next === 'rotate'\)/);
+  assert.match(mode, /if \(!canTransform && transform\.object === selectedObject\) transform\.detach\(\)/);
 });
 
 
@@ -159,18 +159,18 @@ test('Control Handles remain editable through shared lock-aware transform gating
   const selectionStart = app.indexOf('const selectObject = (obj?: THREE.Object3D)');
   const selectionEnd = app.indexOf('const addObject =', selectionStart);
   const selection = app.slice(selectionStart, selectionEnd);
-  assert.match(selection, /const isControlHandle = Boolean\\(obj\\.userData\\.rigControlMarker\\)/);
-  assert.match(selection, /const canTransform = \\(objectMode \\|\\| isControlHandle\\)/);
-  assert.match(selection, /transform\\.attach\\(obj\\)/);
-  assert.match(selection, /transform\\.enabled = true/);
-  assert.match(selection, /transform\\.getHelper\\(\\)\\.visible = true/);
+  assert.match(selection, /const isControlHandle = Boolean\(obj\.userData\.rigControlMarker\)/);
+  assert.match(selection, /const canTransform = \(objectMode \|\| isControlHandle\)/);
+  assert.match(selection, /transform\.attach\(obj\)/);
+  assert.match(selection, /transform\.enabled = true/);
+  assert.match(selection, /transform\.getHelper\(\)\.visible = true/);
 
   const modeStart = app.indexOf('const runMode = (next:');
   const modeEnd = app.indexOf('const setAxisSpace =', modeStart);
   const mode = app.slice(modeStart, modeEnd);
-  assert.match(mode, /editingSubObject \\|\\| isControlHandle/);
-  assert.match(mode, /transform\\.enabled = canTransform/);
-  assert.match(mode, /transform\\.getHelper\\(\\)\\.visible = canTransform/);
+  assert.match(mode, /editingSubObject \|\| isControlHandle/);
+  assert.match(mode, /transform\.enabled = canTransform/);
+  assert.match(mode, /transform\.getHelper\(\)\.visible = canTransform/);
 });
 
 
