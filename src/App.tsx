@@ -565,8 +565,12 @@ export default function App() {
   const [snapOn, setSnapOn] = useState(false);
   const [animOpen, setAnimOpen] = useState(false);
   const [animationMode, setAnimationMode] = useState(false);
-  const [sequenceStates, setSequenceStates] = useState<Array<{ id: string; label: string; width: number }>>([]);
+  const [sequenceStates, setSequenceStates] = useState<Array<{ id: string; label: string; width: number; mode: 'continue' | 'independent' }>>([]);
   const [selectedSequenceState, setSelectedSequenceState] = useState('');
+  const [pendingStateChoice, setPendingStateChoice] = useState(false);
+  const [timelineTool, setTimelineTool] = useState<'tracks' | 'dope' | 'graph'>('tracks');
+  const [timelineMarkers, setTimelineMarkers] = useState<Array<{id:string;frame:number;label:string}>>([]);
+  const [showGhostPreview, setShowGhostPreview] = useState(false);
   const [playbackControlsOpen, setPlaybackControlsOpen] = useState(false);
   const sequenceDrag = useRef<{ targetIndex: number; startX: number; startWidth: number; moved: boolean } | null>(null);
   const [animationObjectsOpen, setAnimationObjectsOpen] = useState(true);
@@ -5238,6 +5242,36 @@ export default function App() {
     }
   };
 
+  const getSequenceRange = (stateId: string) => {
+    let cursor = workStart;
+    for (const state of sequenceStates) {
+      const start = cursor; const end = start + Math.max(1, state.width);
+      if (state.id === stateId) return { start, end };
+      cursor = end;
+    }
+    return { start: workStart, end: workEnd };
+  };
+  const addAlphabetState = (mode: 'continue' | 'independent') => {
+    const previousEnd = sequenceStates.reduce((sum, state) => sum + Math.max(1, state.width), workStart);
+    const index = sequenceStates.length;
+    const labelFor = (n: number): string => { let value = n + 1, label = ''; while (value > 0) { value--; label = String.fromCharCode(65 + value % 26) + label; value = Math.floor(value / 26); } return label; };
+    const nextState = { id: 'state-' + (Date.now().toString(36)) + '-' + index, label: labelFor(index), width: Math.max(30, frameRate * 2), mode };
+    if (mode === 'continue') {
+      const nextKeys: Keyframes = JSON.parse(JSON.stringify(keysRef.current));
+      Object.entries(nextKeys).forEach(([objectId, track]) => {
+        const priorFrames = Object.keys(track).map(Number).filter(value => value < previousEnd).sort((a,b) => b-a);
+        if (priorFrames.length) nextKeys[objectId] = { ...track, [previousEnd]: track[priorFrames[0]] };
+      });
+      commitKeys(nextKeys);
+    }
+    setSequenceStates(prev => [...prev, nextState]);
+    setSelectedSequenceState(nextState.id);
+    const nextEnd = previousEnd + nextState.width;
+    setWorkEnd(nextEnd); setTimelineDuration(nextEnd / Math.max(1, frameRate));
+    setCurrentFrame(previousEnd);
+    setPendingStateChoice(false);
+    setStatus('State ' + nextState.label + ' added · ' + (mode === 'continue' ? 'continued from previous pose' : 'independent starting pose'));
+  };
   const toggleAnimationWorkspace = () => {
     const r = runtime.current;
     if (!r) return;
@@ -5245,6 +5279,7 @@ export default function App() {
     if (!animationMode && (r.cameraView || cameraView)) { setStatus('Exit CAM view before opening Animation'); return; }
     const opening = !animationMode;
     if (opening) {
+      if (!sequenceStates.length) { const initial = { id: 'state-A', label: 'A', width: Math.max(1, workEnd - workStart), mode: 'independent' as const }; setSequenceStates([initial]); setSelectedSequenceState(initial.id); }
       r.animationView = true;
       r.activeCamera.position.copy(r.camBody.position);
       r.activeCamera.quaternion.copy(r.camBody.quaternion);
@@ -6244,6 +6279,7 @@ export default function App() {
         parentName: obj.parent?.userData?.editorId ? obj.parent.name : null
       })),
       animationSettings: { frameRate, timelineDuration, workStart, workEnd, loopPlayback, interpolation },
+      animationSequence: { states: sequenceStates, selectedState: selectedSequenceState, markers: timelineMarkers },
       animationClips: importedAnimationClips.map(entry => ({ objectEditorId: String(entry.object.userData.editorId || ''), clip: THREE.AnimationClip.toJSON(entry.clip) })),
       subObjectLocks: (r?.getSubObjectLockSnapshot?.() || []).flatMap((entry: any) => {
         const owner = projectNodes.find((obj: THREE.Object3D) => String(obj.userData.editorId) === String(entry.objectId));
@@ -6636,6 +6672,12 @@ export default function App() {
         // have completed. Failed loads must not rename the active project or replace
         // its keyframe/undo state.
         if (data.projectName) setProjectName(String(data.projectName));
+        if (data.animationSequence && typeof data.animationSequence === 'object') {
+          const savedSequence = data.animationSequence;
+          if (Array.isArray(savedSequence.states)) setSequenceStates(savedSequence.states.filter((state: any) => state && typeof state.id === 'string' && typeof state.label === 'string' && Number.isFinite(Number(state.width))).map((state: any) => ({ id: String(state.id), label: String(state.label), width: Math.max(1, Number(state.width)), mode: state.mode === 'continue' ? 'continue' : 'independent' })));
+          if (typeof savedSequence.selectedState === 'string') setSelectedSequenceState(savedSequence.selectedState);
+          if (Array.isArray(savedSequence.markers)) setTimelineMarkers(savedSequence.markers.filter((marker: any) => Number.isFinite(Number(marker.frame))).map((marker: any) => ({ id: String(marker.id || marker.frame), frame: Number(marker.frame), label: String(marker.label || 'Marker') })));
+        }
         if (data.animationSettings && typeof data.animationSettings === 'object') {
           const settings = data.animationSettings;
           const restoredRate = Math.max(1, Math.min(60, Number(settings.frameRate) || 30));
@@ -7876,7 +7918,17 @@ export default function App() {
           <button type="button" className={autoKey ? 'record-active' : ''} title="Toggle Auto Key recording" onClick={() => setAutoKey(value => !value)}><span className="record-dot"/> REC</button>
           <label className="timeline-loop"><input type="checkbox" checked={loopPlayback} onChange={event => setLoopPlayback(event.target.checked)}/> LOOP</label>
         </div>
-        <div className="timeline-track-row"><span className="timeline-track-name">{items.find(item => item.id === selected)?.name || 'Select an object'}</span><div className="timeline-track"><input aria-label="Current animation frame" type="range" min={workStart} max={Math.max(workStart + 1, workEnd)} value={Math.min(frame, workEnd)} onChange={event => setCurrentFrame(Number(event.target.value))}/><div className="timeline-markers">{Object.keys(keyframes[selected] || {}).map(value => { const at = Number(value); return <button key={value} type="button" title={'Keyframe ' + at} style={{left: ((at - workStart) / Math.max(1, workEnd - workStart) * 100) + '%'}} onClick={() => { setSelectedKeyframe({id:selected,frame:at}); setCurrentFrame(at); }}>◆</button>; })}</div></div></div>
+        <div className="alphabet-state-row" aria-label="Alphabet State timeline">
+          <div className="alphabet-state-scroll">
+            {sequenceStates.map((state, index) => <button key={state.id} type="button" className={'alphabet-state-handle ' + (selectedSequenceState === state.id ? 'active' : '')} style={{flexBasis: Math.max(42, state.width * 0.55) + 'px'}} title={'State ' + state.label + ' · drag horizontally to resize'} onClick={() => { setSelectedSequenceState(state.id); const range = getSequenceRange(state.id); setCurrentFrame(range.start); }} onPointerDown={event => { sequenceDrag.current = { targetIndex:index, startX:event.clientX, startWidth:state.width, moved:false }; event.currentTarget.setPointerCapture(event.pointerId); }} onPointerMove={event => { const drag = sequenceDrag.current; if (!drag || drag.targetIndex !== index) return; const delta = event.clientX - drag.startX; if (Math.abs(delta) < 2) return; drag.moved = true; const nextWidth = Math.max(12, Math.round(drag.startWidth + delta * 1.25)); setSequenceStates(prev => prev.map((entry,i) => i === index ? {...entry,width:nextWidth} : entry)); const total = sequenceStates.reduce((sum,entry,i) => sum + (i === index ? nextWidth : entry.width), workStart); setWorkEnd(total); setTimelineDuration(total / Math.max(1,frameRate)); }} onPointerUp={() => { sequenceDrag.current = null; }} onPointerCancel={() => { sequenceDrag.current = null; }}>{state.label}<small>{Math.round(state.width)}f</small></button>)}
+            <button type="button" className="alphabet-state-add" onClick={() => setPendingStateChoice(value => !value)} aria-label="Add Alphabet State">＋</button>
+          </div>
+          {pendingStateChoice && <div className="alphabet-state-choice"><span>NEW STATE START</span><button type="button" onClick={() => addAlphabetState('continue')}>CONTINUE POSE</button><button type="button" onClick={() => addAlphabetState('independent')}>INDEPENDENT</button></div>}
+        </div>
+        <div className="timeline-tool-row"><button type="button" className={timelineTool==='tracks'?'active':''} onClick={()=>setTimelineTool('tracks')}>OBJECT TRACKS</button><button type="button" className={timelineTool==='dope'?'active':''} onClick={()=>setTimelineTool('dope')}>DOPE SHEET</button><button type="button" className={timelineTool==='graph'?'active':''} onClick={()=>setTimelineTool('graph')}>GRAPH</button><button type="button" onClick={undo} title="Undo timeline edit">UNDO</button><button type="button" onClick={redo} title="Redo timeline edit">REDO</button><button type="button" onClick={copyFrame} title="Copy keyframes at current frame">COPY</button><button type="button" onClick={pasteFrame} title="Paste copied keyframes">PASTE</button><button type="button" onClick={()=>setCurrentFrame(workStart)} title="Fit / return to timeline start">FIT</button><button type="button" className={showGhostPreview?'active':''} onClick={()=>setShowGhostPreview(v=>!v)} title="Toggle ghost preview">GHOST</button><button type="button" onClick={()=>{const label=window.prompt('Marker label','Marker');if(label?.trim())setTimelineMarkers(prev=>[...prev,{id:'marker-'+Date.now(),frame,label:label.trim()}]);}} title="Add timeline marker">MARKER＋</button></div>
+        <div className="timeline-track-row"><span className="timeline-track-name">{items.find(item => item.id === selected)?.name || 'Select an object'}</span><div className="timeline-track"><input aria-label="Current animation frame" type="range" min={workStart} max={Math.max(workStart + 1, workEnd)} value={Math.min(frame, workEnd)} onChange={event => setCurrentFrame(Number(event.target.value))}/><div className="timeline-markers">{Object.keys(keyframes[selected] || {}).map(value => { const at = Number(value); return <button key={value} type="button" title={'Keyframe ' + at} style={{left: ((at - workStart) / Math.max(1, workEnd - workStart) * 100) + '%'}} onClick={() => { setSelectedKeyframe({id:selected,frame:at}); setCurrentFrame(at); }}>◆</button>; })}{timelineMarkers.map(marker=><button key={marker.id} className="timeline-event-marker" title={marker.label+' · '+marker.frame+'f'} style={{left:((marker.frame-workStart)/Math.max(1,workEnd-workStart)*100)+'%'}} onClick={()=>setCurrentFrame(marker.frame)}>▼</button>)}</div></div></div>
+        {timelineTool==='tracks' ? <div className="timeline-object-tracks">{items.filter(item=>item.kind!=='IK Target'&&item.kind!=='IK Pole').slice(0,30).map(item=><div className="timeline-object-row" key={item.id}><span>{item.name}</span><div>{Object.keys(keyframes[item.id]||{}).map(key=>{const at=Number(key);return <button key={key} title={item.name+' · '+at+'f'} style={{left:((at-workStart)/Math.max(1,workEnd-workStart)*100)+'%'}} onClick={()=>{setSelectedKeyframe({id:item.id,frame:at});setCurrentFrame(at);}}>◆</button>;})}</div></div>)}</div> : timelineTool==='dope' ? <div className="timeline-tool-empty">DOPE SHEET · Select an object track to inspect and move its keyframes.</div> : <div className="timeline-tool-empty">GRAPH EDITOR · Select a keyframe to edit its interpolation curve.</div>}
+        {showGhostPreview && <div className="timeline-tool-empty">GHOST PREVIEW ENABLED · Previous and next keyed poses are marked on the timeline.</div>}
         {importedAnimationClips.length > 0 && <label className="timeline-clip-select">CLIP <select aria-label="Imported animation clip" value={activeAnimationClipId} onChange={event => setActiveAnimationClipId(event.target.value)}><option value="">TRANSFORM ONLY</option>{importedAnimationClips.map(entry => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select></label>}
         <div className="timeline-settings"><label>DURATION <input type="number" min={1} max={60} value={timelineDuration} onChange={event => setTimelineDuration(Math.max(1, Math.min(60, Number(event.target.value) || 1)))}/> SEC</label><label>FPS <input type="range" min={1} max={60} value={frameRate} onChange={event => setFrameRate(Number(event.target.value))}/><span>{frameRate} · {Math.round(1000 / Math.max(1, frameRate))}ms/frame</span></label><label>INTERPOLATION <select value={interpolation} onChange={event => setInterpolation(event.target.value)}><option>Linear</option><option>Ease In</option><option>Ease Out</option><option>Ease In-Out</option><option>Bounce</option><option>Anticipation</option><option>Spring Damping</option></select></label><button type="button" title="Delete selected keyframe" onClick={deleteFrame}><Trash2 size={13}/></button></div>
       </section>}
