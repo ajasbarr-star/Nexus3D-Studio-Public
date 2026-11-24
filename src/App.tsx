@@ -7998,18 +7998,18 @@ export default function App() {
 
       
 
-      {animationMode && <aside className="animation-editor-dock" aria-label="Animation Scene List and Transform Inspector">
-        <section className="animation-scene-list">
-          <div className="animation-dock-heading"><strong><Layers size={12}/> SCENE LIST</strong><span>{items.length}</span></div>
+      {animationMode && <>
+        <aside className="animation-scene-list animation-floating-panel" aria-label="Animation Scene List">
+          <div className="animation-dock-heading"><strong><Layers size={12}/> SC LIST</strong><span>{items.length}</span></div>
           <div className="animation-scene-items">{items.filter(item=>item.kind!=='IK Target'&&item.kind!=='IK Pole').map(item=><button type="button" key={item.id} className={selected===item.id?'active':''} onClick={()=>{setSelected(item.id);runtime.current?.selectObject?.(item.object);}} title={'Select '+item.name}>{item.name}</button>)}</div>
-        </section>
-        <section className="animation-transform-inspector">
-          <div className="animation-dock-heading"><strong><SlidersHorizontal size={12}/> TRANSFORM INSPECTOR</strong><button type="button" onClick={()=>captureRef.current()} disabled={!selected} title="Add full transform keyframe">◆ KEY</button></div>
-          {!selected && <div className="animation-dock-empty">Select an object from the Scene List.</div>}
+        </aside>
+        <aside className="animation-transform-inspector animation-floating-panel" aria-label="Animation Transform Inspector">
+          <div className="animation-dock-heading"><strong><SlidersHorizontal size={12}/> TRANSFORM</strong><button type="button" onClick={()=>captureRef.current()} disabled={!selected} title="Add full transform keyframe">◆ KEY</button></div>
+          {!selected && <div className="animation-dock-empty">Select an object.</div>}
           {(['position','rotation','scale'] as const).map(group=><div className="animation-transform-group" key={group}><strong>{group.toUpperCase()}</strong>{(['x','y','z'] as const).map(axis=>{const object=items.find(item=>item.id===selected)?.object;const value=object?(group==='position'?object.position[axis]:group==='rotation'?THREE.MathUtils.radToDeg(object.rotation[axis]):object.scale[axis]):0;const keyed=Boolean(keyframes[selected]?.[frame]);return <label key={axis}><span>{axis.toUpperCase()} <button type="button" className={keyed?'keyed':''} onClick={()=>captureRef.current()} disabled={!object} title={keyed?'Keyframe exists at current frame':'Add keyframe at current frame'}>{keyed?'◆':'◇'}</button></span><BufferedNumberInput ariaLabel={'Animation '+group+' '+axis.toUpperCase()} value={Number(value.toFixed(3))} disabled={!object} onCommit={next=>{if(!object||!Number.isFinite(next))return;if(group==='position')object.position[axis]=next;else if(group==='rotation')object.rotation[axis]=THREE.MathUtils.degToRad(next);else object.scale[axis]=next;object.updateMatrixWorld(true);setItems(prev=>[...prev]);if(autoKeyRef.current)captureRef.current();}}/></label>;})}</div>)}
-        </section>
-        <div className="animation-gizmo-tools" aria-label="Animation Gizmo tools"><button type="button" className={mode==='translate'?'active':''} onClick={()=>runMode('translate')} title="Move Gizmo"><Move size={13}/></button><button type="button" className={mode==='rotate'?'active':''} onClick={()=>runMode('rotate')} title="Rotate Gizmo"><Rotate3D size={13}/></button><button type="button" className={mode==='scale'?'active':''} onClick={()=>runMode('scale')} title="Scale Gizmo"><Scaling size={13}/></button><button type="button" onClick={setAxisSpace} title="Toggle World / Local axes"><Globe size={13}/><span>{space.toUpperCase()}</span></button></div>
-      </aside>}
+        </aside>
+        <div className="animation-gizmo-tools animation-floating-gizmo" aria-label="Animation Gizmo tools"><button type="button" className={mode==='translate'?'active':''} onClick={()=>runMode('translate')} title="Move Gizmo"><Move size={13}/></button><button type="button" className={mode==='rotate'?'active':''} onClick={()=>runMode('rotate')} title="Rotate Gizmo"><Rotate3D size={13}/></button><button type="button" className={mode==='scale'?'active':''} onClick={()=>runMode('scale')} title="Scale Gizmo"><Scaling size={13}/></button><button type="button" onClick={setAxisSpace} title="Toggle World / Local axes"><Globe size={13}/><span>{space.toUpperCase()}</span></button></div>
+      </>}
       {animationMode && <div className="animation-mode-controls" aria-label="Animation workspace controls"><button type="button" onClick={toggleAnimationWorkspace} title="Exit Animation and return to User View" aria-label="Exit Animation"><X size={16}/></button><button type="button" className={animOpen ? 'active' : ''} onClick={() => setAnimOpen(value => !value)} title={animOpen ? 'Hide Timeline' : 'Show Timeline'} aria-label="Toggle Animation Timeline"><Film size={15}/><span>TIME</span></button></div>}
       {animationMode && animOpen && <section className="timeline-panel" aria-label="Animation Timeline">
         <div className="timeline-heading"><strong><Film size={13}/> ANIMATION TIMELINE</strong><span>F {String(frame).padStart(3, '0')} · {(frame / Math.max(1, frameRate)).toFixed(2)}s</span><div className="timeline-heading-actions"><button type="button" onClick={() => setAnimOpen(false)} aria-label="Hide timeline"><X size={13}/></button></div></div>
