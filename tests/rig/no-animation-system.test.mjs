@@ -72,3 +72,55 @@ test('One continuous frame range displays per-object tracks across all Alphabet 
   assert.match(app, /keyframes\[item\.id\]/);
   assert.match(app, /loopPlayback/);
 });
+
+
+test('Animation playback continues when entering or exiting the Animation workspace', () => {
+  const toggle = app.slice(app.indexOf('const toggleAnimationWorkspace ='), app.indexOf('const toggleCamera ='));
+  assert.ok(toggle.includes('setAnimationMode(false)'));
+  assert.ok(!toggle.includes('setPlaying(false)'), 'workspace navigation must not stop playback');
+  assert.match(app, /if \(!playing\) return;[\s\S]*?setInterval/);
+});
+
+test('Dope Sheet and Graph Editor provide working keyframe editing actions', () => {
+  assert.match(app, /moveSelectedKeyframe = \(delta: number\)/);
+  assert.match(app, /updateSelectedKeyframeChannel = \(value: number\)/);
+  assert.match(app, /timeline-dope-sheet/);
+  assert.match(app, /−1 FRAME/);
+  assert.match(app, /FRAME ▶/);
+  assert.match(app, /timeline-graph-editor/);
+  assert.match(app, /Graph value updated/);
+  assert.match(app, /selectedGraphChannel/);
+  assert.match(css, /\.timeline-dope-sheet/);
+  assert.match(css, /\.timeline-graph-editor/);
+});
+
+test('Ghost Preview creates non-selectable transparent 3D previous and next poses', () => {
+  assert.match(app, /Nexus3D ' \+ label \+ ' Ghost/);
+  assert.match(app, /cloneSkeletonHierarchy\(source\)/);
+  assert.match(app, /internalAnimationGhost/);
+  assert.match(app, /\(copy as any\)\.opacity = 0\.2/);
+  assert.match(app, /node\.raycast = \(\) => \{\}/);
+});
+
+test('Timeline toolbar actions remain connected to undo, redo, copy, paste, fit and markers', () => {
+  assert.match(app, /onClick=\{undo\} title="Undo last scene or keyframe edit"/);
+  assert.match(app, /onClick=\{redo\} title="Redo last scene or keyframe edit"/);
+  assert.match(app, /onClick=\{copyFrame\}/);
+  assert.match(app, /onClick=\{pasteFrame\}/);
+  assert.match(app, /timelineScrollRef\.current\?\.scrollTo/);
+  assert.match(app, /Add a marker at the current frame/);
+});
+
+
+test('Animation workspace exposes the shared Scene List, Transform Inspector and Gizmo controls', () => {
+  assert.match(app, /animation-editor-dock/);
+  assert.match(app, /SCENE LIST/);
+  assert.match(app, /TRANSFORM INSPECTOR/);
+  assert.ok(app.includes("ariaLabel={'Animation '+group+' '+axis.toUpperCase()}"));
+  assert.match(app, /runMode\('translate'\)/);
+  assert.match(app, /runMode\('rotate'\)/);
+  assert.match(app, /runMode\('scale'\)/);
+  assert.match(app, /Animation \+group\+' \+axis\.toUpperCase\(\)/);
+  assert.match(app, /title=\{keyed\?'Keyframe exists at current frame':'Add keyframe at current frame'\}/);
+  assert.match(css, /\.animation-editor-dock/);
+});
