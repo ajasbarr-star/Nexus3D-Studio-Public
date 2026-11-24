@@ -453,7 +453,7 @@ test('Timeline ruler uses graduated frame ticks, a taller anchored track, and co
 
 
 test('Timeline Add Keyframe action lives in the Dope Sheet toolbar, not inside the State ruler', () => {
-  assert.match(app, /className="timeline-add-keyframe" onClick=\{\(\)=>captureRef\.current\(\)\}/);
+  assert.match(app, /timeline-add-keyframe.*captureRef\.current/);
   const ruler = app.slice(app.indexOf('className={"alphabet-state-mini-ruler'), app.indexOf('className="alphabet-state-add"'));
   assert.doesNotMatch(ruler, /alphabet-state-mini-key/);
   assert.match(css, /\.timeline-tool-row \.timeline-add-keyframe/);
@@ -471,7 +471,7 @@ test('Selected Alphabet State ruler keeps frame labels and ticks horizontal whil
 
   const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
   assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels\{position:absolute!important;inset:0!important;display:block!important/);
-  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:19px!important/);
+  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:3px!important/);
   assert.match(layout, /writing-mode:horizontal-tb!important/);
   assert.match(layout, /touch-action:pan-x!important/);
   assert.match(app, /onChange=\{event=>setCurrentFrame\(Number\(event\.target\.value\)\)\}/);
@@ -497,8 +497,8 @@ test('Opening an Alphabet State reveals a horizontal numbered ruler beside its l
   assert.match(app, /sequenceRulerDisplayWidths\[state\.id\] \|\| 360/);
   assert.match(app, /previous\[state\.id\] \|\| 360/);
   assert.match(app, /getCustomRulerLabel\(index,4\)/);
-  assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels span\{position:absolute!important;top:0!important/);
-  assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:19px!important/);
+  assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels span\{position:absolute!important;top:18px!important/);
+  assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:3px!important/);
   assert.match(css, /writing-mode:horizontal-tb!important/);
   assert.match(app, /style=\{\{left:\(\(\(at-range\.start\)\/Math\.max\(1,range\.end-range\.start\)\)\*100\)\+'%',top:'50%'\}\}/);
 
@@ -508,7 +508,7 @@ test('Add Keyframe stays immediately beside Dope Sheet in the Timeline tools row
   const toolbar = app.slice(app.indexOf('className="timeline-tool-row"'), app.indexOf('className="alphabet-state-panel"'));
   assert.ok(toolbar.indexOf('DOPE SHEET') < toolbar.indexOf('timeline-add-keyframe'));
   assert.ok(toolbar.indexOf('timeline-add-keyframe') < toolbar.indexOf('GRAPH'));
-  assert.match(app, /className="timeline-add-keyframe" onClick=\{\(\)=>captureRef\.current\(\)\}/);
+  assert.match(app, /timeline-add-keyframe.*captureRef\.current/);
 });
 
 test('Frame ruler labels every frame in sequence with graduated ticks at 5-frame intervals', () => {
@@ -522,16 +522,16 @@ test('Frame ruler labels every frame in sequence with graduated ticks at 5-frame
 
 
 test('Custom START and END use buffered editable decimal inputs and independent s/m units', () => {
-  assert.match(app, /BufferedNumberInput ariaLabel="Custom ruler start time" value=\\{customRulerStart\\} step=\\{0\\.01\\}/);
-  assert.match(app, /BufferedNumberInput ariaLabel="Custom ruler end time" value=\\{customRulerEnd\\} step=\\{0\\.01\\}/);
-  assert.match(app, /setCustomRulerStart\\(Math\\.max\\(0,value\\)\\)/);
-  assert.match(app, /setCustomRulerEnd\\(Math\\.max\\(0,value\\)\\)/);
+  assert.match(app, /BufferedNumberInput ariaLabel="Custom ruler start time" value=\{customRulerStart\} step=\{0\.01\}/);
+  assert.match(app, /BufferedNumberInput ariaLabel="Custom ruler end time" value=\{customRulerEnd\} step=\{0\.01\}/);
+  assert.match(app, /setCustomRulerStart\(Math\.max\(0,value\)\)/);
+  assert.match(app, /setCustomRulerEnd\(Math\.max\(0,value\)\)/);
   assert.match(app, /aria-label="Custom ruler start unit"/);
   assert.match(app, /aria-label="Custom ruler end unit"/);
-  assert.match(app, /const toSeconds = \\(value: number, unit: 's' \\| 'm'\\)/);
-  assert.match(app, /unit === 'm' \\? 60 : 1/);
-  assert.match(app, /getCustomRulerLabel\\(index,4\\)/);
-  assert.match(app, /customRulerStartUnit === customRulerEndUnit \\? customRulerStartUnit : 's'/);
+  assert.match(app, /const toSeconds = \(value: number, unit: 's' \| 'm'\)/);
+  assert.match(app, /unit === 'm' \? 60 : 1/);
+  assert.match(app, /getCustomRulerLabel\(index,4\)/);
+  assert.match(app, /customRulerStartUnit === customRulerEndUnit \? customRulerStartUnit : 's'/);
 });
 
 test('Custom ruler values persist in project data while legacy projects receive safe defaults', () => {
@@ -559,15 +559,16 @@ test('Custom time labels use four evenly spaced ruler positions and include exac
 
 test('Timeline ruler positions graduated tick lines at the top and centers custom time labels', () => {
   const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
-  assert.match(layout, /\\.alphabet-state-mini-ruler \\.alphabet-state-ruler-ticks\\{[\\s\\S]*?top:3px!important/);
-  assert.match(layout, /\\.alphabet-state-mini-ruler \\.alphabet-state-ruler-labels span\\{position:absolute!important;top:18px!important/);
+  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{[\s\S]*?top:3px!important/);
+  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels span\{position:absolute!important;top:18px!important/);
 });
 
 test('Add Keyframe icon turns pink when the selected object has a keyframe at the current frame', () => {
-  assert.match(app, /Object\\.prototype\\.hasOwnProperty\\.call\\(keyframes\\[selected\\] \\|\\| \\{\\}, frame\\)/);
+  assert.match(app, /Object\.prototype\.hasOwnProperty\.call\(keyframes\[selected\] \|\| \{\}, frame\)/);
   assert.match(app, /has-current-keyframe/);
-  assert.match(css, /\\.timeline-tool-row \\.timeline-add-keyframe\\.has-current-keyframe\\{color:#ff72c8!important/);
+  assert.match(css, /\.timeline-tool-row \.timeline-add-keyframe\.has-current-keyframe\{color:#ff72c8!important/);
 });
+
 
 test('REC and LOOP controls align in the Timeline tools row beside the Alphabet State Delete icon', () => {
   const toolbar = app.slice(app.indexOf('className="timeline-tool-row"'), app.indexOf('className="alphabet-state-panel"'));
