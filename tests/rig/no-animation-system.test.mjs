@@ -413,8 +413,8 @@ test('Dragging an Alphabet State letter resizes its ruler right or left while th
 test('Alphabet State timeline ruler uses numeric frame labels and graduated minor, medium and major ticks', () => {
   assert.match(app, /alphabet-state-ruler-scale/);
   assert.match(app, /alphabet-state-ruler-labels/);
-  assert.match(app, /Array\\.from\\(\\{length:Math.max\\(2,Math.round\\(state.width\\)\\+1\\)/);
-  assert.match(app, /Array\\.from\\(\\{length:Math.max\\(2,Math.round\\(state.width\\)\\+1\\)/);
+  assert.match(app, /Array\.from\(\{length:Math.max\(2,Math.round\(state.width\)\+1\)/);
+  assert.match(app, /Array\.from\(\{length:Math.max\(2,Math.round\(state.width\)\+1\)/);
   assert.match(app, /index%10===0\?"major":index%5===0\?"medium":"minor"/);
   assert.match(css, /\.alphabet-state-ruler-labels span/);
   assert.match(css, /\.alphabet-state-ruler-ticks i\.medium/);
@@ -442,8 +442,8 @@ test('Timeline panel preserves its original footprint and stays permanently bott
 
 test('Timeline ruler uses graduated frame ticks, a taller anchored track, and compact transport controls', () => {
   assert.match(app, /alphabet-state-ruler-labels/);
-  assert.match(app, /Array\\.from\\(\\{length:Math.max\\(2,Math.round\\(state.width\\)\\+1\\)/);
-  assert.match(app, /Array\\.from\\(\\{length:Math.max\\(2,Math.round\\(state.width\\)\\+1\\)/);
+  assert.match(app, /Array\.from\(\{length:Math.max\(2,Math.round\(state.width\)\+1\)/);
+  assert.match(app, /Array\.from\(\{length:Math.max\(2,Math.round\(state.width\)\+1\)/);
   assert.match(app, /index%10===0\?"major":index%5===0\?"medium":"minor"/);
   assert.match(css, /\.timeline-panel\{\s*position:fixed!important/);
   assert.match(css, /\.alphabet-state-scroll\{\s*flex:0 0 84px!important/);
