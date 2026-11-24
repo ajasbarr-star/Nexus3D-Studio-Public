@@ -2978,3 +2978,14 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .animation-floating-gizmo button{height:21px;min-width:23px;padding:0 3px}
 @media(max-width:760px){.animation-floating-panel{left:5px;width:clamp(104px,27vw,126px);padding:4px}.animation-scene-list.animation-floating-panel{top:5px;height:25%;min-height:62px}.animation-transform-inspector.animation-floating-panel{top:calc(25% + 10px);bottom:calc(34vh + 18px)}.animation-floating-gizmo{left:5px;bottom:calc(34vh + 20px)}}
 @media(orientation:landscape) and (max-height:430px){.animation-scene-list.animation-floating-panel{height:23%;min-height:52px}.animation-transform-inspector.animation-floating-panel{top:calc(23% + 11px);bottom:calc(min(34vh,220px) + 17px)}.animation-floating-panel .animation-transform-group{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:4px}.animation-floating-panel .animation-transform-group>strong{grid-column:1/-1}.animation-floating-panel .animation-transform-group label{grid-template-columns:16px minmax(0,1fr)}}
+
+
+/* Visible keyframe curve canvas for Graph mode. */
+.timeline-graph-plot{position:relative;display:flex;flex:1 1 52px;min-height:46px;overflow:hidden;border:1px solid #29445d;border-radius:4px;background:repeating-linear-gradient(0deg,transparent 0,transparent 18px,#20384d 19px),repeating-linear-gradient(90deg,transparent 0,transparent 29px,#20384d 30px),#091624}
+.timeline-graph-plot svg{display:block;width:100%;height:100%;min-height:46px;overflow:visible}
+.timeline-graph-zero{stroke:#49657b;stroke-width:.7;stroke-dasharray:3 3}
+.timeline-graph-line{fill:none;stroke:#54dfff;stroke-width:2;vector-effect:non-scaling-stroke;filter:drop-shadow(0 0 3px #36d9ff88)}
+.timeline-graph-point{fill:#f2c879;stroke:#081521;stroke-width:1.2;vector-effect:non-scaling-stroke}
+.timeline-graph-point.active{fill:#fff;stroke:#53e4ff;stroke-width:2}
+.timeline-graph-empty{display:flex;align-items:center;justify-content:center;width:100%;padding:5px;color:#8ba8c2;text-align:center;font:7px 'DM Mono',monospace}
+.timeline-dope-sheet .timeline-tool-empty{padding:3px 5px;border:1px dashed #29445d;border-radius:4px}
