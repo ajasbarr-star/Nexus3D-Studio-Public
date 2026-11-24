@@ -2981,9 +2981,10 @@ export default function App() {
       setStatus('IK target ready for ' + endBone.name + ' · move it with the gizmo, then Solve Manual IK');
       return target;
     };
-    const solveIK = (chainLength = 3, controlTarget?: THREE.Vector3) => {
+    const solveIK = (chainLength = 3, controlTarget?: THREE.Vector3, controlHandleOverride?: THREE.Object3D) => {
       const selectedObject = selectable.find(object => String(object.userData.editorId) === selectedRef.current);
-      const controlHandle = selectedObject?.userData.rigControlMarker ? selectedObject : null;
+      // Keyframe playback can drive a Control Handle even when another object is selected.
+      const controlHandle = controlHandleOverride || (selectedObject?.userData.rigControlMarker ? selectedObject : null);
       const controlBone = controlHandle ? selectable.find(object => object instanceof THREE.Bone && String(object.userData.editorId) === String(controlHandle.userData.controlOwnerBoneId)) as THREE.Bone | undefined || null : null;
       const chain = (controlBone ? resolveRigChainForObject(controlBone) : resolveRigChainForObject(selectedObject)) ||
         (rigChains.filter(entry => entry.target).length === 1 ? rigChains.find(entry => entry.target) : null);
@@ -5677,6 +5678,25 @@ export default function App() {
       const mix = (a: number[], b: number[]) => a.map((v, i) => v + (b[i] - v) * t);
       applySnapshot(obj, { position: mix(left.value.position, right.value.position), rotation: mix(left.value.rotation, right.value.rotation), scale: mix(left.value.scale, right.value.scale) });
     });
+    // Re-apply animated orange Bone Control Handles as IK targets after their
+    // keyframed transforms are restored. TransformControls' objectChange event
+    // does not fire during timeline playback, so the usual live-drag IK bridge
+    // must be invoked explicitly here.
+    r.selectable.filter((candidate: THREE.Object3D) => candidate.userData.rigControlMarker).forEach((marker: THREE.Object3D) => {
+      const markerId = String(marker.userData.editorId || '');
+      const markerTrack = keysRef.current[markerId];
+      if (!markerTrack || !Object.keys(markerTrack).length || marker.userData.controlLocked) return;
+      const ownerBoneId = String(marker.userData.controlOwnerBoneId || '');
+      const ownerBone = selectableById.get(ownerBoneId);
+      if (!(ownerBone instanceof THREE.Bone)) return;
+      const ownerId = String(marker.userData.controlOwnerObjectId || ownerBone.userData.rigOwnerId || '');
+      const rigBoneCount = r.selectable.filter((candidate: THREE.Object3D) =>
+        candidate instanceof THREE.Bone && String(candidate.userData.rigOwnerId || '') === ownerId
+      ).length;
+      if (rigBoneCount < 2) return;
+      r.solveIK?.(Math.max(1, rigBoneCount - 1), marker.getWorldPosition(new THREE.Vector3()), marker);
+    });
+    r.scene?.updateMatrixWorld(true);
   };
 
   useEffect(() => {
