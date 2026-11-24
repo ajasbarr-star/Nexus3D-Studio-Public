@@ -188,7 +188,7 @@ test('Timeline toolbar actions remain real actions with clear state feedback', (
   assert.match(app, /onClick=\{redo\} title="Redo last scene or keyframe edit"/);
   assert.match(app, /onClick=\{copyFrame\}/);
   assert.match(app, /onClick=\{pasteFrame\}/);
-  assert.match(app, /onClick=\{v=>setShowGhostPreview\(v=>!v\)\}/);
+  assert.match(app, /onClick=\{\(\)=>setShowGhostPreview\(v=>!v\)\}/);
   assert.match(app, /Add a marker at the current frame/);
   assert.match(app, /timelineTool==='dope'/);
   assert.match(app, /timelineTool==='graph'/);
