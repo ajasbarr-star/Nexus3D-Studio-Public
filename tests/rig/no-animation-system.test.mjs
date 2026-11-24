@@ -398,3 +398,30 @@ test('Dragging an Alphabet State letter resizes its ruler right or left while th
   assert.match(app, /drag right to expand, left to shrink/);
   assert.doesNotMatch(app, /sequenceRulerOffsets|beginSequenceRulerDrag|moveSequenceRulerDrag|translateX\(/);
 });
+
+
+test('Alphabet State timeline ruler has a numbered 0–1 scale with short divisions and a long final tick', () => {
+  assert.match(app, /alphabet-state-ruler-scale/);
+  assert.match(app, /<span>0<\/span>/);
+  assert.match(app, /<span>1<\/span>/);
+  assert.match(app, /Array\.from\(\{length:9\}/);
+  assert.match(css, /\.alphabet-state-ruler-ticks i/);
+  assert.match(css, /\.alphabet-state-ruler-ticks::after/);
+  assert.match(css, /height:10px;background:#b7edff/);
+});
+
+test('Timeline scrubbing uses indexed selectable lookup and keeps the Alphabet State reveal workflow intact', () => {
+  assert.match(app, /const selectableById = new Map<string, THREE\.Object3D>\(\)/);
+  assert.match(app, /selectableById\.get\(id\)/);
+  assert.match(app, /onClick=\{\(\) => handleAlphabetStateHandleClick\(state\)\}/);
+  assert.match(app, /onPointerDown=\{event=>beginSequenceRulerResize\(event,state\.id\)\}/);
+  assert.match(app, /onPointerMove=\{moveSequenceRulerResize\}/);
+  assert.match(app, /onPointerUp=\{endSequenceRulerResize\}/);
+  assert.match(app, /drag right to expand, left to shrink/);
+});
+
+test('Timeline panel is slightly taller while remaining bottom anchored on compact landscape screens', () => {
+  assert.match(css, /\.timeline-panel\{[\s\S]*?height:158px;min-height:150px;max-height:48vh/);
+  assert.match(css, /@media\(max-height:430px\)\{\s*\.timeline-panel\{height:158px;min-height:150px/);
+  assert.match(css, /\.timeline-panel\{display:flex!important;position:absolute;z-index:14;left:8px;right:8px;bottom:8px/);
+});
