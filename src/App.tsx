@@ -568,6 +568,8 @@ export default function App() {
   const [animationDock, setAnimationDock] = useState<'scene' | 'transform' | null>(null);
   const [sequenceStates, setSequenceStates] = useState<Array<{ id: string; label: string; width: number; mode: 'continue' | 'independent'; objectId?: string }>>([]);
   const [selectedSequenceState, setSelectedSequenceState] = useState('');
+  const [selected3DAlphabetMarkerId, setSelected3DAlphabetMarkerId] = useState('');
+  const [expandedSequenceRulerId, setExpandedSequenceRulerId] = useState('');
   const [pendingStateChoice, setPendingStateChoice] = useState('');
   const [timelineTool, setTimelineTool] = useState<'tracks' | 'dope' | 'graph'>('tracks');
   const [selectedGraphChannel, setSelectedGraphChannel] = useState<'position.x' | 'position.y' | 'position.z' | 'rotation.x' | 'rotation.y' | 'rotation.z' | 'scale.x' | 'scale.y' | 'scale.z'>('position.x');
@@ -3286,6 +3288,7 @@ export default function App() {
         const stateId = String(marker.userData.alphabetStateId || '');
         if (stateId) {
           setSelectedSequenceState(stateId);
+          setSelected3DAlphabetMarkerId(stateId);
           runtime.current?.setSelectedAlphabetStateMarker?.(stateId);
           const ownerId = String(marker.userData.ownerObjectId || '');
           const owner = selectable.find(object => String(object.userData.editorId || '') === ownerId);
@@ -3668,6 +3671,7 @@ export default function App() {
         const stateId = String(marker.userData.alphabetStateId || '');
         if (stateId) {
           setSelectedSequenceState(stateId);
+          setSelected3DAlphabetMarkerId(stateId);
           runtime.current?.setSelectedAlphabetStateMarker?.(stateId);
           const ownerId = String(marker.userData.ownerObjectId || '');
           const owner = selectable.find(object => String(object.userData.editorId || '') === ownerId);
@@ -4127,7 +4131,25 @@ export default function App() {
     const obj = r.selectable.find((o: THREE.Object3D) => o.userData.editorId === id);
     if (!obj) return;
     const next: Keyframes = JSON.parse(JSON.stringify(keysRef.current));
-    next[id] = { ...(next[id] || {}), [frameRef.current]: snapshot(obj) };
+    // Capture the selected object and every bone/control belonging to its rig.
+    // Each rig element gets an independent editor-ID track for pose editing.
+    const ownerId = obj instanceof THREE.Bone
+      ? String(obj.userData.rigOwnerId || '')
+      : String(obj.userData.rigControlMarker ? obj.userData.controlOwnerObjectId || '' : obj.userData.editorId || '');
+    const targets = new Map<string, THREE.Object3D>();
+    targets.set(id, obj);
+    if (ownerId) {
+      const owner = r.selectable.find((candidate: THREE.Object3D) => String(candidate.userData.editorId || '') === ownerId);
+      if (owner) targets.set(ownerId, owner);
+      r.selectable.forEach((candidate: THREE.Object3D) => {
+        const isBone = candidate instanceof THREE.Bone && String(candidate.userData.rigOwnerId || '') === ownerId;
+        const isHandle = Boolean(candidate.userData.rigControlMarker) && String(candidate.userData.controlOwnerObjectId || '') === ownerId;
+        if ((isBone || isHandle) && candidate.userData.editorId) targets.set(String(candidate.userData.editorId), candidate);
+      });
+    }
+    targets.forEach((target, targetId) => {
+      next[targetId] = { ...(next[targetId] || {}), [frameRef.current]: snapshot(target) };
+    });
     commitKeys(next);
     setStatus('Keyframe set · F: ' + String(frameRef.current).padStart(3, '0'));
   };
@@ -5359,8 +5381,8 @@ export default function App() {
     setPendingStateChoice('');
     const range = getSequenceRange(state.id);
     setCurrentFrame(range.start);
-    const owner = runtime.current?.selectable?.find((object: THREE.Object3D) => String(object.userData.editorId || '') === String(state.objectId || ''));
-    if (owner) runtime.current?.selectObject?.(owner);
+    // Timeline State selection is independent from 3D marker/object selection.
+    setExpandedSequenceRulerId('');
   };
   const deleteAlphabetState = () => {
     const index = sequenceStates.findIndex(state => state.id === selectedSequenceState);
@@ -5381,6 +5403,8 @@ export default function App() {
     const remaining = sequenceStates.filter(entry => entry.id !== state.id);
     setSequenceStates(remaining);
     setSelectedSequenceState(remaining[Math.max(0, index - 1)]?.id || remaining[0]?.id || '');
+    setExpandedSequenceRulerId('');
+    setSelected3DAlphabetMarkerId(current => current === state.id ? '' : current);
     setPendingStateChoice('');
     setSelectedKeyframe(current => current && current.frame >= range.start && current.frame <= range.end ? null : current);
     setStatus('State ' + state.label + ' and its keyframes deleted');
@@ -5403,8 +5427,8 @@ export default function App() {
       const startFrame = sequenceStates.slice(0, index).reduce((sum, entry) => sum + Math.max(1, entry.width), workStart);
       runtime.current?.createAlphabetStateMarker?.(state.label, state.id, state.objectId, startFrame);
     });
-    runtime.current?.setSelectedAlphabetStateMarker?.(selectedSequenceState);
-  }, [sequenceStates, selectedSequenceState]);
+    runtime.current?.setSelectedAlphabetStateMarker?.(selected3DAlphabetMarkerId);
+  }, [sequenceStates, selected3DAlphabetMarkerId]);
 
   const setAlphabetStateMode = (stateId: string, mode: 'continue' | 'independent') => {
     const range = getSequenceRange(stateId);
@@ -8174,8 +8198,9 @@ export default function App() {
                <div className="alphabet-state-scroll" ref={timelineScrollRef} aria-label="Alphabet State sequence">
                  {sequenceStates.map(state => <div className="alphabet-state-item" key={state.id}>
                    <button type="button" className={"alphabet-state-handle " + (selectedSequenceState === state.id ? "active" : "")} title={"State " + state.label + " · tap to select · swipe horizontally to scroll"} onClick={() => selectAlphabetState(state)}>{state.label}</button>
-                   <div className={"alphabet-state-mini-ruler " + (selectedSequenceState === state.id ? "active" : "")} style={{width:Math.max(260,state.width*8)+"px"}} aria-label={"State " + state.label + " keyframe timeline"}>
+                   <div className={"alphabet-state-mini-ruler " + (selectedSequenceState === state.id ? "active" : "") + (expandedSequenceRulerId === state.id ? " expanded" : " collapsed")} style={{width:Math.max(260,state.width*8)+"px"}} aria-label={"State " + state.label + " keyframe timeline"}>
                      <span className="alphabet-state-frame-label">{Math.round(state.width)}f</span>
+                     <button type="button" className="alphabet-state-ruler-expand" aria-label={(expandedSequenceRulerId === state.id ? 'Collapse' : 'Expand')+' State '+state.label+' ruler'} title={expandedSequenceRulerId === state.id ? 'Collapse ruler' : 'Expand ruler'} onClick={event=>{event.stopPropagation();setExpandedSequenceRulerId(current=>current===state.id?'':state.id);}}>{expandedSequenceRulerId === state.id ? '−' : '＋'}</button>
                      <input aria-label={"State " + state.label + " frame slider"} type="range" min={getSequenceRange(state.id).start} max={Math.max(getSequenceRange(state.id).start+1,getSequenceRange(state.id).end)} value={Math.max(getSequenceRange(state.id).start,Math.min(frame,getSequenceRange(state.id).end))} onChange={event=>setCurrentFrame(Number(event.target.value))}/>
                      <div className="alphabet-state-mini-markers">{Object.keys(keyframes[selected] || {}).map(value=>{const at=Number(value);const range=getSequenceRange(state.id);if(at<range.start||at>range.end)return null;return <button key={value} type="button" className={selectedKeyframe?.id===selected&&selectedKeyframe.frame===at?'selected-keyframe':''} title={'Keyframe F'+at} aria-label={'Select keyframe at frame '+at} style={{left:(((at-range.start)/Math.max(1,range.end-range.start))*100)+'%'}} onClick={event=>{event.stopPropagation();setSelectedKeyframe({id:selected,frame:at});setCurrentFrame(at);}}><span>◆</span><small>{at}</small></button>;})}{timelineMarkers.filter(marker=>{const range=getSequenceRange(state.id);return marker.frame>=range.start&&marker.frame<=range.end;}).map(marker=>{const range=getSequenceRange(state.id);return <button key={marker.id} type="button" className="alphabet-state-mini-event-marker" title={marker.label+" · "+marker.frame+"f"} style={{left:((marker.frame-range.start)/Math.max(1,range.end-range.start)*100)+"%"}} onClick={event=>{event.stopPropagation();setCurrentFrame(marker.frame);}}>▼</button>;})}</div>
                      {selectedSequenceState === state.id && <button type="button" className="alphabet-state-mini-key" title="Add Keyframe at current frame" aria-label={"Add keyframe to State "+state.label} disabled={!selected} onClick={event=>{event.stopPropagation();captureRef.current();}}>KEY</button>}
@@ -8184,7 +8209,7 @@ export default function App() {
                  <button type="button" className="alphabet-state-add" onClick={() => { const id = addAlphabetState('independent'); setPendingStateChoice(id); }} aria-label="Add State">＋<small>STATE</small></button>
                </div>
                {pendingStateChoice && <div className="alphabet-state-choice"><span>START POSE</span><button type="button" onClick={() => setAlphabetStateMode(pendingStateChoice,'continue')}>CONTINUE</button><button type="button" onClick={() => setAlphabetStateMode(pendingStateChoice,'independent')}>INDEPENDENT</button></div>}
-             {timelineTool !== 'tracks' && activeSequenceState && <div className="alphabet-state-tools-detail" aria-label="Selected State keyframe tools">
+             {timelineTool !== 'tracks' && <div className="alphabet-state-tools-detail timeline-floating-tool-panel" aria-label="Selected State keyframe tools">
                  {timelineTool==='tracks' ? null : timelineTool==='dope' ? <div className="timeline-dope-sheet"><div className="timeline-dope-actions"><span>{selectedKeyframe ? 'SELECTED · '+(items.find(item=>item.id===selectedKeyframe.id)?.name||'Object')+' · F'+selectedKeyframe.frame : 'Select a diamond to edit its keyframe'}</span><button type="button" onClick={()=>moveSelectedKeyframe(-1)} disabled={!selectedKeyframe}>−1 FRAME</button><button type="button" onClick={()=>moveSelectedKeyframe(1)} disabled={!selectedKeyframe}>＋1 FRAME</button><button type="button" onClick={deleteFrame} disabled={!selectedKeyframe}>DELETE</button></div>{totalKeys===0 && <div className="timeline-tool-empty">NO KEYFRAMES YET · Select an object and tap ◆ KEY to create a keyframe.</div>}</div> : <div className="timeline-graph-editor"><div className="timeline-graph-toolbar"><label>CHANNEL <select aria-label="Graph channel" value={selectedGraphChannel} onChange={event=>setSelectedGraphChannel(event.target.value as typeof selectedGraphChannel)}><option value="position.x">POSITION X</option><option value="position.y">POSITION Y</option><option value="position.z">POSITION Z</option><option value="rotation.x">ROTATION X</option><option value="rotation.y">ROTATION Y</option><option value="rotation.z">ROTATION Z</option><option value="scale.x">SCALE X</option><option value="scale.y">SCALE Y</option><option value="scale.z">SCALE Z</option></select></label><label>KEY VALUE <BufferedNumberInput ariaLabel="Selected graph key value" value={selectedKeyframe && keyframes[selectedKeyframe.id]?.[selectedKeyframe.frame] ? (selectedGraphChannel.startsWith('rotation.') ? THREE.MathUtils.radToDeg((keyframes[selectedKeyframe.id][selectedKeyframe.frame] as any)[selectedGraphChannel.split('.')[0]][selectedGraphChannel.endsWith('.x')?0:selectedGraphChannel.endsWith('.y')?1:2]) : (keyframes[selectedKeyframe.id][selectedKeyframe.frame] as any)[selectedGraphChannel.split('.')[0]][selectedGraphChannel.endsWith('.x')?0:selectedGraphChannel.endsWith('.y')?1:2]) : 0} disabled={!selectedKeyframe} onCommit={updateSelectedKeyframeChannel}/></label><button type="button" onClick={()=>moveSelectedKeyframe(-1)} disabled={!selectedKeyframe}>◀ FRAME</button><button type="button" onClick={()=>moveSelectedKeyframe(1)} disabled={!selectedKeyframe}>FRAME ▶</button></div><div className="timeline-graph-plot" role="img" aria-label={selected+' '+selectedGraphChannel+' keyframe curve'}>{graphEntries.length===0 ? <div className="timeline-graph-empty">NO CURVE DATA · Add at least two keyframes for {selectedGraphChannel.toUpperCase()}.</div> : <svg viewBox="0 0 300 76" preserveAspectRatio="none"><line x1="0" y1="38" x2="300" y2="38" className="timeline-graph-zero"/><polyline className="timeline-graph-line" points={graphEntries.map(entry=>{const x=(entry.frame-activeSequenceRange.start)/Math.max(1,activeSequenceRange.end-activeSequenceRange.start)*300;const y=68-((entry.value-graphMin)/graphSpan)*58;return x.toFixed(1)+','+y.toFixed(1);}).join(' ')}/>{graphEntries.map(entry=><circle key={entry.frame} className={selectedKeyframe?.id===selected&&selectedKeyframe.frame===entry.frame?'timeline-graph-point active':'timeline-graph-point'} cx={(entry.frame-activeSequenceRange.start)/Math.max(1,activeSequenceRange.end-activeSequenceRange.start)*300} cy={68-((entry.value-graphMin)/graphSpan)*58} r="3"/>)}</svg>}</div><div className="timeline-curve-controls"><label>CURVE WEIGHT <input type="range" min="0" max="100" value={curveWeight} onChange={event=>setCurveWeight(Number(event.target.value))}/><span>{curveWeight}</span></label><label>CURVE TENSION <input type="range" min="0" max="100" value={curveTension} onChange={event=>setCurveTension(Number(event.target.value))}/><span>{curveTension}</span></label><label>CURVE TANGENT <input type="range" min="0" max="100" value={curveTangent} onChange={event=>setCurveTangent(Number(event.target.value))}/><span>{curveTangent}</span></label><p>Interpolation: {interpolation}. Select a keyframe, choose a channel, then edit its value or curve response.</p></div></div>}
                  {showGhostPreview && <div className="timeline-tool-empty">GHOST PREVIEW · 3D previous / next pose silhouettes are visible in the viewport.</div>}
                  {importedAnimationClips.length > 0 && <label className="timeline-clip-select">CLIP <select aria-label="Imported animation clip" value={activeAnimationClipId} onChange={event => setActiveAnimationClipId(event.target.value)}><option value="">TRANSFORM ONLY</option>{importedAnimationClips.map(entry => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select></label>}
