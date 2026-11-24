@@ -2113,7 +2113,15 @@ export default function App() {
       }
       if (!root || !owner) { setStatus('Select the Shape or its pending Root Bone first'); return false; }
       let anchor = root.parent; while (anchor && !anchor.userData.nexusRigAnchor) anchor = anchor.parent;
-      if (!anchor || !anchor.userData.nexusRigAnchor) { setStatus('Root Bone anchor missing'); return false; }
+      if (!anchor || !anchor.userData.nexusRigAnchor) {
+        const existingChain = rigChains.find(entry => entry.bones.includes(root!));
+        if (existingChain?.owner && existingChain.owner.getObjectById(root!.id)) {
+          setStatus('Root Bone is already attached to the Character Group');
+          return true;
+        }
+        setStatus('Root Bone anchor missing');
+        return false;
+      }
       if (anchor.parent === owner && !anchor.userData.pendingShapeAttachment) { setStatus('Root Bone already attached'); return true; }
       scene.updateMatrixWorld(true); owner.attach(anchor); anchor.name = 'Rig Anchor';
       anchor.userData.pendingShapeAttachment = false;
@@ -2222,7 +2230,6 @@ export default function App() {
         );
         const placement = getControlHandlePlacement(bone, handleDistanceConfig.distance);
         marker.scale.setScalar(placement.radius / 0.07);
-        marker.userData.controlLastWorldQuaternion = marker.quaternion.toArray();
         marker.name = bone.name + ' Control Handle';
         marker.userData.rigControlMarker = true;
         marker.userData.editorId = uid();
@@ -2238,6 +2245,7 @@ export default function App() {
         marker.visible = true;
         scene.add(marker);
         placeControlHandleAtBone(marker, bone, placement);
+        marker.userData.controlLastWorldQuaternion = marker.getWorldQuaternion(new THREE.Quaternion()).toArray();
         selectable.push(marker);
         bone.userData.controlHandle = true;
         nextSelection = marker;
@@ -2615,11 +2623,14 @@ export default function App() {
       rigGroup.name = 'Rig · ' + mesh.name;
       rigGroup.userData.editorId = uid();
       rigGroup.userData.kind = 'Rig';
-      scene.add(rigGroup);
+      const originalParent = mesh.parent || scene;
+      const rigContainerParent = chain.owner && chain.owner !== mesh && !(chain.owner as any).isMesh
+        ? chain.owner
+        : originalParent;
+      rigContainerParent.add(rigGroup);
       scene.updateMatrixWorld(true);
       rigGroup.attach(rigRoot);
 
-      const originalParent = mesh.parent || scene;
       originalParent.add(skinned);
       skinned.updateWorldMatrix(true, false);
       rigGroup.attach(skinned);
@@ -2698,7 +2709,7 @@ export default function App() {
         helper.visible = true;
         (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); scene.add(helper);
         bones.forEach(bone => { if (!bone.userData.editorId) bone.userData.editorId = uid(); bone.userData.kind = 'Bone'; ensureBoneJoint(bone); if (!selectable.includes(bone)) selectable.push(bone); });
-        rigChains.push({ bones: [...bones], helper, target: null, displayVisible: true }); found += 1;
+        rigChains.push({ bones: [...bones], helper, target: null, displayVisible: true, owner: rootObject || node.parent || null }); found += 1;
       });
       syncItems();
       setStatus(found ? 'Detected ' + found + ' existing skinned rig(s)' : 'No existing SkinnedMesh skeleton found. Import a rigged humanoid GLB/GLTF for automatic skeleton detection.');
