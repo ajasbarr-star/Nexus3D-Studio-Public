@@ -2763,14 +2763,20 @@ export default function App() {
         meshes.push(mesh);
       });
       scene.updateMatrixWorld(true);
-      const meshDescriptors = meshes.map(mesh => ({
-        object: mesh,
-        name: mesh.name,
-        isMesh: true,
-        geometry: mesh.geometry,
-        userData: mesh.userData,
-        worldPosition: mesh.getWorldPosition(new THREE.Vector3())
-      }));
+      const meshDescriptors = meshes.map(mesh => {
+        const meshBounds = new THREE.Box3().setFromObject(mesh);
+        const worldPosition = meshBounds.isEmpty()
+          ? mesh.getWorldPosition(new THREE.Vector3())
+          : meshBounds.getCenter(new THREE.Vector3());
+        return {
+          object: mesh,
+          name: mesh.name,
+          isMesh: true,
+          geometry: mesh.geometry,
+          userData: mesh.userData,
+          worldPosition
+        };
+      });
       const boneDescriptors = context.chain.bones.map(bone => ({
         bone,
         name: bone.name,
