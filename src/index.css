@@ -2869,3 +2869,32 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .timeline-object-row button.selected-keyframe{color:#ff63ad;text-shadow:0 0 8px #ff4fa3}
 .timeline-object-row button:focus-visible{outline:1px solid #ff63ad;outline-offset:2px}
 @media(max-width:760px){.timeline-graph-toolbar{gap:3px}.timeline-graph-toolbar label{font-size:6px}.timeline-graph-toolbar input{width:48px}.timeline-curve-controls{gap:4px}}
+
+
+/* Animation workspace reuses the live scene selection, gizmo and transform values. */
+.animation-editor-dock{position:absolute;z-index:16;top:9px;left:9px;bottom:calc(min(34vh,220px) + 18px);width:min(218px,34vw);min-width:158px;display:flex;flex-direction:column;gap:7px;overflow:hidden;padding:7px;border:1px solid rgba(79,180,255,.35);border-radius:8px;background:rgba(7,14,24,.94);box-shadow:0 8px 28px #0007;backdrop-filter:blur(12px);color:#dce7f7}
+.animation-scene-list,.animation-transform-inspector{display:flex;flex-direction:column;gap:5px;min-height:0}
+.animation-scene-list{flex:1 1 42%}
+.animation-transform-inspector{flex:1 1 58%;overflow:auto}
+.animation-dock-heading{display:flex;align-items:center;justify-content:space-between;gap:5px;min-height:22px;padding-bottom:4px;border-bottom:1px solid #24384d;color:#a9eaff;font:700 8px 'DM Mono',monospace}
+.animation-dock-heading strong{display:flex;align-items:center;gap:5px}
+.animation-dock-heading span{color:#829bb2}
+.animation-dock-heading button{padding:3px 6px;border:1px solid #8a416c;border-radius:4px;background:#321a2b;color:#ff8ec6;font:700 8px 'DM Mono',monospace}
+.animation-dock-heading button:disabled{opacity:.35}
+.animation-scene-items{display:flex;flex-direction:column;gap:2px;overflow:auto;min-height:0}
+.animation-scene-items button{min-height:23px;padding:3px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;border:1px solid transparent;border-radius:4px;background:#102033;color:#9db8ce;font:8px 'DM Mono',monospace}
+.animation-scene-items button.active{border-color:#55c8e8;background:#15394b;color:#c9f5ff}
+.animation-transform-group{display:flex;flex-direction:column;gap:3px;padding:3px 0;border-bottom:1px solid #203247}
+.animation-transform-group>strong{color:#8db4ce;font:700 7px 'DM Mono',monospace}
+.animation-transform-group label{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;gap:4px}
+.animation-transform-group label>span{display:flex;align-items:center;gap:4px;color:#8ea9c0;font:8px 'DM Mono',monospace}
+.animation-transform-group label>span button{padding:0;border:0;background:transparent;color:#9ab2c9;font-size:13px;line-height:1}
+.animation-transform-group label>span button.keyed{color:#ff63ad;text-shadow:0 0 7px #ff4fa3}
+.animation-transform-group input{width:100%;min-width:0;height:20px;padding:0 4px;border:1px solid #29445d;border-radius:4px;background:#0d1b2a;color:#d5e9fa;font:8px 'DM Mono',monospace}
+.animation-dock-empty{padding:8px;color:#819db8;font:8px 'DM Mono',monospace}
+.animation-gizmo-tools{display:flex;align-items:center;gap:4px;padding-top:5px;border-top:1px solid #24384d}
+.animation-gizmo-tools button{height:25px;min-width:27px;display:flex;align-items:center;justify-content:center;gap:3px;padding:0 5px;border:1px solid #29445d;border-radius:4px;background:#102033;color:#a9c7dc}
+.animation-gizmo-tools button.active{border-color:#78e7ff;background:#15394b;color:#a9edff}
+.animation-gizmo-tools button span{font:7px 'DM Mono',monospace}
+@media(max-width:760px){.animation-editor-dock{top:6px;left:5px;bottom:calc(34vh + 13px);width:178px;min-width:150px;padding:5px}.animation-scene-items button{min-height:21px}.animation-transform-group label{grid-template-columns:38px minmax(0,1fr)}}
+@media(orientation:landscape) and (max-height:420px){.animation-editor-dock{bottom:calc(min(34vh,220px) + 14px);width:190px}.animation-scene-list{flex-basis:34%}.animation-transform-inspector{flex-basis:66%}}
