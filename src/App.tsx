@@ -280,8 +280,6 @@ export default function App() {
   const [ikSpringStrength, setIkSpringStrength] = useState(35);
   const [ikSpringDamping, setIkSpringDamping] = useState(75);
   const [ikSpringFollowThrough, setIkSpringFollowThrough] = useState(40);
-  const [ikHandleDistancePanelOpen, setIkHandleDistancePanelOpen] = useState(false);
-  const [ikHandleDistance, setIkHandleDistance] = useState(25);
   const selectedRef = useRef('');
   const [smoothSelectAllId, setSmoothSelectAllId] = useState('');
   const [mode, setMode] = useState<'translate' | 'rotate' | 'scale'>('translate');
@@ -2139,17 +2137,16 @@ export default function App() {
       const chain = rigChains.find(entry => entry.bones.includes(root!));
       if (chain) {
         chain.owner = owner;
-        // Handles created while the root was still pending live at Scene root.
-        // Reparent every handle in this rig to its owner while preserving its
-        // world transform, so it follows every Shape/Character transform.
+        // Keep Control Handles as independent Scene-root objects. Track the
+        // rig owner's world transform so handles follow Shape/Character motion
+        // without becoming children of the Shape or Root Bone.
         scene.updateMatrixWorld(true);
         const chainBoneIds = new Set(chain.bones.map(bone => String(bone.userData.editorId || '')));
-        selectable.filter(object =>
-          object.userData.rigControlMarker &&
+        selectable.filter(object => object.userData.rigControlMarker &&
           chainBoneIds.has(String(object.userData.controlOwnerBoneId || ''))
         ).forEach(marker => {
-          owner.attach(marker);
           marker.visible = true;
+          setControlHandleOwnerBaseline(marker, String(owner.userData.editorId || ''));
           marker.updateMatrixWorld(true);
         });
         rebuildRigHelper(chain);
@@ -2269,7 +2266,7 @@ export default function App() {
           new THREE.SphereGeometry(0.07, 16, 12),
           new THREE.MeshBasicMaterial({ color: '#ffb52e', depthTest: false, depthWrite: false, transparent: true, opacity: 1, toneMapped: false })
         );
-        const placement = getControlHandlePlacement(bone, handleDistanceConfig.distance);
+        const placement = getControlHandlePlacement(bone);
         marker.scale.setScalar(placement.radius / 0.07);
         marker.name = bone.name + ' Control Handle';
         marker.userData.rigControlMarker = true;
@@ -2278,7 +2275,7 @@ export default function App() {
         marker.userData.controlLocked = false;
         marker.userData.controlOwnerBoneId = String(bone.userData.editorId);
         marker.userData.controlOwnerRigRootId = String(placement.rigRootBoneId || '');
-        marker.userData.handleDistance = handleDistanceConfig.distance;
+        marker.userData.controlOwnerObjectId = String(placement.rigOwnerObjectId || '');
         marker.userData.handleRadius = placement.radius;
         marker.renderOrder = 10000;
         marker.frustumCulled = false;
@@ -2286,6 +2283,7 @@ export default function App() {
         marker.visible = true;
         scene.add(marker);
         placeControlHandleAtBone(marker, bone, placement);
+        setControlHandleOwnerBaseline(marker, String(placement.rigOwnerObjectId || ''));
         marker.userData.controlLastWorldQuaternion = marker.getWorldQuaternion(new THREE.Quaternion()).toArray();
         selectable.push(marker);
         bone.userData.controlHandle = true;
@@ -2523,52 +2521,59 @@ export default function App() {
       return true;
     };
     let activeIkSpring: { marker: THREE.Object3D; ownerBone: THREE.Bone; chainLength: number; current: THREE.Vector3; target: THREE.Vector3; velocity: THREE.Vector3; lastTime: number } | null = null;
-    let handleDistanceConfig = { distance: 25 };
-    const getControlHandlePlacement = (owner: THREE.Bone, distance: number) => {
+    const getControlHandlePlacement = (owner: THREE.Bone) => {
       scene.updateMatrixWorld(true);
       owner.updateWorldMatrix(true, true);
       const child = owner.children.find(node => node instanceof THREE.Bone) as THREE.Bone | undefined;
       const start = owner.getWorldPosition(new THREE.Vector3());
       const end = child ? child.getWorldPosition(new THREE.Vector3()) : start.clone().add(owner.getWorldQuaternion(new THREE.Quaternion()).multiply(new THREE.Vector3(0, 1, 0)));
-      const direction = end.clone().sub(start);
-      const segmentLength = Math.max(direction.length(), 0.1);
-      if (direction.lengthSq() > 1e-8) direction.normalize(); else direction.set(0, 1, 0);
-      const worldPosition = end.clone().addScaledVector(direction, segmentLength * (distance / 100));
-      const position = scene.worldToLocal(worldPosition.clone());
-      const radius = THREE.MathUtils.clamp(segmentLength * 0.14, 0.05, 0.3);
+      const segmentLength = Math.max(end.distanceTo(start), 0.1);
       const chain = resolveRigChainForObject(owner);
-      return { position, radius, rigRootBoneId: chain?.bones[0]?.userData.editorId || owner.userData.rigRootBoneId || '' };
+      return {
+        position: start,
+        radius: THREE.MathUtils.clamp(segmentLength * 0.14, 0.05, 0.3),
+        rigRootBoneId: chain?.bones[0]?.userData.editorId || owner.userData.rigRootBoneId || '',
+        rigOwnerObjectId: chain?.owner?.userData?.editorId || ''
+      };
     };
     const placeControlHandleAtBone = (marker: THREE.Object3D, bone: THREE.Bone, placement: { position: THREE.Vector3 }) => {
       scene.updateMatrixWorld(true);
-      const worldPosition = scene.localToWorld(placement.position.clone());
-      const worldQuaternion = bone.getWorldQuaternion(new THREE.Quaternion());
-      const chain = rigChains.find(entry => entry.bones.includes(bone));
-      const parent = chain?.owner && chain.owner !== scene ? chain.owner : scene;
-      parent.updateWorldMatrix(true, false);
-      if (marker.parent !== parent) parent.attach(marker);
-      marker.position.copy(parent.worldToLocal(worldPosition.clone()));
-      marker.quaternion.copy(parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(worldQuaternion)).normalize();
+      if (marker.parent !== scene) scene.attach(marker);
+      marker.position.copy(scene.worldToLocal(placement.position.clone()));
+      marker.quaternion.copy(bone.getWorldQuaternion(new THREE.Quaternion())).normalize();
       marker.updateMatrixWorld(true);
     };
-    const configureControlHandleDistance = (distance: number) => {
-      handleDistanceConfig.distance = THREE.MathUtils.clamp(Number(distance) || 0, 0, 200);
-      scene.updateMatrixWorld(true);
-      selectable.filter(object => object.userData.rigControlMarker).forEach(marker => {
-        const owner = selectable.find(object => object instanceof THREE.Bone && String(object.userData.editorId) === String(marker.userData.controlOwnerBoneId)) as THREE.Bone | undefined;
+    const setControlHandleOwnerBaseline = (marker: THREE.Object3D, ownerId: string) => {
+      marker.userData.controlOwnerObjectId = String(ownerId || '');
+      const owner = selectable.find(object => String(object.userData.editorId || '') === String(ownerId || ''));
+      if (owner) {
+        owner.updateWorldMatrix(true, false);
+        marker.userData.controlOwnerLastWorldMatrix = owner.matrixWorld.toArray();
+      } else {
+        marker.userData.controlOwnerLastWorldMatrix = null;
+      }
+    };
+    const syncControlHandleOwnerTransforms = () => {
+      selectable.filter(object => object.userData.rigControlMarker && object.parent === scene).forEach(marker => {
+        const ownerId = String(marker.userData.controlOwnerObjectId || '');
+        if (!ownerId) return;
+        const owner = selectable.find(object => String(object.userData.editorId || '') === ownerId);
         if (!owner) return;
-        const placement = getControlHandlePlacement(owner, handleDistanceConfig.distance);
-        placeControlHandleAtBone(marker, owner, placement);
-        marker.scale.setScalar(placement.radius / 0.07);
-        marker.userData.handleRadius = placement.radius;
-        marker.userData.controlOwnerRigRootId = String(placement.rigRootBoneId || '');
-        marker.userData.handleDistance = handleDistanceConfig.distance;
-        marker.visible = true;
-        marker.frustumCulled = false;
-        marker.layers.enableAll();
+        owner.updateWorldMatrix(true, false);
+        const currentOwnerWorld = owner.matrixWorld.clone();
+        const previousValues = marker.userData.controlOwnerLastWorldMatrix;
+        if (Array.isArray(previousValues) && previousValues.length === 16) {
+          const previousOwnerWorld = new THREE.Matrix4().fromArray(previousValues);
+          const delta = currentOwnerWorld.clone().multiply(previousOwnerWorld.invert());
+          if (delta.elements.some((value, index) => Math.abs(value - (index % 5 === 0 ? 1 : 0)) > 1e-8)) {
+            marker.updateMatrix();
+            marker.matrix.premultiply(delta);
+            marker.matrix.decompose(marker.position, marker.quaternion, marker.scale);
+            marker.updateMatrixWorld(true);
+          }
+        }
+        marker.userData.controlOwnerLastWorldMatrix = currentOwnerWorld.toArray();
       });
-      scene.updateMatrixWorld(true);
-      syncItems();
     };
     let ikSpringConfig = { enabled: false, strength: 35, damping: 75, followThrough: 40 };
     const configureIkSpring = (next: Partial<typeof ikSpringConfig>) => {
@@ -3878,7 +3883,7 @@ export default function App() {
     transform.addEventListener('mouseUp', () => {
       if (autoKeyRef.current && selectedRef.current) captureRef.current();
     });
-      runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, ikCamera, ikRenderer, ikOrbit, transform, selectable, syncViewportControls, syncItems, addObject, attachRootToShape, configureIkSpring, configureControlHandleDistance, captureRigStateFor, restoreRigState, setPerformanceMode: (enabled: boolean) => { performanceModeActive = enabled; const pixelRatio = getNexusRenderPixelRatio(window.devicePixelRatio || 1, { native: Capacitor.isNativePlatform(), performanceMode: enabled }); renderer.setPixelRatio(pixelRatio); const renderHost = runtime.current?.riggingView && ikHost ? ikHost : host; renderer.setSize(Math.max(renderHost.clientWidth, 1), Math.max(renderHost.clientHeight, 1), false); renderer.shadowMap.enabled = !enabled; renderer.renderLists.dispose(); renderer.info.reset(); }, createManualRig, bindSelectedMeshToRig, createIKTarget, solveIK, mirrorSelectedBone, deleteSelectedBone, createPoleTarget, detectRiggedMeshes, detectCharacterBodyParts, bindAllCharacterMeshesToRig, normalizeSelectedSkinWeights, smoothSelectedSkinWeights, addUniversalBone, copySelectedBone, setRigParentTarget, attachSelectedToRigParent, detachSelectedRigObject, toggleSelectedBoneControlHandle, toggleSelectedBoneLock, toggleSelectedControlLock, refreshRigVisuals, toggleBoneDisplay, isBoneDisplayVisible, toggleSelectedRigDisplay, restoreRigGroup: (rig: THREE.Object3D) => { const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) { bones.push(node as THREE.Bone); ensureBoneJoint(node as THREE.Bone); } }); if (!bones.length || rigChains.some(entry => entry.bones[0] === bones[0])) return; const helper = new THREE.SkeletonHelper(bones[0]); helper.name = rig.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); helper.visible = true; scene.add(helper); const owner = rig.parent && rig.parent !== scene ? rig.parent : selectable.find(object => String(object.userData.editorId || '') === String(rig.userData.rigOwnerId || '')) || null; rigChains.push({ bones, helper, target: null, pole: null, displayVisible: true, shapeRig: true, owner }); }, attachRigHandle: (handle: THREE.Object3D, rootId: string, kind: string) => { const chain = rigChains.find(entry => String(entry.bones[0]?.userData.editorId) === String(rootId)); if (!chain) return; if (kind === 'IK Target') chain.target = handle; if (kind === 'IK Pole') chain.pole = handle; }, restoreSkinnedMesh: (mesh: THREE.SkinnedMesh, bones: THREE.Bone[], savedSkeleton?: any) => { const inverses = Array.isArray(savedSkeleton?.boneInverses) && savedSkeleton.boneInverses.length === bones.length ? savedSkeleton.boneInverses.map((elements: number[]) => new THREE.Matrix4().fromArray(elements)) : undefined; const skeleton = new THREE.Skeleton(bones, inverses); if (!inverses) skeleton.calculateInverses(); const bindMatrix = Array.isArray(savedSkeleton?.bindMatrix) && savedSkeleton.bindMatrix.length === 16 ? new THREE.Matrix4().fromArray(savedSkeleton.bindMatrix) : mesh.matrixWorld.clone(); mesh.bind(skeleton, bindMatrix); if (savedSkeleton?.bindMode) mesh.bindMode = savedSkeleton.bindMode; const existingChain = rigChains.find(entry => entry.bones[0] === bones[0]); if (!existingChain) { const helper = new THREE.SkeletonHelper(bones[0]); helper.name = mesh.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); helper.visible = true; scene.add(helper); let owner: THREE.Object3D = mesh; while (owner.parent && owner.parent !== scene) owner = owner.parent; rigChains.push({ bones, helper, target: null, pole: null, displayVisible: true, owner }); } }, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, addSubObjectLocks: (objectId: string, kind: 'Vertex' | 'Edge', ids: Array<number | [number, number]>) => subObjectLockStore.add(objectId, kind, ids), getSubObjectLocks: (objectId: string, kind: 'Vertex' | 'Edge') => subObjectLockStore.get(objectId, kind), clearSubObjectLocks: (objectId?: string, kind?: 'Vertex' | 'Edge') => { if (objectId == null) subObjectLockStore.clear(); else if (kind) subObjectLockStore.clear(objectId, kind); else subObjectLockStore.clearObject(objectId); }, clearAllSubObjectLocks: () => { subObjectLockStore.clear(); activeSubSelection = null; transform.detach(); transform.enabled = false; transform.getHelper().visible = false; while (subObjectHighlight.children.length) { const child = subObjectHighlight.children[0]; subObjectHighlight.remove(child); child.traverse((node: any) => { node.geometry?.dispose?.(); if (node.material?.dispose) node.material.dispose(); }); } }, getSubObjectLockSnapshot: () => subObjectLockStore.snapshot(), getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[], faceParts?: number[][], linkedIndices?: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], faceParts: faceParts?.map(part => [...part]), linkedIndices: linkedIndices ? [...new Set(linkedIndices)] : undefined, lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
+      runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, ikCamera, ikRenderer, ikOrbit, transform, selectable, syncViewportControls, syncItems, addObject, attachRootToShape, configureIkSpring, captureRigStateFor, restoreRigState, setPerformanceMode: (enabled: boolean) => { performanceModeActive = enabled; const pixelRatio = getNexusRenderPixelRatio(window.devicePixelRatio || 1, { native: Capacitor.isNativePlatform(), performanceMode: enabled }); renderer.setPixelRatio(pixelRatio); const renderHost = runtime.current?.riggingView && ikHost ? ikHost : host; renderer.setSize(Math.max(renderHost.clientWidth, 1), Math.max(renderHost.clientHeight, 1), false); renderer.shadowMap.enabled = !enabled; renderer.renderLists.dispose(); renderer.info.reset(); }, createManualRig, bindSelectedMeshToRig, createIKTarget, solveIK, mirrorSelectedBone, deleteSelectedBone, createPoleTarget, detectRiggedMeshes, detectCharacterBodyParts, bindAllCharacterMeshesToRig, normalizeSelectedSkinWeights, smoothSelectedSkinWeights, addUniversalBone, copySelectedBone, setRigParentTarget, attachSelectedToRigParent, detachSelectedRigObject, toggleSelectedBoneControlHandle, toggleSelectedBoneLock, toggleSelectedControlLock, refreshRigVisuals, toggleBoneDisplay, isBoneDisplayVisible, toggleSelectedRigDisplay, restoreRigGroup: (rig: THREE.Object3D) => { const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) { bones.push(node as THREE.Bone); ensureBoneJoint(node as THREE.Bone); } }); if (!bones.length || rigChains.some(entry => entry.bones[0] === bones[0])) return; const helper = new THREE.SkeletonHelper(bones[0]); helper.name = rig.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); helper.visible = true; scene.add(helper); const owner = rig.parent && rig.parent !== scene ? rig.parent : selectable.find(object => String(object.userData.editorId || '') === String(rig.userData.rigOwnerId || '')) || null; rigChains.push({ bones, helper, target: null, pole: null, displayVisible: true, shapeRig: true, owner }); }, attachRigHandle: (handle: THREE.Object3D, rootId: string, kind: string) => { const chain = rigChains.find(entry => String(entry.bones[0]?.userData.editorId) === String(rootId)); if (!chain) return; if (kind === 'IK Target') chain.target = handle; if (kind === 'IK Pole') chain.pole = handle; }, restoreSkinnedMesh: (mesh: THREE.SkinnedMesh, bones: THREE.Bone[], savedSkeleton?: any) => { const inverses = Array.isArray(savedSkeleton?.boneInverses) && savedSkeleton.boneInverses.length === bones.length ? savedSkeleton.boneInverses.map((elements: number[]) => new THREE.Matrix4().fromArray(elements)) : undefined; const skeleton = new THREE.Skeleton(bones, inverses); if (!inverses) skeleton.calculateInverses(); const bindMatrix = Array.isArray(savedSkeleton?.bindMatrix) && savedSkeleton.bindMatrix.length === 16 ? new THREE.Matrix4().fromArray(savedSkeleton.bindMatrix) : mesh.matrixWorld.clone(); mesh.bind(skeleton, bindMatrix); if (savedSkeleton?.bindMode) mesh.bindMode = savedSkeleton.bindMode; const existingChain = rigChains.find(entry => entry.bones[0] === bones[0]); if (!existingChain) { const helper = new THREE.SkeletonHelper(bones[0]); helper.name = mesh.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); helper.visible = true; scene.add(helper); let owner: THREE.Object3D = mesh; while (owner.parent && owner.parent !== scene) owner = owner.parent; rigChains.push({ bones, helper, target: null, pole: null, displayVisible: true, owner }); } }, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, addSubObjectLocks: (objectId: string, kind: 'Vertex' | 'Edge', ids: Array<number | [number, number]>) => subObjectLockStore.add(objectId, kind, ids), getSubObjectLocks: (objectId: string, kind: 'Vertex' | 'Edge') => subObjectLockStore.get(objectId, kind), clearSubObjectLocks: (objectId?: string, kind?: 'Vertex' | 'Edge') => { if (objectId == null) subObjectLockStore.clear(); else if (kind) subObjectLockStore.clear(objectId, kind); else subObjectLockStore.clearObject(objectId); }, clearAllSubObjectLocks: () => { subObjectLockStore.clear(); activeSubSelection = null; transform.detach(); transform.enabled = false; transform.getHelper().visible = false; while (subObjectHighlight.children.length) { const child = subObjectHighlight.children[0]; subObjectHighlight.remove(child); child.traverse((node: any) => { node.geometry?.dispose?.(); if (node.material?.dispose) node.material.dispose(); }); } }, getSubObjectLockSnapshot: () => subObjectLockStore.snapshot(), getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[], faceParts?: number[][], linkedIndices?: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], faceParts: faceParts?.map(part => [...part]), linkedIndices: linkedIndices ? [...new Set(linkedIndices)] : undefined, lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
     const frameLoop = () => {
       orbit.update();
       if (runtime.current?.riggingView && ikOrbit) ikOrbit.update();
@@ -3910,6 +3915,7 @@ export default function App() {
           activeIkSpring = null;
         }
       }
+      syncControlHandleOwnerTransforms();
       if (rigChains.some(chain => chain.displayVisible !== false)) {
         scene.updateMatrixWorld(true);
         rigChains.forEach(chain => {
@@ -7199,7 +7205,6 @@ export default function App() {
          <button type="button" title="Mirror Selected Bone" aria-label="Mirror Selected Bone" onClick={() => { if (runtime.current) { mirrorEnabledRef.current = true; runtime.current.mirrorSelectedBone?.(); } }}><GitMerge size={13}/><span>MIRROR</span></button>
          <button type="button" title="Show or Hide Bone Chain" aria-label="Show or Hide Bone Chain" onClick={() => runtime.current?.toggleSelectedRigDisplay?.()}><Eye size={13}/><span>SHOW</span></button>
          <button type="button" className={ikSpringPanelOpen ? 'active' : ''} title="Open optional Spring Effect settings" aria-label="Spring Effect settings" aria-expanded={ikSpringPanelOpen} onClick={() => setIkSpringPanelOpen(value => !value)}><Waves size={13}/><span>SPRING</span></button>
-          <button type="button" className={ikHandleDistancePanelOpen ? 'active' : ''} title="Adjust Control Handle distance from the Shape" aria-label="Control Handle distance settings" aria-expanded={ikHandleDistancePanelOpen} onClick={() => setIkHandleDistancePanelOpen(value => !value)}><Target size={13}/><span>HANDLE DIST</span></button>
        </div>}
       
        {riggingView && characterRigPanelOpen && <section className="ik-character-rig-panel" aria-label="Character Rigging Tools">
@@ -7213,12 +7218,6 @@ export default function App() {
            <button type="button" onClick={() => runtime.current?.smoothSelectedSkinWeights?.()}><Waves size={13}/><span>WEIGHT SMOOTH</span></button>
          </div>
        </section>}
-      {riggingView && ikHandleDistancePanelOpen && <section className="ik-spring-panel ik-handle-distance-panel" aria-label="Control Handle distance settings">
-        <div className="ik-spring-heading"><strong>HANDLE DISTANCE</strong><output>{ikHandleDistance}%</output></div>
-        <p>Move the selected Child Bone Control Handle farther outside the Shape</p>
-        <label className="ik-spring-control"><span>OUTWARD DISTANCE <output>{ikHandleDistance}%</output></span><input aria-label="Control Handle distance" type="range" min="0" max="200" step="1" value={ikHandleDistance} onChange={event => { const value = Number(event.target.value); setIkHandleDistance(value); runtime.current?.configureControlHandleDistance?.(value); }}/></label>
-        <button type="button" className="ik-spring-reset" onClick={() => { setIkHandleDistance(25); runtime.current?.configureControlHandleDistance?.(25); }}>RESET DISTANCE</button>
-      </section>}
       {riggingView && ikSpringPanelOpen && <section className="ik-spring-panel" aria-label="Manual IK Spring Effect settings">
         <div className="ik-spring-heading"><strong>SPRING EFFECT</strong><label><input type="checkbox" checked={ikSpringEnabled} onChange={event => { const enabled = event.target.checked; setIkSpringEnabled(enabled); runtime.current?.configureIkSpring?.({ enabled }); }}/><span>{ikSpringEnabled ? 'ON' : 'OFF'}</span></label></div>
         <p>OFF = direct IK movement · ON = adjustable follow-through</p>
