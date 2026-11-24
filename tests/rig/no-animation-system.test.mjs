@@ -309,3 +309,32 @@ test('Selected Alphabet State marker gets a distinct highlight in both 3D viewpo
   assert.match(app, /selected \? 1\.68 : 1\.55/);
   assert.match(app, /setSelectedAlphabetStateMarker\?\.\(selectedSequenceState\)/);
 });
+
+test('Alphabet State 3D markers select their owning object and attach the shared transform gizmo', () => {
+  assert.equal((app.match(/const ownerId = String\(marker\.userData\.ownerObjectId \|\| ''\);/g) || []).length, 2);
+  assert.equal((app.match(/if \(owner\) selectObject\(owner\);/g) || []).length, 2);
+  assert.match(app, /transform\.attach\(obj\)/);
+  assert.match(app, /const selectAlphabetState = \(state: typeof sequenceStates\[number\]\)/);
+  assert.match(app, /runtime\.current\?\.selectObject\?\.\(owner\)/);
+});
+
+test('Alphabet State ruler has no fixed 260px ceiling and retains native horizontal touch scrolling', () => {
+  assert.match(app, /style=\{\{width:Math\.max\(260,state\.width\*8\)\+"px"\}\}/);
+  assert.doesNotMatch(app, /Math\.min\(260,state\.width/);
+  assert.match(css, /\.alphabet-state-scroll\{[\s\S]*?overflow-x:auto!important/);
+  assert.match(css, /touch-action:pan-x!important/);
+  assert.match(css, /-webkit-overflow-scrolling:touch/);
+  assert.match(css, /\.alphabet-state-mini-ruler\{flex-shrink:0;max-width:none!important\}/);
+});
+
+test('Alphabet State Delete icon removes the selected State, its frame keys and its 3D marker', () => {
+  assert.match(app, /className="timeline-delete-state" onClick=\{deleteAlphabetState\}/);
+  assert.match(app, /aria-label="Delete selected Alphabet State"/);
+  assert.match(app, /const deleteAlphabetState = \(\) =>/);
+  assert.match(app, /runtime\.current\?\.removeAlphabetStateMarker\?\.\(state\.id\)/);
+  assert.match(app, /setSequenceStates\(remaining\)/);
+  assert.match(app, /setTimelineMarkers\(previous => previous\.filter/);
+  assert.match(app, /if \(at >= range\.start && at <= range\.end\) delete nextKeys\[objectId\]\[at\]/);
+  assert.match(app, /const removeAlphabetStateMarker = \(stateId: string\) =>/);
+  assert.match(app, /material\.map\?\.dispose\(\)/);
+});
