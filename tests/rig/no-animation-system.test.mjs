@@ -46,14 +46,16 @@ test('Alphabet States use a compact horizontal sequence below a separate accessi
   assert.match(app, /className="alphabet-state-scroll"/);
   assert.match(app, /className="alphabet-state-mini-ruler"/);
   assert.match(app, /className="alphabet-state-add"/);
-  assert.match(app, /className="alphabet-state-keyframe-ruler"/);
-  assert.match(app, /className="timeline-keyframe-button"/);
-  assert.match(app, /NO STATE SELECTED/);
+  assert.match(app, /alphabet-state-mini-markers/);
+  assert.match(app, /alphabet-state-mini-key/);
+  assert.doesNotMatch(app, /STATE \{activeSequenceState\.label\} · RULER/);
+  assert.doesNotMatch(app, /alphabet-state-keyframe-scroll/);
   assert.match(app, /const id = addAlphabetState\('independent'\); setPendingStateChoice\(id\)/);
   assert.match(app, /setSelectedSequenceState\(state.id\)/);
   assert.match(app, /resizeAlphabetState\(state.id, drag.startWidth \+ delta \* 1\.25\)/);
   assert.match(css, /\.timeline-tools-panel \.timeline-tool-row/);
   assert.match(css, /\.alphabet-state-scroll/);
+  assert.match(css, /\.alphabet-state-scroll\\{display:flex;flex:0 0 34px;flex-wrap:nowrap/);
   assert.match(css, /\.timeline-playback-panel/);
   assert.doesNotMatch(app, /alphabet-state-rail/);
 });
@@ -73,10 +75,11 @@ test('Alphabet State sequence and timeline markers persist with project data', (
   assert.match(app, /timelineMarkers/);
 });
 
-test('One continuous frame range drives the single Alphabet Ruler keyframe track across all States', () => {
+test('Each Alphabet State ruler displays its own slice of the continuous keyframe range', () => {
   assert.match(app, /setCurrentFrame\(previousEnd\)/);
   assert.match(app, /max=\{Math\.max\(activeSequenceRange\.start \+ 1, activeSequenceRange\.end\)\}/);
-  assert.match(app, /className="alphabet-keyframe-track"/);
+  assert.match(app, /alphabet-state-mini-ruler/);
+  assert.match(app, /alphabet-state-mini-markers/);
   assert.match(app, /keyframes\[selected\]/);
   assert.match(app, /loopPlayback/);
 });
@@ -266,4 +269,19 @@ test('Dope Sheet removes the detached lower keyframe timeline and compacts to it
   assert.doesNotMatch(css, /\.timeline-object-tracks|\.timeline-object-row/);
   assert.match(css, /\.timeline-dope-sheet\{display:flex;flex:0 0 auto/);
   assert.match(css, /\.timeline-graph-editor\{display:flex;flex:1/);
+});
+
+
+test('Alphabet State keyframe timelines are embedded in each horizontally scrollable state ruler', () => {
+  assert.match(app, /State \" \+ state.label \+ \" frame slider/);
+  assert.match(app, /alphabet-state-mini-key/);
+  assert.doesNotMatch(app, /alphabet-state-keyframe-scroll/);
+  assert.match(css, /\.alphabet-state-item\\{flex:0 0 auto/);
+});
+
+test('Alphabet State markers attach a labeled circular sprite to the object selected when the state is created', () => {
+  assert.match(app, /createAlphabetStateMarker/);
+  assert.match(app, /Alphabet State Marker /);
+  assert.match(app, /objectId: selectedRef\.current/);
+  assert.match(app, /alphabetStateMarkers\.set\(stateId,sprite\)/);
 });

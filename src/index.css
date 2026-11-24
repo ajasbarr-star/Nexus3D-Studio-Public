@@ -3116,3 +3116,22 @@ button:active { box-shadow:0 0 11px #22cfff44; }
  .alphabet-keyframe-track{height:34px}
  .animation-mode .alphabet-keyframe-markers button{min-height:34px}
 }
+
+
+/* Alphabet states: one continuous touch-scroll row; each state owns its compact keyframe ruler. */
+.alphabet-state-panel{overflow:hidden;min-width:0}
+.alphabet-state-scroll{display:flex;flex:0 0 34px;flex-wrap:nowrap;justify-content:flex-start;align-self:stretch;gap:7px;width:100%;max-width:100%;min-width:0;min-height:34px;overflow-x:auto;overflow-y:hidden;white-space:nowrap;touch-action:pan-x;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:#32718b #0a1724}
+.alphabet-state-item{flex:0 0 auto;min-width:max-content;gap:4px}
+.alphabet-state-item .alphabet-state-handle{flex:0 0 25px;width:25px;min-width:25px;height:28px;touch-action:pan-x}
+.alphabet-state-mini-ruler{position:relative;display:flex;flex:0 0 auto;align-items:center;height:28px;min-width:110px;max-width:none;overflow:hidden;border:1px solid #28536b;border-radius:4px;background:repeating-linear-gradient(90deg,#102438 0,#102438 12px,#1b3c52 13px,#102438 14px);touch-action:pan-x}
+.alphabet-state-mini-ruler.active{border-color:#46dfff;box-shadow:inset 0 0 0 1px #46dfff33,0 0 6px #20bde044}
+.alphabet-state-mini-ruler input[type=range]{position:absolute;inset:0;z-index:1;width:100%;height:100%;margin:0;opacity:.24;accent-color:#4be2ff;cursor:ew-resize}
+.alphabet-state-frame-label{position:absolute;right:3px;top:1px;z-index:3;padding:0 2px;color:#a9c8dc;background:#0a1a2a;font:6px 'DM Mono',monospace;pointer-events:none}
+.alphabet-state-mini-markers{position:absolute;inset:0 3px;z-index:2;pointer-events:none}
+.alphabet-state-mini-markers button{position:absolute;top:50%;transform:translate(-50%,-50%);min-width:12px;min-height:20px;padding:0;border:0;color:#52eaff;background:rgba(5,17,28,.76);font-size:10px;line-height:12px;pointer-events:auto;text-shadow:0 0 5px #00dfff}
+.alphabet-state-mini-markers button.selected-keyframe{color:#ffe18a;text-shadow:0 0 6px #ffca50}
+.alphabet-state-mini-key{position:absolute;left:3px;bottom:1px;z-index:4;height:11px;min-width:20px;padding:0 3px;border:1px solid #3a829b;border-radius:3px;color:#dffaff;background:#102d40;font:700 5px 'DM Mono',monospace}
+.alphabet-state-panel .alphabet-state-add{flex:0 0 48px;width:48px;min-width:48px;height:28px}
+.alphabet-state-tools-detail{flex:0 0 auto;max-height:95px;min-width:0;overflow:auto;padding:2px 4px;border-top:1px solid #203c52}
+.alphabet-state-tools-detail .timeline-dope-sheet,.alphabet-state-tools-detail .timeline-graph-editor{max-height:70px;overflow:auto}
+.alphabet-state-tools-detail .timeline-settings{display:none}
