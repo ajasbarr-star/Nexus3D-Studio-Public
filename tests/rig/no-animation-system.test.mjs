@@ -323,7 +323,7 @@ test('Alphabet State 3D markers select their owning object and attach the shared
 
 test('Alphabet State ruler width is user-resizable without a fixed upper ceiling and retains native horizontal touch scrolling', () => {
   assert.match(app, /sequenceRulerDisplayWidths/);
-  assert.match(app, //style=\\\{\\\{width:\\\(sequenceRulerDisplayWidths\\\[state\\\.id\\\] \\\|\\\| 220\\\)\\\+"px"\\\}\\\}//);
+  assert.match(app, /style=\\{\\{width:\\(sequenceRulerDisplayWidths\\[state\\.id\\] \\|\\| 220\\)\\+"px"\\}\\}/);
   assert.match(app, /Math\.max\(96, drag\.startWidth \+ delta\)/);
   assert.doesNotMatch(app, /sequenceRulerOffsets|translateX\(/);
   assert.match(css, /\.alphabet-state-scroll\{[\s\S]*?overflow-x:auto!important/);
