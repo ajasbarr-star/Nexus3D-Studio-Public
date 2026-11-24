@@ -3601,9 +3601,8 @@ export default function App() {
         scene.updateMatrixWorld(true);
         rigChains.forEach(chain => {
           if (chain.displayVisible !== false) {
-            // SkeletonHelper.update() refreshes line positions from live bone
-            // world matrices; updateMatrixWorld() alone leaves stale segments.
-            chain.helper.update();
+            // Three.js SkeletonHelper refreshes its line geometry through its
+            // updateMatrixWorld override; call that supported API after bones move.
             chain.helper.updateMatrixWorld(true);
           }
         });
