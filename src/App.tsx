@@ -4144,7 +4144,17 @@ export default function App() {
     targets.set(id, obj);
     if (ownerId) {
       const owner = r.selectable.find((candidate: THREE.Object3D) => String(candidate.userData.editorId || '') === ownerId);
-      if (owner) targets.set(ownerId, owner);
+      if (owner) {
+        targets.set(ownerId, owner);
+        // Imported skinned characters may contain bones that are not Scene Tree
+        // selectable entries. Give each one a persistent editor ID and include it.
+        owner.traverse((node: THREE.Object3D) => {
+          if (!(node instanceof THREE.Bone)) return;
+          if (!node.userData.editorId) node.userData.editorId = uid();
+          node.userData.rigOwnerId = ownerId;
+          targets.set(String(node.userData.editorId), node);
+        });
+      }
       const rigBones = r.selectable.filter((candidate: THREE.Object3D) =>
         candidate instanceof THREE.Bone && String(candidate.userData.rigOwnerId || '') === ownerId
       );
@@ -5598,7 +5608,11 @@ export default function App() {
     const r = runtime.current;
     if (!r) return;
     Object.entries(keysRef.current).forEach(([id, track]) => {
-      const obj = r.selectable.find((o: THREE.Object3D) => o.userData.editorId === id);
+      const obj = r.selectable.find((o: THREE.Object3D) => o.userData.editorId === id) || (() => {
+        let found: THREE.Object3D | null = null;
+        r.scene?.traverse((node: THREE.Object3D) => { if (!found && String(node.userData.editorId || '') === id) found = node; });
+        return found;
+      })();
       if (!obj) return;
       const entries = Object.keys(track).map(Number).sort((a, b) => a - b).map(key => ({ frame: key, value: track[key] }));
       if (!entries.length) return;
