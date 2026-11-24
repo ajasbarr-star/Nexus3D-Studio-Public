@@ -603,10 +603,12 @@ export default function App() {
   const sequenceExtendAt = useRef<Record<string, number>>({});
   const [animationObjectsOpen, setAnimationObjectsOpen] = useState(true);
   const [shapeLibraryOpen, setShapeLibraryOpen] = useState(false);
-  const [timelineOptionsOpen, setTimelineOptionsOpen] = useState(false);
   const [frameRate, setFrameRate] = useState(30);
-  const [timeUnit, setTimeUnit] = useState<'seconds' | 'milliseconds'>('seconds');
   const [timelineDuration, setTimelineDuration] = useState(10);
+  const [customRulerStart, setCustomRulerStart] = useState(0.1);
+  const [customRulerStartUnit, setCustomRulerStartUnit] = useState<'s' | 'm'>('s');
+  const [customRulerEnd, setCustomRulerEnd] = useState(0.25);
+  const [customRulerEndUnit, setCustomRulerEndUnit] = useState<'s' | 'm'>('s');
   useEffect(() => { setWorkEnd(Math.max(1, Math.round(timelineDuration * frameRate))); }, [timelineDuration, frameRate]);
   const [loopPlayback, setLoopPlayback] = useState(true);
   const [interpolation, setInterpolation] = useState('Ease In-Out');
@@ -5435,6 +5437,16 @@ export default function App() {
     }
     return { start: workStart, end: workEnd };
   };
+  const getCustomRulerLabel = (index: number, frameCount: number) => {
+    const toSeconds = (value: number, unit: 's' | 'm') => Math.max(0, Number.isFinite(value) ? value : 0) * (unit === 'm' ? 60 : 1);
+    const startSeconds = toSeconds(customRulerStart, customRulerStartUnit);
+    const endSeconds = toSeconds(customRulerEnd, customRulerEndUnit);
+    const progress = Math.max(0, Math.min(1, index / Math.max(1, frameCount)));
+    const valueSeconds = startSeconds + (endSeconds - startSeconds) * progress;
+    const displayUnit = customRulerStartUnit === customRulerEndUnit ? customRulerStartUnit : 's';
+    const displayValue = displayUnit === 'm' ? valueSeconds / 60 : valueSeconds;
+    return displayValue.toFixed(2).replace(/\\.?0+$/, '') + displayUnit;
+  };
   const activeSequenceState = sequenceStates.find(state => state.id === selectedSequenceState) || null;
   const activeSequenceRange = activeSequenceState ? getSequenceRange(activeSequenceState.id) : { start: workStart, end: workEnd };
   const selectAlphabetState = (state: typeof sequenceStates[number]) => {
@@ -6620,7 +6632,7 @@ export default function App() {
         parentEditorId: obj.parent?.userData?.editorId || null,
         parentName: obj.parent?.userData?.editorId ? obj.parent.name : null
       })),
-      animationSettings: { frameRate, timelineDuration, workStart, workEnd, loopPlayback, interpolation },
+      animationSettings: { frameRate, timelineDuration, workStart, workEnd, loopPlayback, interpolation, customRulerStart, customRulerStartUnit, customRulerEnd, customRulerEndUnit },
       animationSequence: { states: sequenceStates, selectedState: selectedSequenceState, markers: timelineMarkers },
       animationClips: importedAnimationClips.map(entry => ({ objectEditorId: String(entry.object.userData.editorId || ''), clip: THREE.AnimationClip.toJSON(entry.clip) })),
       subObjectLocks: (r?.getSubObjectLockSnapshot?.() || []).flatMap((entry: any) => {
@@ -7025,6 +7037,10 @@ export default function App() {
           const restoredRate = Math.max(1, Math.min(60, Number(settings.frameRate) || 30));
           const restoredDuration = Math.max(1, Math.min(60, Number(settings.timelineDuration) || 10));
           setFrameRate(restoredRate); setTimelineDuration(restoredDuration);
+          setCustomRulerStart(Math.max(0, Number.isFinite(Number(settings.customRulerStart)) ? Number(settings.customRulerStart) : 0.1));
+          setCustomRulerStartUnit(settings.customRulerStartUnit === 'm' ? 'm' : 's');
+          setCustomRulerEnd(Math.max(0, Number.isFinite(Number(settings.customRulerEnd)) ? Number(settings.customRulerEnd) : 0.25));
+          setCustomRulerEndUnit(settings.customRulerEndUnit === 'm' ? 'm' : 's');
           setWorkStart(Math.max(0, Number(settings.workStart) || 0));
           setWorkEnd(Math.max(1, Number(settings.workEnd) || restoredRate * restoredDuration));
           setLoopPlayback(settings.loopPlayback !== false);
@@ -8281,7 +8297,7 @@ export default function App() {
            </aside>
            <div className="timeline-editor-stack">
              <div className="timeline-tools-panel" aria-label="Timeline tools">
-               <div className="timeline-tool-row"><button type="button" className={timelineTool==='tracks'?'active':''} onClick={()=>setTimelineTool('tracks')}>OBJECT TRACKS</button><button type="button" className={timelineTool==='dope'?'active':''} onClick={()=>setTimelineTool('dope')}>DOPE SHEET</button><button type="button" className="timeline-add-keyframe" onClick={()=>captureRef.current()} disabled={!selected} title="Add Keyframe at current frame" aria-label="Add Keyframe"><span aria-hidden="true">◆</span></button><button type="button" className={timelineTool==='graph'?'active':''} onClick={()=>setTimelineTool('graph')}>GRAPH</button><button type="button" onClick={undo} title="Undo last scene or keyframe edit">UNDO</button><button type="button" onClick={redo} title="Redo last scene or keyframe edit">REDO</button><button type="button" onClick={copyFrame} title="Copy all keyed object poses at current frame">COPY</button><button type="button" onClick={pasteFrame} title="Paste copied object poses at current frame" disabled={!copiedFrame}>PASTE</button><button type="button" onClick={()=>{setCurrentFrame(workStart);timelineScrollRef.current?.scrollTo({left:0,behavior:'smooth'});}} title="Fit the full timeline from its start">FIT</button><button type="button" className={showGhostPreview?'active':''} onClick={()=>setShowGhostPreview(v=>!v)} title="Show previous and next 3D poses">GHOST</button><button type="button" onClick={()=>{const label=window.prompt('Marker label','Marker');if(label?.trim())setTimelineMarkers(prev=>[...prev,{id:'marker-'+Date.now(),frame,label:label.trim()}]);}} title="Add a marker at the current frame">MARKER＋</button><button type="button" className="timeline-delete-state" onClick={deleteAlphabetState} disabled={!activeSequenceState} title="Delete selected Alphabet State and all keyframes in its range" aria-label="Delete selected Alphabet State"><Trash2 size={13}/></button></div>
+               <div className="timeline-tool-row"><button type="button" className={timelineTool==='tracks'?'active':''} onClick={()=>setTimelineTool('tracks')}>OBJECT TRACKS</button><button type="button" className={timelineTool==='dope'?'active':''} onClick={()=>setTimelineTool('dope')}>DOPE SHEET</button><button type="button" className="timeline-add-keyframe" onClick={()=>captureRef.current()} disabled={!selected} title="Add Keyframe at current frame" aria-label="Add Keyframe"><span aria-hidden="true">◆</span></button><button type="button" className={timelineTool==='graph'?'active':''} onClick={()=>setTimelineTool('graph')}>GRAPH</button><button type="button" onClick={undo} title="Undo last scene or keyframe edit">UNDO</button><button type="button" onClick={redo} title="Redo last scene or keyframe edit">REDO</button><button type="button" onClick={copyFrame} title="Copy all keyed object poses at current frame">COPY</button><button type="button" onClick={pasteFrame} title="Paste copied object poses at current frame" disabled={!copiedFrame}>PASTE</button><button type="button" onClick={()=>{setCurrentFrame(workStart);timelineScrollRef.current?.scrollTo({left:0,behavior:'smooth'});}} title="Fit the full timeline from its start">FIT</button><label className="timeline-custom-time" title="Custom ruler start time"><span>START</span><input aria-label="Custom ruler start time" type="number" min="0" step="0.01" value={customRulerStart} onChange={event=>setCustomRulerStart(Math.max(0,Number(event.target.value)||0))}/><select aria-label="Custom ruler start unit" value={customRulerStartUnit} onChange={event=>setCustomRulerStartUnit(event.target.value as 's'|'m')}><option value="s">s</option><option value="m">m</option></select></label><label className="timeline-custom-time" title="Custom ruler end time"><span>END</span><input aria-label="Custom ruler end time" type="number" min="0" step="0.01" value={customRulerEnd} onChange={event=>setCustomRulerEnd(Math.max(0,Number(event.target.value)||0))}/><select aria-label="Custom ruler end unit" value={customRulerEndUnit} onChange={event=>setCustomRulerEndUnit(event.target.value as 's'|'m')}><option value="s">s</option><option value="m">m</option></select></label><button type="button" className={showGhostPreview?'active':''} onClick={()=>setShowGhostPreview(v=>!v)} title="Show previous and next 3D poses">GHOST</button><button type="button" onClick={()=>{const label=window.prompt('Marker label','Marker');if(label?.trim())setTimelineMarkers(prev=>[...prev,{id:'marker-'+Date.now(),frame,label:label.trim()}]);}} title="Add a marker at the current frame">MARKER＋</button><button type="button" className="timeline-delete-state" onClick={deleteAlphabetState} disabled={!activeSequenceState} title="Delete selected Alphabet State and all keyframes in its range" aria-label="Delete selected Alphabet State"><Trash2 size={13}/></button></div>
              </div>
              <section className="alphabet-state-panel" aria-label="Alphabet State Panel">
                <div className="alphabet-state-scroll" ref={timelineScrollRef} aria-label="Alphabet State sequence">
@@ -8289,7 +8305,7 @@ export default function App() {
                    <button type="button" className={"alphabet-state-handle " + (selectedSequenceState === state.id ? "active" : "")} title={"State " + state.label + " · tap to show ruler · drag right to expand, left to shrink"} onPointerDown={event=>beginSequenceRulerResize(event,state.id)} onPointerMove={moveSequenceRulerResize} onPointerUp={endSequenceRulerResize} onPointerCancel={endSequenceRulerResize} onClick={() => handleAlphabetStateHandleClick(state)}>{state.label}</button>
                    <div className={"alphabet-state-mini-ruler " + (selectedSequenceState === state.id ? "active" : "") + ((sequenceRulerDisplayWidths[state.id] || 360) > 96 ? " expanded" : " collapsed")} style={{width:(sequenceRulerDisplayWidths[state.id] || 360)+"px"}} aria-label={"State " + state.label + " keyframe timeline"}>
                      <span className="alphabet-state-frame-label">{Math.round(state.width)}f</span>
-                     <div className="alphabet-state-ruler-scale" aria-label={"Frame ruler from "+getSequenceRange(state.id).start+" to "+getSequenceRange(state.id).end}><div className="alphabet-state-ruler-labels">{Array.from({length:Math.max(2,Math.round(state.width)+1)},(_,index)=>{const range=getSequenceRange(state.id);const value=range.start+index;return <span key={index} style={{left:(index/Math.max(1,Math.round(state.width))*100)+"%"}}>{value}</span>;})}</div><div className="alphabet-state-ruler-ticks" aria-hidden="true">{Array.from({length:Math.max(2,Math.round(state.width)+1)},(_,index)=><i key={index} className={index%10===0?"major":index%5===0?"medium":"minor"} style={{left:(index/Math.max(1,Math.round(state.width))*100)+"%",top:0}}/>)}</div></div>
+                     <div className="alphabet-state-ruler-scale" aria-label={"Frame ruler from "+getSequenceRange(state.id).start+" to "+getSequenceRange(state.id).end}><div className="alphabet-state-ruler-labels">{Array.from({length:Math.max(2,Math.round(state.width)+1)},(_,index)=><span key={index} style={{left:(index/Math.max(1,Math.round(state.width))*100)+"%"}}>{getCustomRulerLabel(index,Math.round(state.width))}</span>)}</div><div className="alphabet-state-ruler-ticks" aria-hidden="true">{Array.from({length:Math.max(2,Math.round(state.width)+1)},(_,index)=><i key={index} className={index%10===0?"major":index%5===0?"medium":"minor"} style={{left:(index/Math.max(1,Math.round(state.width))*100)+"%",top:0}}/>)}</div></div>
                      <input aria-label={"State " + state.label + " frame slider"} type="range" min={getSequenceRange(state.id).start} max={Math.max(getSequenceRange(state.id).start+1,getSequenceRange(state.id).end)} value={Math.max(getSequenceRange(state.id).start,Math.min(frame,getSequenceRange(state.id).end))} onChange={event=>setCurrentFrame(Number(event.target.value))}/>
                      <div className="alphabet-state-mini-markers">{Object.keys(keyframes[selected] || {}).map(value=>{const at=Number(value);const range=getSequenceRange(state.id);if(at<range.start||at>range.end)return null;return <button key={value} type="button" className={selectedKeyframe?.id===selected&&selectedKeyframe.frame===at?'selected-keyframe':''} title={'Keyframe F'+at} aria-label={'Select keyframe at frame '+at} style={{left:(((at-range.start)/Math.max(1,range.end-range.start))*100)+'%',top:'50%'}} onClick={event=>{event.stopPropagation();setSelectedKeyframe({id:selected,frame:at});setCurrentFrame(at);}}><span>◆</span><small>{at}</small></button>;})}{timelineMarkers.filter(marker=>{const range=getSequenceRange(state.id);return marker.frame>=range.start&&marker.frame<=range.end;}).map(marker=>{const range=getSequenceRange(state.id);return <button key={marker.id} type="button" className="alphabet-state-mini-event-marker" title={marker.label+" · "+marker.frame+"f"} style={{left:((marker.frame-range.start)/Math.max(1,range.end-range.start)*100)+"%"}} onClick={event=>{event.stopPropagation();setCurrentFrame(marker.frame);}}>▼</button>;})}</div>
                      
