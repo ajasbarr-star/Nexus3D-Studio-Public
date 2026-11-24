@@ -29,3 +29,5 @@ test('Automatic IK / Auto Rig entry points remain absent', () => {
   assert.ok(!app.includes('autoIKOpen'));
   assert.ok(!app.includes('Auto Rig ·'));
 });
+
+// Animation workspace regression coverage is now enabled on the Test integration branch.
