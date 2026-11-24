@@ -3698,8 +3698,15 @@ export default function App() {
       const selectedObject = runtime.current?.selectable.find((object: THREE.Object3D) => String(object.userData.editorId) === selectedRef.current);
       const editingSubObject = editModeRef.current !== 'Object' && Boolean(active);
       const isControlHandle = Boolean(selectedObject?.userData.rigControlMarker);
-      transform.enabled = Boolean(selectedRef.current) && (editModeRef.current === 'Object' || editingSubObject || isControlHandle);
-      transform.getHelper().visible = transform.enabled;
+      const lockedBone = selectedObject instanceof THREE.Bone && isIkBoneLocked(selectedObject);
+      const hardLocked = Boolean(selectedObject?.userData.objectManagerLocked) || (isControlHandle && Boolean(selectedObject?.userData.controlLocked));
+      const canTransform = Boolean(selectedRef.current) && !hardLocked &&
+        (editModeRef.current === 'Object' || editingSubObject || isControlHandle) &&
+        (!lockedBone || (editModeRef.current === 'Object' && next === 'rotate'));
+      if (canTransform && selectedObject && transform.object !== selectedObject) transform.attach(selectedObject);
+      if (!canTransform && transform.object === selectedObject) transform.detach();
+      transform.enabled = canTransform;
+      transform.getHelper().visible = canTransform;
     }
     setStatus(next === 'translate' ? 'Move tool active' : next === 'rotate' ? 'Rotate tool active' : 'Scale tool active');
   };
