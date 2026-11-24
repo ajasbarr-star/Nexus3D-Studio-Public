@@ -3286,6 +3286,7 @@ export default function App() {
         const stateId = String(marker.userData.alphabetStateId || '');
         if (stateId) {
           setSelectedSequenceState(stateId);
+          runtime.current?.setSelectedAlphabetStateMarker?.(stateId);
           setCurrentFrame(Number(marker.userData.startFrame) || 1);
           setStatus('Selected Alphabet State ' + marker.name.replace('Alphabet State Marker ', '') + ' from 3D Scene');
         }
@@ -3664,6 +3665,7 @@ export default function App() {
         const stateId = String(marker.userData.alphabetStateId || '');
         if (stateId) {
           setSelectedSequenceState(stateId);
+          runtime.current?.setSelectedAlphabetStateMarker?.(stateId);
           setCurrentFrame(Number(marker.userData.startFrame) || 1);
           setStatus('Selected Alphabet State ' + marker.name.replace('Alphabet State Marker ', '') + ' from 3D Scene');
         }
@@ -3964,7 +3966,34 @@ export default function App() {
         sprite.userData.alphabetStateId=stateId;
         sprite.userData.ownerObjectId=ownerId;
         sprite.userData.startFrame=startFrame;
+        sprite.userData.markerCanvas=canvas;
+        sprite.userData.markerTexture=texture;
+        sprite.userData.baseDiameter=diameter;
         alphabetStateMarkers.set(stateId,sprite);
+      };
+      const setSelectedAlphabetStateMarker = (selectedStateId: string) => {
+        alphabetStateMarkers.forEach((marker, stateId) => {
+          const canvas = marker.userData.markerCanvas as HTMLCanvasElement | undefined;
+          const texture = marker.userData.markerTexture as THREE.CanvasTexture | undefined;
+          const context = canvas?.getContext('2d');
+          if (!canvas || !context || !texture) return;
+          const selected = stateId === selectedStateId;
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          context.beginPath(); context.arc(256,256,224,0,Math.PI*2);
+          context.fillStyle = selected ? 'rgba(0,48,66,0.98)' : 'rgba(5,18,31,0.96)'; context.fill();
+          context.lineWidth = selected ? 34 : 24;
+          context.strokeStyle = selected ? '#ffe45c' : '#43dfff';
+          context.shadowColor = selected ? '#ffe45c' : '#27dfff';
+          context.shadowBlur = selected ? 42 : 22;
+          context.stroke();
+          context.shadowBlur = selected ? 24 : 22;
+          context.font='800 220px Arial,sans-serif'; context.textAlign='center'; context.textBaseline='middle';
+          context.fillStyle = selected ? '#fff4a6' : '#e8fbff';
+          context.fillText(String(marker.name.replace('Alphabet State Marker ', '')),256,266);
+          texture.needsUpdate = true;
+          const diameter = Number(marker.userData.baseDiameter || 1);
+          marker.scale.set(diameter * (selected ? 1.68 : 1.55), diameter * (selected ? 1.68 : 1.55), 1);
+        });
       };
       runtime.current = { ...(runtime.current || {}), scene, camera, activeCamera, renderer, orbit, activeOrbit, ikCamera, ikRenderer, ikOrbit, transform, selectable, createAlphabetStateMarker, syncViewportControls, syncItems, addObject, attachRootToShape, configureIkSpring, captureRigStateFor, restoreRigState, setPerformanceMode: (enabled: boolean) => { performanceModeActive = enabled; const pixelRatio = getNexusRenderPixelRatio(window.devicePixelRatio || 1, { native: Capacitor.isNativePlatform(), performanceMode: enabled }); renderer.setPixelRatio(pixelRatio); const renderHost = runtime.current?.riggingView && ikHost ? ikHost : host; renderer.setSize(Math.max(renderHost.clientWidth, 1), Math.max(renderHost.clientHeight, 1), false); renderer.shadowMap.enabled = !enabled; renderer.renderLists.dispose(); renderer.info.reset(); }, createManualRig, bindSelectedMeshToRig, createIKTarget, solveIK, mirrorSelectedBone, deleteSelectedBone, createPoleTarget, detectRiggedMeshes, detectCharacterBodyParts, bindAllCharacterMeshesToRig, normalizeSelectedSkinWeights, smoothSelectedSkinWeights, addUniversalBone, copySelectedBone, setRigParentTarget, attachSelectedToRigParent, detachSelectedRigObject, toggleSelectedBoneControlHandle, toggleSelectedBoneLock, toggleSelectedControlLock, refreshRigVisuals, toggleBoneDisplay, isBoneDisplayVisible, toggleSelectedRigDisplay, restoreRigGroup: (rig: THREE.Object3D) => { const bones: THREE.Bone[] = []; rig.traverse(node => { if ((node as THREE.Bone).isBone) { bones.push(node as THREE.Bone); ensureBoneJoint(node as THREE.Bone); } }); if (!bones.length || rigChains.some(entry => entry.bones[0] === bones[0])) return; const helper = new THREE.SkeletonHelper(bones[0]); helper.name = rig.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); helper.visible = true; scene.add(helper); const owner = rig.parent && rig.parent !== scene ? rig.parent : selectable.find(object => String(object.userData.editorId || '') === String(rig.userData.rigOwnerId || '')) || null; rigChains.push({ bones, helper, target: null, pole: null, displayVisible: true, shapeRig: true, owner }); }, attachRigHandle: (handle: THREE.Object3D, rootId: string, kind: string) => { const chain = rigChains.find(entry => String(entry.bones[0]?.userData.editorId) === String(rootId)); if (!chain) return; if (kind === 'IK Target') chain.target = handle; if (kind === 'IK Pole') chain.pole = handle; }, restoreSkinnedMesh: (mesh: THREE.SkinnedMesh, bones: THREE.Bone[], savedSkeleton?: any) => { const inverses = Array.isArray(savedSkeleton?.boneInverses) && savedSkeleton.boneInverses.length === bones.length ? savedSkeleton.boneInverses.map((elements: number[]) => new THREE.Matrix4().fromArray(elements)) : undefined; const skeleton = new THREE.Skeleton(bones, inverses); if (!inverses) skeleton.calculateInverses(); const bindMatrix = Array.isArray(savedSkeleton?.bindMatrix) && savedSkeleton.bindMatrix.length === 16 ? new THREE.Matrix4().fromArray(savedSkeleton.bindMatrix) : mesh.matrixWorld.clone(); mesh.bind(skeleton, bindMatrix); if (savedSkeleton?.bindMode) mesh.bindMode = savedSkeleton.bindMode; const existingChain = rigChains.find(entry => entry.bones[0] === bones[0]); if (!existingChain) { const helper = new THREE.SkeletonHelper(bones[0]); helper.name = mesh.name + ' Skeleton'; (helper.material as THREE.LineBasicMaterial).color.set(0x55dfff); helper.visible = true; scene.add(helper); let owner: THREE.Object3D = mesh; while (owner.parent && owner.parent !== scene) owner = owner.parent; rigChains.push({ bones, helper, target: null, pole: null, displayVisible: true, owner }); } }, selectObject, removeObject, toggleVisibility, reparentObject, reorderObject, updateLightProperty, toggleLightEnabled, camBody, lightSources, addSceneLight, applyPreset, applySettings, toggleParticle, grid, subObjectHighlight, topologyOverlay, refreshTopologyOverlay, clearSubSelection: () => { activeSubSelection = null; }, addSubObjectLocks: (objectId: string, kind: 'Vertex' | 'Edge', ids: Array<number | [number, number]>) => subObjectLockStore.add(objectId, kind, ids), getSubObjectLocks: (objectId: string, kind: 'Vertex' | 'Edge') => subObjectLockStore.get(objectId, kind), clearSubObjectLocks: (objectId?: string, kind?: 'Vertex' | 'Edge') => { if (objectId == null) subObjectLockStore.clear(); else if (kind) subObjectLockStore.clear(objectId, kind); else subObjectLockStore.clearObject(objectId); }, clearAllSubObjectLocks: () => { subObjectLockStore.clear(); activeSubSelection = null; transform.detach(); transform.enabled = false; transform.getHelper().visible = false; while (subObjectHighlight.children.length) { const child = subObjectHighlight.children[0]; subObjectHighlight.remove(child); child.traverse((node: any) => { node.geometry?.dispose?.(); if (node.material?.dispose) node.material.dispose(); }); } }, getSubObjectLockSnapshot: () => subObjectLockStore.snapshot(), getActiveSubSelection: () => activeSubSelection, setActiveSubSelection: (selection: any) => { activeSubSelection = selection; }, restoreExtrudedFaceSelection: (mesh: THREE.Mesh, indices: number[], faceParts?: number[][], linkedIndices?: number[]) => { const position = mesh.geometry.getAttribute('position'); if (!position || indices.length < 3) return; const unique = new Map<string, THREE.Vector3>(); indices.forEach(index => { if (index < 0 || index >= position.count) return; const point = new THREE.Vector3().fromBufferAttribute(position, index); const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e5)).join(','); unique.set(key, point); }); const center = new THREE.Vector3(); unique.forEach(point => center.add(point)); center.multiplyScalar(1 / Math.max(unique.size, 1)); const a = new THREE.Vector3().fromBufferAttribute(position, indices[0]); const b = new THREE.Vector3().fromBufferAttribute(position, indices[1]); const c = new THREE.Vector3().fromBufferAttribute(position, indices[2]); const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); mesh.updateWorldMatrix(true, false); const worldPivot = mesh.localToWorld(center.clone()); const worldNormal = normal.transformDirection(mesh.matrixWorld); subObjectPivot.position.copy(worldPivot); subObjectPivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldNormal); subObjectPivot.scale.set(1, 1, 1); activeSubSelection = { mesh, indices: [...new Set(indices)], faceParts: faceParts?.map(part => [...part]), linkedIndices: linkedIndices ? [...new Set(linkedIndices)] : undefined, lastWorld: worldPivot.clone(), lastQuaternion: subObjectPivot.quaternion.clone(), lastScale: subObjectPivot.scale.clone() }; transform.attach(subObjectPivot); transform.setMode(modeRef.current); transform.setSpace(spaceRef.current); transform.enabled = true; transform.getHelper().visible = true; } };
     const frameLoop = () => {
@@ -5328,7 +5357,8 @@ export default function App() {
       const startFrame = sequenceStates.slice(0, index).reduce((sum, entry) => sum + Math.max(1, entry.width), workStart);
       runtime.current?.createAlphabetStateMarker?.(state.label, state.id, state.objectId, startFrame);
     });
-  }, [sequenceStates]);
+    runtime.current?.setSelectedAlphabetStateMarker?.(selectedSequenceState);
+  }, [sequenceStates, selectedSequenceState]);
 
   const setAlphabetStateMode = (stateId: string, mode: 'continue' | 'independent') => {
     const range = getSequenceRange(stateId);
