@@ -91,6 +91,11 @@ test('manual body-part correction records rigid bone ownership without merging m
   assert.match(appSource, /parent\.attach\(child\)/);
 });
 
+test('IK resolves the shared character rig from any bound body-part descendant', () => {
+  assert.match(appSource, /isWithinOwner\(entry\.owner, object\)/);
+  assert.match(appSource, /entry\.bones\.some\(bone => object\.getObjectById\(bone\.id\)\)/);
+});
+
 test('saved and imported rig chains restore their character owner for Control Handle alignment', () => {
   assert.match(appSource, /shapeRig: true, owner \}\); \}, attachRigHandle/);
   assert.match(appSource, /let owner: THREE\.Object3D = mesh; while \(owner\.parent && owner\.parent !== scene\) owner = owner\.parent/);
