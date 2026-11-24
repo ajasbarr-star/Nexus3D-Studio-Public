@@ -5646,8 +5646,13 @@ export default function App() {
   const applyInterpolatedFrame = (atFrame: number) => {
     const r = runtime.current;
     if (!r) return;
+    const selectableById = new Map<string, THREE.Object3D>();
+    r.selectable.forEach((object: THREE.Object3D) => {
+      const id = String(object.userData.editorId || '');
+      if (id) selectableById.set(id, object);
+    });
     Object.entries(keysRef.current).forEach(([id, track]) => {
-      const obj = r.selectable.find((o: THREE.Object3D) => o.userData.editorId === id) || (() => {
+      const obj = selectableById.get(id) || (() => {
         let found: THREE.Object3D | null = null;
         r.scene?.traverse((node: THREE.Object3D) => { if (!found && String(node.userData.editorId || '') === id) found = node; });
         return found;
@@ -8264,6 +8269,7 @@ export default function App() {
                    <button type="button" className={"alphabet-state-handle " + (selectedSequenceState === state.id ? "active" : "")} title={"State " + state.label + " · tap to show ruler · drag right to expand, left to shrink"} onPointerDown={event=>beginSequenceRulerResize(event,state.id)} onPointerMove={moveSequenceRulerResize} onPointerUp={endSequenceRulerResize} onPointerCancel={endSequenceRulerResize} onClick={() => handleAlphabetStateHandleClick(state)}>{state.label}</button>
                    <div className={"alphabet-state-mini-ruler " + (selectedSequenceState === state.id ? "active" : "") + ((sequenceRulerDisplayWidths[state.id] || 96) > 96 ? " expanded" : " collapsed")} style={{width:(sequenceRulerDisplayWidths[state.id] || 96)+"px"}} aria-label={"State " + state.label + " keyframe timeline"}>
                      <span className="alphabet-state-frame-label">{Math.round(state.width)}f</span>
+                     <div className="alphabet-state-ruler-scale" aria-label="Ruler scale from 0 to 1"><span>0</span><div className="alphabet-state-ruler-ticks" aria-hidden="true">{Array.from({length:9},(_,index)=><i key={index}/>)}</div><span>1</span></div>
                      <input aria-label={"State " + state.label + " frame slider"} type="range" min={getSequenceRange(state.id).start} max={Math.max(getSequenceRange(state.id).start+1,getSequenceRange(state.id).end)} value={Math.max(getSequenceRange(state.id).start,Math.min(frame,getSequenceRange(state.id).end))} onChange={event=>setCurrentFrame(Number(event.target.value))}/>
                      <div className="alphabet-state-mini-markers">{Object.keys(keyframes[selected] || {}).map(value=>{const at=Number(value);const range=getSequenceRange(state.id);if(at<range.start||at>range.end)return null;return <button key={value} type="button" className={selectedKeyframe?.id===selected&&selectedKeyframe.frame===at?'selected-keyframe':''} title={'Keyframe F'+at} aria-label={'Select keyframe at frame '+at} style={{left:(((at-range.start)/Math.max(1,range.end-range.start))*100)+'%'}} onClick={event=>{event.stopPropagation();setSelectedKeyframe({id:selected,frame:at});setCurrentFrame(at);}}><span>◆</span><small>{at}</small></button>;})}{timelineMarkers.filter(marker=>{const range=getSequenceRange(state.id);return marker.frame>=range.start&&marker.frame<=range.end;}).map(marker=>{const range=getSequenceRange(state.id);return <button key={marker.id} type="button" className="alphabet-state-mini-event-marker" title={marker.label+" · "+marker.frame+"f"} style={{left:((marker.frame-range.start)/Math.max(1,range.end-range.start)*100)+"%"}} onClick={event=>{event.stopPropagation();setCurrentFrame(marker.frame);}}>▼</button>;})}</div>
                      {selectedSequenceState === state.id && <button type="button" className="alphabet-state-mini-key" title="Add Keyframe at current frame" aria-label={"Add keyframe to State "+state.label} disabled={!selected} onClick={event=>{event.stopPropagation();captureRef.current();}}>KEY</button>}
