@@ -569,33 +569,29 @@ export default function App() {
   const [sequenceStates, setSequenceStates] = useState<Array<{ id: string; label: string; width: number; mode: 'continue' | 'independent'; objectId?: string }>>([]);
   const [selectedSequenceState, setSelectedSequenceState] = useState('');
   const [selected3DAlphabetMarkerId, setSelected3DAlphabetMarkerId] = useState('');
-  const [expandedSequenceRulerId, setExpandedSequenceRulerId] = useState('');
-  const [sequenceRulerOffsets, setSequenceRulerOffsets] = useState<Record<string, number>>({});
-  const sequenceRulerDrag = useRef<{ stateId: string; pointerId: number; startX: number; startOffset: number } | null>(null);
+  const [sequenceRulerDisplayWidths, setSequenceRulerDisplayWidths] = useState<Record<string, number>>({});
+  const sequenceRulerDrag = useRef<{ stateId: string; pointerId: number; startX: number; startWidth: number } | null>(null);
   const suppressSequenceRulerClick = useRef(false);
-  const beginSequenceRulerDrag = (event: React.PointerEvent<HTMLButtonElement>, stateId: string) => {
+  const beginSequenceRulerResize = (event: React.PointerEvent<HTMLButtonElement>, stateId: string) => {
     if (event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    sequenceRulerDrag.current = { stateId, pointerId: event.pointerId, startX: event.clientX, startOffset: sequenceRulerOffsets[stateId] || 0 };
+    sequenceRulerDrag.current = { stateId, pointerId: event.pointerId, startX: event.clientX, startWidth: sequenceRulerDisplayWidths[stateId] || 96 };
     event.currentTarget.setPointerCapture(event.pointerId);
-    setSelectedSequenceState(stateId);
   };
-  const moveSequenceRulerDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+  const moveSequenceRulerResize = (event: React.PointerEvent<HTMLButtonElement>) => {
     const drag = sequenceRulerDrag.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    event.preventDefault();
     const delta = event.clientX - drag.startX;
     if (Math.abs(delta) > 3) suppressSequenceRulerClick.current = true;
-    setSequenceRulerOffsets(previous => ({ ...previous, [drag.stateId]: Math.max(0, drag.startOffset + delta) }));
+    setSequenceRulerDisplayWidths(previous => ({ ...previous, [drag.stateId]: Math.max(96, drag.startWidth + delta) }));
   };
-  const endSequenceRulerDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+  const endSequenceRulerResize = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (sequenceRulerDrag.current?.pointerId !== event.pointerId) return;
     sequenceRulerDrag.current = null;
   };
   const handleAlphabetStateHandleClick = (state: typeof sequenceStates[number]) => {
     if (suppressSequenceRulerClick.current) { suppressSequenceRulerClick.current = false; return; }
     selectAlphabetState(state);
+    setSequenceRulerDisplayWidths(previous => ({ ...previous, [state.id]: previous[state.id] || 96 }));
   };
   const [pendingStateChoice, setPendingStateChoice] = useState('');
   const [timelineTool, setTimelineTool] = useState<'tracks' | 'dope' | 'graph'>('tracks');
@@ -8265,10 +8261,9 @@ export default function App() {
              <section className="alphabet-state-panel" aria-label="Alphabet State Panel">
                <div className="alphabet-state-scroll" ref={timelineScrollRef} aria-label="Alphabet State sequence">
                  {sequenceStates.map(state => <div className="alphabet-state-item" key={state.id}>
-                   <button type="button" className={"alphabet-state-handle " + (selectedSequenceState === state.id ? "active" : "")} title={"State " + state.label + " · tap to select · drag right to move the complete ruler"} onPointerDown={event=>beginSequenceRulerDrag(event,state.id)} onPointerMove={moveSequenceRulerDrag} onPointerUp={endSequenceRulerDrag} onPointerCancel={endSequenceRulerDrag} onClick={() => handleAlphabetStateHandleClick(state)}>{state.label}</button>
-                   <div className={"alphabet-state-mini-ruler " + (selectedSequenceState === state.id ? "active" : "") + (expandedSequenceRulerId === state.id ? " expanded" : " collapsed")} style={{width:Math.max(260,state.width*8)+"px",transform:"translateX("+String(sequenceRulerOffsets[state.id]||0)+"px)"}} aria-label={"State " + state.label + " keyframe timeline"}>
+                   <button type="button" className={"alphabet-state-handle " + (selectedSequenceState === state.id ? "active" : "")} title={"State " + state.label + " · tap to show ruler · drag right to expand, left to shrink"} onPointerDown={event=>beginSequenceRulerResize(event,state.id)} onPointerMove={moveSequenceRulerResize} onPointerUp={endSequenceRulerResize} onPointerCancel={endSequenceRulerResize} onClick={() => handleAlphabetStateHandleClick(state)}>{state.label}</button>
+                   <div className={"alphabet-state-mini-ruler " + (selectedSequenceState === state.id ? "active" : "") + ((sequenceRulerDisplayWidths[state.id] || 96) > 96 ? " expanded" : " collapsed")} style={{width:(sequenceRulerDisplayWidths[state.id] || 96)+"px"}} aria-label={"State " + state.label + " keyframe timeline"}>
                      <span className="alphabet-state-frame-label">{Math.round(state.width)}f</span>
-                     <button type="button" className="alphabet-state-ruler-expand" aria-label={(expandedSequenceRulerId === state.id ? 'Collapse' : 'Expand')+' State '+state.label+' ruler'} title={expandedSequenceRulerId === state.id ? 'Collapse ruler' : 'Expand ruler'} onClick={event=>{event.stopPropagation();setExpandedSequenceRulerId(current=>current===state.id?'':state.id);}}>{expandedSequenceRulerId === state.id ? '−' : '＋'}</button>
                      <input aria-label={"State " + state.label + " frame slider"} type="range" min={getSequenceRange(state.id).start} max={Math.max(getSequenceRange(state.id).start+1,getSequenceRange(state.id).end)} value={Math.max(getSequenceRange(state.id).start,Math.min(frame,getSequenceRange(state.id).end))} onChange={event=>setCurrentFrame(Number(event.target.value))}/>
                      <div className="alphabet-state-mini-markers">{Object.keys(keyframes[selected] || {}).map(value=>{const at=Number(value);const range=getSequenceRange(state.id);if(at<range.start||at>range.end)return null;return <button key={value} type="button" className={selectedKeyframe?.id===selected&&selectedKeyframe.frame===at?'selected-keyframe':''} title={'Keyframe F'+at} aria-label={'Select keyframe at frame '+at} style={{left:(((at-range.start)/Math.max(1,range.end-range.start))*100)+'%'}} onClick={event=>{event.stopPropagation();setSelectedKeyframe({id:selected,frame:at});setCurrentFrame(at);}}><span>◆</span><small>{at}</small></button>;})}{timelineMarkers.filter(marker=>{const range=getSequenceRange(state.id);return marker.frame>=range.start&&marker.frame<=range.end;}).map(marker=>{const range=getSequenceRange(state.id);return <button key={marker.id} type="button" className="alphabet-state-mini-event-marker" title={marker.label+" · "+marker.frame+"f"} style={{left:((marker.frame-range.start)/Math.max(1,range.end-range.start)*100)+"%"}} onClick={event=>{event.stopPropagation();setCurrentFrame(marker.frame);}}>▼</button>;})}</div>
                      {selectedSequenceState === state.id && <button type="button" className="alphabet-state-mini-key" title="Add Keyframe at current frame" aria-label={"Add keyframe to State "+state.label} disabled={!selected} onClick={event=>{event.stopPropagation();captureRef.current();}}>KEY</button>}
