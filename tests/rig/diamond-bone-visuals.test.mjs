@@ -190,8 +190,9 @@ test('Control Handles render and raycast in both viewports independent of rig sc
 test('each Control Handle retains exact Child Bone and rig-root identity for multiple rigs', () => {
   assert.match(app, /marker\.userData\.controlOwnerBoneId = String\(bone\.userData\.editorId\)/);
   assert.match(app, /marker\.userData\.controlOwnerRigRootId = String\(placement\.rigRootBoneId \|\| ''\)/);
-  assert.match(app, /const chain = resolveRigChainForObject\(owner\)/);
-  assert.match(app, /const owner = selectable\.find\(object => object instanceof THREE\.Bone && String\(object\.userData\.editorId\) === String\(marker\.userData\.controlOwnerBoneId\)\)/);
+  assert.match(app, /const ownerBone = selectable\.find\(object => object instanceof THREE\.Bone && String\(object\.userData\.editorId\) === String\(marker\.userData\.controlOwnerBoneId\)\)/);
+  assert.match(app, /const chain = ownerBone \? resolveRigChainForObject\(ownerBone\) : null/);
+  assert.match(app, /marker\.userData\.controlOwnerObjectId = String\(placement\.rigOwnerObjectId \|\| ''\)/);
 });
 
 test('orange Control Handle Rotate mode applies incremental orientation to its exact unlocked owner bone', () => {
