@@ -321,9 +321,11 @@ test('Alphabet State 3D markers select their owning object and attach the shared
   assert.doesNotMatch(timelineSelection, /selectObject/);
 });
 
-test('Alphabet State ruler has no fixed 260px ceiling and retains native horizontal touch scrolling', () => {
-  assert.match(app, /style=\{\{width:Math\.max\(260,state\.width\*8\)\+"px",transform:"translateX\("\+String\(sequenceRulerOffsets\[state\.id\]\|\|0\)/);
-  assert.doesNotMatch(app, /Math\.min\(260,state\.width/);
+test('Alphabet State ruler width is user-resizable without a fixed upper ceiling and retains native horizontal touch scrolling', () => {
+  assert.match(app, /sequenceRulerDisplayWidths/);
+  assert.match(app, /style=\{\{width:\(sequenceRulerDisplayWidths\[state\.id\] \|\| 96\)\+"px"\}\}/);
+  assert.match(app, /Math\.max\(96, drag\.startWidth \+ delta\)/);
+  assert.doesNotMatch(app, /sequenceRulerOffsets|translateX\(/);
   assert.match(css, /\.alphabet-state-scroll\{[\s\S]*?overflow-x:auto!important/);
   assert.match(css, /touch-action:pan-x!important/);
   assert.match(css, /-webkit-overflow-scrolling:touch/);
@@ -385,11 +387,14 @@ test('Keyframe capture stores the selected object plus every bone and control ha
 });
 
 
-test('Dragging an Alphabet State letter resizes its ruler to the right or left without moving its position', () => {
-  assert.match(app, /sequenceRulerOffsets/);
-  assert.match(app, /beginSequenceRulerDrag/);
-  assert.match(app, /moveSequenceRulerDrag/);
-  assert.match(app, /onPointerMove=\{moveSequenceRulerDrag\}/);
-  assert.match(app, /transform:"translateX\("\+String\(sequenceRulerOffsets\[state\.id\]\|\|0\)/);
-  assert.match(app, /drag right to move the complete ruler/);
+test('Dragging an Alphabet State letter resizes its ruler right or left while the letter stays in place', () => {
+  assert.match(app, /beginSequenceRulerResize/);
+  assert.match(app, /moveSequenceRulerResize/);
+  assert.match(app, /endSequenceRulerResize/);
+  assert.match(app, /onPointerDown=\{event=>beginSequenceRulerResize\(event,state\.id\)\}/);
+  assert.match(app, /onPointerMove=\{moveSequenceRulerResize\}/);
+  assert.match(app, /onPointerUp=\{endSequenceRulerResize\}/);
+  assert.match(app, /Math\.max\(96, drag\.startWidth \+ delta\)/);
+  assert.match(app, /drag right to expand, left to shrink/);
+  assert.doesNotMatch(app, /sequenceRulerOffsets|beginSequenceRulerDrag|moveSequenceRulerDrag|translateX\(/);
 });
