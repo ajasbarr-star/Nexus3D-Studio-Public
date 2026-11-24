@@ -74,10 +74,12 @@ test('Nexus3D exposes fitted character rig, body-part detection, and batch bindi
   assert.match(appSource, /aria-label="Bind All Character Meshes"/);
 });
 
-test('Control Handles inherit the character root transform while retaining world placement', () => {
+test('Control Handles remain independent Scene-root objects and follow the character root transform', () => {
   assert.match(appSource, /const placeControlHandleAtBone =/);
-  assert.match(appSource, /const parent = chain\?\.owner && chain\.owner !== scene \? chain\.owner : scene/);
+  assert.match(appSource, /marker\.parent !== scene\) scene\.attach\(marker\)/);
   assert.match(appSource, /placeControlHandleAtBone\(marker, bone, placement\)/);
+  assert.match(appSource, /setControlHandleOwnerBaseline\(marker, String\(placement\.rigOwnerObjectId \|\| ''\)\)/);
+  assert.match(appSource, /syncControlHandleOwnerTransforms/);
   assert.match(appSource, /marker\.userData\.controlLastWorldQuaternion = marker\.getWorldQuaternion/);
 });
 
