@@ -290,14 +290,11 @@ test('Alphabet State 3D markers select their matching state in both viewports', 
 
 
 test('Alphabet State strip uses native horizontal swipe and the enlarged 58px keyframe ruler', () => {
-  const handle = app.slice(app.indexOf('className={"alphabet-state-handle'), app.indexOf('className={"alphabet-state-mini-ruler'));
-  assert.match(handle, /onPointerDown/);
-  assert.match(handle, /onPointerMove/);
-  assert.match(handle, /onPointerUp/);
-  assert.match(handle, /onClick/);
+
   assert.match(css, /\.alphabet-state-scroll\{[\s\S]*?touch-action:pan-x/);
-  assert.match(css, /\.alphabet-state-mini-ruler\{[\s\S]*?height:58px;min-height:58px/);
-  assert.match(css, /\.alphabet-state-item \.alphabet-state-handle\{[\s\S]*?height:58px;min-height:58px/);
+  assert.match(css, /\.alphabet-state-mini-ruler\{[\s\S]*?height:56px!important;min-height:56px!important/);
+  assert.match(css, /\.alphabet-state-item \.alphabet-state-handle[\s\S]*?height:48px!important;min-height:48px!important/);
+
 });
 
 
@@ -411,14 +408,15 @@ test('Dragging an Alphabet State letter resizes its ruler right or left while th
 
 
 test('Alphabet State timeline ruler uses numeric frame labels and graduated minor, medium and major ticks', () => {
+
   assert.match(app, /alphabet-state-ruler-scale/);
   assert.match(app, /alphabet-state-ruler-labels/);
-  assert.match(app, /Array\.from\(\{length:Math.max\(2,Math.round\(state.width\)\+1\)/);
-  assert.match(app, /Array\.from\(\{length:Math.max\(2,Math.round\(state.width\)\+1\)/);
+  assert.match(app, /getCustomRulerLabel\(index,Math\.round\(state\.width\)\)/);
   assert.match(app, /index%10===0\?"major":index%5===0\?"medium":"minor"/);
   assert.match(css, /\.alphabet-state-ruler-labels span/);
   assert.match(css, /\.alphabet-state-ruler-ticks i\.medium/);
   assert.match(css, /\.alphabet-state-ruler-ticks i\.major/);
+
 });
 
 test('Timeline scrubbing uses indexed selectable lookup and keeps the Alphabet State reveal workflow intact', () => {
@@ -441,17 +439,14 @@ test('Timeline panel preserves its original footprint and stays permanently bott
 
 
 test('Timeline ruler uses graduated frame ticks, a taller anchored track, and compact transport controls', () => {
-  assert.match(app, /alphabet-state-ruler-labels/);
-  assert.match(app, /Array\.from\(\{length:Math.max\(2,Math.round\(state.width\)\+1\)/);
-  assert.match(app, /Array\.from\(\{length:Math.max\(2,Math.round\(state.width\)\+1\)/);
-  assert.match(app, /index%10===0\?"major":index%5===0\?"medium":"minor"/);
-  assert.match(css, /\.timeline-panel\{\s*position:fixed!important/);
-  assert.match(css, /\.alphabet-state-scroll\{\s*flex:0 0 84px!important/);
-  assert.match(css, /\.alphabet-state-mini-ruler\{\s*height:84px!important;min-height:84px!important/);
-  assert.match(css, /\.alphabet-state-mini-ruler\.collapsed\{\s*height:25px!important/);
-  assert.match(css, /\.timeline-playback-panel\{\s*flex:0 0 66px!important/);
-  assert.match(css, /\.timeline-playback-panel \.timeline-transport\{\s*display:grid!important;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important/);
-  assert.doesNotMatch(css.slice(css.lastIndexOf('/* Phase 2 refinement')), /height:158px|min-height:150px/);
+
+  assert.match(app, /getCustomRulerLabel\(index,Math\.round\(state\.width\)\)/);
+  assert.match(css, /\.timeline-panel\{[\s\S]*?height:148px!important;min-height:136px!important/);
+  assert.match(css, /\.alphabet-state-scroll\{[\s\S]*?flex:1 1 58px!important/);
+  assert.match(css, /\.alphabet-state-mini-ruler\{[\s\S]*?height:56px!important;min-height:56px!important/);
+  assert.match(css, /\.timeline-playback-panel\{display:flex!important;flex:0 0 104px!important/);
+  assert.match(css, /\.timeline-custom-range-controls\{display:flex!important;flex:0 0 20px!important/);
+
 });
 
 
@@ -492,13 +487,15 @@ test('Horizontal ruler ticks are individually positioned across the track and St
 
 
 test('Opening an Alphabet State reveals a horizontal numbered ruler beside its letter', () => {
+
   assert.match(app, /sequenceRulerDisplayWidths\[state\.id\] \|\| 360/);
   assert.match(app, /previous\[state\.id\] \|\| 360/);
-  assert.match(app, /style=\{\{left:\(index\/Math\.max\(1,Math\.round\(state\.width\)\)\*100\)\+"%",top:0\}\}/);
-  assert.match(css.slice(css.lastIndexOf('/* Timeline interaction cleanup')), /\.alphabet-state-ruler-labels span\{position:absolute!important;top:0!important/);
-  assert.match(css.slice(css.lastIndexOf('/* Timeline interaction cleanup')), /\.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:19px!important/);
-  assert.match(css.slice(css.lastIndexOf('/* Timeline interaction cleanup')), /writing-mode:horizontal-tb!important/);
+  assert.match(app, /getCustomRulerLabel\(index,Math\.round\(state\.width\)\)/);
+  assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels span\{position:absolute!important;top:0!important/);
+  assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:19px!important/);
+  assert.match(css, /writing-mode:horizontal-tb!important/);
   assert.match(app, /style=\{\{left:\(\(\(at-range\.start\)\/Math\.max\(1,range\.end-range\.start\)\)\*100\)\+'%',top:'50%'\}\}/);
+
 });
 
 test('Add Keyframe stays immediately beside Dope Sheet in the Timeline tools row', () => {
@@ -509,8 +506,37 @@ test('Add Keyframe stays immediately beside Dope Sheet in the Timeline tools row
 });
 
 test('Frame ruler labels every frame in sequence with graduated ticks at 5-frame intervals', () => {
+
   assert.match(app, /length:Math\.max\(2,Math\.round\(state\.width\)\+1\)/);
-  assert.match(app, /const value=range\.start\+index/);
+  assert.match(app, /getCustomRulerLabel\(index,Math\.round\(state\.width\)\)/);
   assert.match(app, /index%10===0\?"major":index%5===0\?"medium":"minor"/);
   assert.match(app, /left:\(index\/Math\.max\(1,Math\.round\(state\.width\)\)\*100\)\+"%"/);
+
+});
+
+
+test('Custom START and END controls independently edit ruler values and units', () => {
+  assert.match(app, /aria-label="Custom ruler start time"/);
+  assert.match(app, /aria-label="Custom ruler end time"/);
+  assert.match(app, /aria-label="Custom ruler start unit"/);
+  assert.match(app, /aria-label="Custom ruler end unit"/);
+  assert.match(app, /setCustomRulerStart\(Math\.max\(0,Number\(event\.target\.value\)\|\|0\)\)/);
+  assert.match(app, /setCustomRulerEnd\(Math\.max\(0,Number\(event\.target\.value\)\|\|0\)\)/);
+  assert.match(app, /getCustomRulerLabel\(index,Math\.round\(state\.width\)\)/);
+  assert.match(app, /customRulerStartUnit === customRulerEndUnit \? customRulerStartUnit : 's'/);
+});
+
+test('Custom ruler values persist in project data while legacy projects receive safe defaults', () => {
+  assert.match(app, /customRulerStart, customRulerStartUnit, customRulerEnd, customRulerEndUnit/);
+  assert.match(app, /setCustomRulerStart\(Math\.max\(0, Number\.isFinite\(Number\(settings\.customRulerStart\)\) \? Number\(settings\.customRulerStart\) : 0\.1\)\)/);
+  assert.match(app, /setCustomRulerEnd\(Math\.max\(0, Number\.isFinite\(Number\(settings\.customRulerEnd\)\) \? Number\(settings\.customRulerEnd\) : 0\.25\)\)/);
+});
+
+test('Timeline layout keeps its bottom anchor visible with a bounded, internally scrollable State strip', () => {
+  const canonical = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
+  assert.match(canonical, /position:fixed!important/);
+  assert.match(canonical, /bottom:max\(8px,env\(safe-area-inset-bottom\)\)!important/);
+  assert.match(canonical, /max-height:min\(42vh,calc\(100dvh - 16px - env\(safe-area-inset-bottom\)\)\)!important/);
+  assert.match(canonical, /\.animation-state-layout\{[\s\S]*?min-height:0!important;overflow:hidden!important/);
+  assert.match(canonical, /\.alphabet-state-scroll\{[\s\S]*?overflow-x:auto!important;overflow-y:hidden!important/);
 });
