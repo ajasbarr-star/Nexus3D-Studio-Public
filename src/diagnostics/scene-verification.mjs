@@ -92,6 +92,7 @@ export function buildSceneVerificationSnapshot({
 
   const sceneOnlyObjects = selectableSceneObjects.filter(object => !treeObjectSet.has(object));
   const treeOnlyObjects = normalizedTreeItems.filter(({ object }) => !sceneObjectSet.has(object));
+  const selectableWithoutScene = selectableInventory.filter(object => !sceneObjectSet.has(object));
   const editorIds = new Map();
   for (const object of selectableSceneObjects) {
     const id = String(object.userData?.editorId || '');
@@ -104,7 +105,7 @@ export function buildSceneVerificationSnapshot({
   const mainDirectionalLights = selectableSceneObjects.filter(isDirectionalLight).length;
   const mainCubes = selectableSceneObjects.filter(object => isCube(null, object)).length;
   const treeReconciled = sceneAvailable && treeAvailable && treeOnlyObjects.length === 0 &&
-    sceneOnlyObjects.length === 0 && duplicateEditorIds.length === 0;
+    selectableWithoutScene.length === 0 && sceneOnlyObjects.length === 0 && duplicateEditorIds.length === 0;
   const expectedDirectionalLights = Number(testProfile?.expectedDirectionalLights ?? 17);
   const expectedCubes = Number(testProfile?.expectedCubes ?? 1);
   const scenarioMatches = treeReconciled &&
@@ -135,6 +136,7 @@ export function buildSceneVerificationSnapshot({
       status: !sceneAvailable || !treeAvailable ? 'UNAVAILABLE' : treeReconciled ? 'MATCH' : 'MISMATCH',
       treeOnlyCount: treeOnlyObjects.length,
       mainViewportOnlyCount: sceneOnlyObjects.length,
+      selectableWithoutSceneCount: selectableWithoutScene.length,
       duplicateEditorIds,
     },
     scenarioMatches,
@@ -161,6 +163,7 @@ export function formatSceneVerificationReport(snapshot) {
     'Tree ↔ MainViewport Identity Reconciliation: ' + snapshot.reconciliation.status +
       ' · Tree-only=' + snapshot.reconciliation.treeOnlyCount +
       ' · MainViewport-only=' + snapshot.reconciliation.mainViewportOnlyCount +
+      ' · Selectable-not-in-scene=' + snapshot.reconciliation.selectableWithoutSceneCount +
       ' · Duplicate editor IDs=' + snapshot.reconciliation.duplicateEditorIds.length,
     'Reference Scenario Match: ' + (snapshot.scenarioMatches ? 'YES' : 'NO / NOT VERIFIED'),
     'Renderer counters: draw calls=' + (snapshot.mainViewport.renderCalls ?? 'unavailable') +
@@ -207,6 +210,7 @@ export function buildSceneVerificationMetadata(snapshot) {
     mainViewportCubes: snapshot.mainViewport.cubes,
     treeOnlyObjects: snapshot.reconciliation.treeOnlyCount,
     mainViewportOnlyObjects: snapshot.reconciliation.mainViewportOnlyCount,
+    selectableWithoutSceneCount: snapshot.reconciliation.selectableWithoutSceneCount,
     duplicateEditorIdCount: snapshot.reconciliation.duplicateEditorIds.length,
     referenceScenarioMatches: snapshot.scenarioMatches,
     rendererDrawCalls: snapshot.mainViewport.renderCalls,
