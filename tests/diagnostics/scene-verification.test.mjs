@@ -111,3 +111,24 @@ test('unavailable scene is explicitly marked unavailable', () => {
   assert.equal(snapshot.scenarioMatches, false);
   assert.match(formatSceneVerificationReport(snapshot), /MainViewport: UNAVAILABLE/);
 });
+
+test('uses the selectable registry so internal editor helpers do not create false Scene Tree mismatches', () => {
+  const light = makeObject({ id: 'light-1', name: 'DirectionalLight_01', type: 'DirectionalLight' });
+  const cube = makeObject({ id: 'cube-1', name: 'Cube_01' });
+  const internalHelper = makeObject({ id: 'internal-helper', name: 'Editor Internal Helper' });
+  const scene = makeScene([light, cube, internalHelper]);
+  const treeItems = [light, cube].map(object => ({ id: object.userData.editorId, name: object.name, object }));
+  const snapshot = buildSceneVerificationSnapshot({
+    treeItems, selectableObjects: [light, cube], scene, camera,
+  });
+  assert.equal(snapshot.reconciliation.status, 'MATCH');
+  assert.equal(snapshot.mainViewport.editorObjects, 2);
+  assert.equal(snapshot.reconciliation.mainViewportOnlyCount, 0);
+
+  const expandedRegistry = buildSceneVerificationSnapshot({
+    treeItems, selectableObjects: [light, cube, internalHelper], scene, camera,
+  });
+  assert.equal(expandedRegistry.reconciliation.status, 'MISMATCH');
+  assert.equal(expandedRegistry.reconciliation.mainViewportOnlyCount, 1);
+  assert.equal(expandedRegistry.mainViewportOnly[0].id, 'internal-helper');
+});
