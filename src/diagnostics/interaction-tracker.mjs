@@ -111,8 +111,10 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
       monotonicStartMs: current.startedAt,
       monotonicEndMs: endedAt,
     };
-    recentByPointer.set(current.pointerId, current.id);
-    lastInteraction = { id: current.id, at: endedAt };
+    if (status !== 'cancelled') {
+      recentByPointer.set(current.pointerId, { id: current.id, at: endedAt });
+      lastInteraction = { id: current.id, at: endedAt };
+    }
     emit(result);
     return result;
   }
@@ -121,7 +123,11 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
     const target = describeInteractionTarget(event?.target);
     const pointerId = Number.isFinite(event?.pointerId) ? event.pointerId : 0;
     const at = now();
-    const correlatedId = recentByPointer.get(pointerId) || (lastInteraction && at - lastInteraction.at <= 1500 ? lastInteraction.id : null);
+    const recent = recentByPointer.get(pointerId);
+    const recentIsFresh = recent && at >= recent.at && at - recent.at <= 1500;
+    if (recent && !recentIsFresh) recentByPointer.delete(pointerId);
+    const correlatedId = (recentIsFresh ? recent.id : null) ||
+      (lastInteraction && at >= lastInteraction.at && at - lastInteraction.at <= 1500 ? lastInteraction.id : null);
     const interactionId = correlatedId || createId();
     recentByPointer.delete(pointerId);
     lastInteraction = { id: interactionId, at };
