@@ -219,7 +219,7 @@ test('RDS ZIP progress reaches 100 only after native save verification resolves'
 });
 
 
-test('RDS bottom slider stays inside the panel and resizes only the bottom edge', async () => {
+test('RDS bottom slider overlaps its bottom-center anchor and respects landscape screen bounds', async () => {
   const css = await readFile(new URL('../../src/index.css', import.meta.url), 'utf8');
   const start = css.indexOf('.rds-bottom-slider {');
   const end = css.indexOf('}', start);
@@ -241,7 +241,9 @@ test('RDS bottom slider stays inside the panel and resizes only the bottom edge'
   assert.ok(!app.includes('rdsBottomSliderPosition'));
   assert.ok(!app.includes('new ResizeObserver(updatePosition)'));
   assert.ok(!css.includes('.rds-bottom-slider { position:absolute !important;'));
-  assert.ok(css.includes('.rds-command-center { position:fixed; z-index:30; top:auto; bottom:18px;'));\n  assert.ok(css.includes('max-height:calc(100dvh - 76px)'));\n  assert.ok(app.includes('window.innerHeight - 76'));
+  assert.ok(css.includes('.rds-command-center { position:fixed; z-index:30; top:auto; bottom:18px;'));
+  assert.ok(css.includes('max-height:calc(100dvh - 76px)'));
+  assert.ok(app.includes('window.innerHeight - 76'));
   assert.ok(!app.includes("setRdsPanelHeight(") || app.includes("start.height + start.y - moveEvent.clientY"));
   assert.ok(!app.includes('className="rds-resize-handle rds-resize-vertical"'));
 });
