@@ -518,6 +518,8 @@ export default function App() {
   const refreshLogcat = () => { flush(); setStatus('LogCat refreshed'); };
   const exportRdsToolZip = async (tool: string) => {
     if (rdsExportBusy) return;
+    // Capture once at invocation so filename and Metadata.txt describe the exact export execution time.
+    const generatedAt = new Date().toISOString();
     setRdsExportBusy(true);
     setRdsExportTool(tool);
     setRdsExportProgress(0);
@@ -597,7 +599,6 @@ export default function App() {
           entries = allLogs;
           fullReport = formatDiagnosticReport(allLogs, { sessionId: RUNTIME_SESSION_ID });
       }
-      const generatedAt = new Date().toISOString();
       const exportFiles = buildRdsExportFiles({
         tool, fullReport, entries,
         metadata: {
@@ -622,10 +623,9 @@ export default function App() {
         const verifiedBytes = Number(saved.writtenBytes) || 0;
         setRdsExportPhase('verifying');
         setRdsExportProgress(94);
-        const normalizeAndroidName = (value: unknown) => String(value || '').replace(/:/g, '_').trim();
-        const normalizeAndroidPath = (value: unknown) => String(value || '').replace(/\\/g, '/').replace(/:/g, '_').replace(/\/+/g, '/').replace(/\/+$/g, '');
+        const normalizeAndroidPath = (value: unknown) => String(value || '').replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/+$/g, '');
         const expectedPath = 'Documents/Nexus3D/' + filename;
-        if (!saved.uri || verifiedBytes <= 0 || normalizeAndroidName(saved.name) !== normalizeAndroidName(filename) || normalizeAndroidPath(saved.path) !== normalizeAndroidPath(expectedPath)) {
+        if (!saved.uri || verifiedBytes <= 0 || String(saved.name || '') !== filename || normalizeAndroidPath(saved.path) !== expectedPath) {
           throw new Error('Android ZIP verification mismatch · name=' + String(saved.name || 'missing') + ' · path=' + String(saved.path || 'missing') + ' · bytes=' + verifiedBytes);
         }
         updateRdsVerification(tool, { filename: 'SUCCESS', destination: 'SUCCESS', bytes: 'SUCCESS', phase: 'VERIFYING' });
