@@ -13,11 +13,15 @@ export function buildRdsZipFilename(tool, generatedAt) {
   if (Number.isNaN(localGeneratedAt.getTime())) {
     throw new Error('Invalid RDS export timestamp');
   }
-  const timePart = localGeneratedAt
-    .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-    .replace(/\\s+/g, '')
-    .toLowerCase()
-    .replace(/:/g, '-');
+  // Build the time segment from explicit locale parts so NBSP/narrow-NBSP
+  // separators can never leak into a filename on Android or Linux.
+  const timeParts = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }).formatToParts(localGeneratedAt);
+  const part = type => timeParts.find(item => item.type === type)?.value || '';
+  const timePart = part('hour') + '-' + part('minute') + part('dayPeriod').toLowerCase();
   const datePart = [
     String(localGeneratedAt.getMonth() + 1).padStart(2, '0'),
     String(localGeneratedAt.getDate()).padStart(2, '0'),
