@@ -214,7 +214,8 @@ test('RDS ZIP progress reaches 100 only after native save verification resolves'
   assert.ok(exportCode.includes("replace(/:/g, '_')"));
   assert.ok(exportCode.includes("replace(/\\\\/g, '/')"));
   assert.ok(exportCode.includes("replace(/\\/+/g, '/')"));
-  assert.ok(source.includes('rds-export-progress'));
+  assert.ok(source.includes('rds-verification-panel'));
+  assert.ok(source.includes('rdsExportProgress'));
 });
 
 
