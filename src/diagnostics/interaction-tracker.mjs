@@ -2,7 +2,7 @@ const MAX_LABEL = 72;
 const MAX_SAMPLES = 8;
 
 function clean(value, limit = MAX_LABEL) {
-  return String(value || '').replace(/\\s+/g, ' ').trim().slice(0, limit);
+  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, limit);
 }
 
 function nodeLabel(node) {
