@@ -3281,7 +3281,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .alphabet-state-mini-ruler .alphabet-state-ruler-ticks i{position:absolute!important;top:50%!important;width:1px!important;height:5px!important;transform:translate(-.5px,-50%)!important;background:#6b9eb8!important}
 .alphabet-state-mini-ruler .alphabet-state-ruler-ticks i.medium{height:9px!important;background:#83c4dc!important}
 .alphabet-state-mini-ruler .alphabet-state-ruler-ticks i.major{height:18px!important;background:#c1f1ff!important;box-shadow:0 0 4px rgba(72,220,255,.45)!important}
-.alphabet-state-mini-ruler .alphabet-state-mini-markers{position:absolute!important;z-index:4!important;top:27px!important;left:5px!important;right:5px!important;bottom:auto!important;width:auto!important;height:17px!important;pointer-events:none!important}
+.alphabet-state-mini-ruler .alphabet-state-mini-markers{position:absolute!important;z-index:4!important;top:2px!important;left:5px!important;right:5px!important;bottom:auto!important;width:auto!important;height:23px!important;pointer-events:none!important}
 .alphabet-state-mini-ruler .alphabet-state-mini-markers button{position:absolute!important;top:50%!important;transform:translate(-50%,-50%)!important;min-width:18px!important;width:18px!important;min-height:16px!important;height:16px!important;padding:0!important;pointer-events:auto!important;touch-action:manipulation!important}
 .alphabet-state-mini-ruler .alphabet-state-mini-markers .alphabet-state-keyframe-marker{display:flex!important;align-items:center!important;justify-content:center!important;border:1px solid #ff4fb8!important;border-radius:3px!important;background:rgba(36,10,30,.96)!important;color:#ff72c8!important;box-shadow:0 0 5px rgba(255,79,184,.38)!important}
 .alphabet-state-mini-ruler .alphabet-state-mini-markers .alphabet-state-keyframe-marker span{color:#ff72c8!important;font-size:11px!important;line-height:1!important}
@@ -3313,7 +3313,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
  .alphabet-state-scroll{min-height:30px!important}
  .alphabet-state-mini-ruler:not(.collapsed){height:48px!important;min-height:48px!important}
  .alphabet-state-mini-ruler:not(.collapsed) .alphabet-state-ruler-scale{height:20px!important}
- .alphabet-state-mini-ruler:not(.collapsed) .alphabet-state-mini-markers{top:22px!important;height:14px!important}
+ .alphabet-state-mini-ruler:not(.collapsed) .alphabet-state-mini-markers{top:2px!important;height:20px!important}
  .alphabet-state-mini-ruler:not(.collapsed) .alphabet-state-scrubber{top:38px!important;height:7px!important}
  .alphabet-state-item .alphabet-state-handle,.alphabet-state-panel .alphabet-state-add{height:42px!important;min-height:42px!important}
 }
