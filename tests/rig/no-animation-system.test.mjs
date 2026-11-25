@@ -284,7 +284,7 @@ test('Alphabet State 3D markers are scene-rooted snapshots with larger circles a
 test('Alphabet State 3D markers select their matching state only in the Animation Viewport', () => {
 
   assert.equal(app.split('intersectObjects(Array.from(alphabetStateMarkers.values()), false)').length - 1, 2);
-  assert.equal((app.match(/setSelectedSequenceState\\(stateId\\)/g) || []).length, 1);
+  assert.equal(app.split('setSelectedSequenceState(stateId)').length - 1, 1);
   assert.ok(app.includes("if (!runtime.current?.animationView) return;"));
   assert.ok(app.includes("from Animation Viewport"));
   assert.ok(app.includes("if (alphabetMarkerHit) return;"));
