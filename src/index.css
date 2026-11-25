@@ -3312,5 +3312,8 @@ button:active { box-shadow:0 0 11px #22cfff44; }
  .timeline-custom-time{height:17px!important;min-height:17px!important}
  .alphabet-state-scroll{min-height:30px!important}
  .alphabet-state-mini-ruler:not(.collapsed){height:48px!important;min-height:48px!important}
+ .alphabet-state-mini-ruler:not(.collapsed) .alphabet-state-ruler-scale{height:20px!important}
+ .alphabet-state-mini-ruler:not(.collapsed) .alphabet-state-mini-markers{top:22px!important;height:14px!important}
+ .alphabet-state-mini-ruler:not(.collapsed) .alphabet-state-scrubber{top:38px!important;height:7px!important}
  .alphabet-state-item .alphabet-state-handle,.alphabet-state-panel .alphabet-state-add{height:42px!important;min-height:42px!important}
 }
