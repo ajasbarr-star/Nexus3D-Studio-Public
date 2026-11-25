@@ -378,8 +378,13 @@ export default function App() {
   const [rdsPanelWidth, setRdsPanelWidth] = useState(() => Math.min(360, Math.max(280, window.innerWidth - 18)));
   const [rdsPanelHeight, setRdsPanelHeight] = useState(() => Math.min(Math.round(window.innerHeight * 0.48), Math.max(180, window.innerHeight - 78)));
   const [rdsExportBusy, setRdsExportBusy] = useState(false);
+  const [rdsExportTool, setRdsExportTool] = useState('');
   const [rdsExportProgress, setRdsExportProgress] = useState(0);
   const [rdsExportPhase, setRdsExportPhase] = useState<'idle' | 'building' | 'saving' | 'verifying' | 'passed' | 'done' | 'failed'>('idle');
+  const [rdsVerificationByTool, setRdsVerificationByTool] = useState<Record<string, Record<string, string>>>({});
+  const updateRdsVerification = (tool: string, patch: Record<string, string>) => setRdsVerificationByTool(current => ({ ...current, [tool]: { ...(current[tool] || {}), ...patch } }));
+  const rdsPanelElementRef = useRef<HTMLElement | null>(null);
+  const [rdsBottomSliderPosition, setRdsBottomSliderPosition] = useState({ left: 0, top: 0 });
   const rdsResizeRef = useRef<{ axis: 'width' | 'height'; x: number; y: number; width: number; height: number; pointerId: number } | null>(null);
   const beginRdsPanelResize = (event: React.PointerEvent<HTMLButtonElement>, axis: 'width' | 'height') => {
     event.preventDefault();
@@ -408,6 +413,21 @@ export default function App() {
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);
   };
+  useEffect(() => {
+    if (!rdsPanelOpen) return;
+    const panel = rdsPanelElementRef.current;
+    if (!panel) return;
+    const updatePosition = () => {
+      const rect = panel.getBoundingClientRect();
+      const next = { left: Math.round(rect.left + rect.width / 2), top: Math.round(rect.bottom - 15) };
+      setRdsBottomSliderPosition(current => current.left === next.left && current.top === next.top ? current : next);
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition, { passive: true });
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updatePosition) : null;
+    observer?.observe(panel);
+    return () => { window.removeEventListener('resize', updatePosition); observer?.disconnect(); };
+  }, [rdsPanelOpen, rdsPanelWidth, rdsPanelHeight]);
   const [interactionTraceOpen, setInteractionTraceOpen] = useState(false);
   const diagnosticSinkRef = useRef<(level: DiagnosticEntry['level'], source: string, message: string, details?: string) => void>(() => {});
   const diagnosticQueueRef = useRef<DiagnosticEntry[]>([]);
@@ -494,8 +514,10 @@ export default function App() {
   const exportRdsToolZip = async (tool: string) => {
     if (rdsExportBusy) return;
     setRdsExportBusy(true);
+    setRdsExportTool(tool);
     setRdsExportProgress(0);
     setRdsExportPhase('building');
+    updateRdsVerification(tool, { phase: 'BUILDING', filename: 'PENDING', destination: 'PENDING', bytes: 'PENDING', crc: 'PENDING', files: 'PENDING', readback: 'PENDING', error: '' });
     try {
       const allLogs = [...diagnosticLogs, ...diagnosticQueueRef.current].slice(-400);
       const logcatEntries = getLogcatEntries();
@@ -589,6 +611,7 @@ export default function App() {
       if (!archiveFolder) throw new Error('Unable to create RDS ZIP folder structure');
       Object.entries(exportFiles).forEach(([name, content]) => archiveFolder.file(name, content));
       const filename = toolFolder + '_' + timeFolder + '_' + dateFolder + '.zip';
+      updateRdsVerification(tool, { filename: 'SUCCESS', destination: 'SAVING', phase: 'SAVING' });
       if (Capacitor.isNativePlatform()) {
         const base64 = await zip.generateAsync(
           { type: 'base64', compression: 'DEFLATE', compressionOptions: { level: 6 } },
@@ -606,15 +629,26 @@ export default function App() {
         if (!saved.uri || verifiedBytes <= 0 || normalizeAndroidName(saved.name) !== normalizeAndroidName(filename) || normalizeAndroidPath(saved.path) !== normalizeAndroidPath(expectedPath)) {
           throw new Error('Android ZIP verification mismatch · name=' + String(saved.name || 'missing') + ' · path=' + String(saved.path || 'missing') + ' · bytes=' + verifiedBytes);
         }
+        updateRdsVerification(tool, { filename: 'SUCCESS', destination: 'SUCCESS', bytes: 'SUCCESS', phase: 'VERIFYING' });
         const verifiedArchive = await JSZip.loadAsync(base64, { base64: true, checkCRC32: true });
+        updateRdsVerification(tool, { crc: 'SUCCESS' });
         const requiredFiles = ['Full_Report.txt', 'Errors.txt', 'Warnings.txt', 'Summary.txt', 'Metadata.txt'];
         const archiveRoot = toolFolder + '/' + timeFolder + '/' + dateFolder + '/';
         const missingFiles = requiredFiles.filter(name => !verifiedArchive.file(archiveRoot + name));
         if (missingFiles.length) throw new Error('ZIP content verification failed · missing ' + missingFiles.join(', '));
+        updateRdsVerification(tool, { files: 'SUCCESS' });
+        await Promise.all(requiredFiles.map(name => {
+          const file = verifiedArchive.file(archiveRoot + name);
+          if (!file) throw new Error('ZIP read-back failed · missing ' + name);
+          return file.async('string');
+        }));
+        updateRdsVerification(tool, { readback: 'SUCCESS' });
         setRdsExportPhase('passed');
+        updateRdsVerification(tool, { phase: 'PASSED' });
         setRdsExportProgress(99);
         setRdsExportProgress(100);
         setRdsExportPhase('done');
+        updateRdsVerification(tool, { phase: 'SUCCESS' });
         setStatus('SUCCESS · Verified ' + String(saved.name || filename) + ' · Internal Storage/Documents/Nexus3D · ' + verifiedBytes.toLocaleString() + ' bytes');
         diagnosticSinkRef.current('INFO', 'RDS Export', tool + ' ZIP report saved and verified', saved.uri + ' · ' + verifiedBytes + ' bytes');
       } else {
@@ -629,11 +663,13 @@ export default function App() {
         window.setTimeout(() => URL.revokeObjectURL(url), 1500);
         setRdsExportProgress(100);
         setRdsExportPhase('done');
+        updateRdsVerification(tool, { filename: 'SUCCESS', destination: 'DOWNLOAD STARTED', bytes: 'BROWSER', crc: 'NOT CHECKED', files: 'NOT CHECKED', readback: 'NOT CHECKED', phase: 'DOWNLOAD STARTED' });
         setStatus('Download started: ' + filename);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setRdsExportPhase('failed');
+      updateRdsVerification(tool, { phase: 'FAILED', error: message });
       setStatus('RDS ZIP export failed · ' + message);
       diagnosticSinkRef.current('ERROR', 'RDS Export', tool + ' ZIP export failed', message);
     } finally {
@@ -8009,7 +8045,7 @@ export default function App() {
         </div>
       </header>
 
-      {rdsPanelOpen && !cameraView && !animationMode && <aside className="rds-command-center" role="dialog" aria-label="Nexus3D RDS Command Center" style={{ width: rdsPanelWidth, height: rdsPanelHeight }}>
+      {rdsPanelOpen && !cameraView && !animationMode && <aside ref={rdsPanelElementRef} className="rds-command-center" role="dialog" aria-label="Nexus3D RDS Command Center" style={{ width: rdsPanelWidth, height: rdsPanelHeight }}>
         <div className="rds-command-header">
           <div className="rds-command-brand"><Activity size={17}/><div><strong>NEXUS3D RDS</strong><small>RUNTIME DIAGNOSTICS · FORENSIC CENTER</small></div></div>
           <div className="rds-command-header-actions"><span className="rds-live-indicator">LIVE</span><button type="button" onClick={() => setRdsPanelOpen(false)} aria-label="Close RDS Command Center"><X size={15}/></button></div>
@@ -8022,7 +8058,17 @@ export default function App() {
             </button>)}
           </nav>
           <main className="rds-command-content">
-            <div className="rds-content-heading"><div><span className="rds-eyebrow">DIAGNOSTIC WORKSPACE</span><h2>{rdsActiveTool === 'Overview' ? 'System Overview' : rdsActiveTool}</h2></div><div className="rds-content-heading-actions"><span className="rds-session-chip">SESSION ACTIVE</span><button type="button" className="rds-tool-button rds-export-zip-button" onClick={() => void exportRdsToolZip(rdsActiveTool)} disabled={rdsExportBusy} title={'Download ' + rdsActiveTool + ' report ZIP'} aria-label={'Download ' + rdsActiveTool + ' report ZIP'}><Download size={15}/></button>{(rdsExportBusy || rdsExportPhase === 'done' || rdsExportPhase === 'failed') && <span className={'rds-export-progress ' + (rdsExportPhase === 'failed' ? 'failed' : rdsExportPhase === 'done' ? 'complete' : 'active')} role="status" aria-live="polite">{rdsExportPhase === 'failed' ? 'FAILED' : rdsExportPhase === 'done' ? 'SUCCESS' : rdsExportPhase === 'passed' ? 'PASSED' : rdsExportPhase === 'saving' || rdsExportPhase === 'verifying' ? 'VERIFYING' : 'SAVING ' + rdsExportProgress + '%'}</span>}</div></div>
+            <div className="rds-content-heading"><div><span className="rds-eyebrow">DIAGNOSTIC WORKSPACE</span><h2>{rdsActiveTool === 'Overview' ? 'System Overview' : rdsActiveTool}</h2></div><div className="rds-content-heading-actions"><span className="rds-session-chip">SESSION ACTIVE</span><button type="button" className="rds-tool-button rds-export-zip-button" onClick={() => void exportRdsToolZip(rdsActiveTool)} disabled={rdsExportBusy} title={'Download ' + rdsActiveTool + ' report ZIP'} aria-label={'Download ' + rdsActiveTool + ' report ZIP'}><Download size={15}/></button></div></div>
+            <section className="rds-verification-panel" aria-label={rdsActiveTool + ' ZIP verification'} aria-live="polite">
+              <div className="rds-verification-heading"><strong>ZIP VERIFICATION · {rdsActiveTool.toUpperCase()}</strong><span className={'rds-verification-phase phase-' + String(rdsVerificationByTool[rdsActiveTool]?.phase || 'NOT RUN').toLowerCase().replace(/[^a-z]+/g, '-')}>{rdsExportBusy && rdsExportTool === rdsActiveTool ? rdsExportPhase.toUpperCase() + ' ' + rdsExportProgress + '%' : rdsVerificationByTool[rdsActiveTool]?.phase || 'NOT RUN'}</span></div>
+              <div className="rds-verification-grid">
+                {[{label:'Filename',key:'filename'},{label:'Destination',key:'destination'},{label:'File Bytes',key:'bytes'},{label:'ZIP CRC32',key:'crc'},{label:'5 TXT Files',key:'files'},{label:'TXT Read-back',key:'readback'}].map(check => {
+                  const value = rdsVerificationByTool[rdsActiveTool]?.[check.key] || 'NOT RUN';
+                  return <div className="rds-verification-item" key={check.key}><span>{check.label}</span><b className={'rds-verification-state state-' + value.toLowerCase().replace(/[^a-z]+/g, '-')}>{value}</b></div>;
+                })}
+              </div>
+              {rdsVerificationByTool[rdsActiveTool]?.error && <div className="rds-verification-error">{rdsVerificationByTool[rdsActiveTool].error}</div>}
+            </section>
             {rdsActiveTool === 'Overview' && <>
               <div className="rds-stat-grid">
                 <div className="rds-stat-card"><Activity/><small>Runtime Logs</small><strong>{diagnosticLogs.length}</strong></div>
@@ -8079,7 +8125,7 @@ export default function App() {
         </div>
         <button type="button" className="rds-resize-handle rds-resize-horizontal" aria-label="Resize RDS Panel width" title="Drag left or right to resize RDS Panel width" onPointerDown={event => beginRdsPanelResize(event, 'width')}><span/></button>
       </aside>}
-      {rdsPanelOpen && !cameraView && !animationMode && <button type="button" className="rds-bottom-slider" aria-label="Resize RDS Panel height" title="Drag up to increase panel height and down to reduce it" style={{ left: window.innerWidth - (window.innerWidth <= 570 ? 5 : 9) - (rdsPanelWidth / 2), top: (window.innerHeight <= 420 ? 52 : window.innerWidth <= 570 ? 55 : 58) + rdsPanelHeight - 15 }} onPointerDown={event => beginRdsPanelResize(event, 'height')}><span/><span className="rds-bottom-slider-grip"/></button>}
+      {rdsPanelOpen && !cameraView && !animationMode && rdsBottomSliderPosition.left > 0 && <button type="button" className="rds-bottom-slider" aria-label="Resize RDS Panel height" title="Drag up to increase panel height and down to reduce it" style={{ left: rdsBottomSliderPosition.left, top: rdsBottomSliderPosition.top }} onPointerDown={event => beginRdsPanelResize(event, 'height')}><span/><span className="rds-bottom-slider-grip"/></button>}
 
       {geometryRitOpen && !cameraView && !animationMode && <aside className="geometry-rit-panel" role="dialog" aria-label="Independent Geometry RIT Results Report">
         <div className="geometry-rit-heading">
