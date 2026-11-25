@@ -61,6 +61,9 @@ test('two touch pointers are classified as pinch and double tap is distinguished
   tracker.onPointerDown({ pointerId: 4, pointerType: 'touch', clientX: 11, clientY: 10 }, 'MainViewport');
   clock = 270;
   tracker.onPointerUp({ pointerId: 4, clientX: 11, clientY: 10 });
+  tracker.markRendered('MainViewport');
+  clock = 290;
+  tracker.markRendered('MainViewport');
   assert.equal(records.at(-1).gesture, 'DOUBLE_TAP');
 });
 
@@ -86,6 +89,9 @@ test('a gesture without a camera response is explicitly reported, not assigned a
   tracker.onPointerDown({ pointerId: 1, pointerType: 'mouse', button: 0 }, 'MainViewport');
   clock = 25;
   tracker.onPointerUp({ pointerId: 1 });
+  tracker.markRendered('MainViewport');
+  clock = 50;
+  tracker.markRendered('MainViewport');
   assert.equal(records[0].status, 'NO_CAMERA_UPDATE');
   assert.equal(records.some(item => Number.isFinite(item.inputToCameraUpdateMs)), false);
 });
