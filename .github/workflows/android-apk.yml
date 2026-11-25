@@ -12,6 +12,7 @@ on:
       - feature/rit-touch-hierarchy-build832
       - feature/rds-scene-tree-mainviewport-verification-build835
       - feature/rit-touch-hierarchy-build846-clean
+      - feature/nexus3d-editor-diagnostics-bridge
   workflow_dispatch:
 
 permissions:
