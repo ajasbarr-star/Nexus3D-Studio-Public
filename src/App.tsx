@@ -601,7 +601,7 @@ export default function App() {
         setRdsExportPhase('verifying');
         setRdsExportProgress(94);
         const normalizeAndroidName = (value: unknown) => String(value || '').replace(/:/g, '_').trim();
-        const normalizeAndroidPath = (value: unknown) => String(value || '').replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/+$/g, '');
+        const normalizeAndroidPath = (value: unknown) => String(value || '').replace(/\\/g, '/').replace(/:/g, '_').replace(/\/+/g, '/').replace(/\/+$/g, '');
         const expectedPath = 'Documents/Nexus3D/' + filename;
         if (!saved.uri || verifiedBytes <= 0 || normalizeAndroidName(saved.name) !== normalizeAndroidName(filename) || normalizeAndroidPath(saved.path) !== normalizeAndroidPath(expectedPath)) {
           throw new Error('Android ZIP verification mismatch · name=' + String(saved.name || 'missing') + ' · path=' + String(saved.path || 'missing') + ' · bytes=' + verifiedBytes);
