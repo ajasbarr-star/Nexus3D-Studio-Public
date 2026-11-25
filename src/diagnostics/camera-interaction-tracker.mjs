@@ -43,11 +43,17 @@ export function createCameraInteractionTracker({
       controller: null,
       endedAt: null,
       changeCount: 0,
+      multiTouch: false,
+      framesAfterEnd: 0,
+      completionEmitted: false,
     };
     return session;
   }
 
   function ensurePointerSession(event, viewport) {
+    if (session?.endedAt !== null && session?.endedAt !== undefined && session.cameraUpdateAt === null) {
+      completeWithoutCameraUpdate();
+    }
     if (!session || session.firstRenderedAt !== null || session.endedAt !== null) {
       return start(classifyCameraPointer(event, pointers.size), event?.pointerType, viewport);
     }
@@ -60,7 +66,10 @@ export function createCameraInteractionTracker({
     const point = { startX: finite(event?.clientX), startY: finite(event?.clientY), x: finite(event?.clientX), y: finite(event?.clientY), pointerType: event?.pointerType || 'unknown' };
     pointers.set(event?.pointerId ?? 0, point);
     const current = ensurePointerSession(event, viewport);
-    if (pointers.size > 1) current.gesture = 'PINCH';
+    if (pointers.size > 1) {
+      current.gesture = 'PINCH';
+      current.multiTouch = true;
+    }
     current.pointerType = point.pointerType;
     return current.id;
   }
@@ -81,7 +90,7 @@ export function createCameraInteractionTracker({
     if (!session) return null;
     const endedAt = now();
     const distancePx = Math.round(Math.hypot(finite(event?.clientX) - point.startX, finite(event?.clientY) - point.startY));
-    if (session.pointerType === 'touch' && pointers.size === 0 && distancePx < TAP_DISTANCE_PX && status !== 'cancelled') {
+    if (!session.multiTouch && session.pointerType === 'touch' && pointers.size === 0 && distancePx < TAP_DISTANCE_PX && status !== 'cancelled') {
       const tap = { at: endedAt, x: finite(event?.clientX), y: finite(event?.clientY) };
       if (lastTouchTap && endedAt - lastTouchTap.at <= DOUBLE_TAP_WINDOW_MS &&
           Math.hypot(tap.x - lastTouchTap.x, tap.y - lastTouchTap.y) <= DOUBLE_TAP_DISTANCE_PX) {
@@ -94,23 +103,43 @@ export function createCameraInteractionTracker({
     session.lastInputAt = endedAt;
     if (pointers.size === 0) {
       session.endedAt = endedAt;
-      publish('CAMERA_GESTURE_COMPLETE', {
-        gesture: session.gesture,
-        pointerType: session.pointerType,
-        viewport: session.viewport,
-        status: status === 'cancelled' ? 'CANCELLED' : session.cameraUpdateAt === null ? 'NO_CAMERA_UPDATE' : 'INPUT_RECEIVED',
-        durationMs: Number(Math.max(0, endedAt - session.startedAt).toFixed(2)),
-        inputType: session.inputType,
-      });
-      if (session.cameraUpdateAt === null) session = null;
+      if (status === 'cancelled') {
+        completeGesture('CANCELLED');
+        session = null;
+      } else if (session.cameraUpdateAt !== null) {
+        completeGesture('CAMERA_UPDATED');
+        if (session.firstRenderedAt !== null) session = null;
+      }
     } else if (pointers.size === 1 && session.gesture === 'PINCH') {
       session.gesture = 'ORBIT';
     }
     return true;
   }
 
+  function completeGesture(status) {
+    if (!session || session.completionEmitted) return;
+    session.completionEmitted = true;
+    publish('CAMERA_GESTURE_COMPLETE', {
+      gesture: session.gesture,
+      pointerType: session.pointerType,
+      viewport: session.viewport,
+      status,
+      durationMs: Number(Math.max(0, (session.endedAt ?? now()) - session.startedAt).toFixed(2)),
+      inputType: session.inputType,
+    });
+  }
+
+  function completeWithoutCameraUpdate() {
+    if (!session || session.cameraUpdateAt !== null) return;
+    completeGesture('NO_CAMERA_UPDATE');
+    session = null;
+  }
+
   function onWheel(event, viewport) {
     const at = now();
+    if (session?.endedAt !== null && session?.endedAt !== undefined && session.cameraUpdateAt === null) {
+      completeWithoutCameraUpdate();
+    }
     if (!session || session.firstRenderedAt !== null || session.inputType !== 'wheel' || at - lastWheelAt > WHEEL_GROUP_WINDOW_MS) {
       start('ZOOM', 'wheel', viewport, 'wheel');
     }
@@ -137,8 +166,16 @@ export function createCameraInteractionTracker({
   }
 
   function markRendered(viewport) {
-    if (!session || session.viewport !== viewport || session.cameraUpdateAt === null || session.firstRenderedAt !== null) return null;
+    if (!session || session.viewport !== viewport) return null;
     const at = now();
+    if (session.cameraUpdateAt === null) {
+      if (session.endedAt !== null) {
+        session.framesAfterEnd += 1;
+        if (session.framesAfterEnd >= 2) completeWithoutCameraUpdate();
+      }
+      return null;
+    }
+    if (session.firstRenderedAt !== null) return null;
     session.firstRenderedAt = at;
     publish('CAMERA_FIRST_RENDERED_FRAME', {
       gesture: session.gesture,
@@ -149,7 +186,14 @@ export function createCameraInteractionTracker({
       cameraUpdateToFirstRenderedFrameMs: Number(Math.max(0, at - session.cameraUpdateAt).toFixed(2)),
     });
     const id = session.id;
-    if (pointers.size === 0) session = null;
+    if (session.inputType === 'wheel') {
+      session.endedAt = at;
+      completeGesture('CAMERA_UPDATED');
+      session = null;
+    } else if (pointers.size === 0 && session.endedAt !== null) {
+      completeGesture('CAMERA_UPDATED');
+      session = null;
+    }
     return id;
   }
 
