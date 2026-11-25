@@ -35,6 +35,7 @@ import { scanGeometryRit, formatGeometryRitReport } from './geometry/geometry-ri
 import { RUNTIME_SESSION_ID, RUNTIME_SESSION_STARTED_AT, createRuntimeEventMetadata, formatRuntimeTraceReport } from './diagnostics/runtime-session.mjs';
 import { inferTracePoint, filterDiagnosticEntries, formatDiagnosticReport, summarizeFrameTimes } from './diagnostics/logcat-diagnostics.mjs';
 import { buildRdsExportFiles } from './diagnostics/rds-export.mjs';
+import { buildRdsZipFilename, createRdsZipArchive, getRequiredRdsZipFiles } from './diagnostics/rds-zip.mjs';
 import { loadLogcatEntries, loadRitTraceEntries, saveLogcatEntries, saveRitTraceEntries, clearLogcatEntries, clearRitTraceEntries } from './diagnostics/independent-diagnostic-stores.mjs';
 import { buildRdsNoticeSection } from './diagnostics/rds-notice.mjs';
 import './index.css';
@@ -606,15 +607,9 @@ export default function App() {
           userAgent: navigator.userAgent, eventCount: entries.length
         }
       });
-      const zip = new JSZip();
-      const localGeneratedAt = new Date(generatedAt);
-      const timeFolder = localGeneratedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).replace(/\s+/g, '').toLowerCase();
-      const dateFolder = [String(localGeneratedAt.getMonth() + 1).padStart(2, '0'), String(localGeneratedAt.getDate()).padStart(2, '0'), localGeneratedAt.getFullYear()].join('-');
-      const toolFolder = 'Nexus3D_' + tool.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '');
-      const archiveFolder = zip.folder(toolFolder)?.folder(timeFolder)?.folder(dateFolder);
-      if (!archiveFolder) throw new Error('Unable to create RDS ZIP folder structure');
-      Object.entries(exportFiles).forEach(([name, content]) => archiveFolder.file(name, content));
-      const filename = toolFolder + '_' + timeFolder + '_' + dateFolder + '.zip';
+      // Store the five UTF-8 report files directly at the ZIP root; time/date belong only in the ZIP filename.
+      const zip = createRdsZipArchive(exportFiles);
+      const filename = buildRdsZipFilename(tool, generatedAt);
       updateRdsVerification(tool, { filename: 'SUCCESS', destination: 'SAVING', phase: 'SAVING' });
       if (Capacitor.isNativePlatform()) {
         const base64 = await zip.generateAsync(
@@ -636,15 +631,23 @@ export default function App() {
         updateRdsVerification(tool, { filename: 'SUCCESS', destination: 'SUCCESS', bytes: 'SUCCESS', phase: 'VERIFYING' });
         const verifiedArchive = await JSZip.loadAsync(base64, { base64: true, checkCRC32: true });
         updateRdsVerification(tool, { crc: 'SUCCESS' });
-        const requiredFiles = ['Full_Report.txt', 'Errors.txt', 'Warnings.txt', 'Summary.txt', 'Metadata.txt'];
-        const archiveRoot = toolFolder + '/' + timeFolder + '/' + dateFolder + '/';
-        const missingFiles = requiredFiles.filter(name => !verifiedArchive.file(archiveRoot + name));
-        if (missingFiles.length) throw new Error('ZIP content verification failed · missing ' + missingFiles.join(', '));
+        const requiredFiles = getRequiredRdsZipFiles();
+        const archiveEntries = Object.values(verifiedArchive.files);
+        const nonDirectoryEntries = archiveEntries.filter(entry => !entry.dir);
+        const hasNestedEntries = archiveEntries.some(entry => entry.dir || entry.name.includes('/'));
+        const missingFiles = requiredFiles.filter(name => !verifiedArchive.file(name));
+        if (missingFiles.length || hasNestedEntries || nonDirectoryEntries.length !== requiredFiles.length) {
+          throw new Error('ZIP content verification failed · expected exactly five TXT files at archive root' + (missingFiles.length ? ' · missing ' + missingFiles.join(', ') : ''));
+        }
         updateRdsVerification(tool, { files: 'SUCCESS' });
-        await Promise.all(requiredFiles.map(name => {
-          const file = verifiedArchive.file(archiveRoot + name);
+        await Promise.all(requiredFiles.map(async name => {
+          const file = verifiedArchive.file(name);
           if (!file) throw new Error('ZIP read-back failed · missing ' + name);
-          return file.async('string');
+          const extractedText = await file.async('string');
+          if (extractedText !== exportFiles[name]) {
+            throw new Error('ZIP read-back content mismatch · ' + name);
+          }
+          return extractedText;
         }));
         updateRdsVerification(tool, { readback: 'SUCCESS' });
         setRdsExportPhase('passed');
