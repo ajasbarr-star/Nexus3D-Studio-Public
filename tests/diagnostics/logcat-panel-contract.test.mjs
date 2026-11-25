@@ -78,14 +78,16 @@ test('RDS Bottom Slider is rendered inside the command panel and stays anchored 
 test('RDS Bottom Slider uses manual pointer resizing without automatic height expansion', () => {
   assert.match(app, /const beginRdsPanelResize = \(event: React\.PointerEvent<HTMLButtonElement>, axis: 'width' \| 'height'\)/);
   assert.match(app, /window\.addEventListener\('pointermove', move, \{ passive: false \}\)/);
-  assert.match(app, /setRdsPanelHeight\(Math\.max\(180, Math\.min\(maxHeight, start\.height \+ start\.y - moveEvent\.clientY\)\)\)/);
+  assert.match(app, /const minHeight = Math\.min\(180, maxHeight\)/);\n  assert.match(app, /setRdsPanelHeight\(Math\.max\(minHeight, Math\.min\(maxHeight, start\.height \+ start\.y - moveEvent\.clientY\)\)\)/);
   assert.doesNotMatch(app, /rdsBottomSliderPosition|new ResizeObserver\(updatePosition\)/);
 });
 
-test('Bottom Slider is positioned inside the RDS panel while its top anchor stays fixed', () => {
+test('Bottom Slider overlaps the fixed bottom-center anchor and stays within landscape bounds', () => {
   const css = readFileSync(new URL('../../src/index.css', import.meta.url), 'utf8');
   assert.match(css, /\.rds-command-center \{ position:fixed; z-index:30; top:auto; bottom:18px;/);
   assert.match(css, /\.rds-bottom-slider \{[^}]*position:absolute; left:50%; bottom:-15px;/s);
   assert.doesNotMatch(css, /\.rds-bottom-slider \{[^}]*!important/s);
-  assert.match(css, /\.rds-command-content \{ padding-bottom:42px; \}/);\n  assert.match(css, /max-height:calc\(100dvh - 76px\)/);\n  assert.match(app, /window\.innerHeight - 76/);
+  assert.match(css, /\.rds-command-content \{ padding-bottom:42px; \}/);
+  assert.match(css, /max-height:calc\(100dvh - 76px\)/);
+  assert.match(app, /window\.innerHeight - 76/);
 });
