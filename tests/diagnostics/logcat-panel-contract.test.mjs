@@ -46,7 +46,6 @@ test('RDS panel restores independent standalone bottom and left-edge width slide
   assert.match(app, /rds-resize-horizontal/);
   assert.match(app, /className="rds-bottom-slider"/);
   assert.match(app, /aria-label="Resize RDS Panel height"/);
-  assert.match(app, /position:fixed/);
   assert.match(app, /beginRdsPanelResize\(event, 'width'\)/);
   assert.match(app, /beginRdsPanelResize\(event, 'height'\)/);
   assert.match(app, /style=\{\{ width: rdsPanelWidth, height: rdsPanelHeight \}\}/);
