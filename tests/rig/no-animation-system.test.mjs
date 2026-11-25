@@ -637,7 +637,7 @@ test('Alphabet State letter tap stays compact and ruler expansion preserves the 
 test('Alphabet State ruler endpoint labels reset inherited right positioning and remain centered on endpoint ticks', () => {
   const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
   assert.match(layout, /alphabet-state-ruler-labels span\{[\s\S]*?right:auto!important;bottom:auto!important;width:max-content!important/);
-  assert.match(app, /position:Math\.max\(0, Math\.min\(100, \(\(value - start\) \/ \(end - start\)\) \* 100\)\)/);
+  assert.match(app, /position:\s*Math\.max\(0, Math\.min\(100, \(\(value - start\) \/ \(end - start\)\) \* 100\)\)/);
 });
 
 test('Alphabet State 3D marker picking uses the active Animation Viewport camera', () => {
