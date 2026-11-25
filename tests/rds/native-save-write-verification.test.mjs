@@ -205,20 +205,30 @@ test('RDS ZIP progress reaches 100 only after native save verification resolves'
   const success = exportCode.indexOf('setRdsExportProgress(100);', verified);
   assert.ok(save >= 0 && verified > save && success > verified);
   assert.ok(exportCode.includes("setRdsExportPhase('failed')"));
+  assert.ok(exportCode.includes("setRdsExportPhase('verifying')"));
+  assert.ok(exportCode.includes("setRdsExportPhase('passed')"));
+  assert.ok(exportCode.includes('checkCRC32: true'));
+  assert.ok(exportCode.includes("'Full_Report.txt', 'Errors.txt', 'Warnings.txt', 'Summary.txt', 'Metadata.txt'"));
+  assert.ok(exportCode.includes("replace(/\\\\/g, '/').replace(/\\/+/g, '/').replace(/\\/+$/g, '')"));
   assert.ok(source.includes('rds-export-progress'));
 });
 
 
-test('RDS bottom resize handle remains visible, reachable, and above panel content', async () => {
-  const source = await readFile(new URL('../../src/index.css', import.meta.url), 'utf8');
-  const start = source.indexOf('.rds-resize-vertical {');
-  const end = source.indexOf('}', start);
-  const rule = source.slice(start, end);
-  assert.ok(rule.includes('bottom:max(8px'));
+test('RDS bottom slider is an independent fixed control outside the clipped panel', async () => {
+  const css = await readFile(new URL('../../src/index.css', import.meta.url), 'utf8');
+  const start = css.indexOf('.rds-bottom-slider {');
+  const end = css.indexOf('}', start);
+  const rule = css.slice(start, end);
+  assert.ok(rule.includes('position:fixed'));
   assert.ok(rule.includes('width:88px'));
   assert.ok(rule.includes('height:30px'));
-  assert.ok(rule.includes('z-index:13'));
-  assert.ok(rule.includes('pointer-events:auto'));
+  assert.ok(rule.includes('z-index:45'));
+  assert.ok(rule.includes('touch-action:none'));
+  const app = await readFile(appPath, 'utf8');
+  assert.ok(app.includes('className="rds-bottom-slider"'));
+  assert.ok(app.includes('rdsPanelHeight - 15'));
+  assert.ok(app.includes('start.height + start.y - moveEvent.clientY'));
+  assert.ok(!app.includes('className="rds-resize-handle rds-resize-vertical"'));
 });
 
 test('RDS width resize handle is on the left edge and dragging right reduces panel width', async () => {
