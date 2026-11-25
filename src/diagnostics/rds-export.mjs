@@ -39,6 +39,9 @@ export function formatInteractionHierarchy(entries = []) {
     if (entry.message === 'CAMERA_GESTURE_COMPLETE') group.cameraGesture = details;
     if (entry.message === 'CAMERA_UPDATE') group.cameraUpdate = details;
     if (entry.message === 'CAMERA_FIRST_RENDERED_FRAME') group.firstRenderedFrame = details;
+    if (entry.message === 'CAMERA_GESTURE_COMPLETE' || entry.message === 'CAMERA_UPDATE' || entry.message === 'CAMERA_FIRST_RENDERED_FRAME') {
+      group.timestamp = entry.timestampISO || entry.time || group.timestamp || 'UNKNOWN_TIME';
+    }
     if (entry.message === 'CONTROL_ACTIVATION' || entry.message === 'CONTROL_VALUE') {
       group.control = details;
       group.timestamp = entry.timestampISO || entry.time || group.timestamp || 'UNKNOWN_TIME';
