@@ -87,3 +87,23 @@ test('attached listeners are removed and controls emit correlated action records
   detach();
   assert.equal(listeners.size, 0);
 });
+
+test('concurrent touch pointers are both retained and classified as multi-touch', () => {
+  let clock = 0;
+  let sequence = 0;
+  const records = [];
+  const tracker = createInteractionTracker({ emit: item => records.push(item), now: () => clock, createId: () => 'multi-' + (++sequence) });
+  const target = targetNode({ 'data-rit-viewport': 'MainViewport' }, '');
+  tracker.begin({ pointerId: 11, pointerType: 'touch', clientX: 10, clientY: 10, target });
+  clock = 5;
+  tracker.begin({ pointerId: 12, pointerType: 'touch', clientX: 30, clientY: 10, target });
+  clock = 20;
+  tracker.move({ pointerId: 11, clientX: 5, clientY: 10 });
+  tracker.move({ pointerId: 12, clientX: 35, clientY: 10 });
+  clock = 60;
+  const first = tracker.finish({ pointerId: 11 });
+  const second = tracker.finish({ pointerId: 12 });
+  assert.equal(first.gesture, 'MULTI_TOUCH');
+  assert.equal(second.gesture, 'MULTI_TOUCH');
+  assert.equal(records.length, 2);
+});
