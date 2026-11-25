@@ -421,7 +421,7 @@ public class NexusProjectFilesPlugin extends Plugin {
                     // MediaStore providers may canonicalize RELATIVE_PATH by omitting
                     // the trailing slash. Compare normalized directory paths, not the
                     // provider's formatting, while still enforcing the exact folder.
-                    String normalizedActualPath = actualPath == null ? "" : actualPath.replace('\\\\', '/');
+                    String normalizedActualPath = actualPath == null ? "" : actualPath.replace('\\', '/');
                     if (!normalizedActualPath.endsWith("/")) normalizedActualPath += "/";
                     if (!fileName.equals(actualName) || !expectedPath.equals(normalizedActualPath)) {
                         throw new IllegalStateException("RDS ZIP destination verification failed: expected Documents/Nexus3D/" + fileName
