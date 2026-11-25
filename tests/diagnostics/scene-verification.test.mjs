@@ -47,7 +47,8 @@ test('compares 17 Directional Lights and one Cube between Scene Tree and MainVie
   assert.equal(snapshot.reconciliation.status, 'MATCH');
   assert.equal(snapshot.scenarioMatches, true);
   assert.equal(snapshot.records.length, 18);
-  assert.ok(snapshot.records.every(record => record.mainViewportPresent && record.visible));
+  assert.ok(snapshot.records.every(record => record.mainViewportPresent && record.visible && record.cameraLayerMatch === true));
+  assert.match(formatSceneVerificationReport(snapshot), /Viewport visibility and camera-layer verification: PASS/);
   assert.match(formatSceneVerificationReport(snapshot), /Reference Scenario Match: YES/);
   assert.match(formatSceneVerificationReport(snapshot), /DirectionalLight_17/);
 });
@@ -131,4 +132,22 @@ test('uses the selectable registry so internal editor helpers do not create fals
   assert.equal(expandedRegistry.reconciliation.status, 'MISMATCH');
   assert.equal(expandedRegistry.reconciliation.mainViewportOnlyCount, 1);
   assert.equal(expandedRegistry.mainViewportOnly[0].id, 'internal-helper');
+});
+
+
+test('matching Scene Tree counts do not pass when an expected object is hidden in MainViewport', () => {
+  const light = makeObject({ id: 'light-hidden', name: 'DirectionalLight_01', type: 'DirectionalLight', visible: false });
+  const cube = makeObject({ id: 'cube-1', name: 'Cube_01' });
+  const scene = makeScene([light, cube]);
+  const snapshot = buildSceneVerificationSnapshot({
+    treeItems: [light, cube].map(object => ({ id: object.userData.editorId, name: object.name, object })),
+    scene, camera,
+    testProfile: { name: '1 Directional Light + 1 Cube', expectedDirectionalLights: 1, expectedCubes: 1 },
+  });
+  assert.equal(snapshot.sceneTree.directionalLights, 1);
+  assert.equal(snapshot.mainViewport.directionalLights, 1);
+  assert.equal(snapshot.reconciliation.status, 'MATCH');
+  assert.equal(snapshot.records[0].renderStatus, 'NOT_VISIBLE');
+  assert.equal(snapshot.scenarioMatches, false);
+  assert.match(formatSceneVerificationReport(snapshot), /Viewport visibility and camera-layer verification: FAIL/);
 });
