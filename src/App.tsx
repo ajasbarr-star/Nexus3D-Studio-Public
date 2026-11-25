@@ -39,6 +39,7 @@ import { buildRdsZipFilename, createRdsZipArchive, getRequiredRdsZipFiles } from
 import { loadLogcatEntries, loadRitTraceEntries, saveLogcatEntries, saveRitTraceEntries, clearLogcatEntries, clearRitTraceEntries } from './diagnostics/independent-diagnostic-stores.mjs';
 import { buildRdsNoticeSection } from './diagnostics/rds-notice.mjs';
 import { createInteractionTracker } from './diagnostics/interaction-tracker.mjs';
+import { buildSceneVerificationSnapshot, buildSceneVerificationMetadata, formatSceneVerificationReport } from './diagnostics/scene-verification.mjs';
 import './index.css';
 
 function createProjectMaterial(data: any): THREE.Material {
@@ -454,7 +455,7 @@ export default function App() {
     let interactionId: string | undefined;
     try {
       const parsed = details ? JSON.parse(details) : null;
-      objectId = parsed?.objectId || parsed?.selectedId || parsed?.selectedObjectId || parsed?.target?.objectId;
+      objectId = parsed?.objectId || parsed?.selectedId || parsed?.selectedObjectId || parsed?.target?.objectId || parsed?.object?.id;
       interactionId = parsed?.interactionId;
     } catch { /* details may be plain text */ }
     const entry: DiagnosticEntry = {
@@ -547,6 +548,11 @@ export default function App() {
       const allLogs = [...diagnosticLogs, ...diagnosticQueueRef.current].slice(-400);
       const logcatEntries = getLogcatEntries();
       const ritEntries = getRitTraceEntries();
+      const currentSessionLogcatEntries = logcatEntries.filter(entry => entry.sessionId === RUNTIME_SESSION_ID);
+      const currentSessionRitEntries = ritEntries.filter(entry => entry.sessionId === RUNTIME_SESSION_ID);
+      const historicalLogcatEntriesExcluded = logcatEntries.length - currentSessionLogcatEntries.length;
+      const historicalRitEntriesExcluded = ritEntries.length - currentSessionRitEntries.length;
+      const sceneVerification = getSceneVerificationSnapshot();
       let entries: DiagnosticEntry[] = [];
       let fullReport = '';
       switch (tool) {
@@ -571,12 +577,22 @@ export default function App() {
           fullReport = formatDiagnosticReport(allLogs, { sessionId: RUNTIME_SESSION_ID });
           break;
         case 'LogCat':
-          entries = logcatEntries;
-          fullReport = formatDiagnosticReport(logcatEntries, { sessionId: RUNTIME_SESSION_ID });
+          entries = currentSessionLogcatEntries;
+          fullReport = [
+            formatSceneVerificationReport(sceneVerification),
+            'Historical LogCat entries excluded from this current-session export: ' + historicalLogcatEntriesExcluded,
+            '',
+            formatDiagnosticReport(currentSessionLogcatEntries, { sessionId: RUNTIME_SESSION_ID })
+          ].join('\\n');
           break;
         case 'RIT Trace':
-          entries = ritEntries;
-          fullReport = formatRuntimeTraceReport(ritEntries);
+          entries = currentSessionRitEntries;
+          fullReport = [
+            formatSceneVerificationReport(sceneVerification),
+            'Historical RIT-Trace entries excluded from this current-session export: ' + historicalRitEntriesExcluded,
+            '',
+            formatRuntimeTraceReport(currentSessionRitEntries, { sessionId: RUNTIME_SESSION_ID, startedAt: RUNTIME_SESSION_STARTED_AT })
+          ].join('\\n');
           break;
         case 'DFI Core':
           entries = allLogs.filter(entry => /DFI Core|DFI Investigation/i.test(entry.source));
@@ -623,7 +639,9 @@ export default function App() {
           generatedAt, app: 'Nexus3D', sessionId: RUNTIME_SESSION_ID,
           sessionStartedAt: RUNTIME_SESSION_STARTED_AT, platform: Capacitor.getPlatform(),
           nativeApp: Capacitor.isNativePlatform(), online: navigator.onLine,
-          userAgent: navigator.userAgent, eventCount: entries.length
+          userAgent: navigator.userAgent, eventCount: entries.length,
+          ...buildSceneVerificationMetadata(sceneVerification),
+          historicalLogcatEntriesExcluded, historicalRitEntriesExcluded
         }
       });
       // Store the five UTF-8 report files directly at the ZIP root; time/date belong only in the ZIP filename.
@@ -1493,8 +1511,10 @@ export default function App() {
       });
       visit(scene);
       selectable.forEach(o => { if (!ordered.includes(o)) ordered.push(o); });
-      setItems(ordered.map(o => ({ id: o.userData.editorId, name: o.userData.shapeId ? formatShapeIdentity(o.name, o.userData.shapeId) : o.name, object: o, kind: o.userData.kind || o.type })));
+      const nextItems = ordered.map(o => ({ id: o.userData.editorId, name: o.userData.shapeId ? formatShapeIdentity(o.name, o.userData.shapeId) : o.name, object: o, kind: o.userData.kind || o.type }));
+      setItems(nextItems);
       setObjectCount(selectable.length);
+      return nextItems;
     };
     syncItems();
     const addSceneLight = (type: 'Directional' | 'Point' | 'Spot' | 'Ambient' | 'Hemisphere') => {
@@ -1531,7 +1551,14 @@ export default function App() {
       scene.add(light);
       lightSources.push({ type: label, object: light, helper });
       selectable.push(light);
-      syncItems();
+      const sceneTreeItemsAfterCreate = syncItems();
+      const sceneTreePresent = sceneTreeItemsAfterCreate.some(item => item.object === light);
+      const mainViewportPresent = scene.getObjectById(light.id) === light;
+      recordInteractionTrace('SCENE_OBJECT_CREATE_RESULT', {
+        action: 'CREATE', object: { id: light.userData.editorId, name: light.name, kind: light.type },
+        verification: { sceneTreeList: sceneTreePresent ? 'PRESENT' : 'MISSING', mainViewportScene: mainViewportPresent ? 'PRESENT' : 'MISSING' },
+        status: sceneTreePresent && mainViewportPresent ? 'SUCCESS' : 'INCOMPLETE'
+      });
       selectObject(light);
       setStatus(light.name + ' added');
       return light;
@@ -2153,7 +2180,14 @@ export default function App() {
       scene.add(obj);
       selectable.push(obj);
       assignShapeOwnership(selectable);
-      syncItems();
+      const sceneTreeItemsAfterCreate = syncItems();
+      const sceneTreePresent = sceneTreeItemsAfterCreate.some(item => item.object === obj);
+      const mainViewportPresent = scene.getObjectById(obj.id) === obj;
+      recordInteractionTrace('SCENE_OBJECT_CREATE_RESULT', {
+        action: 'CREATE', object: { id: obj.userData.editorId, name: obj.name, kind: obj.userData.kind || obj.type },
+        verification: { sceneTreeList: sceneTreePresent ? 'PRESENT' : 'MISSING', mainViewportScene: mainViewportPresent ? 'PRESENT' : 'MISSING' },
+        status: sceneTreePresent && mainViewportPresent ? 'SUCCESS' : 'INCOMPLETE'
+      });
       selectObject(obj);
       recordSceneAction({ label: 'Create ' + obj.name, undo: () => { obj.parent?.remove(obj); const i = selectable.indexOf(obj); if (i >= 0) selectable.splice(i, 1); syncItems(); selectObject(); }, redo: () => { if (!obj.parent) scene.add(obj); if (!selectable.includes(obj)) selectable.push(obj); syncItems(); selectObject(obj); } });
       setStatus(obj.name + ' added');
@@ -6202,6 +6236,17 @@ export default function App() {
       setStatus('Source audit unavailable in this build');
     }
   };
+  const getSceneVerificationSnapshot = () => {
+    const rt = runtime.current;
+    return buildSceneVerificationSnapshot({
+      treeItems: items,
+      scene: rt?.scene,
+      renderer: rt?.renderer,
+      camera: rt?.activeCamera || rt?.camera,
+      frameDiagnostics: typeof rt?.getRenderDiagnostics === 'function' ? rt.getRenderDiagnostics() : null,
+    });
+  };
+
   const runRdsFullScan = () => {
     if (rdsScanBusy) return;
     setRdsScanBusy(true);
@@ -6214,6 +6259,7 @@ export default function App() {
       const heap = (performance as Performance & { memory?: { usedJSHeapSize?: number; jsHeapSizeLimit?: number } }).memory;
       const usedMB = heap?.usedJSHeapSize ? Math.round(heap.usedJSHeapSize / 1048576) : null;
       const info = renderer?.info;
+      const sceneVerification = getSceneVerificationSnapshot();
       const objects: THREE.Object3D[] = [];
       let lightCount = 0, shadowCasterCount = 0, visibleMeshCount = 0, invisibleMeshCount = 0;
       if (scene) scene.traverse(object => {
@@ -6245,6 +6291,7 @@ export default function App() {
       add('Viewport & Camera', rt?.camera && rt?.activeCamera && rt?.ikCamera ? 'PASS' : 'WARN', rt?.camera && rt?.activeCamera && rt?.ikCamera ? 'Main, active and IK cameras are registered.' : 'One or more camera references are unavailable.');
       add('Transform / Orbit Controls', rt?.transform && rt?.orbit && rt?.ikOrbit ? 'PASS' : 'WARN', rt?.transform && rt?.orbit && rt?.ikOrbit ? 'TransformControls and both orbit controllers are registered.' : 'A transform or orbit controller reference is unavailable.');
       add('Scene Tree Integrity', duplicateIds || invalidTransforms || missingGeometry || missingMaterial ? 'WARN' : 'PASS', `${objects.length} objects; duplicate editor IDs: ${duplicateIds}; invalid transforms: ${invalidTransforms}; meshes without geometry: ${missingGeometry}; meshes without material: ${missingMaterial}.`);
+      add('Scene Tree ↔ MainViewport Reconciliation', sceneVerification.reconciliation.status === 'MATCH' ? 'PASS' : sceneVerification.reconciliation.status === 'MISMATCH' ? 'ERROR' : 'WARN', formatSceneVerificationReport(sceneVerification));
       add('IK / Rig Inventory', skinnedMeshes || bones ? 'PASS' : 'WARN', `${skinnedMeshes} skinned mesh(es), ${bones} bone(s) currently in scene. No rig was modified.`);
       add('Modeling / Resource Inventory', info ? 'PASS' : 'WARN', `Geometries: ${info?.memory?.geometries ?? 'unavailable'}; textures: ${info?.memory?.textures ?? 'unavailable'}; draw calls: ${info?.render?.calls ?? 'unavailable'}; triangles: ${info?.render?.triangles ?? 'unavailable'}.`);
       const frameDiagnostics = typeof rt?.getRenderDiagnostics === 'function' ? rt.getRenderDiagnostics() : null;
