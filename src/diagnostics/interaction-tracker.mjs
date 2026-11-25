@@ -46,7 +46,7 @@ export function describeInteractionTarget(target) {
   const isViewport = Boolean(viewport);
   const isCanvasTarget = Boolean(target?.matches?.('canvas') || target?.closest?.('canvas'));
   const targetKind = isViewport
-    ? (isCanvasTarget && !tool && !panel && !objectId && !objectName ? 'BLANK_VIEWPORT' : 'VIEWPORT')
+    ? (!tool && !panel && !objectId && !objectName && !action && !label ? 'BLANK_VIEWPORT' : 'VIEWPORT')
     : (objectId || objectName ? 'OBJECT' : (tool || panel || action || label ? 'CONTROL' : 'UI'));
   if (isViewport) chain.push({ type: 'viewport', label: region, targetKind });
   return { tool, panel, action, objectId, objectName, label, region, targetKind, hierarchy: chain };
