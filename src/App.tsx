@@ -5437,15 +5437,34 @@ export default function App() {
     }
     return { start: workStart, end: workEnd };
   };
-  const getCustomRulerLabel = (index: number, labelCount: number) => {
+  const getCustomRulerTicks = (rulerWidth: number) => {
     const toSeconds = (value: number, unit: 's' | 'm') => Math.max(0, Number.isFinite(value) ? value : 0) * (unit === 'm' ? 60 : 1);
-    const startSeconds = toSeconds(customRulerStart, customRulerStartUnit);
-    const endSeconds = toSeconds(customRulerEnd, customRulerEndUnit);
-    const progress = Math.max(0, Math.min(1, index / Math.max(1, labelCount - 1)));
-    const valueSeconds = startSeconds + (endSeconds - startSeconds) * progress;
     const displayUnit = customRulerStartUnit === customRulerEndUnit ? customRulerStartUnit : 's';
-    const displayValue = displayUnit === 'm' ? valueSeconds / 60 : valueSeconds;
-    return String(Number(displayValue.toFixed(2))) + displayUnit;
+    const unitFactor = displayUnit === 'm' ? 60 : 1;
+    const start = toSeconds(customRulerStart, customRulerStartUnit) / unitFactor;
+    const end = toSeconds(customRulerEnd, customRulerEndUnit) / unitFactor;
+    const span = Math.abs(end - start);
+    if (span < 0.000001) {
+      return [{ value: start, position: 0, label: String(Number(start.toFixed(2))) + displayUnit }];
+    }
+    const maxIntervals = Math.max(2, Math.floor(Math.max(96, rulerWidth) / 34));
+    const rawStep = span / maxIntervals;
+    const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(rawStep, 0.000001))));
+    const normalized = rawStep / magnitude;
+    const niceStep = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude;
+    const step = span <= 10 ? (span < 1 ? Math.pow(10, Math.floor(Math.log10(span)) - 1) : 1) : niceStep;
+    const direction = end >= start ? 1 : -1;
+    const values: number[] = [start];
+    for (let value = start + step * direction; direction > 0 ? value < end - 0.000001 : value > end + 0.000001; value += step * direction) {
+      values.push(Number(value.toFixed(6)));
+      if (values.length >= 200) break;
+    }
+    if (Math.abs(values[values.length - 1] - end) > 0.000001) values.push(end);
+    return values.map(value => ({
+      value,
+      position: Math.max(0, Math.min(100, ((value - start) / (end - start)) * 100)),
+      label: String(Number(value.toFixed(2))) + displayUnit
+    }));
   };
   const activeSequenceState = sequenceStates.find(state => state.id === selectedSequenceState) || null;
   const activeSequenceRange = activeSequenceState ? getSequenceRange(activeSequenceState.id) : { start: workStart, end: workEnd };
@@ -8308,10 +8327,10 @@ export default function App() {
                    <div className={"alphabet-state-mini-ruler " + (selectedSequenceState === state.id ? "active" : "") + ((sequenceRulerDisplayWidths[state.id] || 360) > 96 ? " expanded" : " collapsed")} style={{width:(sequenceRulerDisplayWidths[state.id] || 360)+"px"}} aria-label={"State " + state.label + " keyframe timeline"}>
                      <span className="alphabet-state-frame-label">{Math.round(state.width)}f</span>
                      <div className="alphabet-state-ruler-scale" aria-label={"Frame ruler from "+getSequenceRange(state.id).start+" to "+getSequenceRange(state.id).end}>
-                       <div className="alphabet-state-ruler-labels">{Array.from({length:4},(_,index)=><span key={index} style={{left:(index/3*100)+"%"}}>{getCustomRulerLabel(index,4)}</span>)}</div>
+                       <div className="alphabet-state-ruler-labels">{getCustomRulerTicks(sequenceRulerDisplayWidths[state.id] || 360).map((tick,index)=><span key={index} style={{left:tick.position+"%"}}>{tick.label}</span>)}</div>
                        <div className="alphabet-state-ruler-ticks" aria-hidden="true">
                          {Array.from({length:Math.max(2,Math.round(state.width)+1)},(_,index)=><i key={"minor-"+index} className={index%5===0?"medium":"minor"} style={{left:(index/Math.max(1,Math.round(state.width))*100)+"%"}}/>)}
-                         {Array.from({length:4},(_,index)=><i key={"major-"+index} className="major" style={{left:(index/3*100)+"%"}}/>)}
+                         {getCustomRulerTicks(sequenceRulerDisplayWidths[state.id] || 360).map((tick,index)=><i key={"major-"+index} className="major" style={{left:tick.position+"%"}}/>)}
                        </div>
                      </div>
                      <div className="alphabet-state-mini-markers" aria-label="Keyframe markers">
