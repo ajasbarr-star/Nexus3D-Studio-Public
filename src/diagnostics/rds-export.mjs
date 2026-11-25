@@ -36,6 +36,9 @@ export function formatInteractionHierarchy(entries = []) {
       group.gesture = details;
       group.timestamp = entry.timestampISO || entry.time || group.timestamp || 'UNKNOWN_TIME';
     }
+    if (entry.message === 'CAMERA_GESTURE_COMPLETE') group.cameraGesture = details;
+    if (entry.message === 'CAMERA_UPDATE') group.cameraUpdate = details;
+    if (entry.message === 'CAMERA_FIRST_RENDERED_FRAME') group.firstRenderedFrame = details;
     if (entry.message === 'CONTROL_ACTIVATION' || entry.message === 'CONTROL_VALUE') {
       group.control = details;
       group.timestamp = entry.timestampISO || entry.time || group.timestamp || 'UNKNOWN_TIME';
@@ -53,7 +56,7 @@ export function formatInteractionHierarchy(entries = []) {
     const control = group.control;
     const target = control?.target || gesture?.target || {};
     const hierarchy = Array.isArray(target.hierarchy) ? target.hierarchy : [];
-    if (!gesture && !control && !group.result) continue;
+    if (!gesture && !control && !group.result && !group.cameraGesture && !group.cameraUpdate && !group.firstRenderedFrame) continue;
     lines.push('[' + (group.timestamp || group.resultTimestamp || 'UNKNOWN_TIME') + '] Interaction ID: ' + group.interactionId);
     if (gesture) {
       lines.push(
@@ -80,6 +83,30 @@ export function formatInteractionHierarchy(entries = []) {
         ' | Status: ' + String(control.status || 'UNKNOWN') +
         (control.valueType ? ' | Value type: ' + String(control.valueType) : '')
       );
+    }
+    const cameraGesture = group.cameraGesture;
+    const cameraUpdate = group.cameraUpdate;
+    const firstFrame = group.firstRenderedFrame;
+    if (cameraGesture || cameraUpdate || firstFrame) {
+      const cameraTarget = cameraUpdate || firstFrame || cameraGesture || {};
+      lines.push(
+        '   Camera gesture: ' + String(cameraTarget.gesture || cameraGesture?.gesture || 'UNKNOWN') +
+        ' | Viewport: ' + String(cameraTarget.viewport || cameraGesture?.viewport || 'UNKNOWN') +
+        ' | Status: ' + String(cameraGesture?.status || (firstFrame ? 'RENDERED' : cameraUpdate ? 'CAMERA_UPDATED' : 'UNKNOWN'))
+      );
+      if (cameraUpdate) lines.push(
+        '      Input to camera update: ' +
+        (Number.isFinite(cameraUpdate.inputToCameraUpdateMs) ? cameraUpdate.inputToCameraUpdateMs + ' ms' : 'NOT_MEASURED')
+      );
+      if (firstFrame) lines.push(
+        '      Input to first rendered frame: ' +
+        (Number.isFinite(firstFrame.inputToFirstRenderedFrameMs) ? firstFrame.inputToFirstRenderedFrameMs + ' ms' : 'NOT_MEASURED') +
+        ' | Camera update to rendered frame: ' +
+        (Number.isFinite(firstFrame.cameraUpdateToFirstRenderedFrameMs) ? firstFrame.cameraUpdateToFirstRenderedFrameMs + ' ms' : 'NOT_MEASURED')
+      );
+      if (cameraUpdate?.controller || firstFrame?.controller) {
+        lines.push('      Active controller: ' + String(cameraUpdate?.controller || firstFrame?.controller));
+      }
     }
     if (group.result?.object) {
       const object = group.result.object;
