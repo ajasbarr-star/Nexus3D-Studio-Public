@@ -178,7 +178,7 @@ test('Save button prevents overlapping project saves and reports its in-flight s
 test('RDS ZIP export writes to public Documents/Nexus3D and verifies bytes before success', async () => {
   const source = await readFile(nativePath, 'utf8');
   assert.ok(source.includes('public void saveRdsArchive(PluginCall call)'));
-  assert.ok(source.includes('Environment.DIRECTORY_DOCUMENTS + "/Nexus3D"'));
+  assert.ok(source.includes('Environment.DIRECTORY_DOCUMENTS + "/Nexus3D/"'));
   assert.ok(source.includes('MediaStore.MediaColumns.RELATIVE_PATH'));
   assert.ok(source.includes('Saved RDS ZIP could not be reopened for verification'));
   assert.ok(source.includes('RDS ZIP verification failed'));
@@ -208,11 +208,22 @@ test('RDS bottom resize handle remains visible, reachable, and above panel conte
   const start = source.indexOf('.rds-resize-vertical {');
   const end = source.indexOf('}', start);
   const rule = source.slice(start, end);
-  assert.ok(rule.includes('bottom: max(8px'));
+  assert.ok(rule.includes('bottom:max(8px'));
   assert.ok(rule.includes('width:88px'));
   assert.ok(rule.includes('height:30px'));
   assert.ok(rule.includes('z-index:12'));
   assert.ok(rule.includes('pointer-events:auto'));
+});
+
+test('RDS width resize handle is on the left edge and dragging right reduces panel width', async () => {
+  const source = await readFile(new URL('../../src/index.css', import.meta.url), 'utf8');
+  const start = source.indexOf('.rds-resize-horizontal {');
+  const end = source.indexOf('}', start);
+  const rule = source.slice(start, end);
+  assert.ok(rule.includes('left:0'));
+  assert.ok(rule.includes('right:auto'));
+  const app = await readFile(appPath, 'utf8');
+  assert.ok(app.includes('start.width + start.x - moveEvent.clientX'));
 });
 
 test('RDS ZIP percentage indicator has visible active, complete, and failure states', async () => {
