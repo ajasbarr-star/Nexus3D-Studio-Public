@@ -285,3 +285,13 @@ test('interactive controls without explicit action markers still record an activ
   assert.equal(described.action, 'ACTIVATE');
   assert.deepEqual(described.hierarchy.map(item => item.type), ['tool', 'panel', 'control', 'action']);
 });
+
+
+test('canvas interaction resolves the enclosing named viewport instead of a generic canvas region', () => {
+  const viewport = targetNode({ 'data-rit-viewport': 'MainViewport' }, '', null);
+  const canvas = targetNode({ '__tagName': 'CANVAS' }, '', viewport);
+  const described = describeInteractionTarget(canvas);
+  assert.equal(described.region, 'MainViewport');
+  assert.equal(described.targetKind, 'BLANK_VIEWPORT');
+  assert.equal(described.hierarchy.at(-1).label, 'MainViewport');
+});
