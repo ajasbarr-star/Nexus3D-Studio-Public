@@ -219,7 +219,7 @@ test('RDS ZIP progress reaches 100 only after native save verification resolves'
 });
 
 
-test('RDS bottom slider overlaps its bottom-center anchor and respects landscape screen bounds', async () => {
+test('RDS bottom slider follows its bottom edge while top stays anchored and drag direction matches the Leftside control', async () => {
   const css = await readFile(new URL('../../src/index.css', import.meta.url), 'utf8');
   const start = css.indexOf('.rds-bottom-slider {');
   const end = css.indexOf('}', start);
@@ -236,18 +236,19 @@ test('RDS bottom slider overlaps its bottom-center anchor and respects landscape
   const slider = app.indexOf('className="rds-bottom-slider"', panelStart);
   assert.ok(panelStart >= 0 && panelEnd > panelStart);
   assert.ok(slider > panelStart && slider < panelEnd, 'Bottom Slider must be a child of the RDS panel');
-  assert.ok(app.includes("beginRdsPanelResize(event, 'height')"));
-  assert.ok(app.includes('start.height + start.y - moveEvent.clientY'));
+  assert.ok(app.includes('beginRdsBottomResize(event)'));
+  assert.ok(app.includes('start.height + moveEvent.clientY - start.y'));
+  assert.ok(app.includes('beginRdsPanelWidthResize(event)'));
+  assert.ok(!app.includes('beginRdsPanelResize'));
+  assert.ok(!app.includes('rdsResizeRef'));
   assert.ok(!app.includes('rdsBottomSliderPosition'));
   assert.ok(!app.includes('new ResizeObserver(updatePosition)'));
   assert.ok(!css.includes('.rds-bottom-slider { position:absolute !important;'));
-  assert.ok(css.includes('.rds-command-center { position:fixed; z-index:30; top:auto; bottom:18px;'));
+  assert.ok(css.includes('.rds-command-center { position:fixed; z-index:30; top:55px; bottom:auto;'));
   assert.ok(css.includes('max-height:calc(100dvh - 76px)'));
   assert.ok(app.includes('window.innerHeight - 76'));
-  assert.ok(!app.includes("setRdsPanelHeight(") || app.includes("start.height + start.y - moveEvent.clientY"));
   assert.ok(!app.includes('className="rds-resize-handle rds-resize-vertical"'));
 });
-
 test('every RDS tool has its own persistent ZIP verification panel and read-back checks', async () => {
   const app = await readFile(appPath, 'utf8');
   const css = await readFile(new URL('../../src/index.css', import.meta.url), 'utf8');
