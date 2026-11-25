@@ -91,7 +91,9 @@ export function createCameraInteractionTracker({
     if (!session) return null;
     const endedAt = now();
     const distancePx = Math.round(Math.hypot(finite(event?.clientX) - point.startX, finite(event?.clientY) - point.startY));
-    if (!session.multiTouch && session.pointerType === 'touch' && pointers.size === 0 && distancePx < TAP_DISTANCE_PX && status !== 'cancelled') {
+    const pointerDurationMs = Math.max(0, endedAt - session.startedAt);
+    if (!session.multiTouch && session.pointerType === 'touch' && pointers.size === 0 &&
+        distancePx < TAP_DISTANCE_PX && pointerDurationMs < 550 && status !== 'cancelled') {
       const tap = { at: endedAt, x: finite(event?.clientX), y: finite(event?.clientY) };
       if (lastTouchTap && endedAt - lastTouchTap.at <= DOUBLE_TAP_WINDOW_MS &&
           Math.hypot(tap.x - lastTouchTap.x, tap.y - lastTouchTap.y) <= DOUBLE_TAP_DISTANCE_PX) {
@@ -111,7 +113,8 @@ export function createCameraInteractionTracker({
         completeGesture('CAMERA_UPDATED');
         if (session.firstRenderedAt !== null) session = null;
       }
-    } else if (session.pointerType === 'touch' && pointers.size === 0 && distancePx >= TAP_DISTANCE_PX) {
+    } else if (session.pointerType === 'touch' && pointers.size === 0 &&
+        (distancePx >= TAP_DISTANCE_PX || pointerDurationMs >= 550 || status === 'cancelled')) {
       lastTouchTap = null;
     }
     return true;
