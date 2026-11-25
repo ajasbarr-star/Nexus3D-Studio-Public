@@ -249,7 +249,7 @@ test('RDS LogCat and RIT Trace expose independent controls while preserving live
   assert.match(source, /Download ' \+ rdsActiveTool \+ ' report ZIP/);
   assert.match(source, /NexusProjectFiles\.saveRdsArchive/);
   assert.match(source, /rds-resize-horizontal/);
-  assert.match(source, /rds-resize-vertical/);
+  assert.match(source, /rds-bottom-slider/);
   assert.match(source, /aria-label="Copy LogCat report"/);
   assert.match(source, /aria-label="Clear LogCat"/);
   assert.match(source, /aria-label="Copy all RIT logs"/);
