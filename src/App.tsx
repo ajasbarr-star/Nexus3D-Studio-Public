@@ -8079,7 +8079,7 @@ export default function App() {
         </div>
         <button type="button" className="rds-resize-handle rds-resize-horizontal" aria-label="Resize RDS Panel width" title="Drag left or right to resize RDS Panel width" onPointerDown={event => beginRdsPanelResize(event, 'width')}><span/></button>
       </aside>}
-      {rdsPanelOpen && !cameraView && !animationMode && <button type="button" className="rds-bottom-slider" aria-label="Resize RDS Panel height" title="Drag up to increase panel height and down to reduce it" style={{ left: window.innerWidth - (window.innerWidth <= 570 ? 5 : 9) - (rdsPanelWidth / 2), top: (window.innerWidth <= 570 ? 55 : 58) + rdsPanelHeight - 15 }} onPointerDown={event => beginRdsPanelResize(event, 'height')}><span/><span className="rds-bottom-slider-grip"/></button>}
+      {rdsPanelOpen && !cameraView && !animationMode && <button type="button" className="rds-bottom-slider" aria-label="Resize RDS Panel height" title="Drag up to increase panel height and down to reduce it" style={{ left: window.innerWidth - (window.innerWidth <= 570 ? 5 : 9) - (rdsPanelWidth / 2), top: (window.innerHeight <= 420 ? 52 : window.innerWidth <= 570 ? 55 : 58) + rdsPanelHeight - 15 }} onPointerDown={event => beginRdsPanelResize(event, 'height')}><span/><span className="rds-bottom-slider-grip"/></button>}
 
       {geometryRitOpen && !cameraView && !animationMode && <aside className="geometry-rit-panel" role="dialog" aria-label="Independent Geometry RIT Results Report">
         <div className="geometry-rit-heading">
