@@ -391,7 +391,7 @@ export default function App() {
       moveEvent.preventDefault();
       if (axis === 'width') {
         const maxWidth = Math.max(280, Math.min(760, window.innerWidth - 18));
-        setRdsPanelWidth(Math.max(280, Math.min(maxWidth, start.width + moveEvent.clientX - start.x)));
+        setRdsPanelWidth(Math.max(280, Math.min(maxWidth, start.width + start.x - moveEvent.clientX)));
       } else {
         const maxHeight = Math.max(180, window.innerHeight - 78);
         setRdsPanelHeight(Math.max(180, Math.min(maxHeight, start.height + moveEvent.clientY - start.y)));
