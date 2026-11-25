@@ -57,7 +57,7 @@ export function createCameraInteractionTracker({
   }
 
   function onPointerDown(event, viewport) {
-    const point = { x: finite(event?.clientX), y: finite(event?.clientY), pointerType: event?.pointerType || 'unknown' };
+    const point = { startX: finite(event?.clientX), startY: finite(event?.clientY), x: finite(event?.clientX), y: finite(event?.clientY), pointerType: event?.pointerType || 'unknown' };
     pointers.set(event?.pointerId ?? 0, point);
     const current = ensurePointerSession(event, viewport);
     if (pointers.size > 1) current.gesture = 'PINCH';
@@ -80,7 +80,7 @@ export function createCameraInteractionTracker({
     pointers.delete(pointerId);
     if (!session) return null;
     const endedAt = now();
-    const distancePx = Math.round(Math.hypot(finite(event?.clientX) - point.x, finite(event?.clientY) - point.y));
+    const distancePx = Math.round(Math.hypot(finite(event?.clientX) - point.startX, finite(event?.clientY) - point.startY));
     if (session.pointerType === 'touch' && pointers.size === 0 && distancePx < TAP_DISTANCE_PX && status !== 'cancelled') {
       const tap = { at: endedAt, x: finite(event?.clientX), y: finite(event?.clientY) };
       if (lastTouchTap && endedAt - lastTouchTap.at <= DOUBLE_TAP_WINDOW_MS &&
