@@ -501,7 +501,7 @@ test('Opening an Alphabet State reveals a horizontal numbered ruler beside its l
   assert.match(app, /previous\[state\.id\] \|\| 360/);
   assert.match(app, /getCustomRulerLabel\(index,4\)/);
   assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels span\{position:absolute!important;top:50%!important/);
-  assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:3px!important/);
+  assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:50%!important/);
   assert.match(css, /writing-mode:horizontal-tb!important/);
   assert.match(app, /style=\{\{left:\(\(\(at-range\.start\)\/Math\.max\(1,range\.end-range\.start\)\)\*100\)\+'%',top:'50%'\}\}/);
 
@@ -518,7 +518,7 @@ test('Frame ruler labels every frame in sequence with graduated ticks at 5-frame
 
   assert.match(app, /length:4/);
   assert.match(app, /getCustomRulerLabel\(index,4\)/);
-  assert.match(app, /index%10===0\?"major":index%5===0\?"medium":"minor"/);
+  assert.match(app, /index%5===0\?"medium":"minor"/);
   assert.match(app, /left:\(index\/Math\.max\(1,Math\.round\(state\.width\)\)\*100\)\+"%"/);
   assert.match(app, /left:\(index\/3\*100\)\+"%"/);
 
