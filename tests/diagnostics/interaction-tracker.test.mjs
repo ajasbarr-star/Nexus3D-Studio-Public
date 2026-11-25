@@ -245,3 +245,21 @@ test('disabled controls are recorded as disabled rather than normal activations'
   assert.equal(records[0].status, 'DISABLED');
   assert.equal(records[0].event, 'CONTROL_ACTIVATION');
 });
+
+
+test('RIT resolves tool, section, explicit control, action and object hierarchy aliases', () => {
+  const tool = targetNode({ 'data-tool-id': 'Import Export' }, '', null);
+  const panel = targetNode({ 'data-rit-section': 'Project Files' }, '', tool);
+  const control = targetNode({
+    'data-rit-control': 'Load Project ZIP',
+    'data-rit-action': 'IMPORT',
+    'data-object-id': 'project-01'
+  }, '', panel);
+  const described = describeInteractionTarget(control);
+  assert.equal(described.tool, 'Import Export');
+  assert.equal(described.panel, 'Project Files');
+  assert.deepEqual(described.hierarchy.map(item => item.type), ['tool', 'panel', 'control', 'action', 'object']);
+  assert.equal(described.hierarchy[2].label, 'Load Project ZIP');
+  assert.equal(described.hierarchy[3].label, 'IMPORT');
+  assert.equal(described.objectId, 'project-01');
+});
