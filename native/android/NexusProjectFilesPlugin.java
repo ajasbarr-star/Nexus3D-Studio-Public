@@ -5,6 +5,10 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.content.Context;
+import android.content.ContentValues;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.MediaStore;
 import java.io.ByteArrayOutputStream;
 import java.io.BufferedWriter;
 import java.io.InputStream;
@@ -345,6 +349,82 @@ public class NexusProjectFilesPlugin extends Plugin {
                 + expected.length + " bytes but read back " + verifiedBytes);
         }
         return verifiedBytes;
+    }
+
+    /**
+     * Saves an RDS ZIP directly into the public Documents/Nexus3D folder on
+     * Android 10+ using MediaStore scoped-storage APIs, then reads it back
+     * byte-for-byte before resolving success to the web layer.
+     */
+    @PluginMethod
+    public void saveRdsArchive(PluginCall call) {
+        String fileName = call.getString("fileName", "");
+        String base64 = call.getString("base64", "");
+        if (fileName == null || !fileName.matches("[A-Za-z0-9_-]+_[0-9]{1,2}:[0-9]{2}(am|pm)_[0-9]{2}-[0-9]{2}-[0-9]{4}\\.zip")) {
+            call.reject("Invalid RDS ZIP filename");
+            return;
+        }
+        if (base64 == null || base64.trim().isEmpty()) {
+            call.reject("RDS ZIP archive is empty");
+            return;
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            call.reject("Direct Documents/Nexus3D ZIP saving requires Android 10 or newer");
+            return;
+        }
+        projectIo.execute(() -> {
+            Uri uri = null;
+            try {
+                byte[] expected = android.util.Base64.decode(base64, android.util.Base64.DEFAULT);
+                if (expected.length == 0) throw new IllegalArgumentException("RDS ZIP archive is empty");
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+                values.put(MediaStore.MediaColumns.MIME_TYPE, "application/zip");
+                values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS + "/Nexus3D");
+                values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+                uri = getContext().getContentResolver().insert(
+                    MediaStore.Files.getContentUri("external"), values);
+                if (uri == null) throw new IllegalStateException("Android could not create Documents/Nexus3D ZIP destination");
+                try (OutputStream output = getContext().getContentResolver().openOutputStream(uri, "w")) {
+                    if (output == null) throw new IllegalStateException("Unable to open Documents/Nexus3D ZIP destination");
+                    output.write(expected);
+                    output.flush();
+                }
+                long verifiedBytes = 0L;
+                try (InputStream input = getContext().getContentResolver().openInputStream(uri)) {
+                    if (input == null) throw new IllegalStateException("Saved RDS ZIP could not be reopened for verification");
+                    byte[] buffer = new byte[16384];
+                    int count;
+                    while ((count = input.read(buffer)) != -1) {
+                        for (int i = 0; i < count; i++) {
+                            if (verifiedBytes >= expected.length || buffer[i] != expected[(int) verifiedBytes]) {
+                                throw new IllegalStateException("RDS ZIP verification failed: saved bytes do not match");
+                            }
+                            verifiedBytes++;
+                        }
+                    }
+                }
+                if (verifiedBytes != expected.length || verifiedBytes == 0L) {
+                    throw new IllegalStateException("RDS ZIP verification failed: expected " + expected.length + " bytes but read " + verifiedBytes);
+                }
+                ContentValues publish = new ContentValues();
+                publish.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                if (getContext().getContentResolver().update(uri, publish, null, null) != 1) {
+                    throw new IllegalStateException("RDS ZIP was written but could not be published in Documents/Nexus3D");
+                }
+                JSObject response = new JSObject();
+                response.put("uri", uri.toString());
+                response.put("name", fileName);
+                response.put("writtenBytes", verifiedBytes);
+                response.put("path", "Documents/Nexus3D/" + fileName);
+                call.resolve(response);
+            } catch (Exception error) {
+                if (uri != null) {
+                    try { getContext().getContentResolver().delete(uri, null, null); } catch (Exception ignored) { }
+                }
+                call.reject("Unable to save and verify RDS ZIP in Documents/Nexus3D: " + error.getMessage(), error);
+            }
+        });
     }
 
     @PluginMethod
