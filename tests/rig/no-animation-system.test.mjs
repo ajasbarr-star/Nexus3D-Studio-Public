@@ -304,14 +304,14 @@ test('Alphabet State strip uses native horizontal swipe and the enlarged 58px ke
 
 test('Selected Alphabet State marker gets a distinct highlight in the Animation workspace', () => {
 
-  assert.equal((app.match(/setSelectedAlphabetStateMarker\\?\\.\\(stateId\\)/g) || []).length, 1);
-  assert.match(app, /setSelectedAlphabetStateMarker, syncViewportControls/);
-  assert.match(app, /markerCanvas=canvas/);
-  assert.match(app, /markerTexture=texture/);
-  assert.match(app, /strokeStyle = selected \\? '#ffe45c' : '#43dfff'/);
-  assert.match(app, /fillStyle = selected \\? '#fff4a6' : '#e8fbff'/);
-  assert.match(app, /selected \\? 1\\.68 : 1\\.55/);
-  assert.match(app, /setSelectedAlphabetStateMarker\\?\\.\\(selected3DAlphabetMarkerId\\)/);
+  assert.equal(app.split('setSelectedAlphabetStateMarker?.(stateId)').length - 1, 1);
+  assert.ok(app.includes('setSelectedAlphabetStateMarker, syncViewportControls'));
+  assert.ok(app.includes('markerCanvas=canvas'));
+  assert.ok(app.includes('markerTexture=texture'));
+  assert.ok(app.includes("strokeStyle = selected ? '#ffe45c' : '#43dfff'"));
+  assert.ok(app.includes("fillStyle = selected ? '#fff4a6' : '#e8fbff'"));
+  assert.ok(app.includes('selected ? 1.68 : 1.55'));
+  assert.ok(app.includes('setSelectedAlphabetStateMarker?.(selected3DAlphabetMarkerId)'));
 });
 
 test('Alphabet State 3D markers select their owning object and attach the shared transform gizmo', () => {
@@ -356,7 +356,7 @@ test('Timeline State selection and 3D marker highlighting are independent', () =
   assert.ok(!selector.includes('setSelected3DAlphabetMarkerId'));
   assert.ok(app.includes("const [selected3DAlphabetMarkerId, setSelected3DAlphabetMarkerId] = useState('')"));
   assert.ok(app.includes('setSelectedAlphabetStateMarker?.(selected3DAlphabetMarkerId)'));
-  assert.equal((app.match(/setSelected3DAlphabetMarkerId\\(stateId\\)/g) || []).length, 1);
+  assert.equal(app.split('setSelected3DAlphabetMarkerId(stateId)').length - 1, 1);
 });
 
 test('Dope Sheet and Graph open as floating panels above the State ruler', () => {
@@ -605,15 +605,16 @@ test('Timeline ruler labels and four major ticks share the exact same responsive
 
 test('Keyframe diamonds align with the ruler center labels while the scrubber remains in its own touch lane', () => {
 
-  assert.match(app, /className="alphabet-state-mini-markers" aria-label="Keyframe markers"/);
-  assert.match(app, /className=\\{"alphabet-state-keyframe-marker "/);
-  assert.match(app, /className="alphabet-state-scrubber"/);
-  assert.match(app, /onPointerDown=\\{event=>event\\.stopPropagation\\(\\)\\} onClick=\\{event=>\\{event\\.stopPropagation\\(\\);setSelectedKeyframe/);
+  assert.ok(app.includes('className="alphabet-state-mini-markers" aria-label="Keyframe markers"'));
+  assert.ok(app.includes('className={"alphabet-state-keyframe-marker "'));
+  assert.ok(app.includes('className="alphabet-state-scrubber"'));
+  assert.ok(app.includes('onPointerDown={event=>event.stopPropagation()} onClick={event=>{event.stopPropagation();setSelectedKeyframe'));
   const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
-  assert.match(layout, /\\.alphabet-state-mini-markers\\{position:absolute!important;z-index:4!important;top:2px!important;left:5px!important;right:5px!important;bottom:auto!important;width:auto!important;height:23px!important/);
-  assert.match(layout, /\\.alphabet-state-mini-markers \\.alphabet-state-keyframe-marker\\{[\\s\\S]*?border:1px solid #ff4fb8!important/);
-  assert.match(layout, /\\.alphabet-state-ruler-scale\\{position:absolute!important;z-index:2!important;top:2px!important;left:12px!important;right:12px!important/);
-  assert.match(layout, /\\.alphabet-state-scrubber\\{position:absolute!important;z-index:1!important;top:45px!important/);
+  assert.ok(layout.includes('.alphabet-state-mini-markers{position:absolute!important;z-index:4!important;top:2px!important;left:5px!important;right:5px!important;bottom:auto!important;width:auto!important;height:23px!important'));
+  assert.ok(layout.includes('.alphabet-state-mini-markers .alphabet-state-keyframe-marker{'));
+  assert.ok(layout.includes('border:1px solid #ff4fb8!important'));
+  assert.ok(layout.includes('.alphabet-state-ruler-scale{position:absolute!important;z-index:2!important;top:2px!important;left:12px!important;right:12px!important'));
+  assert.ok(layout.includes('.alphabet-state-scrubber{position:absolute!important;z-index:1!important;top:45px!important'));
 });
 
 test('Dragging the scrubber only changes the current frame and cannot create keyframes', () => {
