@@ -384,7 +384,6 @@ export default function App() {
   const [rdsVerificationByTool, setRdsVerificationByTool] = useState<Record<string, Record<string, string>>>({});
   const updateRdsVerification = (tool: string, patch: Record<string, string>) => setRdsVerificationByTool(current => ({ ...current, [tool]: { ...(current[tool] || {}), ...patch } }));
   const rdsPanelElementRef = useRef<HTMLElement | null>(null);
-  const [rdsBottomSliderPosition, setRdsBottomSliderPosition] = useState({ left: 0, top: 0 });
   const rdsResizeRef = useRef<{ axis: 'width' | 'height'; x: number; y: number; width: number; height: number; pointerId: number } | null>(null);
   const beginRdsPanelResize = (event: React.PointerEvent<HTMLButtonElement>, axis: 'width' | 'height') => {
     event.preventDefault();
@@ -413,21 +412,6 @@ export default function App() {
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);
   };
-  useEffect(() => {
-    if (!rdsPanelOpen) return;
-    const panel = rdsPanelElementRef.current;
-    if (!panel) return;
-    const updatePosition = () => {
-      const rect = panel.getBoundingClientRect();
-      const next = { left: Math.round(rect.left + rect.width / 2), top: Math.round(rect.bottom - 15) };
-      setRdsBottomSliderPosition(current => current.left === next.left && current.top === next.top ? current : next);
-    };
-    updatePosition();
-    window.addEventListener('resize', updatePosition, { passive: true });
-    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updatePosition) : null;
-    observer?.observe(panel);
-    return () => { window.removeEventListener('resize', updatePosition); observer?.disconnect(); };
-  }, [rdsPanelOpen, rdsPanelWidth, rdsPanelHeight]);
   const [interactionTraceOpen, setInteractionTraceOpen] = useState(false);
   const diagnosticSinkRef = useRef<(level: DiagnosticEntry['level'], source: string, message: string, details?: string) => void>(() => {});
   const diagnosticQueueRef = useRef<DiagnosticEntry[]>([]);
@@ -8124,8 +8108,8 @@ export default function App() {
           </main>
         </div>
         <button type="button" className="rds-resize-handle rds-resize-horizontal" aria-label="Resize RDS Panel width" title="Drag left or right to resize RDS Panel width" onPointerDown={event => beginRdsPanelResize(event, 'width')}><span/></button>
+        <button type="button" className="rds-bottom-slider" aria-label="Resize RDS Panel height" title="Drag up to increase panel height and down to reduce it" onPointerDown={event => beginRdsPanelResize(event, 'height')}><span/><span className="rds-bottom-slider-grip"/></button>
       </aside>}
-      {rdsPanelOpen && !cameraView && !animationMode && rdsBottomSliderPosition.left > 0 && <button type="button" className="rds-bottom-slider" aria-label="Resize RDS Panel height" title="Drag up to increase panel height and down to reduce it" style={{ left: rdsBottomSliderPosition.left, top: rdsBottomSliderPosition.top }} onPointerDown={event => beginRdsPanelResize(event, 'height')}><span/><span className="rds-bottom-slider-grip"/></button>}
 
       {geometryRitOpen && !cameraView && !animationMode && <aside className="geometry-rit-panel" role="dialog" aria-label="Independent Geometry RIT Results Report">
         <div className="geometry-rit-heading">

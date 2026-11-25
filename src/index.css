@@ -2685,7 +2685,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .rds-resize-horizontal { left:0; right:auto; top:50%; width:26px; height:76px; transform:translateY(-50%); cursor:ew-resize; z-index:13; }
 .rds-resize-horizontal span { width:4px; height:32px; border-left:1px solid currentColor; border-right:1px solid currentColor; }
 .rds-bottom-slider {
-  position:fixed; z-index:45; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  position:absolute; left:50%; bottom:0; z-index:14; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
   width:88px; height:30px; min-width:88px; min-height:30px; padding:0;
   transform:translateX(-50%); cursor:ns-resize; touch-action:none; pointer-events:auto;
   border:1px solid #4c91a8; border-radius:9px; background:rgba(18,43,59,.98); color:#a9efff;
@@ -2713,7 +2713,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .rds-verification-state.state-saving,.rds-verification-state.state-verifying,.rds-verification-state.state-pending { color:#8bdaf0; }
 .rds-verification-state.state-download-started { color:#a9dff0; }
 .rds-verification-error { margin-top:6px; padding:5px 6px; border:1px solid #82444d; border-radius:4px; background:rgba(72,25,34,.42); color:#ffb1b7; font:7px/1.4 'DM Mono',monospace; overflow-wrap:anywhere; }
-.rds-bottom-slider { position:fixed !important; z-index:80 !important; display:flex !important; visibility:visible !important; opacity:1 !important; pointer-events:auto !important; }
+.rds-bottom-slider { position:absolute !important; left:50% !important; bottom:0 !important; z-index:14 !important; display:flex !important; visibility:visible !important; opacity:1 !important; pointer-events:auto !important; }
 @media (max-width:370px) { .rds-verification-grid { grid-template-columns:minmax(0,1fr); } }
 
 .rds-export-progress {
@@ -3371,3 +3371,6 @@ button:active { box-shadow:0 0 11px #22cfff44; }
  .alphabet-state-mini-ruler:not(.collapsed) .alphabet-state-scrubber{top:38px!important;height:7px!important}
  .alphabet-state-item .alphabet-state-handle,.alphabet-state-panel .alphabet-state-add{height:42px!important;min-height:42px!important}
 }
+
+/* Keep the scrollable RDS workspace clear of its in-panel bottom-edge resize grip. */
+.rds-command-content { padding-bottom:42px; }

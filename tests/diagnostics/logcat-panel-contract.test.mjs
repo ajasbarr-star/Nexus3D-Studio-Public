@@ -63,3 +63,29 @@ test('LogCat captures long tasks and slow-frame samples without a new requestAni
   assert.match(app, /'Frame Monitor', 'Slow frame\(s\) detected'/);
   assert.match(app, /slowFrameObserver\?\.disconnect\(\)/);
 });
+
+
+test('RDS Bottom Slider is rendered inside the command panel and stays anchored to its bottom edge', () => {
+  const panelStart = app.indexOf('<aside ref={rdsPanelElementRef}');
+  const panelEnd = app.indexOf('</aside>}', panelStart);
+  const slider = app.indexOf('className="rds-bottom-slider"', panelStart);
+  assert.ok(panelStart >= 0 && panelEnd > panelStart, 'RDS panel boundaries must exist');
+  assert.ok(slider > panelStart && slider < panelEnd, 'Bottom Slider must be a child of the RDS panel');
+  assert.doesNotMatch(app.slice(panelEnd), /className="rds-bottom-slider"/, 'Bottom Slider must not render outside the panel');
+  assert.match(app, /onPointerDown=\{event => beginRdsPanelResize\(event, 'height'\)\}/);
+});
+
+test('RDS Bottom Slider uses manual pointer resizing without automatic height expansion', () => {
+  assert.match(app, /const beginRdsPanelResize = \(event: React\.PointerEvent<HTMLButtonElement>, axis: 'width' \| 'height'\)/);
+  assert.match(app, /window\.addEventListener\('pointermove', move, \{ passive: false \}\)/);
+  assert.match(app, /setRdsPanelHeight\(Math\.max\(180, Math\.min\(maxHeight, start\.height \+ start\.y - moveEvent\.clientY\)\)\)/);
+  assert.doesNotMatch(app, /rdsBottomSliderPosition|new ResizeObserver\(updatePosition\)/);
+});
+
+test('Bottom Slider is positioned inside the RDS panel while its top anchor stays fixed', () => {
+  const css = readFileSync(new URL('../../src/index.css', import.meta.url), 'utf8');
+  assert.match(css, /\.rds-command-center \{ position:fixed; z-index:30; top:58px;/);
+  assert.match(css, /\.rds-bottom-slider \{[^}]*position:absolute; left:50%; bottom:0;/s);
+  assert.match(css, /\.rds-bottom-slider \{ position:absolute !important; left:50% !important; bottom:0 !important;/);
+  assert.match(css, /\.rds-command-content \{ padding-bottom:42px; \}/);
+});
