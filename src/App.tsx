@@ -8651,10 +8651,10 @@ export default function App() {
 
 
 
-      <div className="right-rail">
-        <button className={'rail-btn ' + (cameraView ? 'active' : '')} onClick={toggleCamera} title={cameraView ? 'Return to User View' : 'Directly view through MainCamera'}><Camera size={17} /><span>{cameraView ? 'USER' : 'CAM'}</span></button>
+      <div className="right-rail" data-rit-tool="Viewport Modes" data-rit-panel="Camera and IK Controls">
+        <button data-rit-tool="Camera" data-rit-action="TOGGLE_CAMERA_VIEW" className={'rail-btn ' + (cameraView ? 'active' : '')} onClick={toggleCamera} title={cameraView ? 'Return to User View' : 'Directly view through MainCamera'}><Camera size={17} /><span>{cameraView ? 'USER' : 'CAM'}</span></button>
         
-        <button className={'rail-btn rig-rail-btn ' + (riggingView ? 'active' : '')} onClick={toggleRiggingWorkspace} title={riggingView ? 'Return to User Workspace' : 'Switch to IK Rigging Workspace · Front Perspective'} aria-label="Rigging workspace"><GitBranch size={17}/><span>{riggingView ? 'USER' : 'RIG'}</span></button>
+        <button data-rit-tool="IK Rigging" data-rit-action="TOGGLE_IK_VIEW" className={'rail-btn rig-rail-btn ' + (riggingView ? 'active' : '')} onClick={toggleRiggingWorkspace} title={riggingView ? 'Return to User Workspace' : 'Switch to IK Rigging Workspace · Front Perspective'} aria-label="Rigging workspace"><GitBranch size={17}/><span>{riggingView ? 'USER' : 'RIG'}</span></button>
         <button className={'rail-btn animation-rail-btn ' + (animationMode ? 'active' : '')} onClick={toggleAnimationWorkspace} title="Open Animation Workspace" aria-label="Open Animation Workspace"><Film size={17}/><span>ANIM</span></button>
       </div>
 
