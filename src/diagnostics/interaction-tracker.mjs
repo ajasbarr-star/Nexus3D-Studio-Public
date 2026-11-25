@@ -30,13 +30,14 @@ export function describeInteractionTarget(target) {
   const action = closestValue(target, '[data-rit-action]', 'data-rit-action');
   const objectId = closestValue(target, '[data-object-id], [data-shape-id]', 'data-object-id') ||
     closestValue(target, '[data-shape-id]', 'data-shape-id');
+  const objectName = closestValue(target, '[data-object-name]', 'data-object-name');
   const chain = [];
   if (tool) chain.push({ type: 'tool', label: tool });
   if (panel) chain.push({ type: 'panel', label: panel });
   const label = nodeLabel(target);
   if (label) chain.push({ type: 'control', label });
   if (action) chain.push({ type: 'action', label: action });
-  if (objectId) chain.push({ type: 'object', id: objectId });
+  if (objectName || objectId) chain.push({ type: 'object', ...(objectId ? { id: objectId } : {}), ...(objectName ? { label: objectName } : {}) });
   const viewport = target?.closest?.('[data-rit-viewport], canvas, .main-viewport, .ik-viewport');
   const region = viewport ? clean(viewport.getAttribute?.('data-rit-viewport') || viewport.className?.baseVal || viewport.className || 'VIEWPORT') : 'UI';
   return { tool, panel, action, objectId, label, region, hierarchy: chain };
