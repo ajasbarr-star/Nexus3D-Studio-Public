@@ -40,6 +40,7 @@ import { loadLogcatEntries, loadRitTraceEntries, saveLogcatEntries, saveRitTrace
 import { buildRdsNoticeSection } from './diagnostics/rds-notice.mjs';
 import { createInteractionTracker } from './diagnostics/interaction-tracker.mjs';
 import { createCameraInteractionTracker } from './diagnostics/camera-interaction-tracker.mjs';
+import { attachShaderErrorCapture, collectWebGLDiagnostics, formatMaterialTextureAnalysis, formatShadowMapAnalysis, formatWebGLDiagnostics } from './diagnostics/webgl-runtime-diagnostics.mjs';
 import { buildSceneVerificationSnapshot, buildSceneVerificationMetadata, formatSceneVerificationReport } from './diagnostics/scene-verification.mjs';
 import './index.css';
 
@@ -621,6 +622,18 @@ export default function App() {
           entries = allLogs.filter(entry => /Source Audit|RDS Source Audit/i.test(entry.source));
           fullReport = rdsSourceAuditReport;
           break;
+        case 'WebGL / Shader':
+          entries = allLogs.filter(entry => /WebGL Shader/i.test(entry.source));
+          fullReport = rdsWebglReport;
+          break;
+        case 'Shadow Maps':
+          entries = allLogs.filter(entry => /Shadow Map/i.test(entry.source));
+          fullReport = rdsShadowReport;
+          break;
+        case 'Materials & Textures':
+          entries = allLogs.filter(entry => /Material Texture/i.test(entry.source));
+          fullReport = rdsMaterialReport;
+          break;
         case 'Reports':
           entries = allLogs;
           fullReport = [
@@ -740,6 +753,13 @@ export default function App() {
   const [rdsScanSummary, setRdsScanSummary] = useState({ checks: 0, passed: 0, warnings: 0, errors: 0 });
   const [rdsLastScanAt, setRdsLastScanAt] = useState('');
   const [rdsSourceAuditReport, setRdsSourceAuditReport] = useState('Build-time source audit has not been loaded yet.');
+  const [rdsWebglCaptureEnabled, setRdsWebglCaptureEnabled] = useState(false);
+  const [rdsWebglShaderErrors, setRdsWebglShaderErrors] = useState<Array<{ message: string; details: string; timestamp: string }>>([]);
+  const [rdsWebglSnapshot, setRdsWebglSnapshot] = useState<any>(null);
+  const [rdsWebglReport, setRdsWebglReport] = useState('Run WebGL / Shader Analysis to inspect the current renderer.');
+  const [rdsShadowReport, setRdsShadowReport] = useState('Run Shadow Map Analysis to inspect visible shadow-casting lights.');
+  const [rdsMaterialReport, setRdsMaterialReport] = useState('Run Material & Texture Analysis to inspect visible material texture slots.');
+  const rdsShaderCaptureCleanupRef = useRef<(() => void) | null>(null);
   const [dfiPanelOpen, setDfiPanelOpen] = useState(false);
   const [dfiBusy, setDfiBusy] = useState(false);
   const [dfiReport, setDfiReport] = useState('No DFI investigation has been run yet.');
@@ -6287,6 +6307,55 @@ export default function App() {
     });
   };
 
+  const runRdsWebGLAnalysis = () => {
+    try {
+      const snapshot = collectWebGLDiagnostics({ renderer: runtime.current?.renderer, scene: runtime.current?.scene, shaderErrors: rdsWebglShaderErrors });
+      setRdsWebglSnapshot(snapshot);
+      const webglReport = formatWebGLDiagnostics(snapshot);
+      const shadowReport = formatShadowMapAnalysis(snapshot);
+      const materialReport = formatMaterialTextureAnalysis(snapshot);
+      setRdsWebglReport(webglReport);
+      setRdsShadowReport(shadowReport);
+      setRdsMaterialReport(materialReport);
+      diagnosticSinkRef.current('INFO', 'WebGL Diagnostics', 'WebGL / shader inventory completed', webglReport);
+      diagnosticSinkRef.current('INFO', 'Shadow Map Analysis', 'Shadow-caster inventory completed', shadowReport);
+      diagnosticSinkRef.current('INFO', 'Material Texture Analysis', 'Material texture-slot inventory completed', materialReport);
+      setStatus('RDS WebGL diagnostics completed · read-only inventory');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      diagnosticSinkRef.current('ERROR', 'WebGL Diagnostics', 'WebGL diagnostics failed', message);
+      setStatus('WebGL diagnostics failed · ' + message);
+    }
+  };
+  const startRdsWebGLCapture = () => {
+    if (rdsShaderCaptureCleanupRef.current) return;
+    const renderer = runtime.current?.renderer;
+    if (!renderer) { setStatus('WebGL capture unavailable · renderer not initialized'); return; }
+    try {
+      rdsShaderCaptureCleanupRef.current = attachShaderErrorCapture(renderer, error => {
+        setRdsWebglShaderErrors(previous => [...previous, error].slice(-50));
+        diagnosticSinkRef.current('ERROR', 'WebGL Shader', error.message, error.details);
+      });
+      setRdsWebglCaptureEnabled(true);
+      diagnosticSinkRef.current('INFO', 'WebGL Shader', 'Opt-in shader error capture started', 'Event-driven capture of shader compile/link failures. No per-frame polling was enabled.');
+      setStatus('WebGL shader error capture started · opt-in');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus('WebGL capture could not start · ' + message);
+    }
+  };
+  const stopRdsWebGLCapture = () => {
+    rdsShaderCaptureCleanupRef.current?.();
+    rdsShaderCaptureCleanupRef.current = null;
+    setRdsWebglCaptureEnabled(false);
+    diagnosticSinkRef.current('INFO', 'WebGL Shader', 'Opt-in shader error capture stopped');
+    setStatus('WebGL shader error capture stopped');
+  };
+  useEffect(() => () => {
+    rdsShaderCaptureCleanupRef.current?.();
+    rdsShaderCaptureCleanupRef.current = null;
+  }, []);
+
   const runRdsFullScan = () => {
     if (rdsScanBusy) return;
     setRdsScanBusy(true);
@@ -8164,8 +8233,8 @@ export default function App() {
         </div>
         <div className="rds-command-body">
           <nav className="rds-command-nav" aria-label="RDS tools" data-rit-panel="RDS Tool Navigation">
-            {[['Overview','LayoutDashboard'],['Runtime','Activity'],['LogCat','Activity'],['RIT Trace','ListTree'],['DFI Core','ScanEye'],['Mesh DFI','Box'],['Root Cause','GitBranch'],['Source Audit','Code2'],['Reports','FileText']].map(([name, icon]) => <button key={name} type="button" data-rit-action="SELECT_TOOL" data-object-name={name} className={'rds-nav-item ' + (rdsActiveTool === name ? 'active' : '')} aria-current={rdsActiveTool === name ? 'page' : undefined} onClick={() => setRdsActiveTool(name)}>
-              {name === 'Overview' ? <Layers size={21}/> : name === 'Runtime' ? <Activity size={21}/> : name === 'LogCat' ? <Activity size={21}/> : name === 'RIT Trace' ? <GitBranch size={21}/> : name === 'DFI Core' ? <ScanEye size={21}/> : name === 'Mesh DFI' ? <Box size={21}/> : name === 'Root Cause' ? <GitMerge size={21}/> : name === 'Source Audit' ? <Code2 size={21}/> : <FileJson size={21}/>}
+            {[['Overview','LayoutDashboard'],['Runtime','Activity'],['LogCat','Activity'],['RIT Trace','ListTree'],['WebGL / Shader','Code2'],['Shadow Maps','ScanEye'],['Materials & Textures','Layers'],['DFI Core','ScanEye'],['Mesh DFI','Box'],['Root Cause','GitBranch'],['Source Audit','Code2'],['Reports','FileText']].map(([name, icon]) => <button key={name} type="button" data-rit-action="SELECT_TOOL" data-object-name={name} className={'rds-nav-item ' + (rdsActiveTool === name ? 'active' : '')} aria-current={rdsActiveTool === name ? 'page' : undefined} onClick={() => setRdsActiveTool(name)}>
+              {name === 'Overview' ? <Layers size={21}/> : name === 'Runtime' ? <Activity size={21}/> : name === 'LogCat' ? <Activity size={21}/> : name === 'RIT Trace' ? <GitBranch size={21}/> : name === 'WebGL / Shader' ? <Code2 size={21}/> : name === 'Shadow Maps' ? <ScanEye size={21}/> : name === 'Materials & Textures' ? <Layers size={21}/> : name === 'DFI Core' ? <ScanEye size={21}/> : name === 'Mesh DFI' ? <Box size={21}/> : name === 'Root Cause' ? <GitMerge size={21}/> : name === 'Source Audit' ? <Code2 size={21}/> : <FileJson size={21}/>}
               <span>{name}</span>
             </button>)}
           </nav>
@@ -8228,6 +8297,13 @@ export default function App() {
               </article>)}{!getRitTraceEntries().length && <div className="diagnostic-empty">No interaction events captured yet.</div>}</div>
               <div className="rds-quick-actions"><button type="button" onClick={() => clearInteractionTraceLogs()} disabled={!getRitTraceEntries().length} aria-label="Clear all RIT logs"><Trash2 size={14}/>Clear Trace</button><button type="button" onClick={() => void copyDiagnosticText(getRitTraceEntries())} aria-label="Copy all RIT logs"><Copy size={14}/>Copy Trace</button></div>
             </>}
+            {rdsActiveTool === 'WebGL / Shader' && <>
+              <div className="rds-info-card"><div className="rds-card-heading"><strong>WebGL Runtime Capture</strong><span>{rdsWebglCaptureEnabled ? 'CAPTURING' : 'OPT-IN / OFF'}</span></div><p>Captures actual Three.js shader compile/link errors only while enabled. It does not poll every frame.</p><div className="rds-quick-actions"><button type="button" onClick={runRdsWebGLAnalysis}><ScanEye size={15}/>Analyze WebGL</button><button type="button" onClick={rdsWebglCaptureEnabled ? stopRdsWebGLCapture : startRdsWebGLCapture}>{rdsWebglCaptureEnabled ? <Pause size={14}/> : <Play size={14}/>}{rdsWebglCaptureEnabled ? 'Stop Capture' : 'Start Capture'}</button><button type="button" onClick={() => setRdsWebglShaderErrors([])} disabled={!rdsWebglShaderErrors.length}><Trash2 size={14}/>Clear Shader Errors</button></div></div>
+              <div className="rds-summary-strip"><span>{rdsWebglShaderErrors.length} shader errors</span><span>{rdsWebglSnapshot?.webgl?.fragmentTextureUnits ?? '—'} fragment units</span><span>{rdsWebglSnapshot?.materials?.materialTextureSlots ?? '—'} material texture slots</span></div>
+              <pre className="rds-command-report">{rdsWebglReport}</pre>
+            </>}
+            {rdsActiveTool === 'Shadow Maps' && <><div className="rds-quick-actions"><button type="button" onClick={runRdsWebGLAnalysis}><ScanEye size={15}/>Analyze Shadow Inventory</button></div><pre className="rds-command-report">{rdsShadowReport}</pre></>}
+            {rdsActiveTool === 'Materials & Textures' && <><div className="rds-quick-actions"><button type="button" onClick={runRdsWebGLAnalysis}><ScanEye size={15}/>Analyze Materials & Textures</button></div><pre className="rds-command-report">{rdsMaterialReport}</pre></>}
             {rdsActiveTool === 'DFI Core' && <><div className="rds-summary-strip"><span>{dfiSummary.findings} findings</span><span>{dfiSummary.errors} errors</span><span>{dfiSummary.warnings} warnings</span></div><div className="rds-quick-actions"><button type="button" onClick={() => void runDfiInvestigation()} disabled={dfiBusy}><ScanEye size={15}/>{dfiBusy ? 'Investigating…' : 'Run Deep Analysis'}</button><button type="button" onClick={() => void copyDiagnosticText([{id:'dfi-report',time:new Date().toLocaleTimeString(),level:dfiSummary.errors?'ERROR':dfiSummary.warnings?'WARN':'INFO',source:'DFI Core',message:'Forensic investigation report',details:dfiReport}])}><Copy size={14}/>Copy Report</button></div><pre className="rds-command-report">{dfiReport}</pre></>}
             {rdsActiveTool === 'Mesh DFI' && <><div className="rds-quick-actions"><button type="button" onClick={() => runDfiToolScan('Shape Core')} disabled={Boolean(dfiToolBusy)}><Box size={15}/>{dfiToolBusy ? 'Scanning…' : 'Scan Mesh Integrity'}</button></div><pre className="rds-command-report">{dfiToolReports['Shape Core'] || 'Mesh integrity scan has not been run yet.'}</pre></>}
             {rdsActiveTool === 'Root Cause' && <><div className="rds-info-card"><strong>Evidence-based investigation</strong><p>Correlates captured runtime events, DFI findings and source audit evidence. A suspected cause is not confirmed until the first failing state transition is reproduced.</p></div><div className="rds-quick-actions"><button type="button" onClick={() => void runDfiInvestigation()} disabled={dfiBusy}><GitMerge size={15}/>{dfiBusy ? 'Investigating…' : 'Correlate Evidence'}</button></div><pre className="rds-command-report">{dfiReport}</pre></>}
