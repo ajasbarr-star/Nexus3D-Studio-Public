@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import * as THREE from 'three';
+import { configureDirectionalShadow } from './lighting/shadow-optimization.mjs';
 import { getIkSolvePath, isIkBoneLocked } from './rig/ik-constraints.mjs';
 import { buildCharacterMeshAssignments, summarizeCharacterAssignments, isCharacterMeshCandidate } from './rig/character-rigging.mjs';
 import { buildTopologyFromCanonicalQuadGeometry, buildTopologyFromIndexedQuadGeometry, updateTopologyPositionsFromRenderGeometry } from './geometry/topology-model.mjs';
@@ -1406,7 +1407,7 @@ export default function App() {
       const suffix = '_' + number;
       if (type === 'Directional') {
         const l = new THREE.DirectionalLight(0xffffff, 3);
-        l.position.set(5, 8, 5); l.castShadow = true; light = l;
+        configureDirectionalShadow(l); l.position.set(5, 8, 5); l.castShadow = true; light = l;
       } else if (type === 'Point') {
         const l = new THREE.PointLight(0xffffff, 3, 20, 2);
         l.position.set(1, 3, 1); l.castShadow = true; light = l;
@@ -6163,6 +6164,8 @@ export default function App() {
       const gl = renderer?.getContext();
       const glVersion = gl?.getParameter(gl.VERSION) || 'unavailable';
       const maxTexture = gl?.getParameter(gl.MAX_TEXTURE_SIZE) || 'unavailable';
+      const directionalShadowLights = objects.filter((object: any) => object.isDirectionalLight && object.castShadow);
+      const directionalShadowSizes = directionalShadowLights.map((light: any) => `${light.name || 'DirectionalLight'}:${light.shadow?.mapSize?.width ?? 'unknown'}x${light.shadow?.mapSize?.height ?? 'unknown'}`);
       const glLimits = gl ? {
         fragmentUniformVectors: gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS),
         vertexUniformVectors: gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS),
@@ -6171,6 +6174,7 @@ export default function App() {
         combinedTextureImageUnits: gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS),
         varyingVectors: gl.getParameter(gl.MAX_VARYING_VECTORS)
       } : null;
+      add('Directional Shadow Capacity', glLimits ? 'PASS' : 'WARN', `${directionalShadowLights.length} Directional Light(s) request independent shadow maps; map sizes: ${directionalShadowSizes.join(', ') || 'none'}; fragment texture units: ${glLimits?.textureImageUnits ?? 'unavailable'}; combined texture units: ${glLimits?.combinedTextureImageUnits ?? 'unavailable'}. These counts indicate potential sampler pressure, not an exact shader sampler total; material and environment textures also consume units.`);
       const contextLost = gl ? gl.isContextLost() : null;
       add('Device / WebGL Capability', gl ? (contextLost ? 'ERROR' : 'PASS') : 'WARN', `WebGL: ${glVersion}; context lost: ${contextLost ?? 'unavailable'}; max texture size: ${maxTexture}; fragment uniform vectors: ${glLimits?.fragmentUniformVectors ?? 'unavailable'}; vertex uniform vectors: ${glLimits?.vertexUniformVectors ?? 'unavailable'}; texture units: ${glLimits?.textureImageUnits ?? 'unavailable'}; vertex texture units: ${glLimits?.vertexTextureImageUnits ?? 'unavailable'}; combined texture units: ${glLimits?.combinedTextureImageUnits ?? 'unavailable'}; varying vectors: ${glLimits?.varyingVectors ?? 'unavailable'}; DPR: ${window.devicePixelRatio || 1}; heap: ${usedMB === null ? 'not exposed' : usedMB + ' MB'}.`);
       add('Module API Contract', ['addObject','syncItems','syncViewportControls','setPerformanceMode','createManualRig','solveIK'].every(key => typeof rt?.[key] === 'function') ? 'PASS' : 'WARN', 'Checks registered runtime entry points; this does not statically inspect every source-code call site.');
@@ -7674,6 +7678,7 @@ export default function App() {
           node.userData.kind = saved.kind || kind;
           // GLB carries light appearance, but editor-only shadow flags and the
           // explicit SpotLight target must be restored from Project.nexus metadata.
+          if (node.isDirectionalLight) configureDirectionalShadow(node);
           if (node.isLight && saved.light) {
             if (saved.light.color && node.color?.set) node.color.set('#' + saved.light.color);
             if (Number.isFinite(saved.light.intensity)) node.intensity = saved.light.intensity;
@@ -7719,6 +7724,7 @@ export default function App() {
           light = new THREE.HemisphereLight(color, saved.light.groundColor ? '#' + saved.light.groundColor : '#444444', intensity);
         } else if (lightType === 'directional' || saved.objectType === 'DirectionalLight') {
           light = new THREE.DirectionalLight(color, intensity);
+          configureDirectionalShadow(light);
         } else if (lightType === 'point' || saved.objectType === 'PointLight') {
           light = new THREE.PointLight(color, intensity, Number.isFinite(saved.light.distance) ? saved.light.distance : 0, Number.isFinite(saved.light.decay) ? saved.light.decay : 2);
         } else if (lightType === 'spot' || saved.objectType === 'SpotLight') {
