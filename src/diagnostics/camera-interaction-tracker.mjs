@@ -111,8 +111,8 @@ export function createCameraInteractionTracker({
         completeGesture('CAMERA_UPDATED');
         if (session.firstRenderedAt !== null) session = null;
       }
-    } else if (pointers.size === 1 && session.gesture === 'PINCH') {
-      session.gesture = 'ORBIT';
+    } else if (session.pointerType === 'touch' && pointers.size === 0 && distancePx >= TAP_DISTANCE_PX) {
+      lastTouchTap = null;
     }
     return true;
   }
