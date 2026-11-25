@@ -173,3 +173,28 @@ test('Save button prevents overlapping project saves and reports its in-flight s
   assert.ok(source.includes('disabled={isSavingProject}'));
   assert.ok(source.includes('[ SAVING... ]'));
 });
+
+
+test('RDS ZIP export writes to public Documents/Nexus3D and verifies bytes before success', async () => {
+  const source = await readFile(nativePath, 'utf8');
+  assert.ok(source.includes('public void saveRdsArchive(PluginCall call)'));
+  assert.ok(source.includes('Environment.DIRECTORY_DOCUMENTS + "/Nexus3D"'));
+  assert.ok(source.includes('MediaStore.MediaColumns.RELATIVE_PATH'));
+  assert.ok(source.includes('Saved RDS ZIP could not be reopened for verification'));
+  assert.ok(source.includes('RDS ZIP verification failed'));
+  assert.ok(source.includes('response.put("writtenBytes", verifiedBytes)'));
+  assert.ok(source.includes('response.put("path", "Documents/Nexus3D/" + fileName)'));
+});
+
+test('RDS ZIP progress reaches 100 only after native save verification resolves', async () => {
+  const source = await readFile(appPath, 'utf8');
+  const start = source.indexOf('const exportRdsToolZip = async');
+  const end = source.indexOf('const [maintenanceBusy', start);
+  const exportCode = source.slice(start, end);
+  const save = exportCode.indexOf('await NexusProjectFiles.saveRdsArchive({ fileName: filename, base64 })');
+  const verified = exportCode.indexOf('const verifiedBytes = Number(saved.writtenBytes) || 0;', save);
+  const success = exportCode.indexOf('setRdsExportProgress(100);', verified);
+  assert.ok(save >= 0 && verified > save && success > verified);
+  assert.ok(exportCode.includes("setRdsExportPhase('failed')"));
+  assert.ok(source.includes('rds-export-progress'));
+});
