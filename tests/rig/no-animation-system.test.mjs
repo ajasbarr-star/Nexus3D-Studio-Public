@@ -601,7 +601,8 @@ test('Keyframe diamonds align with the ruler center labels while the scrubber re
   const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
   assert.match(layout, /\.alphabet-state-mini-markers\{position:absolute!important;z-index:4!important;top:2px!important;left:5px!important;right:5px!important;bottom:auto!important;width:auto!important;height:23px!important/);
   assert.match(layout, /\.alphabet-state-mini-markers \.alphabet-state-keyframe-marker\{[\s\S]*?border:1px solid #ff4fb8!important/);
-  assert.match(layout, /\.alphabet-state-ruler-scale\{position:absolute!important;z-index:2!important;top:2px!important;left:5px!important;right:5px!important/);\n  assert.match(layout, /\.alphabet-state-scrubber\{position:absolute!important;z-index:1!important;top:45px!important/);
+  assert.match(layout, /\.alphabet-state-ruler-scale\{position:absolute!important;z-index:2!important;top:2px!important;left:5px!important;right:5px!important/);
+  assert.match(layout, /\.alphabet-state-scrubber\{position:absolute!important;z-index:1!important;top:45px!important/);
 });
 
 test('Dragging the scrubber only changes the current frame and cannot create keyframes', () => {
