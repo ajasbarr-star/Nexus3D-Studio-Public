@@ -200,10 +200,6 @@ public class NexusProjectFilesPlugin extends Plugin {
         });
     }
 
-    /**
-     * Writes the complete UTF-8 project and verifies that the document provider
-     * can read back the same bytes before the plugin reports success.
-     */
     /** Streams staged private data to SAF and verifies the exact saved bytes. */
     private long writeDocument(Uri uri, java.io.File stagedFile) throws Exception {
         if (stagedFile == null || !stagedFile.isFile() || stagedFile.length() == 0L) {
