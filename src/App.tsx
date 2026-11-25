@@ -598,12 +598,17 @@ export default function App() {
         setRdsExportProgress(90);
         const saved = await NexusProjectFiles.saveRdsArchive({ fileName: filename, base64 });
         const verifiedBytes = Number(saved.writtenBytes) || 0;
-        if (!saved.uri || verifiedBytes <= 0 || saved.name !== filename || saved.path !== 'Documents/Nexus3D/' + filename) {
-          throw new Error('Android ZIP save was not verified; the destination, file name, URI, or written byte count does not match');
+        setRdsExportPhase('saving');
+        setRdsExportProgress(96);
+        const normalizeAndroidName = (value: unknown) => String(value || '').replace(/:/g, '_');
+        const normalizeAndroidPath = (value: unknown) => String(value || '').replace(/\\/g, '/').replace(/\\/+ /g, '/').replace(/\\/+$/g, '/');
+        const expectedPath = 'Documents/Nexus3D/' + filename;
+        if (!saved.uri || verifiedBytes <= 0 || normalizeAndroidName(saved.name) !== normalizeAndroidName(filename) || normalizeAndroidPath(saved.path) !== normalizeAndroidPath(expectedPath)) {
+          throw new Error('Android ZIP verification mismatch · name=' + String(saved.name || 'missing') + ' · path=' + String(saved.path || 'missing') + ' · bytes=' + verifiedBytes);
         }
         setRdsExportProgress(100);
         setRdsExportPhase('done');
-        setStatus('Saved ' + filename + ' · Internal Storage/Documents/Nexus3D · ' + verifiedBytes.toLocaleString() + ' bytes');
+        setStatus('SUCCESS · Verified ' + String(saved.name || filename) + ' · Internal Storage/Documents/Nexus3D · ' + verifiedBytes.toLocaleString() + ' bytes');
         diagnosticSinkRef.current('INFO', 'RDS Export', tool + ' ZIP report saved and verified', saved.uri + ' · ' + verifiedBytes + ' bytes');
       } else {
         const blob = await zip.generateAsync(
@@ -8010,7 +8015,7 @@ export default function App() {
             </button>)}
           </nav>
           <main className="rds-command-content">
-            <div className="rds-content-heading"><div><span className="rds-eyebrow">DIAGNOSTIC WORKSPACE</span><h2>{rdsActiveTool === 'Overview' ? 'System Overview' : rdsActiveTool}</h2></div><div className="rds-content-heading-actions"><span className="rds-session-chip">SESSION ACTIVE</span><button type="button" className="rds-tool-button rds-export-zip-button" onClick={() => void exportRdsToolZip(rdsActiveTool)} disabled={rdsExportBusy} title={'Download ' + rdsActiveTool + ' report ZIP'} aria-label={'Download ' + rdsActiveTool + ' report ZIP'}><Download size={15}/></button>{(rdsExportBusy || rdsExportPhase === 'done' || rdsExportPhase === 'failed') && <span className={'rds-export-progress ' + (rdsExportPhase === 'failed' ? 'failed' : rdsExportPhase === 'done' ? 'complete' : 'active')} role="status" aria-live="polite">{rdsExportPhase === 'failed' ? 'FAILED' : rdsExportProgress + '%'}</span>}</div></div>
+            <div className="rds-content-heading"><div><span className="rds-eyebrow">DIAGNOSTIC WORKSPACE</span><h2>{rdsActiveTool === 'Overview' ? 'System Overview' : rdsActiveTool}</h2></div><div className="rds-content-heading-actions"><span className="rds-session-chip">SESSION ACTIVE</span><button type="button" className="rds-tool-button rds-export-zip-button" onClick={() => void exportRdsToolZip(rdsActiveTool)} disabled={rdsExportBusy} title={'Download ' + rdsActiveTool + ' report ZIP'} aria-label={'Download ' + rdsActiveTool + ' report ZIP'}><Download size={15}/></button>{(rdsExportBusy || rdsExportPhase === 'done' || rdsExportPhase === 'failed') && <span className={'rds-export-progress ' + (rdsExportPhase === 'failed' ? 'failed' : rdsExportPhase === 'done' ? 'complete' : 'active')} role="status" aria-live="polite">{rdsExportPhase === 'failed' ? 'FAILED' : rdsExportPhase === 'done' ? 'SUCCESS' : rdsExportPhase === 'saving' ? 'VERIFYING' : 'SAVING ' + rdsExportProgress + '%'}</span>}</div></div>
             {rdsActiveTool === 'Overview' && <>
               <div className="rds-stat-grid">
                 <div className="rds-stat-card"><Activity/><small>Runtime Logs</small><strong>{diagnosticLogs.length}</strong></div>
