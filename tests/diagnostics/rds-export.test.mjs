@@ -42,7 +42,7 @@ test('RDS export normalizes only the current-session section separators and summ
   });
   assert.ok(files['Full_Report.txt'].includes('[SCENE VERIFICATION]\nHistorical LogCat entries excluded: 12\nNEXUS3D RDS'));
   assert.ok(!files['Full_Report.txt'].includes('\\nHistorical'));
-  assert.match(files['Summary.txt'], /Scene verification: SCList 17 Directional Lights\\/1 Cube/);
+  assert.ok(files['Summary.txt'].includes('Scene verification: SCList 17 Directional Lights/1 Cube'));
   assert.match(files['Summary.txt'], /Historical LogCat entries excluded: 12/);
   assert.match(files['Summary.txt'], /Historical RIT-Trace entries excluded: 8/);
 });
