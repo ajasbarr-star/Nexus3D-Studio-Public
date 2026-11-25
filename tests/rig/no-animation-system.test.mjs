@@ -646,3 +646,10 @@ test('Alphabet State 3D marker picking uses the active Animation Viewport camera
   assert.match(app, /setSelected3DAlphabetMarkerId\(stateId\)/);
   assert.match(app, /if \(owner\) selectObject\(owner\)/);
 });
+
+
+test('Tapping an Alphabet State Letter changes only Timeline State selection', () => {
+  const selector = app.slice(app.indexOf('const selectAlphabetState ='), app.indexOf('const deleteAlphabetState ='));
+  assert.match(selector, /setSelectedSequenceState\(state\.id\)/);
+  assert.doesNotMatch(selector, /setCurrentFrame|setExpandedSequenceRulerId|setSelected3DAlphabetMarkerId/);
+});
