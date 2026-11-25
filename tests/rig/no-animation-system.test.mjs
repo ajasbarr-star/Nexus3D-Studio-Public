@@ -502,9 +502,9 @@ test('Horizontal ruler ticks are individually positioned across the track and St
 
 test('Opening an Alphabet State reveals a horizontal numbered ruler beside its letter', () => {
 
-  assert.ok(app.includes("sequenceRulerDisplayWidths[state.id] || 360"));
-  assert.ok(app.includes("previous[state.id] || 360"));
-  assert.ok(app.includes("getCustomRulerTicks(sequenceRulerDisplayWidths[state.id] || 360)"));
+  assert.ok(app.includes("sequenceRulerDisplayWidths[state.id] || 96"));
+  assert.ok(app.includes("previous[state.id] || 96"));
+  assert.ok(app.includes("getCustomRulerTicks(sequenceRulerDisplayWidths[state.id] || 96)"));
   assert.ok(css.includes(".alphabet-state-mini-ruler .alphabet-state-ruler-labels span{position:absolute!important;top:50%!important"));
   assert.ok(css.includes(".alphabet-state-mini-ruler .alphabet-state-ruler-scale{position:absolute!important;z-index:2!important;top:2px!important;left:12px!important;right:12px!important"));
   assert.ok(css.includes(".alphabet-state-mini-ruler .alphabet-state-ruler-ticks{position:absolute!important;left:0!important;right:0!important;top:50%!important"));
@@ -593,7 +593,7 @@ test('REC and LOOP controls align in the Timeline tools row beside the Alphabet 
 
 test('Timeline ruler labels and four major ticks share the exact same responsive percentage positions', () => {
 
-  assert.ok(app.includes('getCustomRulerTicks(sequenceRulerDisplayWidths[state.id] || 360)'));
+  assert.ok(app.includes('getCustomRulerTicks(sequenceRulerDisplayWidths[state.id] || 96)'));
   assert.ok(app.includes('left:tick.position+"%"'));
   assert.ok(app.includes('tick.label'));
   assert.ok(app.includes('className="major"'));
@@ -621,4 +621,28 @@ test('Dragging the scrubber only changes the current frame and cannot create key
   const ruler = app.slice(app.indexOf('className={"alphabet-state-mini-ruler'), app.indexOf('className="alphabet-state-add"'));
   assert.match(ruler, /className="alphabet-state-scrubber"[^>]*onChange=\{event=>setCurrentFrame\(Number\(event\.target\.value\)\)\}/);
   assert.doesNotMatch(ruler, /captureRef\.current\(\)|setKeyframes\(/);
+});
+
+
+test('Alphabet State letter tap stays compact and ruler expansion preserves the horizontal scroll origin', () => {
+  assert.match(app, /startWidth: sequenceRulerDisplayWidths\[stateId\] \|\| 96/);
+  assert.match(app, /scrollLeft: timelineScrollRef\.current\?\.scrollLeft \|\| 0/);
+  assert.match(app, /timelineScrollRef\.current\.scrollLeft = drag\.scrollLeft/);
+  const handler = app.slice(app.indexOf('const handleAlphabetStateHandleClick ='), app.indexOf('const [pendingStateChoice'));
+  assert.ok(handler.includes('selectAlphabetState(state)'));
+  assert.doesNotMatch(handler, /setSequenceRulerDisplayWidths|setCurrentFrame/);
+  assert.match(css, /overflow-anchor:none!important/);
+});
+
+test('Alphabet State ruler endpoint labels reset inherited right positioning and remain centered on endpoint ticks', () => {
+  const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
+  assert.match(layout, /alphabet-state-ruler-labels span\{[\s\S]*?right:auto!important;bottom:auto!important;width:max-content!important/);
+  assert.match(app, /position:Math\.max\(0, Math\.min\(100, \(\(value - start\) \/ \(end - start\)\) \* 100\)\)/);
+});
+
+test('Alphabet State 3D marker picking uses the active Animation Viewport camera', () => {
+  assert.match(app, /const viewCamera = runtime\.current\?\.cameraView \|\| runtime\.current\?\.animationView \? activeCamera : camera/);
+  assert.match(app, /if \(!runtime\.current\?\.animationView\) return;/);
+  assert.match(app, /setSelected3DAlphabetMarkerId\(stateId\)/);
+  assert.match(app, /if \(owner\) selectObject\(owner\)/);
 });
