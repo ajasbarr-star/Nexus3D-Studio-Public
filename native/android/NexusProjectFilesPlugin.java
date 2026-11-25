@@ -428,7 +428,11 @@ public class NexusProjectFilesPlugin extends Plugin {
                     // provider's formatting, while still enforcing the exact folder.
                     String normalizedActualPath = actualPath == null ? "" : actualPath.replace('\\', '/');
                     if (!normalizedActualPath.endsWith("/")) normalizedActualPath += "/";
-                    if (!fileName.equals(actualName) || !expectedPath.equals(normalizedActualPath)) {
+                    String normalizedExpectedName = fileName.replace(':', '_');
+                    String normalizedReportedName = actualName == null ? "" : actualName.replace(':', '_');
+                    String canonicalExpectedPath = expectedPath.replaceAll("/+", "/");
+                    String canonicalReportedPath = normalizedActualPath.replaceAll("/+", "/");
+                    if (!normalizedExpectedName.equals(normalizedReportedName) || !canonicalExpectedPath.equals(canonicalReportedPath)) {
                         throw new IllegalStateException("RDS ZIP destination verification failed: expected Documents/Nexus3D/" + fileName
                             + " but Android reported " + actualPath + "/" + actualName);
                     }
