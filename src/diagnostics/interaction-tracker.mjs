@@ -194,5 +194,9 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
     };
   }
 
-  return { begin, move, finish, action, attach, consumeLastInteractionId };
+  function getActiveInteractionId(pointerId) {
+    return activePointers.get(pointerId)?.id || null;
+  }
+
+  return { begin, move, finish, action, attach, consumeLastInteractionId, getActiveInteractionId };
 }
