@@ -2685,10 +2685,21 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .rds-resize-horizontal { right:2px; top:50%; width:13px; height:58px; transform:translateY(-50%); cursor:ew-resize; }
 .rds-resize-horizontal span { width:3px; height:28px; border-left:1px solid currentColor; border-right:1px solid currentColor; }
 .rds-resize-vertical {
-  bottom: max(24px, calc(env(safe-area-inset-bottom, 0px) + 20px));
-  left:50%; width:72px; height:22px; transform:translateX(-50%); cursor:ns-resize;
+  bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  left:50%; width:88px; min-width:88px; height:30px; min-height:30px;
+  transform:translateX(-50%); cursor:ns-resize; z-index:12; pointer-events:auto;
+  border-color:#4c91a8; background:rgba(18,43,59,.98); color:#a9efff;
 }
-.rds-resize-vertical span { width:30px; height:4px; border-top:1px solid currentColor; border-bottom:1px solid currentColor; }
+.rds-resize-vertical span { width:34px; height:5px; border-top:1px solid currentColor; border-bottom:1px solid currentColor; }
+.rds-export-progress {
+  display:inline-flex; align-items:center; justify-content:center; min-width:42px; height:22px;
+  padding:0 5px; border:1px solid #31586b; border-radius:5px; color:#9feaff;
+  background:rgba(7,24,37,.96); font:700 9px 'DM Mono',monospace; letter-spacing:.2px;
+  white-space:nowrap; font-variant-numeric:tabular-nums;
+}
+.rds-export-progress.active { border-color:#3b91ad; color:#a8efff; }
+.rds-export-progress.complete { border-color:#3c9a76; color:#8ce5b9; }
+.rds-export-progress.failed { border-color:#a94b55; color:#ff9ca5; }
 
 .right-actions .ready-label,
 .right-actions .fullscreen-btn {
