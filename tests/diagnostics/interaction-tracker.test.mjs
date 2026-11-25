@@ -13,7 +13,8 @@ function targetNode(attributes = {}, label = '', parent = null) {
       let node = this;
       while (node) {
         if (selector.split(',').some(part => {
-          const key = part.trim().match(/^\\[([^\\]]+)\\]$/)?.[1];
+          const token = part.trim();
+          const key = token.startsWith('[') && token.endsWith(']') ? token.slice(1, -1).split('=')[0] : '';
           return key && (key.includes('=') ? node.getAttribute(key.split('=')[0]) !== null : node.getAttribute(key) !== null);
         })) return node;
         node = node.parentElement;
