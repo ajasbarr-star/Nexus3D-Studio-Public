@@ -186,6 +186,8 @@ test('RDS ZIP export writes to public Documents/Nexus3D and verifies bytes befor
   assert.ok(source.includes('response.put("path", "Documents/Nexus3D/" + fileName)'));
   assert.ok(source.includes('MediaStore.MediaColumns.RELATIVE_PATH'));
   assert.ok(source.includes('String expectedPath = Environment.DIRECTORY_DOCUMENTS + "/Nexus3D/";'));
+  assert.ok(source.includes("actualPath.replace('\\\\', '/')"));
+  assert.ok(source.includes('normalizedActualPath.endsWith("/")'));
   assert.ok(source.includes('destination verification failed'));
 });
 
@@ -211,7 +213,7 @@ test('RDS bottom resize handle remains visible, reachable, and above panel conte
   assert.ok(rule.includes('bottom:max(8px'));
   assert.ok(rule.includes('width:88px'));
   assert.ok(rule.includes('height:30px'));
-  assert.ok(rule.includes('z-index:12'));
+  assert.ok(rule.includes('z-index:13'));
   assert.ok(rule.includes('pointer-events:auto'));
 });
 
