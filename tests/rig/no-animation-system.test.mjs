@@ -488,7 +488,7 @@ test('Alphabet State frame ranges are contiguous without sharing the boundary fr
 
 
 test('Horizontal ruler ticks are individually positioned across the track and State B starts after State A ends', () => {
-  assert.match(app, /style=\{\{left:\(index\/Math\.max\(1,Math\.round\(state\.width\)\)\*100\)\+"%",top:0\}\}/);
+  assert.match(app, /style=\{\{left:\(index\/Math\.max\(1,Math\.round\(state\.width\)\)\*100\)\+"%"\}\}/);
   assert.match(app, /const nextEnd = previousEnd \+ nextState\.width - 1/);
   assert.match(app, /const start = cursor; const end = start \+ Math\.max\(1, state\.width\) - 1/);
   assert.match(app, /cursor = end \+ 1/);
@@ -593,15 +593,15 @@ test('Timeline ruler labels and four major ticks share the exact same responsive
   assert.match(css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.')), /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:50%!important/);
 });
 
-test('Keyframe diamonds have a dedicated pink marker lane separated from the scrubber touch area', () => {
+test('Keyframe diamonds align with the ruler center labels while the scrubber remains in its own touch lane', () => {
   assert.match(app, /className="alphabet-state-mini-markers" aria-label="Keyframe markers"/);
   assert.match(app, /className=\{"alphabet-state-keyframe-marker "/);
   assert.match(app, /className="alphabet-state-scrubber"/);
   assert.match(app, /onPointerDown=\{event=>event\.stopPropagation\(\)\} onClick=\{event=>\{event\.stopPropagation\(\);setSelectedKeyframe/);
   const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
-  assert.match(layout, /\.alphabet-state-mini-markers\{position:absolute!important;z-index:4!important;top:27px!important/);
+  assert.match(layout, /\.alphabet-state-mini-markers\{position:absolute!important;z-index:4!important;top:2px!important;left:5px!important;right:5px!important;bottom:auto!important;width:auto!important;height:23px!important/);
   assert.match(layout, /\.alphabet-state-mini-markers \.alphabet-state-keyframe-marker\{[\s\S]*?border:1px solid #ff4fb8!important/);
-  assert.match(layout, /\.alphabet-state-scrubber\{position:absolute!important;z-index:1!important;top:45px!important/);
+  assert.match(layout, /\.alphabet-state-ruler-scale\{position:absolute!important;z-index:2!important;top:2px!important;left:5px!important;right:5px!important/);\n  assert.match(layout, /\.alphabet-state-scrubber\{position:absolute!important;z-index:1!important;top:45px!important/);
 });
 
 test('Dragging the scrubber only changes the current frame and cannot create keyframes', () => {
