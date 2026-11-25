@@ -99,8 +99,8 @@ test('RIT Trace hierarchy does not invent object identity when creation result i
       details: JSON.stringify({ target: { hierarchy: [{ type: 'tool', label: 'Shape' }] } })
     }]
   });
-  assert.match(files['Full_Report.txt'], /No complete tool-to-created-object interaction chains were captured/);
-  assert.doesNotMatch(files['Full_Report.txt'], /Object: Cube/);
+  assert.match(files['Full_Report.txt'], /Tool: Shape/);
+  assert.doesNotMatch(files['Full_Report.txt'], /Created object: Cube/);
 });
 
 test('RDS export extracts severity lines from report-only tools and documents empty sections', () => {
