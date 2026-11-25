@@ -183,7 +183,9 @@ test('RDS ZIP export writes to public Documents/Nexus3D and verifies bytes befor
   assert.ok(source.includes('Saved RDS ZIP could not be reopened for verification'));
   assert.ok(source.includes('RDS ZIP verification failed'));
   assert.ok(source.includes('response.put("writtenBytes", verifiedBytes)'));
-  assert.ok(source.includes('response.put("path", "Documents/Nexus3D/" + fileName)'));
+  assert.ok(source.includes('response.put("name", verifiedName)'));
+  assert.ok(source.includes('response.put("path", reportedDirectory + "/" + verifiedName)'));
+  assert.ok(source.includes('verifiedRelativePath = actualPath'));
   assert.ok(source.includes('MediaStore.MediaColumns.RELATIVE_PATH'));
   assert.ok(source.includes('String expectedPath = Environment.DIRECTORY_DOCUMENTS + "/Nexus3D/";'));
   assert.ok(source.includes("actualPath.replace('\\\\', '/')"));
