@@ -51,6 +51,9 @@ test('two touch pointers are classified as pinch and double tap is distinguished
   tracker.onPointerUp({ pointerId: 1, clientX: 5, clientY: 5 });
   clock = 30;
   tracker.onPointerUp({ pointerId: 2, clientX: 25, clientY: 5 });
+  tracker.markRendered('MainViewport');
+  clock = 40;
+  tracker.markRendered('MainViewport');
   assert.equal(records.at(-1).gesture, 'PINCH');
 
   clock = 100;
@@ -114,4 +117,20 @@ test('attach registers and removes canvas and OrbitControls listeners', () => {
   detach();
   assert.equal(listeners.size, 0);
   assert.equal(controlListeners.size, 0);
+});
+
+
+test('camera interaction reuses the shared RIT pointer Interaction ID', () => {
+  let clock = 5;
+  const records = [];
+  const tracker = createCameraInteractionTracker({
+    emit: event => records.push(event),
+    now: () => clock,
+    createId: () => 'fallback-camera-id',
+    resolveInteractionId: pointerId => 'rit-pointer-' + pointerId,
+  });
+  tracker.onPointerDown({ pointerId: 9, pointerType: 'touch', clientX: 1, clientY: 1 }, 'MainViewport');
+  clock = 10;
+  tracker.cameraChanged('MainOrbit', 'MainViewport');
+  assert.equal(records[0].interactionId, 'rit-pointer-9');
 });
