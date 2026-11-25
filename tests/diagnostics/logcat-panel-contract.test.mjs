@@ -42,9 +42,11 @@ test('each RDS tool has its own ZIP download action and native storage export', 
   assert.doesNotMatch(app, /exportLogcatReport/);
 });
 
-test('RDS panel restores independent bottom and right-side resize sliders', () => {
+test('RDS panel restores independent standalone bottom and left-edge width sliders', () => {
   assert.match(app, /rds-resize-horizontal/);
-  assert.match(app, /rds-resize-vertical/);
+  assert.match(app, /className="rds-bottom-slider"/);
+  assert.match(app, /aria-label="Resize RDS Panel height"/);
+  assert.match(app, /position:fixed/);
   assert.match(app, /beginRdsPanelResize\(event, 'width'\)/);
   assert.match(app, /beginRdsPanelResize\(event, 'height'\)/);
   assert.match(app, /style=\{\{ width: rdsPanelWidth, height: rdsPanelHeight \}\}/);
