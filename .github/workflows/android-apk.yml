@@ -7,6 +7,7 @@ on:
       - integration/cumulative-build481-manual-ik-logcat
       - fix/save-reliability-staged-build748
       - diagnostic/light-capacity-build274
+      - diagnostic/directional-shadow-optimization
   workflow_dispatch:
 
 permissions:
