@@ -32,7 +32,7 @@ test('RDS export separates captured errors and warnings without losing the full 
 test('RDS export normalizes only the current-session section separators and summarizes scene verification', () => {
   const files = buildRdsExportFiles({
     tool: 'LogCat',
-    fullReport: String.raw\`[SCENE VERIFICATION]\\nHistorical LogCat entries excluded: 12\\nNEXUS3D RDS — DIAGNOSTIC REPORT\`,
+    fullReport: '[SCENE VERIFICATION]\\nHistorical LogCat entries excluded: 12\\nNEXUS3D RDS — DIAGNOSTIC REPORT',
     entries: [],
     metadata: {
       sceneVerificationSummary: 'SCList 17 Directional Lights/1 Cube; MainViewport 17 Directional Lights/1 Cube; reconciliation=MATCH',
@@ -40,8 +40,8 @@ test('RDS export normalizes only the current-session section separators and summ
       historicalRitEntriesExcluded: 8,
     },
   });
-  assert.match(files['Full_Report.txt'], /\\[SCENE VERIFICATION\\]\\nHistorical LogCat entries excluded: 12\\nNEXUS3D RDS/);
-  assert.doesNotMatch(files['Full_Report.txt'], /\\\\nHistorical/);
+  assert.ok(files['Full_Report.txt'].includes('[SCENE VERIFICATION]\nHistorical LogCat entries excluded: 12\nNEXUS3D RDS'));
+  assert.ok(!files['Full_Report.txt'].includes('\\nHistorical'));
   assert.match(files['Summary.txt'], /Scene verification: SCList 17 Directional Lights\\/1 Cube/);
   assert.match(files['Summary.txt'], /Historical LogCat entries excluded: 12/);
   assert.match(files['Summary.txt'], /Historical RIT-Trace entries excluded: 8/);
