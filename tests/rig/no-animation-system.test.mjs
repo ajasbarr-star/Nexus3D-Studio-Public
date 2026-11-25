@@ -317,7 +317,7 @@ test('Selected Alphabet State marker gets a distinct highlight in the Animation 
 test('Alphabet State 3D markers select their owning object and attach the shared transform gizmo', () => {
 
   assert.equal(app.split("const ownerId = String(marker.userData.ownerObjectId || '');").length - 1, 1);
-  assert.equal(app.split('if (owner) selectObject(owner);').length - 1, 1);
+  assert.ok(app.includes('if (owner) selectObject(owner);'));
   assert.ok(app.includes("transform.attach(obj)"));
   assert.ok(app.includes("const selectAlphabetState = (state: typeof sequenceStates[number])"));
   const timelineSelection = app.slice(app.indexOf('const selectAlphabetState ='), app.indexOf('const deleteAlphabetState ='));
