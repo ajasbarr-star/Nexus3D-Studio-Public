@@ -412,7 +412,8 @@ test('Alphabet State timeline ruler uses numeric frame labels and graduated mino
   assert.match(app, /alphabet-state-ruler-scale/);
   assert.match(app, /alphabet-state-ruler-labels/);
   assert.match(app, /getCustomRulerLabel\(index,4\)/);
-  assert.match(app, /index%10===0\?"major":index%5===0\?"medium":"minor"/);
+  assert.match(app, /index%5===0\?"medium":"minor"/);
+  assert.match(app, /Array\.from\(\{length:4\},\(_,index\)=>\s*<i key=\{"major-"\+index\} className="major" style=\{\{left:\(index\/3\*100\)\+"%"\}\}\/>\)/);
   assert.match(css, /\.alphabet-state-ruler-labels span/);
   assert.match(css, /\.alphabet-state-ruler-ticks i\.medium/);
   assert.match(css, /\.alphabet-state-ruler-ticks i\.major/);
@@ -471,7 +472,9 @@ test('Selected Alphabet State ruler keeps frame labels and ticks horizontal whil
 
   const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
   assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels\{position:absolute!important;inset:0!important;display:block!important/);
-  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:3px!important/);
+  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:50%/);
+  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-mini-markers\{position:absolute!important;z-index:4!important;top:27px!important/);
+  assert.match(layout, /\.alphabet-state-mini-ruler input\[type=range\].*top:45px!important/);
   assert.match(layout, /writing-mode:horizontal-tb!important/);
   assert.match(layout, /touch-action:pan-x!important/);
   assert.match(app, /onChange=\{event=>setCurrentFrame\(Number\(event\.target\.value\)\)\}/);
@@ -497,7 +500,7 @@ test('Opening an Alphabet State reveals a horizontal numbered ruler beside its l
   assert.match(app, /sequenceRulerDisplayWidths\[state\.id\] \|\| 360/);
   assert.match(app, /previous\[state\.id\] \|\| 360/);
   assert.match(app, /getCustomRulerLabel\(index,4\)/);
-  assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels span\{position:absolute!important;top:18px!important/);
+  assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels span\{position:absolute!important;top:50%!important/);
   assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:3px!important/);
   assert.match(css, /writing-mode:horizontal-tb!important/);
   assert.match(app, /style=\{\{left:\(\(\(at-range\.start\)\/Math\.max\(1,range\.end-range\.start\)\)\*100\)\+'%',top:'50%'\}\}/);
@@ -517,6 +520,7 @@ test('Frame ruler labels every frame in sequence with graduated ticks at 5-frame
   assert.match(app, /getCustomRulerLabel\(index,4\)/);
   assert.match(app, /index%10===0\?"major":index%5===0\?"medium":"minor"/);
   assert.match(app, /left:\(index\/Math\.max\(1,Math\.round\(state\.width\)\)\*100\)\+"%"/);
+  assert.match(app, /left:\(index\/3\*100\)\+"%"/);
 
 });
 
@@ -559,8 +563,8 @@ test('Custom time labels use four evenly spaced ruler positions and include exac
 
 test('Timeline ruler positions graduated tick lines at the top and centers custom time labels', () => {
   const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
-  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{[\s\S]*?top:3px!important/);
-  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels span\{position:absolute!important;top:18px!important/);
+  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{[\s\S]*?top:50%!important/);
+  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels span\{position:absolute!important;top:50%!important/);
 });
 
 test('Add Keyframe icon turns pink when the selected object has a keyframe at the current frame', () => {
@@ -579,4 +583,29 @@ test('REC and LOOP controls align in the Timeline tools row beside the Alphabet 
   assert.match(css, /\.timeline-playback-panel\{display:flex!important;flex:0 0 112px!important;width:112px!important/);
   assert.match(css, /\.timeline-tools-panel \.timeline-record-toggle/);
   assert.match(css, /\.timeline-tools-panel \.timeline-loop-toggle/);
+});
+
+
+test('Timeline ruler labels and four major ticks share the exact same responsive percentage positions', () => {
+  assert.match(app, /alphabet-state-ruler-labels[\s\S]*?left:\(index\/3\*100\)\+"%"/);
+  assert.match(app, /key=\{"major-"\+index\} className="major" style=\{\{left:\(index\/3\*100\)\+"%"\}\}/);
+  assert.match(css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.')), /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels span\{position:absolute!important;top:50%!important/);
+  assert.match(css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.')), /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:50%!important/);
+});
+
+test('Keyframe diamonds have a dedicated pink marker lane separated from the scrubber touch area', () => {
+  assert.match(app, /className="alphabet-state-mini-markers" aria-label="Keyframe markers"/);
+  assert.match(app, /className=\{"alphabet-state-keyframe-marker "/);
+  assert.match(app, /className="alphabet-state-scrubber"/);
+  assert.match(app, /onPointerDown=\{event=>event\.stopPropagation\(\)\} onClick=\{event=>\{event\.stopPropagation\(\);setSelectedKeyframe/);
+  const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
+  assert.match(layout, /\.alphabet-state-mini-markers\{position:absolute!important;z-index:4!important;top:27px!important/);
+  assert.match(layout, /\.alphabet-state-mini-markers \.alphabet-state-keyframe-marker\{[\s\S]*?border:1px solid #ff4fb8!important/);
+  assert.match(layout, /\.alphabet-state-scrubber\{position:absolute!important;z-index:1!important;top:45px!important/);
+});
+
+test('Dragging the scrubber only changes the current frame and cannot create keyframes', () => {
+  const ruler = app.slice(app.indexOf('className={"alphabet-state-mini-ruler'), app.indexOf('className="alphabet-state-add"'));
+  assert.match(ruler, /className="alphabet-state-scrubber"[^>]*onChange=\{event=>setCurrentFrame\(Number\(event\.target\.value\)\)\}/);
+  assert.doesNotMatch(ruler, /captureRef\.current\(\)|setKeyframes\(/);
 });
