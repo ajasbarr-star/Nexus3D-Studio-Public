@@ -125,3 +125,23 @@ test('LogCat text report exposes the same RIT Interaction ID for correlation', (
   assert.ok(report.includes('interaction ID'));
   assert.ok(report.includes('ix-shared-007'));
 });
+
+test('completed touch, control activation and scene response can share one Interaction ID', () => {
+  let clock = 100;
+  const records = [];
+  const tracker = createInteractionTracker({
+    emit: item => records.push(item),
+    now: () => clock,
+    createId: () => 'shared-interaction',
+  });
+  const target = targetNode({ 'data-rit-tool': 'Light', 'aria-label': 'Add Directional Light' }, '');
+  tracker.begin({ pointerId: 7, pointerType: 'touch', clientX: 20, clientY: 30, target });
+  clock = 140;
+  tracker.finish({ pointerId: 7 });
+  tracker.action({ type: 'click', pointerId: 7, target });
+  const consumed = tracker.consumeLastInteractionId();
+  assert.equal(records[0].interactionId, 'shared-interaction');
+  assert.equal(records[1].interactionId, records[0].interactionId);
+  assert.equal(consumed, records[0].interactionId);
+  assert.equal(tracker.consumeLastInteractionId(), null);
+});
