@@ -2714,7 +2714,6 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .rds-verification-state.state-saving,.rds-verification-state.state-verifying,.rds-verification-state.state-pending { color:#8bdaf0; }
 .rds-verification-state.state-download-started { color:#a9dff0; }
 .rds-verification-error { margin-top:6px; padding:5px 6px; border:1px solid #82444d; border-radius:4px; background:rgba(72,25,34,.42); color:#ffb1b7; font:7px/1.4 'DM Mono',monospace; overflow-wrap:anywhere; }
-.rds-bottom-slider { position:absolute !important; left:50% !important; bottom:-15px !important; z-index:14 !important; display:flex !important; visibility:visible !important; opacity:1 !important; pointer-events:auto !important; }
 @media (max-width:370px) { .rds-verification-grid { grid-template-columns:minmax(0,1fr); } }
 
 .rds-export-progress {
