@@ -36,6 +36,32 @@ test('target description preserves tool, panel, control, action and object hiera
   assert.deepEqual(described.hierarchy.map(item => item.type), ['tool', 'panel', 'control', 'object']);
 });
 
+test('Light and Shape controls retain their full tool, panel, action and named-object hierarchy', () => {
+  const lightTool = targetNode({ 'data-rit-tool': 'Quick Light Controls' }, '', null);
+  const lightPanel = targetNode({ 'data-rit-panel': 'Directional Light' }, '', lightTool);
+  const addLight = targetNode({ 'aria-label': 'Add Directional Light', 'data-rit-action': 'ADD', 'data-object-name': 'Directional Light' }, '', lightPanel);
+  const light = describeInteractionTarget(addLight);
+  assert.deepEqual(light.hierarchy, [
+    { type: 'tool', label: 'Quick Light Controls' },
+    { type: 'panel', label: 'Directional Light' },
+    { type: 'control', label: 'Add Directional Light' },
+    { type: 'action', label: 'ADD' },
+    { type: 'object', label: 'Directional Light' },
+  ]);
+
+  const shapeTool = targetNode({ 'data-rit-tool': 'Shape' }, '', null);
+  const shapePanel = targetNode({ 'data-rit-panel': 'Shape Library' }, '', shapeTool);
+  const cube = targetNode({ 'aria-label': 'Cube', 'data-rit-action': 'CREATE', 'data-object-name': 'Cube' }, '', shapePanel);
+  const shape = describeInteractionTarget(cube);
+  assert.deepEqual(shape.hierarchy, [
+    { type: 'tool', label: 'Shape' },
+    { type: 'panel', label: 'Shape Library' },
+    { type: 'control', label: 'Cube' },
+    { type: 'action', label: 'CREATE' },
+    { type: 'object', label: 'Cube' },
+  ]);
+});
+
 test('pointer gesture emits one compact record with shared interaction ID and monotonic duration', () => {
   let clock = 100;
   let sequence = 0;
