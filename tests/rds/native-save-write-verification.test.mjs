@@ -211,7 +211,9 @@ test('RDS ZIP progress reaches 100 only after native save verification resolves'
   assert.ok(exportCode.includes("setRdsExportPhase('passed')"));
   assert.ok(exportCode.includes('checkCRC32: true'));
   assert.ok(exportCode.includes("'Full_Report.txt', 'Errors.txt', 'Warnings.txt', 'Summary.txt', 'Metadata.txt'"));
-  assert.ok(exportCode.includes("replace(/\\\\/g, '/').replace(/\\/+/g, '/').replace(/\\/+$/g, '')"));
+  assert.ok(exportCode.includes("replace(/:/g, '_')"));
+  assert.ok(exportCode.includes("replace(/\\\\/g, '/')"));
+  assert.ok(exportCode.includes("replace(/\\/+/g, '/')"));
   assert.ok(source.includes('rds-export-progress'));
 });
 
