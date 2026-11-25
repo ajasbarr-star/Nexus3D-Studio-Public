@@ -2661,8 +2661,8 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .rds-command-log-list { min-height:80px; flex:1; overflow:auto; border:1px solid #29394b; border-radius:7px; background:#111b29; }
 .rds-command-log-list .diagnostic-entry { margin:6px; }
 .rds-command-report { min-height:100px; max-height:none; flex:1; overflow:auto; margin:0; padding:9px; border:1px solid #29394b; border-radius:7px; background:#101a28; color:#aebbc9; font:9px/1.5 'DM Mono',monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
-@media (max-width:570px) { .rds-command-center { top:55px; right:5px; width:calc(100vw - 10px); height:min(76vh,calc(100dvh - 68px)); } .rds-command-nav { width:88px; flex-basis:88px; padding:6px 4px; } .rds-nav-item { min-height:46px; font-size:10px; } .rds-nav-item svg { width:20px; height:20px; } .rds-command-content { padding:8px; gap:7px; } .rds-stat-card { min-height:58px; padding:6px; } }
-@media (orientation:landscape) and (max-height:420px) { .rds-command-center { height:calc(100dvh - 66px); top:52px; } .rds-command-nav { gap:2px; }.rds-nav-item { min-height:40px; } }
+@media (max-width:570px) { .rds-command-center { right:5px; width:calc(100vw - 10px); height:min(76vh,calc(100dvh - 76px)); max-height:calc(100dvh - 76px); } .rds-command-nav { width:88px; flex-basis:88px; padding:6px 4px; } .rds-nav-item { min-height:46px; font-size:10px; } .rds-nav-item svg { width:20px; height:20px; } .rds-command-content { padding:8px; gap:7px; } .rds-stat-card { min-height:58px; padding:6px; } }
+@media (orientation:landscape) and (max-height:420px) { .rds-command-center { max-height:calc(100dvh - 76px); } .rds-command-nav { gap:2px; }.rds-nav-item { min-height:40px; } }
 /* RDS now has its own dock; avoid duplicate diagnostic accordions inside Menu. */
 .menu-panel .diagnostic-menu-section,.menu-panel .dfi-core-section,.menu-panel .core-optimizer-section { display:none !important; }
 
