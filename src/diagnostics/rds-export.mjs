@@ -36,8 +36,8 @@ export function buildRdsExportFiles({ tool, fullReport, entries = [], metadata =
   ])];
   // Count diagnostic records, not formatted text lines: a single entry may contain
   // multiple detail/stack lines. Fall back to report severity lines for report-only tools.
-  const errorCount = errors.length || severityLines(report, /\\b(ERROR|FATAL)\\b/i).length;
-  const warningCount = warnings.length || severityLines(report, /\\b(WARN|WARNING)\\b/i).length;
+  const errorCount = errors.length || severityLines(report, /\b(ERROR|FATAL)\b/i).length;
+  const warningCount = warnings.length || severityLines(report, /\b(WARN|WARNING)\b/i).length;
   const generatedAt = metadata.generatedAt || new Date().toISOString();
   const summary = [
     'NEXUS3D RDS TOOL SUMMARY',
