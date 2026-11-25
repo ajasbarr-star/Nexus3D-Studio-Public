@@ -11,6 +11,7 @@ function nodeLabel(node) {
   const control = element.closest?.('button,[role="button"],[role="menuitem"],input,select,textarea,[aria-label],[title]') || element;
   return clean(
     control.getAttribute?.('aria-label') ||
+    control.getAttribute?.('data-rit-control') ||
     control.getAttribute?.('data-rit-label') ||
     control.getAttribute?.('title') ||
     control.getAttribute?.('data-tool') ||
@@ -47,7 +48,8 @@ export function describeInteractionTarget(target) {
   if (label) chain.push({ type: 'control', label });
   if (action) chain.push({ type: 'action', label: action });
   if (objectName || objectId) chain.push({ type: 'object', ...(objectId ? { id: objectId } : {}), ...(objectName ? { label: objectName } : {}) });
-  const viewport = target?.closest?.('[data-rit-viewport], canvas, .main-viewport, .ik-viewport');
+  const viewport = target?.closest?.('[data-rit-viewport]') ||
+    target?.closest?.('canvas, .main-viewport, .ik-viewport');
   const region = viewport ? clean(viewport.getAttribute?.('data-rit-viewport') || viewport.className?.baseVal || viewport.className || 'VIEWPORT') : 'UI';
   const isViewport = Boolean(viewport);
   const targetKind = isViewport
