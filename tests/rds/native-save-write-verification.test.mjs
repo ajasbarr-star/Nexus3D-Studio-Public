@@ -219,8 +219,10 @@ test('RDS ZIP progress reaches 100 only after native save verification resolves'
   for (const name of ['Full_Report.txt', 'Errors.txt', 'Warnings.txt', 'Summary.txt', 'Metadata.txt']) {
     assert.ok(zipHelper.includes(name), 'ZIP helper must include ' + name);
   }
-  assert.ok(zipHelper.includes('formatToParts(localGeneratedAt)'));
-  assert.ok(zipHelper.includes("part('hour') + '-' + part('minute') + part('dayPeriod').toLowerCase()"));
+  assert.ok(zipHelper.includes("timeZone: 'Asia/Manila'"));
+  assert.ok(zipHelper.includes('formatter.formatToParts(executionTime)'));
+  assert.ok(zipHelper.includes("const timePart = hour + '-' + minute + dayPeriod"));
+  assert.ok(zipHelper.includes("const datePart = [part('month'), part('day'), part('year')].join('-')"));
   assert.ok(zipHelper.includes("zip.file(name, content, { createFolders: false })"));
   assert.ok(exportCode.includes("replace(/\\\\/g, '/')"));
   assert.ok(exportCode.includes("replace(/\\/+/g, '/')"));
