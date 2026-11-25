@@ -376,7 +376,7 @@ export default function App() {
   const [rdsPanelOpen, setRdsPanelOpen] = useState(false);
   const [rdsActiveTool, setRdsActiveTool] = useState('Overview');
   const [rdsPanelWidth, setRdsPanelWidth] = useState(() => Math.min(360, Math.max(280, window.innerWidth - 18)));
-  const [rdsPanelHeight, setRdsPanelHeight] = useState(() => Math.min(Math.round(window.innerHeight * 0.48), Math.max(180, window.innerHeight - 78)));
+  const [rdsPanelHeight, setRdsPanelHeight] = useState(() => Math.min(Math.round(window.innerHeight * 0.48), Math.max(1, window.innerHeight - 76)));
   const [rdsExportBusy, setRdsExportBusy] = useState(false);
   const [rdsExportTool, setRdsExportTool] = useState('');
   const [rdsExportProgress, setRdsExportProgress] = useState(0);
@@ -397,8 +397,10 @@ export default function App() {
         const maxWidth = Math.max(280, Math.min(760, window.innerWidth - 18));
         setRdsPanelWidth(Math.max(280, Math.min(maxWidth, start.width + start.x - moveEvent.clientX)));
       } else {
-        const maxHeight = Math.max(180, window.innerHeight - 78);
-        setRdsPanelHeight(Math.max(180, Math.min(maxHeight, start.height + start.y - moveEvent.clientY)));
+        // Keep the RDS bottom anchor fixed and clamp the panel top inside the visible landscape viewport.
+        const maxHeight = Math.max(1, window.innerHeight - 76);
+        const minHeight = Math.min(180, maxHeight);
+        setRdsPanelHeight(Math.max(minHeight, Math.min(maxHeight, start.height + start.y - moveEvent.clientY)));
       }
     };
     const end = (endEvent: PointerEvent) => {
