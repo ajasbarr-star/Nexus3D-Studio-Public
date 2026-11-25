@@ -8,6 +8,7 @@ on:
       - fix/save-reliability-staged-build748
       - diagnostic/light-capacity-build274
       - diagnostic/directional-shadow-optimization
+      - fix/rds-bottom-slider-safe-margin
   workflow_dispatch:
 
 permissions:
