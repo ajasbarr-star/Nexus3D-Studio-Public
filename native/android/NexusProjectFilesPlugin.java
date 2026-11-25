@@ -376,6 +376,8 @@ public class NexusProjectFilesPlugin extends Plugin {
         projectIo.execute(() -> {
             Uri uri = null;
             String stage = "decode ZIP data";
+            String verifiedName = null;
+            String verifiedRelativePath = null;
             try {
                 byte[] expected = android.util.Base64.decode(base64, android.util.Base64.DEFAULT);
                 if (expected.length == 0) throw new IllegalArgumentException("RDS ZIP archive is empty");
@@ -422,6 +424,8 @@ public class NexusProjectFilesPlugin extends Plugin {
                     }
                     String actualName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME));
                     String actualPath = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH));
+                    verifiedName = actualName;
+                    verifiedRelativePath = actualPath;
                     String expectedPath = Environment.DIRECTORY_DOCUMENTS + "/Nexus3D/";
                     // MediaStore providers may canonicalize RELATIVE_PATH by omitting
                     // the trailing slash. Compare normalized directory paths, not the
@@ -445,9 +449,10 @@ public class NexusProjectFilesPlugin extends Plugin {
                 }
                 JSObject response = new JSObject();
                 response.put("uri", uri.toString());
-                response.put("name", fileName);
+                response.put("name", verifiedName);
                 response.put("writtenBytes", verifiedBytes);
-                response.put("path", "Documents/Nexus3D/" + fileName);
+                String reportedDirectory = verifiedRelativePath == null ? "" : verifiedRelativePath.replace('\\', '/').replaceAll("/+$", "");
+                response.put("path", reportedDirectory + "/" + verifiedName);
                 call.resolve(response);
             } catch (Exception error) {
                 String diagnosticUri = uri == null ? "no MediaStore URI created" : uri.toString();
