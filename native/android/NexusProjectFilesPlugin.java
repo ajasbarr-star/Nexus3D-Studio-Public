@@ -375,9 +375,11 @@ public class NexusProjectFilesPlugin extends Plugin {
         }
         projectIo.execute(() -> {
             Uri uri = null;
+            String stage = "decode ZIP data";
             try {
                 byte[] expected = android.util.Base64.decode(base64, android.util.Base64.DEFAULT);
                 if (expected.length == 0) throw new IllegalArgumentException("RDS ZIP archive is empty");
+                stage = "create Documents/Nexus3D destination";
                 ContentValues values = new ContentValues();
                 values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
                 values.put(MediaStore.MediaColumns.MIME_TYPE, "application/zip");
@@ -386,11 +388,13 @@ public class NexusProjectFilesPlugin extends Plugin {
                 uri = getContext().getContentResolver().insert(
                     MediaStore.Files.getContentUri("external"), values);
                 if (uri == null) throw new IllegalStateException("Android could not create Documents/Nexus3D ZIP destination");
+                stage = "write ZIP bytes";
                 try (OutputStream output = getContext().getContentResolver().openOutputStream(uri, "w")) {
                     if (output == null) throw new IllegalStateException("Unable to open Documents/Nexus3D ZIP destination");
                     output.write(expected);
                     output.flush();
                 }
+                stage = "read back and verify ZIP bytes";
                 long verifiedBytes = 0L;
                 try (InputStream input = getContext().getContentResolver().openInputStream(uri)) {
                     if (input == null) throw new IllegalStateException("Saved RDS ZIP could not be reopened for verification");
@@ -408,6 +412,7 @@ public class NexusProjectFilesPlugin extends Plugin {
                 if (verifiedBytes != expected.length || verifiedBytes == 0L) {
                     throw new IllegalStateException("RDS ZIP verification failed: expected " + expected.length + " bytes but read " + verifiedBytes);
                 }
+                stage = "verify saved filename and destination folder";
                 try (Cursor cursor = getContext().getContentResolver().query(
                     uri,
                     new String[]{MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.RELATIVE_PATH},
@@ -428,6 +433,7 @@ public class NexusProjectFilesPlugin extends Plugin {
                             + " but Android reported " + actualPath + "/" + actualName);
                     }
                 }
+                stage = "publish ZIP in Documents/Nexus3D";
                 ContentValues publish = new ContentValues();
                 publish.put(MediaStore.MediaColumns.IS_PENDING, 0);
                 if (getContext().getContentResolver().update(uri, publish, null, null) != 1) {
@@ -440,10 +446,22 @@ public class NexusProjectFilesPlugin extends Plugin {
                 response.put("path", "Documents/Nexus3D/" + fileName);
                 call.resolve(response);
             } catch (Exception error) {
+                String diagnosticUri = uri == null ? "no MediaStore URI created" : uri.toString();
+                String preserveNote = "no file was created";
                 if (uri != null) {
-                    try { getContext().getContentResolver().delete(uri, null, null); } catch (Exception ignored) { }
+                    try {
+                        ContentValues preserve = new ContentValues();
+                        preserve.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                        int published = getContext().getContentResolver().update(uri, preserve, null, null);
+                        preserveNote = published == 1
+                            ? "partial file preserved for diagnosis; inspect its ZIP validity before use"
+                            : "partial file remains unpublished in Android pending storage";
+                    } catch (Exception preserveError) {
+                        preserveNote = "partial file could not be published: " + preserveError.getMessage();
+                    }
                 }
-                call.reject("Unable to save and verify RDS ZIP in Documents/Nexus3D: " + error.getMessage(), error);
+                call.reject("RDS ZIP failed at stage [" + stage + "]: " + error.getClass().getSimpleName()
+                    + ": " + error.getMessage() + "; " + preserveNote + "; MediaStore URI: " + diagnosticUri, error);
             }
         });
     }
