@@ -13,7 +13,7 @@ function targetNode(attributes = {}, label = '', parent = null) {
       let node = this;
       while (node) {
         if (selector.split(',').some(part => {
-          const key = part.trim().match(/^\\[([^\\]]+)\\]$/)?.[1];
+          const key = part.trim().match(/^\[([^\]]+)\]$/)?.[1];
           return key && (key.includes('=') ? node.getAttribute(key.split('=')[0]) !== null : node.getAttribute(key) !== null);
         })) return node;
         node = node.parentElement;
