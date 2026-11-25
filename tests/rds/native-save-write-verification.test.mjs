@@ -219,25 +219,30 @@ test('RDS ZIP progress reaches 100 only after native save verification resolves'
 });
 
 
-test('RDS bottom slider is an independent fixed control outside the clipped panel', async () => {
+test('RDS bottom slider stays inside the panel and resizes only the bottom edge', async () => {
   const css = await readFile(new URL('../../src/index.css', import.meta.url), 'utf8');
   const start = css.indexOf('.rds-bottom-slider {');
   const end = css.indexOf('}', start);
   const rule = css.slice(start, end);
-  assert.ok(rule.includes('position:fixed'));
+  assert.ok(rule.includes('position:absolute'));
+  assert.ok(rule.includes('left:50%'));
+  assert.ok(rule.includes('bottom:0'));
   assert.ok(rule.includes('width:88px'));
   assert.ok(rule.includes('height:30px'));
-  assert.ok(rule.includes('z-index:45'));
   assert.ok(rule.includes('touch-action:none'));
   const app = await readFile(appPath, 'utf8');
-  assert.ok(app.includes('className="rds-bottom-slider"'));
-  assert.ok(app.includes('ref={rdsPanelElementRef}'));
-  assert.ok(app.includes('panel.getBoundingClientRect()'));
-  assert.ok(app.includes('new ResizeObserver(updatePosition)'));
-  assert.ok(app.includes('rdsBottomSliderPosition.top'));
-  assert.ok(!app.includes('rdsPanelHeight - 15'));
+  const panelStart = app.indexOf('<aside ref={rdsPanelElementRef}');
+  const panelEnd = app.indexOf('</aside>}', panelStart);
+  const slider = app.indexOf('className="rds-bottom-slider"', panelStart);
+  assert.ok(panelStart >= 0 && panelEnd > panelStart);
+  assert.ok(slider > panelStart && slider < panelEnd, 'Bottom Slider must be a child of the RDS panel');
+  assert.ok(app.includes("beginRdsPanelResize(event, 'height')"));
   assert.ok(app.includes('start.height + start.y - moveEvent.clientY'));
-  assert.ok(css.includes('.rds-bottom-slider { position:fixed !important; z-index:80 !important;'));
+  assert.ok(!app.includes('rdsBottomSliderPosition'));
+  assert.ok(!app.includes('new ResizeObserver(updatePosition)'));
+  assert.ok(css.includes('.rds-bottom-slider { position:absolute !important; left:50% !important; bottom:0 !important;'));
+  assert.ok(css.includes('.rds-command-center { position:fixed; z-index:30; top:58px;'));
+  assert.ok(!app.includes("setRdsPanelHeight(") || app.includes("start.height + start.y - moveEvent.clientY"));
   assert.ok(!app.includes('className="rds-resize-handle rds-resize-vertical"'));
 });
 
