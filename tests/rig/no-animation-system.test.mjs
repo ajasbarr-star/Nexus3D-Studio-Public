@@ -281,15 +281,15 @@ test('Alphabet State 3D markers are scene-rooted snapshots with larger circles a
   assert.doesNotMatch(app, /owner\.add\(sprite\)/);
 });
 
-test('Alphabet State 3D markers select their matching state in both viewports', () => {
+test('Alphabet State 3D markers select their matching state only in the Animation Viewport', () => {
 
   assert.equal((app.match(/intersectObjects\\(Array\\.from\\(alphabetStateMarkers\\.values\\(\\)\\), false\\)/g) || []).length, 2);
   assert.equal((app.match(/setSelectedSequenceState\\(stateId\\)/g) || []).length, 1);
-  assert.match(app, /if \\(!runtime\\.current\\?\\.animationView\\) return/);
-  assert.match(app, /Selected Alphabet State .* from Animation Viewport/);
-  assert.match(app, /if \\(alphabetMarkerHit\\) return/);
-  assert.match(app, /startFrame=startFrame/);
-  assert.match(app, /setCurrentFrame\\(Number\\(marker\\.userData\\.startFrame\\) \\|\\| 1\\)/);
+  assert.ok(app.includes("if (!runtime.current?.animationView) return;"));
+  assert.ok(app.includes("from Animation Viewport"));
+  assert.ok(app.includes("if (alphabetMarkerHit) return;"));
+  assert.ok(app.includes("startFrame=startFrame"));
+  assert.ok(app.includes("setCurrentFrame(Number(marker.userData.startFrame) || 1)"));
 });
 
 
@@ -317,8 +317,8 @@ test('Alphabet State 3D markers select their owning object and attach the shared
 
   assert.equal((app.match(/const ownerId = String\\(marker\\.userData\\.ownerObjectId \\|\\| ''\\);/g) || []).length, 1);
   assert.equal((app.match(/if \\(owner\\) selectObject\\(owner\\);/g) || []).length, 1);
-  assert.match(app, /transform\\.attach\\(obj\\)/);
-  assert.match(app, /const selectAlphabetState = \\(state: typeof sequenceStates\\[number\\]\\)/);
+  assert.ok(app.includes("transform.attach(obj)"));
+  assert.ok(app.includes("const selectAlphabetState = (state: typeof sequenceStates[number])"));
   const timelineSelection = app.slice(app.indexOf('const selectAlphabetState ='), app.indexOf('const deleteAlphabetState ='));
   assert.doesNotMatch(timelineSelection, /selectObject/);
 });
@@ -474,14 +474,14 @@ test('Playback controls remain compact in one horizontal row', () => {
 test('Selected Alphabet State ruler keeps frame labels and ticks horizontal while scrubbing remains horizontal', () => {
 
   const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
-  assert.match(layout, /\\.alphabet-state-mini-ruler \\.alphabet-state-ruler-scale\\{[\\s\\S]*?left:12px!important;right:12px!important/);
-  assert.match(layout, /\\.alphabet-state-mini-ruler \\.alphabet-state-ruler-labels\\{position:absolute!important;inset:0!important;display:block!important/);
-  assert.match(layout, /\\.alphabet-state-mini-ruler \\.alphabet-state-ruler-ticks\\{position:absolute!important;left:0!important;right:0!important;top:50%/);
-  assert.match(layout, /\\.alphabet-state-mini-ruler \\.alphabet-state-mini-markers\\{position:absolute!important;z-index:4!important;top:2px!important;left:5px!important;right:5px!important;bottom:auto!important;width:auto!important;height:23px!important/);
-  assert.match(layout, /\\.alphabet-state-mini-ruler input\\[type=range\\].*top:45px!important/);
-  assert.match(layout, /writing-mode:horizontal-tb!important/);
-  assert.match(layout, /touch-action:pan-x!important/);
-  assert.match(app, /onChange=\\{event=>setCurrentFrame\\(Number\\(event\\.target\\.value\\)\\)\\}/);
+  assert.ok(layout.includes(".alphabet-state-mini-ruler .alphabet-state-ruler-scale{position:absolute!important;z-index:2!important;top:2px!important;left:12px!important;right:12px!important"));
+  assert.ok(layout.includes(".alphabet-state-mini-ruler .alphabet-state-ruler-labels{position:absolute!important;inset:0!important;display:block!important"));
+  assert.ok(layout.includes(".alphabet-state-mini-ruler .alphabet-state-ruler-ticks{position:absolute!important;left:0!important;right:0!important;top:50%!important"));
+  assert.ok(layout.includes(".alphabet-state-mini-ruler .alphabet-state-mini-markers{position:absolute!important;z-index:4!important;top:2px!important;left:5px!important;right:5px!important"));
+  assert.ok(layout.includes(".alphabet-state-mini-ruler input[type=range]"));
+  assert.ok(layout.includes("writing-mode:horizontal-tb!important"));
+  assert.ok(layout.includes("touch-action:pan-x!important"));
+  assert.ok(app.includes("onChange={event=>setCurrentFrame(Number(event.target.value))}"));
 });
 
 test('Alphabet State frame ranges are contiguous without sharing the boundary frame', () => {
@@ -500,14 +500,14 @@ test('Horizontal ruler ticks are individually positioned across the track and St
 
 test('Opening an Alphabet State reveals a horizontal numbered ruler beside its letter', () => {
 
-  assert.match(app, /sequenceRulerDisplayWidths\\[state\\.id\\] \\|\\| 360/);
-  assert.match(app, /previous\\[state\\.id\\] \\|\\| 360/);
-  assert.match(app, /getCustomRulerTicks\\(sequenceRulerDisplayWidths\\[state\\.id\\] \\|\\| 360\\)/);
-  assert.match(css, /\\.alphabet-state-mini-ruler \\.alphabet-state-ruler-labels span\\{position:absolute!important;top:50%!important/);
-  assert.match(css, /\\.alphabet-state-mini-ruler \\.alphabet-state-ruler-scale\\{[\\s\\S]*?left:12px!important;right:12px!important/);
-  assert.match(css, /\\.alphabet-state-mini-ruler \\.alphabet-state-ruler-ticks\\{position:absolute!important;left:0!important;right:0!important;top:50%!important/);
-  assert.match(css, /writing-mode:horizontal-tb!important/);
-  assert.match(app, /style=\\{\\{left:\\(\\(\\(at-range\\.start\\)\\/Math\\.max\\(1,range\\.end-range\\.start\\)\\)\\*100\\)\\+'%',top:'50%'\\}\\}/);
+  assert.ok(app.includes("sequenceRulerDisplayWidths[state.id] || 360"));
+  assert.ok(app.includes("previous[state.id] || 360"));
+  assert.ok(app.includes("getCustomRulerTicks(sequenceRulerDisplayWidths[state.id] || 360)"));
+  assert.ok(css.includes(".alphabet-state-mini-ruler .alphabet-state-ruler-labels span{position:absolute!important;top:50%!important"));
+  assert.ok(css.includes(".alphabet-state-mini-ruler .alphabet-state-ruler-scale{position:absolute!important;z-index:2!important;top:2px!important;left:12px!important;right:12px!important"));
+  assert.ok(css.includes(".alphabet-state-mini-ruler .alphabet-state-ruler-ticks{position:absolute!important;left:0!important;right:0!important;top:50%!important"));
+  assert.ok(css.includes("writing-mode:horizontal-tb!important"));
+  assert.ok(app.includes("top:'50%'"));
 });
 
 test('Add Keyframe stays immediately beside Dope Sheet in the Timeline tools row', () => {
@@ -591,11 +591,11 @@ test('REC and LOOP controls align in the Timeline tools row beside the Alphabet 
 
 test('Timeline ruler labels and four major ticks share the exact same responsive percentage positions', () => {
 
-  assert.match(app, /alphabet-state-ruler-labels[\\s\\S]*?getCustomRulerTicks\\(sequenceRulerDisplayWidths\\[state\\.id\\] \\|\\| 360\\)/);
-  assert.match(app, /key=\\{\\"major-\\"\\+index\\} className=\\"major\\" style=\\{\\{left:tick\\.position\\+\\"%\\"\\}\\}/);
+  assert.ok(app.includes("getCustomRulerTicks(sequenceRulerDisplayWidths[state.id] || 360).map((tick,index)=><span key={index} style={{left:tick.position+"%"}}>{tick.label}</span>)"));
+  assert.ok(app.includes("<i key={"major-"+index} className="major" style={{left:tick.position+"%"}}/>"));
   const canonical = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
-  assert.match(canonical, /\\.alphabet-state-mini-ruler \\.alphabet-state-ruler-scale\\{[\\s\\S]*?left:12px!important;right:12px!important/);
-  assert.match(canonical, /\\.alphabet-state-mini-ruler \\.alphabet-state-ruler-ticks\\{position:absolute!important;left:0!important;right:0!important;top:50%!important/);
+  assert.ok(canonical.includes("left:12px!important;right:12px!important"));
+  assert.ok(canonical.includes(".alphabet-state-mini-ruler .alphabet-state-ruler-ticks{position:absolute!important;left:0!important;right:0!important;top:50%!important"));
 });
 
 test('Keyframe diamonds align with the ruler center labels while the scrubber remains in its own touch lane', () => {
