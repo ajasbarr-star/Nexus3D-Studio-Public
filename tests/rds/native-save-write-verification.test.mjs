@@ -198,3 +198,23 @@ test('RDS ZIP progress reaches 100 only after native save verification resolves'
   assert.ok(exportCode.includes("setRdsExportPhase('failed')"));
   assert.ok(source.includes('rds-export-progress'));
 });
+
+
+test('RDS bottom resize handle remains visible, reachable, and above panel content', async () => {
+  const source = await readFile(new URL('../../src/index.css', import.meta.url), 'utf8');
+  const start = source.indexOf('.rds-resize-vertical {');
+  const end = source.indexOf('}', start);
+  const rule = source.slice(start, end);
+  assert.ok(rule.includes('bottom: max(8px'));
+  assert.ok(rule.includes('width:88px'));
+  assert.ok(rule.includes('height:30px'));
+  assert.ok(rule.includes('z-index:12'));
+  assert.ok(rule.includes('pointer-events:auto'));
+});
+
+test('RDS ZIP percentage indicator has visible active, complete, and failure states', async () => {
+  const source = await readFile(new URL('../../src/index.css', import.meta.url), 'utf8');
+  assert.ok(source.includes('.rds-export-progress.active'));
+  assert.ok(source.includes('.rds-export-progress.complete'));
+  assert.ok(source.includes('.rds-export-progress.failed'));
+});
