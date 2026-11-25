@@ -36,6 +36,32 @@ test('target description preserves tool, panel, control, action and object hiera
   assert.deepEqual(described.hierarchy.map(item => item.type), ['tool', 'panel', 'control', 'object']);
 });
 
+test('Light and Shape controls retain their full tool, panel, action and named-object hierarchy', () => {
+  const lightTool = targetNode({ 'data-rit-tool': 'Quick Light Controls' }, '', null);
+  const lightPanel = targetNode({ 'data-rit-panel': 'Directional Light' }, '', lightTool);
+  const addLight = targetNode({ 'aria-label': 'Add Directional Light', 'data-rit-action': 'ADD', 'data-object-name': 'Directional Light' }, '', lightPanel);
+  const light = describeInteractionTarget(addLight);
+  assert.deepEqual(light.hierarchy, [
+    { type: 'tool', label: 'Quick Light Controls' },
+    { type: 'panel', label: 'Directional Light' },
+    { type: 'control', label: 'Add Directional Light' },
+    { type: 'action', label: 'ADD' },
+    { type: 'object', label: 'Directional Light' },
+  ]);
+
+  const shapeTool = targetNode({ 'data-rit-tool': 'Shape' }, '', null);
+  const shapePanel = targetNode({ 'data-rit-panel': 'Shape Library' }, '', shapeTool);
+  const cube = targetNode({ 'aria-label': 'Cube', 'data-rit-action': 'CREATE', 'data-object-name': 'Cube' }, '', shapePanel);
+  const shape = describeInteractionTarget(cube);
+  assert.deepEqual(shape.hierarchy, [
+    { type: 'tool', label: 'Shape' },
+    { type: 'panel', label: 'Shape Library' },
+    { type: 'control', label: 'Cube' },
+    { type: 'action', label: 'CREATE' },
+    { type: 'object', label: 'Cube' },
+  ]);
+});
+
 test('pointer gesture emits one compact record with shared interaction ID and monotonic duration', () => {
   let clock = 100;
   let sequence = 0;
@@ -144,4 +170,78 @@ test('completed touch, control activation and scene response can share one Inter
   assert.equal(records[1].interactionId, records[0].interactionId);
   assert.equal(consumed, records[0].interactionId);
   assert.equal(tracker.consumeLastInteractionId(), null);
+});
+
+test('stale pointer IDs are not reused to correlate a later control action', () => {
+  let clock = 10;
+  let sequence = 0;
+  const records = [];
+  const tracker = createInteractionTracker({
+    emit: item => records.push(item),
+    now: () => clock,
+    createId: () => 'ix-' + (++sequence),
+  });
+  const target = targetNode({ 'aria-label': 'Create' }, 'Create');
+  tracker.begin({ pointerId: 4, pointerType: 'touch', clientX: 1, clientY: 1, target });
+  clock = 20;
+  tracker.finish({ pointerId: 4 });
+  clock = 2000;
+  tracker.action({ type: 'click', pointerId: 4, target });
+  assert.notEqual(records[0].interactionId, records[1].interactionId);
+  assert.equal(records[1].interactionId, 'ix-2');
+});
+
+test('cancelled pointer gestures are not reused as successful control activations', () => {
+  let clock = 10;
+  let sequence = 0;
+  const records = [];
+  const tracker = createInteractionTracker({
+    emit: item => records.push(item),
+    now: () => clock,
+    createId: () => 'ix-' + (++sequence),
+  });
+  const target = targetNode({ 'aria-label': 'Create' }, 'Create');
+  tracker.begin({ pointerId: 5, pointerType: 'touch', clientX: 1, clientY: 1, target });
+  clock = 20;
+  tracker.finish({ pointerId: 5 }, 'cancelled');
+  tracker.action({ type: 'click', pointerId: 5, target });
+  assert.notEqual(records[0].interactionId, records[1].interactionId);
+  assert.equal(records[0].status, 'CANCELLED');
+});
+
+
+test('generic tool and panel markers are retained in the interaction hierarchy', () => {
+  const tool = targetNode({ 'data-tool': 'Materials' }, '', null);
+  const panel = targetNode({ 'data-panel': 'Surface' }, '', tool);
+  const control = targetNode({ 'aria-label': 'Roughness' }, '', panel);
+  const described = describeInteractionTarget(control);
+  assert.equal(described.tool, 'Materials');
+  assert.equal(described.panel, 'Surface');
+  assert.deepEqual(described.hierarchy.map(item => item.type), ['tool', 'panel', 'control']);
+});
+
+test('blank viewport touches are explicitly classified without inventing an object selection', () => {
+  const viewport = targetNode({ 'data-rit-viewport': 'MainViewport' }, '', null);
+  const described = describeInteractionTarget(viewport);
+  assert.equal(described.targetKind, 'BLANK_VIEWPORT');
+  assert.equal(described.region, 'MainViewport');
+  assert.deepEqual(described.hierarchy, [
+    { type: 'viewport', label: 'MainViewport', targetKind: 'BLANK_VIEWPORT' }
+  ]);
+  assert.equal(described.objectId, '');
+  assert.equal(described.objectName, '');
+});
+
+test('disabled controls are recorded as disabled rather than normal activations', () => {
+  const records = [];
+  const tracker = createInteractionTracker({
+    emit: item => records.push(item),
+    now: () => 100,
+    createId: () => 'disabled-control'
+  });
+  const target = targetNode({ 'aria-label': 'Delete selected object' }, 'Delete');
+  target.disabled = true;
+  tracker.action({ type: 'click', pointerId: 0, target });
+  assert.equal(records[0].status, 'DISABLED');
+  assert.equal(records[0].event, 'CONTROL_ACTIVATION');
 });
