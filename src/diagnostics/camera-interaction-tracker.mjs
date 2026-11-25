@@ -103,6 +103,10 @@ export function createCameraInteractionTracker({
         lastTouchTap = tap;
       }
     }
+    if (session.pointerType === 'touch' &&
+        (session.multiTouch || distancePx >= TAP_DISTANCE_PX || pointerDurationMs >= 550 || status === 'cancelled')) {
+      lastTouchTap = null;
+    }
     session.lastInputAt = endedAt;
     if (pointers.size === 0) {
       session.endedAt = endedAt;
@@ -113,9 +117,6 @@ export function createCameraInteractionTracker({
         completeGesture('CAMERA_UPDATED');
         if (session.firstRenderedAt !== null) session = null;
       }
-    } else if (session.pointerType === 'touch' && pointers.size === 0 &&
-        (distancePx >= TAP_DISTANCE_PX || pointerDurationMs >= 550 || status === 'cancelled')) {
-      lastTouchTap = null;
     }
     return true;
   }
