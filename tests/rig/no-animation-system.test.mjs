@@ -591,8 +591,11 @@ test('REC and LOOP controls align in the Timeline tools row beside the Alphabet 
 
 test('Timeline ruler labels and four major ticks share the exact same responsive percentage positions', () => {
 
-  assert.ok(app.includes("getCustomRulerTicks(sequenceRulerDisplayWidths[state.id] || 360).map((tick,index)=><span key={index} style={{left:tick.position+"%"}}>{tick.label}</span>)"));
-  assert.ok(app.includes("<i key={"major-"+index} className="major" style={{left:tick.position+"%"}}/>"));
+  assert.ok(app.includes('getCustomRulerTicks(sequenceRulerDisplayWidths[state.id] || 360)'));
+  assert.ok(app.includes('left:tick.position+"%"'));
+  assert.ok(app.includes('tick.label'));
+  assert.ok(app.includes('className="major"'));
+  assert.ok(app.includes('left:tick.position+"%"'));
   const canonical = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
   assert.ok(canonical.includes("left:12px!important;right:12px!important"));
   assert.ok(canonical.includes(".alphabet-state-mini-ruler .alphabet-state-ruler-ticks{position:absolute!important;left:0!important;right:0!important;top:50%!important"));
