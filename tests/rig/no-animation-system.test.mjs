@@ -503,7 +503,7 @@ test('Horizontal ruler ticks are individually positioned across the track and St
 test('Opening an Alphabet State reveals a horizontal numbered ruler beside its letter', () => {
 
   assert.ok(app.includes("sequenceRulerDisplayWidths[state.id] || 96"));
-  assert.ok(app.includes("previous[state.id] || 96"));
+  assert.doesNotMatch(app.slice(app.indexOf("const handleAlphabetStateHandleClick ="), app.indexOf("const [pendingStateChoice")), /setSequenceRulerDisplayWidths/);
   assert.ok(app.includes("getCustomRulerTicks(sequenceRulerDisplayWidths[state.id] || 96)"));
   assert.ok(css.includes(".alphabet-state-mini-ruler .alphabet-state-ruler-labels span{position:absolute!important;top:50%!important"));
   assert.ok(css.includes(".alphabet-state-mini-ruler .alphabet-state-ruler-scale{position:absolute!important;z-index:2!important;top:2px!important;left:12px!important;right:12px!important"));
