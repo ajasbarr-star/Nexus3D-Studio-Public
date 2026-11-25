@@ -570,11 +570,11 @@ export default function App() {
   const [selectedSequenceState, setSelectedSequenceState] = useState('');
   const [selected3DAlphabetMarkerId, setSelected3DAlphabetMarkerId] = useState('');
   const [sequenceRulerDisplayWidths, setSequenceRulerDisplayWidths] = useState<Record<string, number>>({});
-  const sequenceRulerDrag = useRef<{ stateId: string; pointerId: number; startX: number; startWidth: number } | null>(null);
+  const sequenceRulerDrag = useRef<{ stateId: string; pointerId: number; startX: number; startWidth: number; scrollLeft: number } | null>(null);
   const suppressSequenceRulerClick = useRef(false);
   const beginSequenceRulerResize = (event: React.PointerEvent<HTMLButtonElement>, stateId: string) => {
     if (event.button !== 0) return;
-    sequenceRulerDrag.current = { stateId, pointerId: event.pointerId, startX: event.clientX, startWidth: sequenceRulerDisplayWidths[stateId] || 360 };
+    sequenceRulerDrag.current = { stateId, pointerId: event.pointerId, startX: event.clientX, startWidth: sequenceRulerDisplayWidths[stateId] || 96, scrollLeft: timelineScrollRef.current?.scrollLeft || 0 };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const moveSequenceRulerResize = (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -583,6 +583,7 @@ export default function App() {
     const delta = event.clientX - drag.startX;
     if (Math.abs(delta) > 3) suppressSequenceRulerClick.current = true;
     setSequenceRulerDisplayWidths(previous => ({ ...previous, [drag.stateId]: Math.max(96, drag.startWidth + delta) }));
+    if (timelineScrollRef.current) timelineScrollRef.current.scrollLeft = drag.scrollLeft;
   };
   const endSequenceRulerResize = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (sequenceRulerDrag.current?.pointerId !== event.pointerId) return;
@@ -591,12 +592,15 @@ export default function App() {
   const handleAlphabetStateHandleClick = (state: typeof sequenceStates[number]) => {
     if (suppressSequenceRulerClick.current) { suppressSequenceRulerClick.current = false; return; }
     selectAlphabetState(state);
-    setSequenceRulerDisplayWidths(previous => ({ ...previous, [state.id]: previous[state.id] || 360 }));
   };
   const [pendingStateChoice, setPendingStateChoice] = useState('');
   const [timelineTool, setTimelineTool] = useState<'tracks' | 'dope' | 'graph'>('tracks');
   const [selectedGraphChannel, setSelectedGraphChannel] = useState<'position.x' | 'position.y' | 'position.z' | 'rotation.x' | 'rotation.y' | 'rotation.z' | 'scale.x' | 'scale.y' | 'scale.z'>('position.x');
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const drag = sequenceRulerDrag.current;
+    if (drag && timelineScrollRef.current) timelineScrollRef.current.scrollLeft = drag.scrollLeft;
+  }, [sequenceRulerDisplayWidths]);
   const [timelineMarkers, setTimelineMarkers] = useState<Array<{id:string;frame:number;label:string}>>([]);
   const [showGhostPreview, setShowGhostPreview] = useState(false);
   const [playbackControlsOpen, setPlaybackControlsOpen] = useState(false);
@@ -3306,7 +3310,7 @@ export default function App() {
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      const viewCamera = runtime.current?.cameraView ? activeCamera : camera;
+      const viewCamera = runtime.current?.cameraView || runtime.current?.animationView ? activeCamera : camera;
       raycaster.setFromCamera(pointer, viewCamera);
       const alphabetMarkerHit = raycaster.intersectObjects(Array.from(alphabetStateMarkers.values()), false)[0];
       if (alphabetMarkerHit) {
@@ -8315,13 +8319,13 @@ export default function App() {
                <div className="alphabet-state-scroll" ref={timelineScrollRef} aria-label="Alphabet State sequence">
                  {sequenceStates.map(state => <div className="alphabet-state-item" key={state.id}>
                    <button type="button" className={"alphabet-state-handle " + (selectedSequenceState === state.id ? "active" : "")} title={"State " + state.label + " · tap to show ruler · drag right to expand, left to shrink"} onPointerDown={event=>beginSequenceRulerResize(event,state.id)} onPointerMove={moveSequenceRulerResize} onPointerUp={endSequenceRulerResize} onPointerCancel={endSequenceRulerResize} onClick={() => handleAlphabetStateHandleClick(state)}>{state.label}</button>
-                   <div className={"alphabet-state-mini-ruler " + (selectedSequenceState === state.id ? "active" : "") + ((sequenceRulerDisplayWidths[state.id] || 360) > 96 ? " expanded" : " collapsed")} style={{width:(sequenceRulerDisplayWidths[state.id] || 360)+"px"}} aria-label={"State " + state.label + " keyframe timeline"}>
+                   <div className={"alphabet-state-mini-ruler " + (selectedSequenceState === state.id ? "active" : "") + ((sequenceRulerDisplayWidths[state.id] || 96) > 96 ? " expanded" : " collapsed")} style={{width:(sequenceRulerDisplayWidths[state.id] || 96)+"px"}} aria-label={"State " + state.label + " keyframe timeline"}>
                      <span className="alphabet-state-frame-label">{Math.round(state.width)}f</span>
                      <div className="alphabet-state-ruler-scale" aria-label={"Frame ruler from "+getSequenceRange(state.id).start+" to "+getSequenceRange(state.id).end}>
-                       <div className="alphabet-state-ruler-labels">{getCustomRulerTicks(sequenceRulerDisplayWidths[state.id] || 360).map((tick,index)=><span key={index} style={{left:tick.position+"%"}}>{tick.label}</span>)}</div>
+                       <div className="alphabet-state-ruler-labels">{getCustomRulerTicks(sequenceRulerDisplayWidths[state.id] || 96).map((tick,index)=><span key={index} style={{left:tick.position+"%"}}>{tick.label}</span>)}</div>
                        <div className="alphabet-state-ruler-ticks" aria-hidden="true">
                          {Array.from({length:Math.max(2,Math.round(state.width)+1)},(_,index)=><i key={"minor-"+index} className={index%5===0?"medium":"minor"} style={{left:(index/Math.max(1,Math.round(state.width))*100)+"%"}}/>)}
-                         {getCustomRulerTicks(sequenceRulerDisplayWidths[state.id] || 360).map((tick,index)=><i key={"major-"+index} className="major" style={{left:tick.position+"%"}}/>)}
+                         {getCustomRulerTicks(sequenceRulerDisplayWidths[state.id] || 96).map((tick,index)=><i key={"major-"+index} className="major" style={{left:tick.position+"%"}}/>)}
                        </div>
                      </div>
                      <div className="alphabet-state-mini-markers" aria-label="Keyframe markers">
