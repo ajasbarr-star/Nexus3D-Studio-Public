@@ -9,6 +9,7 @@ on:
       - diagnostic/light-capacity-build274
       - diagnostic/directional-shadow-optimization
       - fix/rds-bottom-slider-safe-margin
+      - feature/rit-touch-hierarchy-build832
   workflow_dispatch:
 
 permissions:
