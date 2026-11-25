@@ -3224,7 +3224,7 @@ export default function App() {
       if (!loopCutGesture) return;
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
-      const viewCamera = runtime.current?.cameraView ? activeCamera : camera;
+      const viewCamera = runtime.current?.animationView || runtime.current?.cameraView ? activeCamera : camera;
       raycaster.setFromCamera(pointer, viewCamera);
       const hit = raycaster.intersectObject(loopCutGesture.mesh, false)[0];
       if (!hit) return;
@@ -3310,6 +3310,9 @@ export default function App() {
       raycaster.setFromCamera(pointer, viewCamera);
       const alphabetMarkerHit = raycaster.intersectObjects(Array.from(alphabetStateMarkers.values()), false)[0];
       if (alphabetMarkerHit) {
+        // Alphabet State world markers are selectable only while the Animation
+        // workspace is active. In the regular Main Viewport they are display-only.
+        if (!runtime.current?.animationView) return;
         const marker = alphabetMarkerHit.object as THREE.Sprite;
         const stateId = String(marker.userData.alphabetStateId || '');
         if (stateId) {
@@ -3320,7 +3323,7 @@ export default function App() {
           const owner = selectable.find(object => String(object.userData.editorId || '') === ownerId);
           if (owner) selectObject(owner);
           setCurrentFrame(Number(marker.userData.startFrame) || 1);
-          setStatus('Selected Alphabet State ' + marker.name.replace('Alphabet State Marker ', '') + ' from 3D Scene');
+          setStatus('Selected Alphabet State ' + marker.name.replace('Alphabet State Marker ', '') + ' from Animation Viewport');
         }
         return;
       }
@@ -3692,21 +3695,9 @@ export default function App() {
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, ikCamera);
       const alphabetMarkerHit = raycaster.intersectObjects(Array.from(alphabetStateMarkers.values()), false)[0];
-      if (alphabetMarkerHit) {
-        const marker = alphabetMarkerHit.object as THREE.Sprite;
-        const stateId = String(marker.userData.alphabetStateId || '');
-        if (stateId) {
-          setSelectedSequenceState(stateId);
-          setSelected3DAlphabetMarkerId(stateId);
-          runtime.current?.setSelectedAlphabetStateMarker?.(stateId);
-          const ownerId = String(marker.userData.ownerObjectId || '');
-          const owner = selectable.find(object => String(object.userData.editorId || '') === ownerId);
-          if (owner) selectObject(owner);
-          setCurrentFrame(Number(marker.userData.startFrame) || 1);
-          setStatus('Selected Alphabet State ' + marker.name.replace('Alphabet State Marker ', '') + ' from 3D Scene');
-        }
-        return;
-      }
+      // The IK viewport does not own Alphabet State selection; only the
+      // Animation workspace may select these world-space letter markers.
+      if (alphabetMarkerHit) return;
       raycaster.params.Line = { threshold: Math.max(0.025, ikCamera.position.distanceTo(ikOrbit?.target || new THREE.Vector3()) * 0.0035) };
       const visibleHelpers = rigChains.filter(chain => chain.shapeRig && chain.displayVisible !== false && chain.helper.visible).map(chain => chain.helper);
       const roots = [...selectable.filter(object => object.visible), ...visibleHelpers];
