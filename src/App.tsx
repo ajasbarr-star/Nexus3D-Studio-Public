@@ -89,6 +89,7 @@ type NexusProjectFilesPlugin = {
   loadProject(): Promise<{ content: string; name: string }>;
   loadProjectArchive(): Promise<{ base64: string; name: string }>;
   saveProjectArchive(options: { fileName: string; base64: string }): Promise<{ uri: string; name: string; writtenBytes?: number; overwritten?: boolean }>;
+  saveRdsArchive(options: { fileName: string; base64: string }): Promise<{ uri: string; name: string; writtenBytes: number }>;
   clearAppCache(): Promise<{ cleared: boolean; message: string }>;
 };
 const NexusProjectFiles = registerPlugin<NexusProjectFilesPlugin>('NexusProjectFiles');
@@ -377,6 +378,8 @@ export default function App() {
   const [rdsPanelWidth, setRdsPanelWidth] = useState(() => Math.min(360, Math.max(280, window.innerWidth - 18)));
   const [rdsPanelHeight, setRdsPanelHeight] = useState(() => Math.min(Math.round(window.innerHeight * 0.48), Math.max(180, window.innerHeight - 78)));
   const [rdsExportBusy, setRdsExportBusy] = useState(false);
+  const [rdsExportProgress, setRdsExportProgress] = useState(0);
+  const [rdsExportPhase, setRdsExportPhase] = useState<'idle' | 'building' | 'saving' | 'done' | 'failed'>('idle');
   const rdsResizeRef = useRef<{ axis: 'width' | 'height'; x: number; y: number; width: number; height: number; pointerId: number } | null>(null);
   const beginRdsPanelResize = (event: React.PointerEvent<HTMLButtonElement>, axis: 'width' | 'height') => {
     event.preventDefault();
@@ -491,6 +494,8 @@ export default function App() {
   const exportRdsToolZip = async (tool: string) => {
     if (rdsExportBusy) return;
     setRdsExportBusy(true);
+    setRdsExportProgress(0);
+    setRdsExportPhase('building');
     try {
       const allLogs = [...diagnosticLogs, ...diagnosticQueueRef.current].slice(-400);
       const logcatEntries = getLogcatEntries();
@@ -585,24 +590,38 @@ export default function App() {
       Object.entries(exportFiles).forEach(([name, content]) => archiveFolder.file(name, content));
       const filename = toolFolder + '_' + timeFolder + '_' + dateFolder + '.zip';
       if (Capacitor.isNativePlatform()) {
-        const base64 = await zip.generateAsync({ type: 'base64', compression: 'DEFLATE', compressionOptions: { level: 6 } });
-        const saved = await Filesystem.writeFile({
-          path: 'Nexus3D/RDS Reports/' + filename, data: base64,
-          directory: Directory.Documents, recursive: true
-        });
-        setStatus('Saved ' + filename + ' · Internal Storage/Documents/Nexus3D/RDS Reports');
-        diagnosticSinkRef.current('INFO', 'RDS Export', tool + ' ZIP report saved', saved.uri || filename);
+        const base64 = await zip.generateAsync(
+          { type: 'base64', compression: 'DEFLATE', compressionOptions: { level: 6 } },
+          metadata => setRdsExportProgress(Math.min(85, Math.floor(metadata.percent * 0.85)))
+        );
+        setRdsExportPhase('saving');
+        setRdsExportProgress(90);
+        const saved = await NexusProjectFiles.saveRdsArchive({ fileName: filename, base64 });
+        const verifiedBytes = Number(saved.writtenBytes) || 0;
+        if (!saved.uri || verifiedBytes <= 0 || saved.name !== filename) {
+          throw new Error('Android ZIP save was not verified; the file name, URI, or written byte count is missing');
+        }
+        setRdsExportProgress(100);
+        setRdsExportPhase('done');
+        setStatus('Saved ' + filename + ' · Internal Storage/Documents/Nexus3D · ' + verifiedBytes.toLocaleString() + ' bytes');
+        diagnosticSinkRef.current('INFO', 'RDS Export', tool + ' ZIP report saved and verified', saved.uri + ' · ' + verifiedBytes + ' bytes');
       } else {
-        const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+        const blob = await zip.generateAsync(
+          { type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } },
+          metadata => setRdsExportProgress(Math.floor(metadata.percent))
+        );
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement('a');
         anchor.href = url; anchor.download = filename;
         document.body.appendChild(anchor); anchor.click(); anchor.remove();
         window.setTimeout(() => URL.revokeObjectURL(url), 1500);
-        setStatus('Downloaded ' + filename);
+        setRdsExportProgress(100);
+        setRdsExportPhase('done');
+        setStatus('Download started: ' + filename);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      setRdsExportPhase('failed');
       setStatus('RDS ZIP export failed · ' + message);
       diagnosticSinkRef.current('ERROR', 'RDS Export', tool + ' ZIP export failed', message);
     } finally {
@@ -7991,7 +8010,7 @@ export default function App() {
             </button>)}
           </nav>
           <main className="rds-command-content">
-            <div className="rds-content-heading"><div><span className="rds-eyebrow">DIAGNOSTIC WORKSPACE</span><h2>{rdsActiveTool === 'Overview' ? 'System Overview' : rdsActiveTool}</h2></div><div className="rds-content-heading-actions"><span className="rds-session-chip">SESSION ACTIVE</span><button type="button" className="rds-tool-button rds-export-zip-button" onClick={() => void exportRdsToolZip(rdsActiveTool)} disabled={rdsExportBusy} title={'Download ' + rdsActiveTool + ' report ZIP'} aria-label={'Download ' + rdsActiveTool + ' report ZIP'}><Download size={15}/></button></div></div>
+            <div className="rds-content-heading"><div><span className="rds-eyebrow">DIAGNOSTIC WORKSPACE</span><h2>{rdsActiveTool === 'Overview' ? 'System Overview' : rdsActiveTool}</h2></div><div className="rds-content-heading-actions"><span className="rds-session-chip">SESSION ACTIVE</span><button type="button" className="rds-tool-button rds-export-zip-button" onClick={() => void exportRdsToolZip(rdsActiveTool)} disabled={rdsExportBusy} title={'Download ' + rdsActiveTool + ' report ZIP'} aria-label={'Download ' + rdsActiveTool + ' report ZIP'}><Download size={15}/></button>{(rdsExportBusy || rdsExportPhase === 'done' || rdsExportPhase === 'failed') && <span className={'rds-export-progress ' + (rdsExportPhase === 'failed' ? 'failed' : rdsExportPhase === 'done' ? 'complete' : 'active')} role="status" aria-live="polite">{rdsExportPhase === 'failed' ? 'FAILED' : rdsExportProgress + '%'}</span>}</div></div>
             {rdsActiveTool === 'Overview' && <>
               <div className="rds-stat-grid">
                 <div className="rds-stat-card"><Activity/><small>Runtime Logs</small><strong>{diagnosticLogs.length}</strong></div>
