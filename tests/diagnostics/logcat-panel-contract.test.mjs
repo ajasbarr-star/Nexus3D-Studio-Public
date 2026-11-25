@@ -35,8 +35,9 @@ test('LogCat provides severity, advanced metadata filters, pause, refresh and cl
 test('each RDS tool has its own ZIP download action and native storage export', () => {
   assert.match(app, /exportRdsToolZip\(rdsActiveTool\)/);
   assert.match(app, /Download ' \+ rdsActiveTool \+ ' report ZIP/);
-  assert.match(app, /Directory\.Documents/);
-  assert.match(app, /RDS Reports/);
+  assert.match(app, /NexusProjectFiles\.saveRdsArchive/);
+  assert.match(app, /Documents\\/Nexus3D/);
+  assert.doesNotMatch(app, /Nexus3D\\/RDS Reports/);
   assert.match(app, /buildRdsExportFiles/);
   assert.doesNotMatch(app, /exportLogcatReport/);
 });
