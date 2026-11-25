@@ -536,7 +536,7 @@ export default function App() {
           entries = allLogs;
           fullReport = [
             'NEXUS3D RDS · SYSTEM OVERVIEW',
-            'Generated: ' + new Date().toISOString(),
+            'Generated: ' + generatedAt,
             'Runtime events: ' + allLogs.length,
             'Errors: ' + allLogs.filter(entry => entry.level === 'ERROR' || entry.level === 'FATAL').length,
             'Warnings: ' + allLogs.filter(entry => entry.level === 'WARN').length,
@@ -580,7 +580,7 @@ export default function App() {
           entries = allLogs;
           fullReport = [
             'NEXUS3D RDS · CONSOLIDATED REPORTS',
-            'Generated: ' + new Date().toISOString(),
+            'Generated: ' + generatedAt,
             '',
             'FULL CORE SCAN',
             rdsScanReport,
