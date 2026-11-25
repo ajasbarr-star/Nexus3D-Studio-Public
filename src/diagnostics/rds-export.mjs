@@ -27,49 +27,78 @@ function parseEntryDetails(entry) {
 export function formatInteractionHierarchy(entries = []) {
   const groups = new Map();
   for (const entry of entries) {
-    if (!entry?.interactionId) continue;
     const details = parseEntryDetails(entry);
     if (!details) continue;
-    const group = groups.get(entry.interactionId) || { interactionId: entry.interactionId };
+    const interactionId = entry.interactionId || details.interactionId;
+    if (!interactionId) continue;
+    const group = groups.get(interactionId) || { interactionId };
+    if (entry.message === 'GESTURE_COMPLETE') {
+      group.gesture = details;
+      group.timestamp = entry.timestampISO || entry.time || group.timestamp || 'UNKNOWN_TIME';
+    }
     if (entry.message === 'CONTROL_ACTIVATION' || entry.message === 'CONTROL_VALUE') {
-      const hierarchy = details.target?.hierarchy;
-      if (Array.isArray(hierarchy) && hierarchy.length) {
-        group.hierarchy = hierarchy;
-        group.timestamp = entry.timestampISO || entry.time || group.timestamp || 'UNKNOWN_TIME';
-      }
+      group.control = details;
+      group.timestamp = entry.timestampISO || entry.time || group.timestamp || 'UNKNOWN_TIME';
     }
     if (entry.message === 'SCENE_OBJECT_CREATE_RESULT' && details.object) {
       group.result = details;
       group.resultTimestamp = entry.timestampISO || entry.time || 'UNKNOWN_TIME';
     }
-    groups.set(entry.interactionId, group);
+    groups.set(interactionId, group);
   }
 
   const lines = [];
   for (const group of groups.values()) {
-    if (!group.hierarchy?.length || !group.result?.object) continue;
-    const object = group.result.object;
-    const timing = group.result.timing || {};
-    const verification = group.result.verification || {};
-    lines.push(
-      '[' + (group.timestamp || group.resultTimestamp || 'UNKNOWN_TIME') + '] Interaction ID: ' + group.interactionId,
-      ...group.hierarchy.filter(node => node.type !== 'object').map((node, index, nodes) => {
-        const prefix = index === nodes.length - 1 ? '   └─ ' : '   ├─ ';
-        const label = node.type === 'tool' ? 'Tool: ' : node.type === 'panel' ? 'Panel: ' :
-          node.type === 'control' ? 'Inside: ' : node.type === 'action' ? 'Action: ' : '';
-        return prefix + label + (node.label || node.type || 'Unknown');
-      }),
-      '   └─ Object: ' + String(object.name || 'Unnamed object') +
-        (object.id ? ' [ID: ' + String(object.id) + ']' : ''),
-      '      ├─ Scene Tree: ' + String(verification.sceneTreeList || 'NOT_MEASURED') +
-        ' | MainViewport: ' + String(verification.mainViewportScene || 'NOT_MEASURED'),
-      '      ├─ Processing to scene update: ' +
-        (Number.isFinite(timing.processingToSceneUpdateMs) ? timing.processingToSceneUpdateMs + ' ms' : 'NOT_MEASURED'),
-      '      └─ First rendered frame: ' + String(timing.firstRenderedFrame || 'NOT_MEASURED'),
-      '   Result: ' + String(group.result.status || 'UNKNOWN')
-    );
+    const gesture = group.gesture;
+    const control = group.control;
+    const target = control?.target || gesture?.target || {};
+    const hierarchy = Array.isArray(target.hierarchy) ? target.hierarchy : [];
+    if (!gesture && !control && !group.result) continue;
+    lines.push('[' + (group.timestamp || group.resultTimestamp || 'UNKNOWN_TIME') + '] Interaction ID: ' + group.interactionId);
+    if (gesture) {
+      lines.push(
+        '   Touch: ' + String(gesture.pointerType || 'unknown') + ' · ' + String(gesture.gesture || 'UNKNOWN') +
+        ' · ' + String(gesture.status || 'UNKNOWN'),
+        '   Duration: ' + (Number.isFinite(gesture.durationMs) ? gesture.durationMs + ' ms' : 'NOT_MEASURED') +
+        ' | Distance: ' + (Number.isFinite(gesture.distancePx) ? gesture.distancePx + ' px' : 'NOT_MEASURED') +
+        ' | Pointer ID: ' + String(gesture.pointerId ?? 'UNKNOWN')
+      );
+    }
+    if (target.targetKind || target.region) {
+      lines.push('   Target: ' + String(target.targetKind || 'UNKNOWN') + ' | Region: ' + String(target.region || 'UNKNOWN'));
+    }
+    for (const node of hierarchy) {
+      const label = node.type === 'tool' ? 'Tool: ' : node.type === 'panel' ? 'Panel: ' :
+        node.type === 'control' ? 'Inside: ' : node.type === 'action' ? 'Action: ' :
+          node.type === 'object' ? 'Object target: ' : node.type === 'viewport' ? 'Viewport: ' : '';
+      lines.push('   └─ ' + label + String(node.label || node.id || node.type || 'Unknown') +
+        (node.targetKind ? ' [' + node.targetKind + ']' : ''));
+    }
+    if (control) {
+      lines.push(
+        '   Control event: ' + String(control.controlEvent || 'UNKNOWN') +
+        ' | Status: ' + String(control.status || 'UNKNOWN') +
+        (control.valueType ? ' | Value type: ' + String(control.valueType) : '')
+      );
+    }
+    if (group.result?.object) {
+      const object = group.result.object;
+      const timing = group.result.timing || {};
+      const verification = group.result.verification || {};
+      lines.push(
+        '   Created object: ' + String(object.name || 'Unnamed object') +
+          (object.id ? ' [ID: ' + String(object.id) + ']' : ''),
+        '      Scene Tree: ' + String(verification.sceneTreeList || 'NOT_MEASURED') +
+          ' | MainViewport: ' + String(verification.mainViewportScene || 'NOT_MEASURED'),
+        '      Processing to scene update: ' +
+          (Number.isFinite(timing.processingToSceneUpdateMs) ? timing.processingToSceneUpdateMs + ' ms' : 'NOT_MEASURED'),
+        '      First rendered frame: ' + String(timing.firstRenderedFrame || 'NOT_MEASURED'),
+        '   Creation result: ' + String(group.result.status || 'UNKNOWN')
+      );
+    }
+    lines.push('');
   }
-  return lines.length ? lines.join('\n') : 'No complete tool-to-created-object interaction chains were captured.';
+  return lines.length ? lines.join('\n').trimEnd() : 'No user interaction events were captured.';
 }
 
 function severityLines(report, matcher) {
