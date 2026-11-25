@@ -82,7 +82,8 @@ function createProjectMaterial(data: any): THREE.Material {
 }
 
 type NexusProjectFilesPlugin = {
-  saveProject(options: { fileName: string; content: string }): Promise<{ uri: string; name: string; writtenBytes?: number; overwritten?: boolean }>;
+  stageProject(options: { content: string }): Promise<{ stagedId: string; stagedBytes: number }>;
+  saveProject(options: { fileName: string; stagedId: string }): Promise<{ uri: string; name: string; writtenBytes?: number; overwritten?: boolean }>;
   loadProject(): Promise<{ content: string; name: string }>;
   loadProjectArchive(): Promise<{ base64: string; name: string }>;
   saveProjectArchive(options: { fileName: string; base64: string }): Promise<{ uri: string; name: string; writtenBytes?: number; overwritten?: boolean }>;
@@ -492,6 +493,8 @@ export default function App() {
   const rdsResourceBaselineRef = useRef<{ geometries: number; textures: number; time: number } | null>(null);
   const [menuAccordion, setMenuAccordion] = useState('Project & File');
   const [projectName, setProjectName] = useState('Project.nexus');
+  const [isSavingProject, setIsSavingProject] = useState(false);
+  const saveInFlightRef = useRef(false);
   const [saveAccordionOpen, setSaveAccordionOpen] = useState(false);
   const projectFileRef = useRef<HTMLInputElement>(null);
   const projectZipFileRef = useRef<HTMLInputElement>(null);
@@ -6652,6 +6655,9 @@ export default function App() {
     };
   };
   const saveProject = async () => {
+    if (saveInFlightRef.current) return;
+    saveInFlightRef.current = true;
+    setIsSavingProject(true);
     try {
       const data = getProjectData();
       const sceneObjects = Array.isArray(data.objects) ? data.objects : [];
@@ -6676,7 +6682,13 @@ export default function App() {
       if (Capacitor.isNativePlatform()) {
         // Android Storage Access Framework: let the user choose a real .nexus
         // destination. The document is written locally and works without internet.
-        const saved = await NexusProjectFiles.saveProject({ fileName, content: serialized });
+        // Stage the full JSON privately first. The Android picker request carries only
+        // a small stagedId, avoiding large ActivityResult/Bundle payloads.
+        const staged = await NexusProjectFiles.stageProject({ content: serialized });
+        if (!staged?.stagedId || !Number.isFinite(staged.stagedBytes) || staged.stagedBytes <= 0) {
+          throw new Error('SAVE FAILED: temporary project staging could not be verified');
+        }
+        const saved = await NexusProjectFiles.saveProject({ fileName, stagedId: staged.stagedId });
         try { localStorage.setItem('nexus3d-project-v1', serialized); } catch (storageError) {
           console.warn('Nexus3D local backup unavailable:', storageError);
         }
@@ -6699,6 +6711,9 @@ export default function App() {
       console.error('Nexus3D save failed:', error);
       const message = error instanceof Error ? error.message : String(error);
       setStatus('SAVE FAILED: ' + message);
+    } finally {
+      saveInFlightRef.current = false;
+      setIsSavingProject(false);
     }
   };
   const loadProject = async () => {
@@ -8033,7 +8048,7 @@ export default function App() {
             {category.title === 'Project & File' && <>
               <button className="menu-option" onClick={createNewProject}><FileJson size={13} /><span>New Project</span></button>
               <button className="menu-option" onClick={() => setSaveAccordionOpen(v => !v)}><Save size={13} /><span>Save Project</span>{saveAccordionOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}</button>
-              {saveAccordionOpen && <div className="project-save-inline"><label htmlFor="nexus-project-name">Project Name</label><input id="nexus-project-name" value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="Project.nexus" /><button className="menu-option save-inline-action" onClick={saveProject}><Save size={12}/><span>[ SAVE ]</span></button></div>}
+              {saveAccordionOpen && <div className="project-save-inline"><label htmlFor="nexus-project-name">Project Name</label><input id="nexus-project-name" value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="Project.nexus" /><button className="menu-option save-inline-action" onClick={saveProject} disabled={isSavingProject}><Save size={12}/><span>{isSavingProject ? "[ SAVING... ]" : "[ SAVE ]"}</span></button></div>}
               <button className="menu-option" onClick={loadProject}><FolderOpen size={13} /><span>Load Project File</span></button>
               <button className="menu-option" onClick={() => modelFileRef.current?.click()}><Upload size={13} /><span>Import 3D Model / ZIP</span></button>
               <button className="menu-option" onClick={exportProject}><Download size={13} /><span>Export Scene JSON</span></button>
