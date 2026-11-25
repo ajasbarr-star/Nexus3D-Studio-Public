@@ -36,8 +36,8 @@ test('each RDS tool has its own ZIP download action and native storage export', 
   assert.match(app, /exportRdsToolZip\(rdsActiveTool\)/);
   assert.match(app, /Download ' \+ rdsActiveTool \+ ' report ZIP/);
   assert.match(app, /NexusProjectFiles\.saveRdsArchive/);
-  assert.match(app, /Documents\\/Nexus3D/);
-  assert.doesNotMatch(app, /Nexus3D\\/RDS Reports/);
+  assert.match(app, /Documents.{0,2}Nexus3D/);
+  assert.doesNotMatch(app, /RDS Reports/);
   assert.match(app, /buildRdsExportFiles/);
   assert.doesNotMatch(app, /exportLogcatReport/);
 });
