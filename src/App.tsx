@@ -276,13 +276,19 @@ function smoothQuadGridGeometry(geometry: THREE.BufferGeometry): boolean {
 }
 
 export default function App() {
+  const interactionTrackerRef = useRef<any>(null);
   useEffect(() => {
     const tracker = createInteractionTracker({
       now: () => performance.now(),
       createId: uid,
       emit: event => diagnosticSinkRef.current('INFO', 'Interaction Trace', event.event, JSON.stringify(event))
     });
-    return tracker.attach(document);
+    const detachTracker = tracker.attach(document);
+    interactionTrackerRef.current = tracker;
+    return () => {
+      detachTracker();
+      if (interactionTrackerRef.current === tracker) interactionTrackerRef.current = null;
+    };
   }, []);
 
   const hostRef = useRef<HTMLDivElement>(null);
@@ -493,7 +499,11 @@ export default function App() {
   };
   diagnosticSinkRef.current = pushDiagnostic;
   const recordInteractionTrace = (action: string, details: Record<string, unknown> = {}) => {
-    diagnosticSinkRef.current('INFO', 'Interaction Trace', action, JSON.stringify(details));
+    const correlatedInteractionId = details.interactionId || interactionTrackerRef.current?.consumeLastInteractionId?.();
+    diagnosticSinkRef.current('INFO', 'Interaction Trace', action, JSON.stringify({
+      ...details,
+      ...(correlatedInteractionId ? { interactionId: correlatedInteractionId } : {})
+    }));
   };
   const flush = () => {
     const logBatch = diagnosticQueueRef.current.splice(0, 100);
