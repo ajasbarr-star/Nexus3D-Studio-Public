@@ -76,17 +76,19 @@ test('RIT Trace Full_Report joins touch hierarchy to the generated object identi
   ];
   const files = buildRdsExportFiles({ tool: 'RIT Trace', fullReport: 'Raw event stream', entries });
   const report = files['Full_Report.txt'];
-  assert.match(report, /\\[USER WORKFLOW HIERARCHY\\]/);
-  assert.match(report, /Tool: Quick Light Controls/);
-  assert.match(report, /Panel: Directional Light/);
-  assert.match(report, /Inside: Add Directional Light/);
-  assert.match(report, /Action: ADD/);
-  assert.match(report, /Object: DirectionalLight_1 \\[ID: editor-light-01\\]/);
-  assert.match(report, /Scene Tree: PRESENT \\| MainViewport: PRESENT/);
-  assert.match(report, /Processing to scene update: 40 ms/);
-  assert.match(report, /First rendered frame: NOT_MEASURED/);
-  assert.match(report, /Result: SUCCESS/);
-  assert.match(report, /Interaction ID: interaction-light-01/);
+  for (const expected of [
+    '[USER WORKFLOW HIERARCHY]',
+    'Tool: Quick Light Controls',
+    'Panel: Directional Light',
+    'Inside: Add Directional Light',
+    'Action: ADD',
+    'Object: DirectionalLight_1 [ID: editor-light-01]',
+    'Scene Tree: PRESENT | MainViewport: PRESENT',
+    'Processing to scene update: 40 ms',
+    'First rendered frame: NOT_MEASURED',
+    'Result: SUCCESS',
+    'Interaction ID: interaction-light-01'
+  ]) assert.ok(report.includes(expected), 'report should include ' + expected);
 });
 
 test('RIT Trace hierarchy does not invent object identity when creation result is missing', () => {
