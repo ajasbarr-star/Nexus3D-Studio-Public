@@ -283,7 +283,7 @@ test('Alphabet State 3D markers are scene-rooted snapshots with larger circles a
 
 test('Alphabet State 3D markers select their matching state only in the Animation Viewport', () => {
 
-  assert.equal((app.match(/intersectObjects\\(Array\\.from\\(alphabetStateMarkers\\.values\\(\\)\\), false\\)/g) || []).length, 2);
+  assert.equal(app.split('intersectObjects(Array.from(alphabetStateMarkers.values()), false)').length - 1, 2);
   assert.equal((app.match(/setSelectedSequenceState\\(stateId\\)/g) || []).length, 1);
   assert.ok(app.includes("if (!runtime.current?.animationView) return;"));
   assert.ok(app.includes("from Animation Viewport"));
@@ -315,8 +315,8 @@ test('Selected Alphabet State marker gets a distinct highlight in both 3D viewpo
 
 test('Alphabet State 3D markers select their owning object and attach the shared transform gizmo', () => {
 
-  assert.equal((app.match(/const ownerId = String\\(marker\\.userData\\.ownerObjectId \\|\\| ''\\);/g) || []).length, 1);
-  assert.equal((app.match(/if \\(owner\\) selectObject\\(owner\\);/g) || []).length, 1);
+  assert.equal(app.split("const ownerId = String(marker.userData.ownerObjectId || '');").length - 1, 1);
+  assert.equal(app.split('if (owner) selectObject(owner);').length - 1, 1);
   assert.ok(app.includes("transform.attach(obj)"));
   assert.ok(app.includes("const selectAlphabetState = (state: typeof sequenceStates[number])"));
   const timelineSelection = app.slice(app.indexOf('const selectAlphabetState ='), app.indexOf('const deleteAlphabetState ='));
