@@ -7,7 +7,8 @@ const appPath = new URL('../../src/App.tsx', import.meta.url);
 
 test('native project save verifies the written document before resolving success', async () => {
   const source = await readFile(nativePath, 'utf8');
-  assert.ok(source.includes('private long writeDocument(Uri uri, String content)'));
+  assert.ok(source.includes('private long writeDocument(Uri uri, java.io.File stagedFile)'));
+  assert.ok(source.includes('DigestInputStream'));
   assert.ok(source.includes('openInputStream(uri)'));
   assert.ok(source.includes('Saved project verification failed'));
   assert.ok(source.includes('response.put("writtenBytes", writtenBytes)'));
@@ -95,7 +96,7 @@ test('project load preserves current sub-object locks until all other restoratio
 test('SAF save destinations are remembered only when URI permission is persistable', async () => {
   const source = await readFile(nativePath, 'utf8');
   assert.equal((source.match(/FLAG_GRANT_PERSISTABLE_URI_PERMISSION/g) || []).length, 2);
-  assert.ok(source.includes('if (permissionPersisted) destinationEditor.putString("uri:" + requestedName, uri.toString())'));
+  assert.ok(source.includes('if (persistPermission) destinationEditor.putString("uri:" + requestedName, uri.toString())'));
   assert.ok(source.includes('else destinationEditor.remove("uri:" + requestedName)'));
   assert.ok(source.includes('if (permissionPersisted) destinationEditor.putString("zip:" + requestedName, uri.toString())'));
   assert.ok(source.includes('else destinationEditor.remove("zip:" + requestedName)'));
