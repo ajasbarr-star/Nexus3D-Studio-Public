@@ -384,28 +384,46 @@ export default function App() {
   const [rdsVerificationByTool, setRdsVerificationByTool] = useState<Record<string, Record<string, string>>>({});
   const updateRdsVerification = (tool: string, patch: Record<string, string>) => setRdsVerificationByTool(current => ({ ...current, [tool]: { ...(current[tool] || {}), ...patch } }));
   const rdsPanelElementRef = useRef<HTMLElement | null>(null);
-  const rdsResizeRef = useRef<{ axis: 'width' | 'height'; x: number; y: number; width: number; height: number; pointerId: number } | null>(null);
-  const beginRdsPanelResize = (event: React.PointerEvent<HTMLButtonElement>, axis: 'width' | 'height') => {
+  const rdsWidthResizeRef = useRef<{ x: number; width: number; pointerId: number } | null>(null);
+  const rdsBottomResizeRef = useRef<{ y: number; height: number; pointerId: number } | null>(null);
+  const beginRdsPanelWidthResize = (event: React.PointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    const start = { axis, x: event.clientX, y: event.clientY, width: rdsPanelWidth, height: rdsPanelElementRef.current?.getBoundingClientRect().height ?? rdsPanelHeight, pointerId: event.pointerId };
-    rdsResizeRef.current = start;
+    const start = { x: event.clientX, width: rdsPanelWidth, pointerId: event.pointerId };
+    rdsWidthResizeRef.current = start;
     const move = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== start.pointerId) return;
       moveEvent.preventDefault();
-      if (axis === 'width') {
-        const maxWidth = Math.max(280, Math.min(760, window.innerWidth - 18));
-        setRdsPanelWidth(Math.max(280, Math.min(maxWidth, start.width + start.x - moveEvent.clientX)));
-      } else {
-        // Keep the RDS bottom anchor fixed and clamp the panel top inside the visible landscape viewport.
-        const maxHeight = Math.max(1, window.innerHeight - 76);
-        const minHeight = Math.min(180, maxHeight);
-        setRdsPanelHeight(Math.max(minHeight, Math.min(maxHeight, start.height + start.y - moveEvent.clientY)));
-      }
+      const maxWidth = Math.max(280, Math.min(760, window.innerWidth - 18));
+      setRdsPanelWidth(Math.max(280, Math.min(maxWidth, start.width + start.x - moveEvent.clientX)));
     };
     const end = (endEvent: PointerEvent) => {
       if (endEvent.pointerId !== start.pointerId) return;
-      rdsResizeRef.current = null;
+      rdsWidthResizeRef.current = null;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+    };
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  };
+  const beginRdsBottomResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const start = { y: event.clientY, height: rdsPanelElementRef.current?.getBoundingClientRect().height ?? rdsPanelHeight, pointerId: event.pointerId };
+    rdsBottomResizeRef.current = start;
+    const move = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== start.pointerId) return;
+      moveEvent.preventDefault();
+      const maxHeight = Math.max(1, window.innerHeight - 76);
+      const minHeight = Math.min(180, maxHeight);
+      // The panel top stays fixed; dragging the bottom handle down grows the panel and dragging up shrinks it.
+      setRdsPanelHeight(Math.max(minHeight, Math.min(maxHeight, start.height + moveEvent.clientY - start.y)));
+    };
+    const end = (endEvent: PointerEvent) => {
+      if (endEvent.pointerId !== start.pointerId) return;
+      rdsBottomResizeRef.current = null;
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', end);
       window.removeEventListener('pointercancel', end);
@@ -8109,8 +8127,8 @@ export default function App() {
             {rdsActiveTool === 'Reports' && <><div className="rds-quick-actions"><button type="button" onClick={copyAllDfiReport}><Copy size={15}/>Copy All Report</button><button type="button" onClick={copyAllDfiSummary}><ClipboardCopy size={15}/>Copy Scene Summary</button><button type="button" onClick={() => void copyDiagnosticText([{id:'rds-report',time:rdsLastScanAt || new Date().toLocaleTimeString(),level:rdsScanSummary.errors?'ERROR':rdsScanSummary.warnings?'WARN':'INFO',source:'RDS Full Core Scan',message:'Full scan report',details:rdsScanReport + '\n\n' + rdsSourceAuditReport}])}><FileText size={15}/>Copy RDS Report</button></div><pre className="rds-command-report">{rdsScanReport}{'\n\n'}{rdsSourceAuditReport}</pre></>}
           </main>
         </div>
-        <button type="button" className="rds-resize-handle rds-resize-horizontal" aria-label="Resize RDS Panel width" title="Drag left or right to resize RDS Panel width" onPointerDown={event => beginRdsPanelResize(event, 'width')}><span/></button>
-        <button type="button" className="rds-bottom-slider" aria-label="Resize RDS Panel height" title="Drag up to increase panel height and down to reduce it" onPointerDown={event => beginRdsPanelResize(event, 'height')}><span/><span className="rds-bottom-slider-grip"/></button>
+        <button type="button" className="rds-resize-handle rds-resize-horizontal" aria-label="Resize RDS Panel width" title="Drag left or right to resize RDS Panel width" onPointerDown={event => beginRdsPanelWidthResize(event)}><span/></button>
+        <button type="button" className="rds-bottom-slider" aria-label="Resize RDS Panel height" title="Drag up to reduce panel height and down to increase it" onPointerDown={event => beginRdsBottomResize(event)}><span/><span className="rds-bottom-slider-grip"/></button>
       </aside>}
 
       {geometryRitOpen && !cameraView && !animationMode && <aside className="geometry-rit-panel" role="dialog" aria-label="Independent Geometry RIT Results Report">
