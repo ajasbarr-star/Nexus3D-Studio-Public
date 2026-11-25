@@ -5464,12 +5464,9 @@ export default function App() {
   const activeSequenceState = sequenceStates.find(state => state.id === selectedSequenceState) || null;
   const activeSequenceRange = activeSequenceState ? getSequenceRange(activeSequenceState.id) : { start: workStart, end: workEnd };
   const selectAlphabetState = (state: typeof sequenceStates[number]) => {
+    // Letter tap only selects the Timeline State; it does not move the playhead or expand the ruler.
     setSelectedSequenceState(state.id);
     setPendingStateChoice('');
-    const range = getSequenceRange(state.id);
-    setCurrentFrame(range.start);
-    // Timeline State selection is independent from 3D marker/object selection.
-    setExpandedSequenceRulerId('');
   };
   const deleteAlphabetState = () => {
     const index = sequenceStates.findIndex(state => state.id === selectedSequenceState);
