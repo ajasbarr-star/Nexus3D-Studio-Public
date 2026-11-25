@@ -381,7 +381,7 @@ public class NexusProjectFilesPlugin extends Plugin {
                 ContentValues values = new ContentValues();
                 values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
                 values.put(MediaStore.MediaColumns.MIME_TYPE, "application/zip");
-                values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS + "/Nexus3D");
+                values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS + "/Nexus3D/");
                 values.put(MediaStore.MediaColumns.IS_PENDING, 1);
                 uri = getContext().getContentResolver().insert(
                     MediaStore.Files.getContentUri("external"), values);
