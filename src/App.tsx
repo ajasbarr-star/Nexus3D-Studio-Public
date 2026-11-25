@@ -8282,14 +8282,14 @@ export default function App() {
         <div className="panel-vertical-box menu-panel-vertical-box">
         <div className="panel-heading"><div><Settings2 size={13} /><span>Menu</span></div><button className="menu-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={13} /></button></div>
         <div className="menu-panel-scroll">
-        <section className="menu-category diagnostic-menu-section">
+        <section className="menu-category diagnostic-menu-section" data-rit-tool="RDS" data-rit-panel="Realtime Diagnostic System">
           <button type="button" className={'menu-option diagnostic-toggle-button ' + (diagnosticPanelOpen ? 'expanded' : '')}
                           aria-expanded={diagnosticPanelOpen}
                           onClick={() => setDiagnosticPanelOpen(open => !open)}>
                           <Activity size={13}/><span>REALTIME DIAGNOSTIC SYSTEM</span>
                           {diagnosticPanelOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
                         </button>
-                        {diagnosticPanelOpen && <section className="diagnostic-panel-expanded" aria-label="Realtime Diagnostic System Panel">
+                        {diagnosticPanelOpen && <section className="diagnostic-panel-expanded" aria-label="Realtime Diagnostic System Panel" data-rit-tool="RDS" data-rit-panel="Diagnostic Controls">
                         <div className="diagnostic-summary"><span>{diagnosticLogs.length} captured log(s)</span><span>{diagnosticLogs.filter(entry => entry.level === 'ERROR').length} error(s)</span></div>
                         <div className="rds-rit-toolbar">
                           <button type="button" className={'diagnostic-toggle-button rds-rit-toggle rds-icon-button ' + (interactionTraceOpen ? 'expanded' : '')}
@@ -8299,7 +8299,7 @@ export default function App() {
                             {interactionTraceOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
                           </button>
                         </div>
-                        {interactionTraceOpen && <section className="rds-rit-panel" aria-label="Realtime Interaction Trace results">
+                        {interactionTraceOpen && <section className="rds-rit-panel" aria-label="Realtime Interaction Trace results" data-rit-tool="RIT Trace" data-rit-panel="RIT Trace Results">
                           <div className="diagnostic-summary"><span>{diagnosticLogs.filter(entry => entry.source === 'Interaction Trace').length} interaction event(s)</span><span>{diagnosticLogs.filter(entry => entry.source === 'Interaction Trace' && entry.level === 'ERROR').length} trace error(s)</span></div>
                           <div className="menu-info"><Info size={12}/><span>Session {RUNTIME_SESSION_ID} · started {RUNTIME_SESSION_STARTED_AT} · copied reports identify current, previous, and legacy events.</span></div>
                           <div className="diagnostic-actions rds-rit-actions rds-icon-actions" aria-label="RIT actions">
@@ -8340,13 +8340,13 @@ export default function App() {
           
                         </section>}
         </section>
-        <section className="menu-category dfi-core-section">
+        <section className="menu-category dfi-core-section" data-rit-tool="DFI Core" data-rit-panel="DFI Core Analyzer">
           <button type="button" className={'menu-option diagnostic-toggle-button ' + (dfiPanelOpen ? 'expanded' : '')}
             aria-expanded={dfiPanelOpen} onClick={() => setDfiPanelOpen(open => !open)}>
             <ScanEye size={13}/><span>NEXUS DFI CORE · FORENSIC ANALYZER</span>
             {dfiPanelOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
           </button>
-          {dfiPanelOpen && <section className="diagnostic-panel-expanded" aria-label="Nexus DFI Core forensic analyzer">
+          {dfiPanelOpen && <section className="diagnostic-panel-expanded" aria-label="Nexus DFI Core forensic analyzer" data-rit-tool="DFI Core" data-rit-panel="Forensic Analyzer">
             <div className="menu-subtitle">DEEP ROOT-CAUSE INVESTIGATION</div>
             <div className="menu-subtitle">ADVANCED FORENSIC TOOLS · READ-ONLY</div>
             <div className="diagnostic-actions dfi-tool-grid" aria-label="Advanced DFI clickable tools">
@@ -8389,13 +8389,13 @@ export default function App() {
             <div className="menu-info"><Info size={12}/><span>DFI correlates captured RDS errors, repeated failure signatures, live mesh integrity and the build-time source audit. It reports evidence and likely investigation leads, not guaranteed root causes. Git history, full dependency/data-flow analysis and native Android Logcat require repository/build-side tools. Read-only: no automatic fixes.</span></div>
           </section>}
         </section>
-        <section className="menu-category core-optimizer-section">
+        <section className="menu-category core-optimizer-section" data-rit-tool="Core Optimizer" data-rit-panel="Core Optimizer">
           <button type="button" className={'menu-option diagnostic-toggle-button ' + (coreOptimizerOpen ? 'expanded' : '')}
             aria-expanded={coreOptimizerOpen} onClick={() => setCoreOptimizerOpen(open => !open)}>
             <Gauge size={13}/><span>NEXUS3D CORE OPTIMIZER</span>
             {coreOptimizerOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
           </button>
-          {coreOptimizerOpen && <section className="diagnostic-panel-expanded" aria-label="Nexus3D Core Optimizer">
+          {coreOptimizerOpen && <section className="diagnostic-panel-expanded" aria-label="Nexus3D Core Optimizer" data-rit-tool="Core Optimizer" data-rit-panel="Optimization Controls">
             <div className="menu-subtitle">ADVANCED RDS DIAGNOSTICS</div>
             <div className="diagnostic-summary"><span>{rdsScanSummary.checks} checks</span><span>{rdsScanSummary.errors} errors</span><span>{rdsScanSummary.warnings} warnings</span></div>
             <div className="diagnostic-actions core-optimizer-actions">
@@ -8417,20 +8417,20 @@ export default function App() {
             <pre className="core-optimizer-report">{coreOptimizerReport}</pre>
           </section>}
         </section>
-        {menuCategories.map(category => <section className="menu-category" key={category.title}>
+        {menuCategories.map(category => <section className="menu-category" key={category.title} data-rit-panel={category.title}>
           <button className={'menu-category-button ' + (menuAccordion === category.title ? 'expanded' : '')} onClick={() => setMenuAccordion(menuAccordion === category.title ? '' : category.title)}>
             {category.icon}<span>{category.title}</span>{menuAccordion === category.title ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </button>
           {menuAccordion === category.title && <div className="menu-category-content">
             {category.title === 'Project & File' && <>
-              <button className="menu-option" onClick={createNewProject}><FileJson size={13} /><span>New Project</span></button>
-              <button className="menu-option" onClick={() => setSaveAccordionOpen(v => !v)}><Save size={13} /><span>Save Project</span>{saveAccordionOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}</button>
+              <button data-rit-action="NEW_PROJECT" className="menu-option" onClick={createNewProject}><FileJson size={13} /><span>New Project</span></button>
+              <button data-rit-action="OPEN_SAVE_PROJECT" className="menu-option" onClick={() => setSaveAccordionOpen(v => !v)}><Save size={13} /><span>Save Project</span>{saveAccordionOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}</button>
               {saveAccordionOpen && <div className="project-save-inline"><label htmlFor="nexus-project-name">Project Name</label><input id="nexus-project-name" value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="Project.nexus" /><button className="menu-option save-inline-action" onClick={saveProject} disabled={isSavingProject}><Save size={12}/><span>{isSavingProject ? "[ SAVING... ]" : "[ SAVE ]"}</span></button></div>}
-              <button className="menu-option" onClick={loadProject}><FolderOpen size={13} /><span>Load Project File</span></button>
-              <button className="menu-option" onClick={() => modelFileRef.current?.click()}><Upload size={13} /><span>Import 3D Model / ZIP</span></button>
-              <button className="menu-option" onClick={exportProject}><Download size={13} /><span>Export Scene JSON</span></button>
-              <button className="menu-option" onClick={() => { void exportProjectZip(); }}><Download size={13} /><span>Export Project ZIP</span></button>
-              <button className="menu-option" onClick={() => { void chooseProjectZip(); }}><FolderOpen size={13} /><span>Import Project ZIP</span></button>
+              <button data-rit-action="LOAD_PROJECT_FILE" className="menu-option" onClick={loadProject}><FolderOpen size={13} /><span>Load Project File</span></button>
+              <button data-rit-action="IMPORT_3D_MODEL" className="menu-option" onClick={() => modelFileRef.current?.click()}><Upload size={13} /><span>Import 3D Model / ZIP</span></button>
+              <button data-rit-action="EXPORT_SCENE_JSON" className="menu-option" onClick={exportProject}><Download size={13} /><span>Export Scene JSON</span></button>
+              <button data-rit-action="EXPORT_PROJECT_ZIP" className="menu-option" onClick={() => { void exportProjectZip(); }}><Download size={13} /><span>Export Project ZIP</span></button>
+              <button data-rit-action="IMPORT_PROJECT_ZIP" className="menu-option" onClick={() => { void chooseProjectZip(); }}><FolderOpen size={13} /><span>Import Project ZIP</span></button>
               <input ref={projectZipFileRef} type="file" accept=".zip,application/zip" hidden onChange={e => { void chooseProjectZip(e.target.files?.[0]); e.currentTarget.value = ''; }} />
               <input ref={projectFileRef} type="file" accept=".nexus,.json,application/json" hidden onChange={e => { handleProjectFile(e.target.files?.[0]); e.currentTarget.value = ''; }} />
               <input ref={modelFileRef} type="file" multiple accept=".zip,application/zip,.gltf,.glb,.obj,.mtl,.bin,.png,.jpg,.jpeg,.webp,.ktx2,.fbx,.dae,.stl,.ply,.vrm,.bvh,model/gltf+json,model/gltf-binary,text/plain,image/*" hidden onChange={e => { const files = Array.from(e.target.files || []); const archive = files.find(file => /\.zip$/i.test(file.name)); const primary = files.find(file => /\.(gltf|glb|obj|fbx|dae|stl|ply|vrm|bvh)$/i.test(file.name)); if (archive) void importModelArchive(archive); else if (primary) void importModel(primary, files.filter(file => file !== primary)); else setStatus('Select a ZIP archive, or one supported 3D model with its companion files.'); e.currentTarget.value = ''; }} />
@@ -8446,7 +8446,7 @@ export default function App() {
               <div className="menu-info"><Info size={13} /><span>Three.js / WebGL. Objects: {objectCount}. Keyframes: {totalKeys}. Renderer: {settings.pathTracer ? 'Path trace preview' : 'Real-time'}.</span></div>
               <div className="menu-subtitle">APK MAINTENANCE</div>
               <button className="menu-option" onClick={() => { const next = !performanceMode; runtime.current?.setPerformanceMode?.(next); setPerformanceMode(next); setStatus(next ? 'Performance Mode enabled · reduced GPU load' : 'Performance Mode disabled · standard quality restored'); }}><Gauge size={13}/><span>{performanceMode ? 'Disable Performance Mode' : 'Optimize Performance'}</span></button>
-              <button className="menu-option" onClick={clearNexusCache} disabled={maintenanceBusy || !Capacitor.isNativePlatform()}><Trash2 size={13}/><span>{maintenanceBusy ? 'Clearing Cache…' : 'Clear Temporary APK Cache'}</span></button>
+              <button data-rit-action="CLEAR_TEMPORARY_CACHE" className="menu-option" onClick={clearNexusCache} disabled={maintenanceBusy || !Capacitor.isNativePlatform()}><Trash2 size={13}/><span>{maintenanceBusy ? 'Clearing Cache…' : 'Clear Temporary APK Cache'}</span></button>
               <div className="menu-info"><Info size={13}/><span>Cache clearing removes temporary WebView/cache files only. It does not erase saved projects or imported assets. Performance Mode lowers render resolution and disables real-time shadows until switched off.</span></div>
               <button className="menu-option" onClick={() => setMenuOpen(false)}><Check size={13} /><span>Done</span></button>
             </>}
