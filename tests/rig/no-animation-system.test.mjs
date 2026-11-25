@@ -473,7 +473,7 @@ test('Selected Alphabet State ruler keeps frame labels and ticks horizontal whil
   const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
   assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels\{position:absolute!important;inset:0!important;display:block!important/);
   assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:50%/);
-  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-mini-markers\{position:absolute!important;z-index:4!important;top:27px!important/);
+  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-mini-markers\{position:absolute!important;z-index:4!important;top:2px!important;left:5px!important;right:5px!important;bottom:auto!important;width:auto!important;height:23px!important/);
   assert.match(layout, /\.alphabet-state-mini-ruler input\[type=range\].*top:45px!important/);
   assert.match(layout, /writing-mode:horizontal-tb!important/);
   assert.match(layout, /touch-action:pan-x!important/);
