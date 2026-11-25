@@ -139,3 +139,36 @@ test('normal Save validates the complete project payload before writing', async 
   const serialize = save.indexOf('const serialized = JSON.stringify');
   assert.ok(validate >= 0 && serialize > validate, 'project data must pass validation before it is serialized or written');
 });
+
+
+test('native project Save stages the payload before opening the Android document picker', async () => {
+  const source = await readFile(nativePath, 'utf8');
+  const app = await readFile(appPath, 'utf8');
+  assert.ok(source.includes('public void stageProject(PluginCall call)'));
+  assert.ok(source.includes('private final ExecutorService projectIo'));
+  assert.ok(source.includes('startActivityForResult(call, intent, "handleSaveResult")'));
+  const save = app.slice(app.indexOf('const saveProject = async'), app.indexOf('const loadProject = async'));
+  assert.ok(save.indexOf('stageProject({ content: serialized })') >= 0);
+  assert.ok(save.indexOf('stageProject({ content: serialized })') < save.indexOf('saveProject({ fileName, stagedId: staged.stagedId })'));
+  assert.ok(!save.includes('saveProject({ fileName, content: serialized })'));
+});
+
+test('native staged Save streams write and SHA-256 verification', async () => {
+  const source = await readFile(nativePath, 'utf8');
+  const start = source.indexOf('private long writeDocument(Uri uri, java.io.File stagedFile)');
+  const end = source.indexOf('public void saveProjectArchive', start);
+  const saveWriter = source.slice(start, end);
+  assert.ok(start >= 0);
+  assert.ok(saveWriter.includes('DigestOutputStream'));
+  assert.ok(saveWriter.includes('DigestInputStream'));
+  assert.ok(saveWriter.includes('MessageDigest.isEqual'));
+  assert.ok(!saveWriter.includes('getBytes(StandardCharsets.UTF_8)'));
+});
+
+test('Save button prevents overlapping project saves and reports its in-flight state', async () => {
+  const source = await readFile(appPath, 'utf8');
+  assert.ok(source.includes('const saveInFlightRef = useRef(false)'));
+  assert.ok(source.includes('if (saveInFlightRef.current) return;'));
+  assert.ok(source.includes('disabled={isSavingProject}'));
+  assert.ok(source.includes('[ SAVING... ]'));
+});

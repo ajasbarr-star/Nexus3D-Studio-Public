@@ -5,6 +5,7 @@ on:
     branches:
       - test/nexus3d-test-apk
       - integration/cumulative-build481-manual-ik-logcat
+      - fix/save-reliability-staged-build748
   workflow_dispatch:
 
 permissions:

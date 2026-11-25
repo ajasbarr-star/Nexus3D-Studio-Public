@@ -6,9 +6,17 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 import android.content.Context;
 import java.io.ByteArrayOutputStream;
+import java.io.BufferedWriter;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.security.DigestInputStream;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import androidx.activity.result.ActivityResult;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.JSObject;
@@ -20,6 +28,8 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 @CapacitorPlugin(name = "NexusProjectFiles")
 public class NexusProjectFilesPlugin extends Plugin {
     private static final String PREFS = "nexus_project_file_destinations";
+    // SAF providers can be slow; keep project staging, writes, and verification off the UI thread.
+    private final ExecutorService projectIo = Executors.newSingleThreadExecutor();
 
     /** Clears only temporary WebView and app cache files. User projects and app data are preserved. */
     @PluginMethod
@@ -51,37 +61,82 @@ public class NexusProjectFilesPlugin extends Plugin {
     }
 
 
+    /**
+     * Stage the full project in durable app-private files before opening Android's picker.
+     * The picker call then carries only a small staged-file reference, not the JSON.
+     */
+    @PluginMethod
+    public void stageProject(PluginCall call) {
+        String content = call.getString("content", "");
+        if (content == null || content.trim().isEmpty()) {
+            call.reject("Project data is empty; nothing was staged");
+            return;
+        }
+        String stagedId = java.util.UUID.randomUUID().toString();
+        java.io.File stagedFile = stagedProjectFile(stagedId);
+        projectIo.execute(() -> {
+            try {
+                try (Writer writer = new BufferedWriter(new OutputStreamWriter(
+                    new java.io.FileOutputStream(stagedFile, false), StandardCharsets.UTF_8), 32768)) {
+                    writer.write(content);
+                }
+                if (!stagedFile.isFile() || stagedFile.length() == 0L) {
+                    throw new IllegalStateException("Temporary project staging file is empty");
+                }
+                JSObject response = new JSObject();
+                response.put("stagedId", stagedId);
+                response.put("stagedBytes", stagedFile.length());
+                call.resolve(response);
+            } catch (Exception error) {
+                if (stagedFile.exists()) stagedFile.delete();
+                call.reject("Unable to stage project before opening the picker: " + error.getMessage(), error);
+            }
+        });
+    }
+
+    private java.io.File stagedProjectFile(String stagedId) {
+        if (stagedId == null || !stagedId.matches("[0-9a-fA-F-]{36}")) {
+            throw new IllegalArgumentException("Invalid temporary project reference");
+        }
+        return new java.io.File(getContext().getFilesDir(), "nexus-save-" + stagedId + ".tmp");
+    }
+
     @PluginMethod
     public void saveProject(PluginCall call) {
         String fileName = call.getString("fileName", "Project.nexus");
-        String content = call.getString("content", "");
-        if (content == null || content.trim().isEmpty()) {
-            call.reject("Project data is empty; nothing was saved");
+        String stagedId = call.getString("stagedId", "");
+        final java.io.File stagedFile;
+        try {
+            stagedFile = stagedProjectFile(stagedId);
+        } catch (Exception error) {
+            call.reject("Invalid staged project reference", error);
+            return;
+        }
+        if (!stagedFile.isFile() || stagedFile.length() == 0L) {
+            call.reject("Staged project is missing or empty; please save again");
             return;
         }
 
-        // Reuse the exact document URI selected on the first save. ACTION_CREATE_DOCUMENT
-        // creates a new "(1)" copy on many Android providers instead of replacing the old file.
-        // Writing to the persisted URI updates the same file and avoids opening the picker again.
+        // The pending Activity result call now contains only fileName + stagedId.
         SharedPreferences prefs = getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         String savedUri = prefs.getString("uri:" + fileName, null);
         if (savedUri != null) {
-            try {
-                Uri uri = Uri.parse(savedUri);
-                long writtenBytes = writeDocument(uri, content);
-                JSObject response = new JSObject();
-                response.put("writtenBytes", writtenBytes);
-                response.put("uri", uri.toString());
-                response.put("name", fileName);
-                response.put("overwritten", true);
-                call.resolve(response);
-                return;
-            } catch (Exception error) {
-                // Do not silently discard the saved destination and create a duplicate.
-                // The existing document may need recovery if the provider failed mid-write.
-                call.reject("Unable to verify overwrite of the existing project. The saved destination was retained; use a different project name for Save As. " + error.getMessage(), error);
-                return;
-            }
+            Uri uri = Uri.parse(savedUri);
+            projectIo.execute(() -> {
+                try {
+                    long writtenBytes = writeDocument(uri, stagedFile);
+                    stagedFile.delete();
+                    JSObject response = new JSObject();
+                    response.put("writtenBytes", writtenBytes);
+                    response.put("uri", uri.toString());
+                    response.put("name", fileName);
+                    response.put("overwritten", true);
+                    call.resolve(response);
+                } catch (Exception error) {
+                    call.reject("Unable to verify overwrite of the existing project. The staged recovery file was retained. " + error.getMessage(), error);
+                }
+            });
+            return;
         }
 
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
@@ -95,74 +150,94 @@ public class NexusProjectFilesPlugin extends Plugin {
     private void handleSaveResult(PluginCall call, ActivityResult result) {
         if (call == null) return;
         if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) {
-            call.reject("Save cancelled");
+            call.reject("Save cancelled; staged project was retained for recovery");
             return;
         }
         Uri uri = result.getData().getData();
-        String content = call.getString("content", "");
+        String stagedId = call.getString("stagedId", "");
         String requestedName = call.getString("fileName", "Project.nexus");
+        final java.io.File stagedFile;
         try {
-            int resultFlags = result.getData().getFlags();
-            int flags = resultFlags & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            boolean permissionPersisted = false;
-            if ((resultFlags & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) != 0 && flags != 0) {
-                try {
-                    getContext().getContentResolver().takePersistableUriPermission(uri, flags);
-                    permissionPersisted = true;
-                } catch (Exception ignored) {
-                    // Do not store a URI that may stop working after this app session.
-                }
-            }
-            long writtenBytes = writeDocument(uri, content);
-            SharedPreferences.Editor destinationEditor = getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit();
-            if (permissionPersisted) destinationEditor.putString("uri:" + requestedName, uri.toString());
-            else destinationEditor.remove("uri:" + requestedName);
-            destinationEditor.apply();
-
-            JSObject response = new JSObject();
-            response.put("uri", uri.toString());
-            response.put("name", fileNameFromUri(uri));
-            response.put("overwritten", false);
-            response.put("writtenBytes", writtenBytes);
-            call.resolve(response);
+            stagedFile = stagedProjectFile(stagedId);
         } catch (Exception error) {
-            call.reject("Unable to save project: " + error.getMessage(), error);
+            call.reject("Invalid staged project reference", error);
+            return;
         }
+        if (!stagedFile.isFile() || stagedFile.length() == 0L) {
+            call.reject("Staged project is missing or empty; no destination was written");
+            return;
+        }
+        int resultFlags = result.getData().getFlags();
+        int flags = resultFlags & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        boolean permissionPersisted = false;
+        if ((resultFlags & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) != 0 && flags != 0) {
+            try {
+                getContext().getContentResolver().takePersistableUriPermission(uri, flags);
+                permissionPersisted = true;
+            } catch (Exception ignored) {
+                // Do not store a URI that may stop working after this app session.
+            }
+        }
+        final boolean persistPermission = permissionPersisted;
+        projectIo.execute(() -> {
+            try {
+                long writtenBytes = writeDocument(uri, stagedFile);
+                SharedPreferences.Editor destinationEditor = getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit();
+                if (persistPermission) destinationEditor.putString("uri:" + requestedName, uri.toString());
+                else destinationEditor.remove("uri:" + requestedName);
+                destinationEditor.apply();
+                stagedFile.delete();
+
+                JSObject response = new JSObject();
+                response.put("uri", uri.toString());
+                response.put("name", fileNameFromUri(uri));
+                response.put("overwritten", false);
+                response.put("writtenBytes", writtenBytes);
+                call.resolve(response);
+            } catch (Exception error) {
+                call.reject("Unable to save project; staged recovery file was retained: " + error.getMessage(), error);
+            }
+        });
     }
 
     /**
      * Writes the complete UTF-8 project and verifies that the document provider
      * can read back the same bytes before the plugin reports success.
      */
-    private long writeDocument(Uri uri, String content) throws Exception {
-        if (content == null || content.trim().isEmpty()) {
-            throw new IllegalArgumentException("Project data is empty; nothing was saved");
+    /** Streams staged private data to SAF and verifies the exact saved bytes. */
+    private long writeDocument(Uri uri, java.io.File stagedFile) throws Exception {
+        if (stagedFile == null || !stagedFile.isFile() || stagedFile.length() == 0L) {
+            throw new IllegalArgumentException("Staged project file is missing or empty");
         }
-        byte[] expected = content.getBytes(StandardCharsets.UTF_8);
-        try (OutputStream output = getContext().getContentResolver().openOutputStream(uri, "wt")) {
-            if (output == null) throw new IllegalStateException("Unable to open selected destination");
-            output.write(expected);
-            output.flush();
-        }
-
-        long verifiedBytes = 0L;
-        try (InputStream input = getContext().getContentResolver().openInputStream(uri)) {
-            if (input == null) throw new IllegalStateException("Saved project could not be reopened for verification");
-            byte[] buffer = new byte[8192];
+        MessageDigest expectedDigest = MessageDigest.getInstance("SHA-256");
+        long sourceBytes = 0L;
+        try (InputStream source = new java.io.BufferedInputStream(new java.io.FileInputStream(stagedFile));
+             OutputStream rawOutput = getContext().getContentResolver().openOutputStream(uri, "wt")) {
+            if (rawOutput == null) throw new IllegalStateException("Unable to open selected destination");
+            DigestOutputStream digestOutput = new DigestOutputStream(rawOutput, expectedDigest);
+            byte[] buffer = new byte[32768];
             int count;
-            while ((count = input.read(buffer)) != -1) {
-                for (int i = 0; i < count; i++) {
-                    if (verifiedBytes >= expected.length || buffer[i] != expected[(int) verifiedBytes]) {
-                        throw new IllegalStateException("Saved project verification failed: file contents do not match");
-                    }
-                    verifiedBytes++;
-                }
+            while ((count = source.read(buffer)) != -1) {
+                digestOutput.write(buffer, 0, count);
+                sourceBytes += count;
+            }
+            digestOutput.flush();
+        }
+        byte[] expectedHash = expectedDigest.digest();
+        MessageDigest actualDigest = MessageDigest.getInstance("SHA-256");
+        long verifiedBytes = 0L;
+        try (InputStream rawInput = getContext().getContentResolver().openInputStream(uri)) {
+            if (rawInput == null) throw new IllegalStateException("Saved project could not be reopened for verification");
+            try (DigestInputStream input = new DigestInputStream(rawInput, actualDigest)) {
+                byte[] buffer = new byte[32768];
+                int count;
+                while ((count = input.read(buffer)) != -1) verifiedBytes += count;
             }
         }
-        if (verifiedBytes != expected.length) {
-            throw new IllegalStateException("Saved project verification failed: expected "
-                + expected.length + " bytes but read back " + verifiedBytes);
+        if (sourceBytes != verifiedBytes || !MessageDigest.isEqual(expectedHash, actualDigest.digest())) {
+            throw new IllegalStateException("Saved project verification failed: file contents do not match staged data");
         }
+        if (verifiedBytes == 0L) throw new IllegalStateException("Saved project verification failed: destination is empty");
         return verifiedBytes;
     }
 
