@@ -23,7 +23,11 @@ function severityLines(report, matcher) {
 }
 
 export function buildRdsExportFiles({ tool, fullReport, entries = [], metadata = {} }) {
-  const report = String(fullReport || 'No report content was available for this tool.');
+  const report = String(fullReport || 'No report content was available for this tool.')
+    // Normalize only current-session section separators from the App export builder.
+    // Escaped newlines inside diagnostic details and stack traces are preserved.
+    .replace(/\\n(?=Historical (?:LogCat|RIT-Trace) entries excluded:)/g, '\n')
+    .replace(/\\n(?=NEXUS3D RDS)/g, '\n');
   const errors = entries.filter(entry => LEVEL_ERROR.has(entryLevel(entry)));
   const warnings = entries.filter(entry => LEVEL_WARNING.has(entryLevel(entry)));
   const errorLines = [...new Set([
