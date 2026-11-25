@@ -6250,6 +6250,7 @@ export default function App() {
     const rt = runtime.current;
     return buildSceneVerificationSnapshot({
       treeItems: items,
+      selectableObjects: rt?.selectable,
       scene: rt?.scene,
       renderer: rt?.renderer,
       camera: rt?.activeCamera || rt?.camera,
