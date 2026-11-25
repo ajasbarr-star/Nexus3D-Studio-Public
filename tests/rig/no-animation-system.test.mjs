@@ -326,7 +326,7 @@ test('Alphabet State 3D markers select their owning object and attach the shared
 
 test('Alphabet State ruler width is user-resizable without a fixed upper ceiling and retains native horizontal touch scrolling', () => {
   assert.match(app, /sequenceRulerDisplayWidths/);
-  assert.match(app, /style=\{\{width:\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)\+"px"\}\}/);
+  assert.match(app, /style=\{\{width:\(sequenceRulerDisplayWidths\[state\.id\] \|\| 96\)\+"px"\}\}/);
   assert.match(app, /Math\.max\(96, drag\.startWidth \+ delta\)/);
   assert.doesNotMatch(app, /sequenceRulerOffsets|translateX\(/);
   assert.match(css, /\.alphabet-state-scroll\{[\s\S]*?overflow-x:auto!important/);
@@ -417,8 +417,8 @@ test('Dragging an Alphabet State letter resizes its ruler right or left while th
 test('Alphabet State timeline ruler uses numeric frame labels and graduated minor, medium and major ticks', () => {
 
   assert.match(app, /const getCustomRulerTicks = \(rulerWidth: number\) =>/);
-  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)\.map\(\(tick,index\)=>\s*<span key=\{index\} style=\{\{left:tick\.position\+"%"\}\}/);
-  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)\.map\(\(tick,index\)=>\s*<i key=\{"major-"\+index\} className="major" style=\{\{left:tick\.position\+"%"\}\}/);
+  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 96\)\.map\(\(tick,index\)=>\s*<span key=\{index\} style=\{\{left:tick\.position\+"%"\}\}/);
+  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 96\)\.map\(\(tick,index\)=>\s*<i key=\{"major-"\+index\} className="major" style=\{\{left:tick\.position\+"%"\}\}/);
   assert.match(app, /index%5===0\?"medium":"minor"/);
   assert.match(css, /\.alphabet-state-ruler-labels span/);
   assert.match(css, /\.alphabet-state-ruler-ticks i\.medium/);
@@ -448,7 +448,7 @@ test('Timeline panel preserves its original footprint and stays permanently bott
 
 test('Timeline ruler uses graduated frame ticks, a taller anchored track, and compact transport controls', () => {
 
-  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)/);
+  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 96\)/);
   assert.match(css, /\.timeline-panel\{[\s\S]*?height:148px!important;min-height:136px!important/);
   assert.match(css, /\.alphabet-state-scroll\{[\s\S]*?flex:1 1 58px!important/);
   assert.match(css, /\.alphabet-state-mini-ruler\{[\s\S]*?height:56px!important;min-height:56px!important/);
@@ -521,7 +521,7 @@ test('Add Keyframe stays immediately beside Dope Sheet in the Timeline tools row
 
 test('Frame ruler labels every frame in sequence with graduated ticks at 5-frame intervals', () => {
 
-  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)/);
+  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 96\)/);
   assert.match(app, /index%5===0\?"medium":"minor"/);
   assert.match(app, /left:\(index\/Math\.max\(1,Math\.round\(state\.width\)\)\*100\)\+"%"/);
   assert.doesNotMatch(app, /left:\(index\/3\*100\)\+"%"/);
@@ -537,7 +537,7 @@ test('Custom START and END use buffered editable decimal inputs and independent 
   assert.match(app, /aria-label="Custom ruler end unit"/);
   assert.match(app, /const toSeconds = \(value: number, unit: 's' \| 'm'\)/);
   assert.match(app, /unit === 'm' \? 60 : 1/);
-  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)/);
+  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 96\)/);
   assert.match(app, /customRulerStartUnit === customRulerEndUnit \? customRulerStartUnit : 's'/);
 });
 
