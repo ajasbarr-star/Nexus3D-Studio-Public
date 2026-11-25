@@ -169,7 +169,7 @@ export function createCameraInteractionTracker({
     if (!session || session.viewport !== viewport) return null;
     const at = now();
     if (session.cameraUpdateAt === null) {
-      if (session.endedAt !== null) {
+      if (session.endedAt !== null || session.inputType === 'wheel') {
         session.framesAfterEnd += 1;
         if (session.framesAfterEnd >= 2) completeWithoutCameraUpdate();
       }
