@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 import android.content.Context;
 import android.content.ContentValues;
+import android.database.Cursor;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -406,6 +407,21 @@ public class NexusProjectFilesPlugin extends Plugin {
                 }
                 if (verifiedBytes != expected.length || verifiedBytes == 0L) {
                     throw new IllegalStateException("RDS ZIP verification failed: expected " + expected.length + " bytes but read " + verifiedBytes);
+                }
+                try (Cursor cursor = getContext().getContentResolver().query(
+                    uri,
+                    new String[]{MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.RELATIVE_PATH},
+                    null, null, null)) {
+                    if (cursor == null || !cursor.moveToFirst()) {
+                        throw new IllegalStateException("Saved RDS ZIP metadata could not be read back");
+                    }
+                    String actualName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME));
+                    String actualPath = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH));
+                    String expectedPath = Environment.DIRECTORY_DOCUMENTS + "/Nexus3D/";
+                    if (!fileName.equals(actualName) || !expectedPath.equals(actualPath)) {
+                        throw new IllegalStateException("RDS ZIP destination verification failed: expected Documents/Nexus3D/" + fileName
+                            + " but Android reported " + actualPath + actualName);
+                    }
                 }
                 ContentValues publish = new ContentValues();
                 publish.put(MediaStore.MediaColumns.IS_PENDING, 0);
