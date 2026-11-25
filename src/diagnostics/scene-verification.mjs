@@ -108,7 +108,10 @@ export function buildSceneVerificationSnapshot({
     selectableWithoutScene.length === 0 && sceneOnlyObjects.length === 0 && duplicateEditorIds.length === 0;
   const expectedDirectionalLights = Number(testProfile?.expectedDirectionalLights ?? 17);
   const expectedCubes = Number(testProfile?.expectedCubes ?? 1);
-  const scenarioMatches = treeReconciled &&
+  const viewportObjectsVisible = records.every(record =>
+    record.mainViewportPresent && record.visible && record.cameraLayerMatch !== false
+  );
+  const scenarioMatches = treeReconciled && viewportObjectsVisible &&
     treeDirectionalLights === expectedDirectionalLights &&
     treeCubes === expectedCubes &&
     mainDirectionalLights === expectedDirectionalLights &&
@@ -165,6 +168,7 @@ export function formatSceneVerificationReport(snapshot) {
       ' · MainViewport-only=' + snapshot.reconciliation.mainViewportOnlyCount +
       ' · Selectable-not-in-scene=' + snapshot.reconciliation.selectableWithoutSceneCount +
       ' · Duplicate editor IDs=' + snapshot.reconciliation.duplicateEditorIds.length,
+    'Viewport visibility and camera-layer verification: ' + (snapshot.records.every(record => record.mainViewportPresent && record.visible && record.cameraLayerMatch !== false) ? 'PASS' : 'FAIL / INCOMPLETE'),
     'Reference Scenario Match: ' + (snapshot.scenarioMatches ? 'YES' : 'NO / NOT VERIFIED'),
     'Renderer counters: draw calls=' + (snapshot.mainViewport.renderCalls ?? 'unavailable') +
       ' · triangles=' + (snapshot.mainViewport.triangles ?? 'unavailable'),
@@ -212,6 +216,8 @@ export function buildSceneVerificationMetadata(snapshot) {
     mainViewportOnlyObjects: snapshot.reconciliation.mainViewportOnlyCount,
     selectableWithoutSceneCount: snapshot.reconciliation.selectableWithoutSceneCount,
     duplicateEditorIdCount: snapshot.reconciliation.duplicateEditorIds.length,
+    mainViewportVisibleObjects: snapshot.records.filter(record => record.mainViewportPresent && record.visible && record.cameraLayerMatch !== false).length,
+    mainViewportVisibilityFailures: snapshot.records.filter(record => !record.mainViewportPresent || !record.visible || record.cameraLayerMatch === false).length,
     referenceScenarioMatches: snapshot.scenarioMatches,
     rendererDrawCalls: snapshot.mainViewport.renderCalls,
     rendererTriangles: snapshot.mainViewport.triangles,
