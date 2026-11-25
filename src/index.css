@@ -2616,7 +2616,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 
 /* RDS Command Center — compact horizontal workspace with soft-contrast navigation */
 .rds-launch-btn { gap:5px; }
-.rds-command-center { position:fixed; z-index:30; top:58px; right:9px; width:min(650px,calc(100vw - 18px)); height:min(72vh,calc(100dvh - 78px)); min-height:260px; display:flex; flex-direction:column; overflow:hidden; color:#c2cbd6; background:rgba(13,19,30,.97); border:1px solid #35465a; border-radius:11px; box-shadow:0 18px 55px #0009,0 0 20px #28b8d51a; backdrop-filter:blur(18px); }
+ .rds-command-center { position:fixed; z-index:30; top:55px; bottom:auto; right:9px; width:min(650px,calc(100vw - 18px)); height:min(72vh,calc(100dvh - 76px)); max-height:calc(100dvh - 76px); min-height:min(180px,calc(100dvh - 76px)); display:flex; flex-direction:column; overflow:visible; color:#c2cbd6; background:rgba(13,19,30,.97); border:1px solid #35465a; border-radius:11px; box-shadow:0 18px 55px #0009,0 0 20px #28b8d51a; backdrop-filter:blur(18px); }
 .rds-command-header { min-height:42px; flex:0 0 42px; display:flex; align-items:center; justify-content:space-between; padding:0 10px; background:#192333; border-bottom:1px solid #2b3b50; }
 .rds-command-brand,.rds-command-header-actions { display:flex; align-items:center; gap:9px; }
 .rds-command-brand>svg { color:#69c9df; }
@@ -2627,7 +2627,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .rds-live-indicator:before { content:''; display:inline-block; width:5px; height:5px; margin-right:5px; border-radius:50%; background:#73b997; }
 .rds-command-header-actions button { width:27px; height:27px; display:grid; place-items:center; border:1px solid transparent; border-radius:6px; background:transparent; color:#aab5c2; }
 .rds-command-header-actions button:active { background:#2a3d50; }
-.rds-command-body { min-height:0; flex:1; display:flex; flex-direction:row; }
+.rds-command-body { min-height:0; flex:1; display:flex; flex-direction:row; overflow:hidden; border-radius:0 0 10px 10px; }
 .rds-command-nav { width:106px; flex:0 0 106px; display:flex; flex-direction:column; gap:4px; padding:7px 6px; overflow-y:auto; background:#151e2b; border-right:1px solid #29384a; }
 .rds-nav-item { min-height:49px; flex:0 0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:4px 2px; border:1px solid transparent; border-radius:7px; background:transparent; color:#a3adba; font-size:11px; font-weight:500; line-height:1.15; -webkit-tap-highlight-color:transparent; transition:background-color .12s ease,border-color .12s ease,color .12s ease; }
 .rds-nav-item svg { color:#9ba8b7; }
@@ -2661,8 +2661,8 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .rds-command-log-list { min-height:80px; flex:1; overflow:auto; border:1px solid #29394b; border-radius:7px; background:#111b29; }
 .rds-command-log-list .diagnostic-entry { margin:6px; }
 .rds-command-report { min-height:100px; max-height:none; flex:1; overflow:auto; margin:0; padding:9px; border:1px solid #29394b; border-radius:7px; background:#101a28; color:#aebbc9; font:9px/1.5 'DM Mono',monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
-@media (max-width:570px) { .rds-command-center { top:55px; right:5px; width:calc(100vw - 10px); height:min(76vh,calc(100dvh - 68px)); } .rds-command-nav { width:88px; flex-basis:88px; padding:6px 4px; } .rds-nav-item { min-height:46px; font-size:10px; } .rds-nav-item svg { width:20px; height:20px; } .rds-command-content { padding:8px; gap:7px; } .rds-stat-card { min-height:58px; padding:6px; } }
-@media (orientation:landscape) and (max-height:420px) { .rds-command-center { height:calc(100dvh - 66px); top:52px; } .rds-command-nav { gap:2px; }.rds-nav-item { min-height:40px; } }
+@media (max-width:570px) { .rds-command-center { right:5px; width:calc(100vw - 10px); height:min(76vh,calc(100dvh - 76px)); max-height:calc(100dvh - 76px); } .rds-command-nav { width:88px; flex-basis:88px; padding:6px 4px; } .rds-nav-item { min-height:46px; font-size:10px; } .rds-nav-item svg { width:20px; height:20px; } .rds-command-content { padding:8px; gap:7px; } .rds-stat-card { min-height:58px; padding:6px; } }
+@media (orientation:landscape) and (max-height:420px) { .rds-command-center { max-height:calc(100dvh - 76px); } .rds-command-nav { gap:2px; }.rds-nav-item { min-height:40px; } }
 /* RDS now has its own dock; avoid duplicate diagnostic accordions inside Menu. */
 .menu-panel .diagnostic-menu-section,.menu-panel .dfi-core-section,.menu-panel .core-optimizer-section { display:none !important; }
 
@@ -2670,9 +2670,10 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 /* RDS compact dock and temporary top-right toolbar declutter. */
 .rds-command-center {
   width: min(360px, calc(100vw - 18px));
-  height: min(48vh, calc(100dvh - 78px));
+  height: min(48vh, calc(100dvh - 76px));
+  max-height: calc(100dvh - 76px);
   min-width: 280px;
-  min-height: 180px;
+  min-height: min(180px, calc(100dvh - 76px));
 }
 .rds-content-heading-actions { display:flex; align-items:center; gap:6px; }
 .rds-export-zip-button { width:30px; height:30px; flex:0 0 30px; }
@@ -2682,10 +2683,49 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   color:#8ed8e8; touch-action:none; opacity:.9;
 }
 .rds-resize-handle:active { background:#29485b; border-color:#70cce0; opacity:1; }
-.rds-resize-horizontal { right:2px; top:50%; width:13px; height:58px; transform:translateY(-50%); cursor:ew-resize; }
-.rds-resize-horizontal span { width:3px; height:28px; border-left:1px solid currentColor; border-right:1px solid currentColor; }
-.rds-resize-vertical { bottom:2px; left:50%; width:58px; height:13px; transform:translateX(-50%); cursor:ns-resize; }
-.rds-resize-vertical span { width:28px; height:3px; border-top:1px solid currentColor; border-bottom:1px solid currentColor; }
+.rds-resize-horizontal { left:0; right:auto; top:50%; width:26px; height:76px; transform:translateY(-50%); cursor:ew-resize; z-index:13; }
+.rds-resize-horizontal span { width:4px; height:32px; border-left:1px solid currentColor; border-right:1px solid currentColor; }
+.rds-bottom-slider {
+  position:absolute; left:50%; bottom:-15px; z-index:14; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  width:88px; height:30px; min-width:88px; min-height:30px; padding:0;
+  transform:translateX(-50%); cursor:ns-resize; touch-action:none; pointer-events:auto;
+  border:1px solid #4c91a8; border-radius:9px; background:rgba(18,43,59,.98); color:#a9efff;
+  box-shadow:0 2px 10px rgba(0,0,0,.42),0 0 0 2px rgba(9,20,31,.8);
+  -webkit-tap-highlight-color:transparent;
+}
+.rds-bottom-slider:active { background:#24516a; border-color:#8ce8ff; }
+.rds-bottom-slider > span:first-child { width:42px; height:3px; border-radius:3px; background:currentColor; opacity:.9; }
+.rds-bottom-slider .rds-bottom-slider-grip { width:22px; height:2px; border-radius:2px; background:currentColor; opacity:.65; }
+
+.rds-verification-panel {
+  flex:0 0 auto; min-width:0; padding:7px 8px; border:1px solid #365166; border-radius:7px;
+  background:linear-gradient(135deg,rgba(21,39,56,.98),rgba(13,26,40,.98)); box-shadow:inset 0 1px 0 rgba(151,213,232,.05);
+}
+.rds-verification-heading { display:flex; align-items:center; justify-content:space-between; gap:7px; margin-bottom:6px; color:#b9d9e5; font:700 8px 'DM Mono',monospace; letter-spacing:.45px; }
+.rds-verification-phase { flex:0 0 auto; padding:3px 5px; border:1px solid #36566b; border-radius:4px; color:#a9dff0; background:#102b3b; font-size:7px; letter-spacing:.2px; }
+.rds-verification-phase.phase-success,.rds-verification-phase.phase-passed { border-color:#36795e; color:#91e0b5; background:#123329; }
+.rds-verification-phase.phase-failed { border-color:#934b54; color:#ffabb2; background:#3a1d27; }
+.rds-verification-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px 6px; }
+.rds-verification-item { min-width:0; min-height:20px; display:flex; align-items:center; justify-content:space-between; gap:4px; padding:3px 5px; border:1px solid #2b4053; border-radius:4px; background:rgba(7,18,30,.55); color:#aebdca; font-size:8px; }
+.rds-verification-item>span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rds-verification-state { flex:0 0 auto; color:#9fb1c0; font:700 7px 'DM Mono',monospace; white-space:nowrap; }
+.rds-verification-state.state-success { color:#8ee1b3; }
+.rds-verification-state.state-failed { color:#ff9ea8; }
+.rds-verification-state.state-saving,.rds-verification-state.state-verifying,.rds-verification-state.state-pending { color:#8bdaf0; }
+.rds-verification-state.state-download-started { color:#a9dff0; }
+.rds-verification-error { margin-top:6px; padding:5px 6px; border:1px solid #82444d; border-radius:4px; background:rgba(72,25,34,.42); color:#ffb1b7; font:7px/1.4 'DM Mono',monospace; overflow-wrap:anywhere; }
+@media (max-width:370px) { .rds-verification-grid { grid-template-columns:minmax(0,1fr); } }
+
+.rds-export-progress {
+  display:inline-flex; align-items:center; justify-content:center; min-width:42px; height:22px;
+  padding:0 5px; border:1px solid #31586b; border-radius:5px; color:#9feaff;
+  background:rgba(7,24,37,.96); font:700 9px 'DM Mono',monospace; letter-spacing:.2px;
+  white-space:nowrap; font-variant-numeric:tabular-nums;
+}
+.rds-export-progress.active { border-color:#3b91ad; color:#a8efff; }
+.rds-export-progress.complete { border-color:#3c9a76; color:#8ce5b9; }
+.rds-export-progress.failed { border-color:#a94b55; color:#ff9ca5; }
+
 .right-actions .ready-label,
 .right-actions .fullscreen-btn {
   display: none !important;
@@ -2714,7 +2754,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   .rds-command-center {
     min-width: 280px;
     max-width: calc(100vw - 10px);
-    max-height: calc(100dvh - 68px);
+    max-height: calc(100dvh - 76px);
   }
   .quick-access-rail {
     top: 52px !important;
@@ -3331,3 +3371,6 @@ button:active { box-shadow:0 0 11px #22cfff44; }
  .alphabet-state-mini-ruler:not(.collapsed) .alphabet-state-scrubber{top:38px!important;height:7px!important}
  .alphabet-state-item .alphabet-state-handle,.alphabet-state-panel .alphabet-state-add{height:42px!important;min-height:42px!important}
 }
+
+/* Keep the scrollable RDS workspace clear of its in-panel bottom-edge resize grip. */
+.rds-command-content { padding-bottom:42px; }

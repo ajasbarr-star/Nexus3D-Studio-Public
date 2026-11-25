@@ -173,3 +173,150 @@ test('Save button prevents overlapping project saves and reports its in-flight s
   assert.ok(source.includes('disabled={isSavingProject}'));
   assert.ok(source.includes('[ SAVING... ]'));
 });
+
+
+test('RDS ZIP export writes to public Documents/Nexus3D and verifies bytes before success', async () => {
+  const source = await readFile(nativePath, 'utf8');
+  assert.ok(source.includes('public void saveRdsArchive(PluginCall call)'));
+  assert.ok(source.includes('Environment.DIRECTORY_DOCUMENTS + "/Nexus3D/"'));
+  assert.ok(source.includes('MediaStore.MediaColumns.RELATIVE_PATH'));
+  assert.ok(source.includes('Saved RDS ZIP could not be reopened for verification'));
+  assert.ok(source.includes('RDS ZIP verification failed'));
+  assert.ok(source.includes('response.put("writtenBytes", verifiedBytes)'));
+  assert.ok(source.includes('response.put("name", verifiedName)'));
+  assert.ok(source.includes('response.put("path", reportedDirectory + "/" + verifiedName)'));
+  assert.ok(source.includes('verifiedRelativePath = actualPath'));
+  assert.ok(source.includes('MediaStore.MediaColumns.RELATIVE_PATH'));
+  assert.ok(source.includes('String expectedPath = Environment.DIRECTORY_DOCUMENTS + "/Nexus3D/";'));
+  assert.ok(source.includes("actualPath.replace('\\\\', '/')"));
+  assert.ok(source.includes('normalizedActualPath.endsWith("/")'));
+  assert.ok(source.includes('destination verification failed'));
+  assert.ok(source.includes('RDS ZIP failed at stage ['));
+  assert.ok(source.includes('String diagnosticUri = uri == null ? "no MediaStore URI created" : uri.toString();'));
+  assert.ok(source.includes('partial file preserved for diagnosis'));
+  assert.ok(!source.includes('getContentResolver().delete(uri, null, null)'));
+});
+
+test('RDS ZIP progress reaches 100 only after native save verification resolves', async () => {
+  const source = await readFile(appPath, 'utf8');
+  const start = source.indexOf('const exportRdsToolZip = async');
+  const end = source.indexOf('const [maintenanceBusy', start);
+  const exportCode = source.slice(start, end);
+  const save = exportCode.indexOf('await NexusProjectFiles.saveRdsArchive({ fileName: filename, base64 })');
+  const verified = exportCode.indexOf('const verifiedBytes = Number(saved.writtenBytes) || 0;', save);
+  const success = exportCode.indexOf('setRdsExportProgress(100);', verified);
+  assert.ok(save >= 0 && verified > save && success > verified);
+  assert.ok(exportCode.includes("setRdsExportPhase('failed')"));
+  assert.ok(exportCode.includes("setRdsExportPhase('verifying')"));
+  assert.ok(exportCode.includes("setRdsExportPhase('passed')"));
+  assert.ok(exportCode.includes('checkCRC32: true'));
+  assert.ok(exportCode.includes('createRdsZipArchive(exportFiles)'));
+  assert.ok(exportCode.includes('buildRdsZipFilename(tool, generatedAt)'));
+  assert.ok(exportCode.includes('getRequiredRdsZipFiles()'));
+  assert.ok(exportCode.includes('hasNestedEntries'));
+  assert.ok(exportCode.includes('extractedText !== exportFiles[name]'));
+  const zipHelper = await readFile(new URL('../../src/diagnostics/rds-zip.mjs', import.meta.url), 'utf8');
+  for (const name of ['Full_Report.txt', 'Errors.txt', 'Warnings.txt', 'Summary.txt', 'Metadata.txt']) {
+    assert.ok(zipHelper.includes(name), 'ZIP helper must include ' + name);
+  }
+  assert.ok(zipHelper.includes("timeZone: 'Asia/Manila'"));
+  assert.ok(zipHelper.includes('formatter.formatToParts(executionTime)'));
+  assert.ok(zipHelper.includes("const timePart = hour + '-' + minute + dayPeriod"));
+  assert.ok(zipHelper.includes("const datePart = [part('month'), part('day'), part('year')].join('-')"));
+  assert.ok(zipHelper.includes("zip.file(name, content, { createFolders: false })"));
+  assert.ok(exportCode.includes("replace(/\\\\/g, '/')"));
+  assert.ok(exportCode.includes("replace(/\\/+/g, '/')"));
+  assert.ok(source.includes('rds-verification-panel'));
+  assert.ok(source.includes('rdsExportProgress'));
+});
+
+
+test('RDS bottom slider follows its bottom edge while top stays anchored and drag direction matches the Leftside control', async () => {
+  const css = await readFile(new URL('../../src/index.css', import.meta.url), 'utf8');
+  const start = css.indexOf('.rds-bottom-slider {');
+  const end = css.indexOf('}', start);
+  const rule = css.slice(start, end);
+  assert.ok(rule.includes('position:absolute'));
+  assert.ok(rule.includes('left:50%'));
+  assert.ok(rule.includes('bottom:-15px'));
+  assert.ok(rule.includes('width:88px'));
+  assert.ok(rule.includes('height:30px'));
+  assert.ok(rule.includes('touch-action:none'));
+  const app = await readFile(appPath, 'utf8');
+  const panelStart = app.indexOf('<aside ref={rdsPanelElementRef}');
+  const panelEnd = app.indexOf('</aside>}', panelStart);
+  const slider = app.indexOf('className="rds-bottom-slider"', panelStart);
+  assert.ok(panelStart >= 0 && panelEnd > panelStart);
+  assert.ok(slider > panelStart && slider < panelEnd, 'Bottom Slider must be a child of the RDS panel');
+  assert.ok(app.includes('beginRdsBottomResize(event)'));
+  assert.ok(app.includes('start.height + moveEvent.clientY - start.y'));
+  assert.ok(app.includes('beginRdsPanelWidthResize(event)'));
+  assert.ok(!app.includes('beginRdsPanelResize'));
+  assert.ok(!app.includes('rdsResizeRef'));
+  assert.ok(!app.includes('rdsBottomSliderPosition'));
+  assert.ok(!app.includes('new ResizeObserver(updatePosition)'));
+  assert.ok(!css.includes('.rds-bottom-slider { position:absolute !important;'));
+  assert.ok(css.includes('.rds-command-center { position:fixed; z-index:30; top:55px; bottom:auto;'));
+  assert.ok(css.includes('max-height:calc(100dvh - 76px)'));
+  assert.ok(app.includes('window.innerHeight - 76'));
+  assert.ok(!app.includes('className="rds-resize-handle rds-resize-vertical"'));
+});
+test('every RDS tool has its own persistent ZIP verification panel and read-back checks', async () => {
+  const app = await readFile(appPath, 'utf8');
+  const css = await readFile(new URL('../../src/index.css', import.meta.url), 'utf8');
+  assert.ok(app.includes('rdsVerificationByTool[rdsActiveTool]'));
+  assert.ok(app.includes('rds-verification-panel'));
+  for (const label of ['Filename', 'Destination', 'File Bytes', 'ZIP CRC32', '5 TXT Files', 'TXT Read-back']) assert.ok(app.includes("label:'" + label + "'"), 'missing verification row ' + label);
+  assert.ok(app.includes("updateRdsVerification(tool, { phase: 'SUCCESS' })"));
+  assert.ok(app.includes("file.async('string')"));
+  assert.ok(css.includes('.rds-verification-panel'));
+});
+
+test('RDS width resize handle is on the left edge and dragging right reduces panel width', async () => {
+  const source = await readFile(new URL('../../src/index.css', import.meta.url), 'utf8');
+  const start = source.indexOf('.rds-resize-horizontal {');
+  const end = source.indexOf('}', start);
+  const rule = source.slice(start, end);
+  assert.ok(rule.includes('left:0'));
+  assert.ok(rule.includes('right:auto'));
+  const app = await readFile(appPath, 'utf8');
+  assert.ok(app.includes('start.width + start.x - moveEvent.clientX'));
+});
+
+test('RDS ZIP percentage indicator has visible active, complete, and failure states', async () => {
+  const source = await readFile(new URL('../../src/index.css', import.meta.url), 'utf8');
+  assert.ok(source.includes('.rds-export-progress.active'));
+  assert.ok(source.includes('.rds-export-progress.complete'));
+  assert.ok(source.includes('.rds-export-progress.failed'));
+});
+
+
+test('RDS native filename validator matches the canonical Philippine-time ZIP contract', async () => {
+  const java = await readFile(nativePath, 'utf8');
+  const app = await readFile(appPath, 'utf8');
+  const helper = await readFile(new URL('../../src/diagnostics/rds-zip.mjs', import.meta.url), 'utf8');
+  assert.ok(java.includes('static boolean isValidRdsZipFilename(String fileName)'));
+  assert.ok(java.includes('(?:[1-9]|1[0-2])-[0-5][0-9](?:am|pm)'));
+  assert.ok(java.includes('dateFormat.setLenient(false)'));
+  assert.ok(java.includes('if (!isValidRdsZipFilename(fileName))'));
+  assert.ok(!java.includes('[0-9]{1,2}:[0-9]{2}(am|pm)'));
+  assert.ok(!java.includes("fileName.replace(':', '_')"));
+  assert.ok(helper.includes("timeZone: 'Asia/Manila'"));
+  assert.ok(helper.includes("hour12: true"));
+  assert.ok(helper.includes("part('month'), part('day'), part('year')"));
+  assert.ok(app.includes("String(saved.name || '') !== filename"));
+  assert.ok(!app.includes('normalizeAndroidName'));
+  assert.ok(!app.includes("replace(/:/g, '_')"));
+});
+
+test('RDS ZIP timestamp is captured once at export invocation before report generation', async () => {
+  const app = await readFile(appPath, 'utf8');
+  const start = app.indexOf('const exportRdsToolZip = async');
+  const end = app.indexOf('const [maintenanceBusy', start);
+  const handler = app.slice(start, end);
+  const capture = handler.indexOf('const generatedAt = new Date().toISOString();');
+  const reportBuild = handler.indexOf('const exportFiles = buildRdsExportFiles({');
+  const filename = handler.indexOf('buildRdsZipFilename(tool, generatedAt)');
+  assert.ok(capture >= 0 && reportBuild > capture && filename > capture);
+  assert.equal((handler.match(/const generatedAt = new Date\(\)\.toISOString\(\);/g) || []).length, 1);
+});
