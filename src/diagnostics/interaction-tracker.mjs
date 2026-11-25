@@ -25,9 +25,12 @@ function closestValue(target, selector, attribute) {
 }
 
 export function describeInteractionTarget(target) {
-  const tool = closestValue(target, '[data-rit-tool]', 'data-rit-tool');
-  const panel = closestValue(target, '[data-rit-panel]', 'data-rit-panel');
-  const action = closestValue(target, '[data-rit-action]', 'data-rit-action');
+  const tool = closestValue(target, '[data-rit-tool]', 'data-rit-tool') ||
+    closestValue(target, '[data-tool]', 'data-tool');
+  const panel = closestValue(target, '[data-rit-panel]', 'data-rit-panel') ||
+    closestValue(target, '[data-panel]', 'data-panel');
+  const action = closestValue(target, '[data-rit-action]', 'data-rit-action') ||
+    closestValue(target, '[data-action]', 'data-action');
   const objectId = closestValue(target, '[data-object-id], [data-shape-id]', 'data-object-id') ||
     closestValue(target, '[data-shape-id]', 'data-shape-id');
   const objectName = closestValue(target, '[data-object-name]', 'data-object-name');
@@ -40,7 +43,13 @@ export function describeInteractionTarget(target) {
   if (objectName || objectId) chain.push({ type: 'object', ...(objectId ? { id: objectId } : {}), ...(objectName ? { label: objectName } : {}) });
   const viewport = target?.closest?.('[data-rit-viewport], canvas, .main-viewport, .ik-viewport');
   const region = viewport ? clean(viewport.getAttribute?.('data-rit-viewport') || viewport.className?.baseVal || viewport.className || 'VIEWPORT') : 'UI';
-  return { tool, panel, action, objectId, label, region, hierarchy: chain };
+  const isViewport = Boolean(viewport);
+  const isCanvasTarget = Boolean(target?.matches?.('canvas') || target?.closest?.('canvas'));
+  const targetKind = isViewport
+    ? (isCanvasTarget && !tool && !panel && !objectId && !objectName ? 'BLANK_VIEWPORT' : 'VIEWPORT')
+    : (objectId || objectName ? 'OBJECT' : (tool || panel || action || label ? 'CONTROL' : 'UI'));
+  if (isViewport) chain.push({ type: 'viewport', label: region, targetKind });
+  return { tool, panel, action, objectId, objectName, label, region, targetKind, hierarchy: chain };
 }
 
 export function createInteractionTracker({ emit = () => {}, now = () => 0, createId = () => 'interaction' } = {}) {
@@ -98,6 +107,8 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
     const result = {
       interactionId: current.id,
       event: 'GESTURE_COMPLETE',
+      pointerId: current.pointerId,
+      pointerType: current.pointerType,
       gesture,
       status: status === 'cancelled' ? 'CANCELLED' : 'INPUT_RECEIVED',
       pointerType: current.pointerType,
@@ -137,7 +148,8 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
       controlEvent: clean(event?.type || 'click'),
       valueType: event?.target?.type ? clean(event.target.type) : undefined,
       target,
-      status: 'INPUT_RECEIVED',
+      status: event?.target?.disabled || event?.target?.getAttribute?.('aria-disabled') === 'true'
+        ? 'DISABLED' : 'INPUT_RECEIVED',
       monotonicAtMs: at,
     });
   }
