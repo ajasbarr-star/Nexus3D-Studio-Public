@@ -33,6 +33,7 @@ import { CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES } from './geometry/clean-flat-sur
 import { scanGeometryRit, formatGeometryRitReport } from './geometry/geometry-rit';
 import { RUNTIME_SESSION_ID, RUNTIME_SESSION_STARTED_AT, createRuntimeEventMetadata, formatRuntimeTraceReport } from './diagnostics/runtime-session.mjs';
 import { inferTracePoint, filterDiagnosticEntries, formatDiagnosticReport, summarizeFrameTimes } from './diagnostics/logcat-diagnostics.mjs';
+import { buildRdsExportFiles } from './diagnostics/rds-export.mjs';
 import { loadLogcatEntries, loadRitTraceEntries, saveLogcatEntries, saveRitTraceEntries, clearLogcatEntries, clearRitTraceEntries } from './diagnostics/independent-diagnostic-stores.mjs';
 import { buildRdsNoticeSection } from './diagnostics/rds-notice.mjs';
 import './index.css';
@@ -372,6 +373,37 @@ export default function App() {
   const [diagnosticPanelOpen, setDiagnosticPanelOpen] = useState(false);
   const [rdsPanelOpen, setRdsPanelOpen] = useState(false);
   const [rdsActiveTool, setRdsActiveTool] = useState('Overview');
+  const [rdsPanelWidth, setRdsPanelWidth] = useState(() => Math.min(360, Math.max(280, window.innerWidth - 18)));
+  const [rdsPanelHeight, setRdsPanelHeight] = useState(() => Math.min(Math.round(window.innerHeight * 0.48), Math.max(180, window.innerHeight - 78)));
+  const [rdsExportBusy, setRdsExportBusy] = useState(false);
+  const rdsResizeRef = useRef<{ axis: 'width' | 'height'; x: number; y: number; width: number; height: number; pointerId: number } | null>(null);
+  const beginRdsPanelResize = (event: React.PointerEvent<HTMLButtonElement>, axis: 'width' | 'height') => {
+    event.preventDefault();
+    event.stopPropagation();
+    const start = { axis, x: event.clientX, y: event.clientY, width: rdsPanelWidth, height: rdsPanelHeight, pointerId: event.pointerId };
+    rdsResizeRef.current = start;
+    const move = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== start.pointerId) return;
+      moveEvent.preventDefault();
+      if (axis === 'width') {
+        const maxWidth = Math.max(280, Math.min(760, window.innerWidth - 18));
+        setRdsPanelWidth(Math.max(280, Math.min(maxWidth, start.width + moveEvent.clientX - start.x)));
+      } else {
+        const maxHeight = Math.max(180, window.innerHeight - 78);
+        setRdsPanelHeight(Math.max(180, Math.min(maxHeight, start.height + moveEvent.clientY - start.y)));
+      }
+    };
+    const end = (endEvent: PointerEvent) => {
+      if (endEvent.pointerId !== start.pointerId) return;
+      rdsResizeRef.current = null;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+    };
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  };
   const [interactionTraceOpen, setInteractionTraceOpen] = useState(false);
   const diagnosticSinkRef = useRef<(level: DiagnosticEntry['level'], source: string, message: string, details?: string) => void>(() => {});
   const diagnosticQueueRef = useRef<DiagnosticEntry[]>([]);
@@ -455,20 +487,120 @@ export default function App() {
   const pauseLogcat = () => { setLogcatSnapshot(getLogcatEntries()); setLogcatPaused(true); };
   const resumeLogcat = () => setLogcatPaused(false);
   const refreshLogcat = () => { flush(); setStatus('LogCat refreshed'); };
-  const exportLogcatReport = () => {
-    const report = formatDiagnosticReport(visibleLogcatEntries, { sessionId: RUNTIME_SESSION_ID });
+  const exportRdsToolZip = async (tool: string) => {
+    if (rdsExportBusy) return;
+    setRdsExportBusy(true);
     try {
-      const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `Nexus3D_LogCat_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
-      setStatus(`Downloaded LogCat report · ${visibleLogcatEntries.length} events`);
-    } catch { setStatus('LogCat report download failed'); }
+      const allLogs = [...diagnosticLogs, ...diagnosticQueueRef.current].slice(-400);
+      const logcatEntries = getLogcatEntries();
+      const ritEntries = getRitTraceEntries();
+      let entries: DiagnosticEntry[] = [];
+      let fullReport = '';
+      switch (tool) {
+        case 'Overview':
+          entries = allLogs;
+          fullReport = [
+            'NEXUS3D RDS · SYSTEM OVERVIEW',
+            'Generated: ' + new Date().toISOString(),
+            'Runtime events: ' + allLogs.length,
+            'Errors: ' + allLogs.filter(entry => entry.level === 'ERROR' || entry.level === 'FATAL').length,
+            'Warnings: ' + allLogs.filter(entry => entry.level === 'WARN').length,
+            'Scene objects: ' + items.length,
+            'Latest full scan: ' + (rdsLastScanAt || 'Not scanned'),
+            '',
+            rdsScanReport,
+            '',
+            dfiReport
+          ].join('\n');
+          break;
+        case 'Runtime':
+          entries = allLogs;
+          fullReport = formatDiagnosticReport(allLogs, { sessionId: RUNTIME_SESSION_ID });
+          break;
+        case 'LogCat':
+          entries = logcatEntries;
+          fullReport = formatDiagnosticReport(logcatEntries, { sessionId: RUNTIME_SESSION_ID });
+          break;
+        case 'RIT Trace':
+          entries = ritEntries;
+          fullReport = formatRuntimeTraceReport(ritEntries);
+          break;
+        case 'DFI Core':
+          entries = allLogs.filter(entry => /DFI Core|DFI Investigation/i.test(entry.source));
+          fullReport = dfiReport;
+          break;
+        case 'Mesh DFI':
+          entries = allLogs.filter(entry => /Shape Core|Mesh DFI|Mesh Integrity/i.test(entry.source));
+          fullReport = dfiToolReports['Shape Core'] || 'Mesh integrity scan has not been run yet.';
+          break;
+        case 'Root Cause':
+          entries = allLogs.filter(entry => /DFI Core|Root Cause|RDS Scanner/i.test(entry.source));
+          fullReport = dfiReport;
+          break;
+        case 'Source Audit':
+          entries = allLogs.filter(entry => /Source Audit|RDS Source Audit/i.test(entry.source));
+          fullReport = rdsSourceAuditReport;
+          break;
+        case 'Reports':
+          entries = allLogs;
+          fullReport = [
+            'NEXUS3D RDS · CONSOLIDATED REPORTS',
+            'Generated: ' + new Date().toISOString(),
+            '',
+            'FULL CORE SCAN',
+            rdsScanReport,
+            '',
+            'SOURCE AUDIT',
+            rdsSourceAuditReport,
+            '',
+            'DFI INVESTIGATION',
+            dfiReport,
+            '',
+            'SCENE / SHAPE WORKFLOW SUMMARY',
+            buildSceneWorkflowSummary()
+          ].join('\n');
+          break;
+        default:
+          entries = allLogs;
+          fullReport = formatDiagnosticReport(allLogs, { sessionId: RUNTIME_SESSION_ID });
+      }
+      const generatedAt = new Date().toISOString();
+      const exportFiles = buildRdsExportFiles({
+        tool, fullReport, entries,
+        metadata: {
+          generatedAt, app: 'Nexus3D', sessionId: RUNTIME_SESSION_ID,
+          sessionStartedAt: RUNTIME_SESSION_STARTED_AT, platform: Capacitor.getPlatform(),
+          nativeApp: Capacitor.isNativePlatform(), online: navigator.onLine,
+          userAgent: navigator.userAgent, eventCount: entries.length
+        }
+      });
+      const zip = new JSZip();
+      Object.entries(exportFiles).forEach(([name, content]) => zip.file(name, content));
+      const filename = 'Nexus3D_RDS_' + tool.replace(/[^a-z0-9]+/gi, '_') + '_' + generatedAt.replace(/[:.]/g, '-') + '.zip';
+      if (Capacitor.isNativePlatform()) {
+        const base64 = await zip.generateAsync({ type: 'base64', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+        const saved = await Filesystem.writeFile({
+          path: 'Nexus3D/RDS Reports/' + filename, data: base64,
+          directory: Directory.Documents, recursive: true
+        });
+        setStatus('Saved ' + filename + ' · Internal Storage/Documents/Nexus3D/RDS Reports');
+        diagnosticSinkRef.current('INFO', 'RDS Export', tool + ' ZIP report saved', saved.uri || filename);
+      } else {
+        const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url; anchor.download = filename;
+        document.body.appendChild(anchor); anchor.click(); anchor.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+        setStatus('Downloaded ' + filename);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus('RDS ZIP export failed · ' + message);
+      diagnosticSinkRef.current('ERROR', 'RDS Export', tool + ' ZIP export failed', message);
+    } finally {
+      setRdsExportBusy(false);
+    }
   };
     const [maintenanceBusy, setMaintenanceBusy] = useState(false);
   const [performanceMode, setPerformanceMode] = useState(false);
@@ -7834,7 +7966,7 @@ export default function App() {
         </div>
       </header>
 
-      {rdsPanelOpen && !cameraView && !animationMode && <aside className="rds-command-center" role="dialog" aria-label="Nexus3D RDS Command Center">
+      {rdsPanelOpen && !cameraView && !animationMode && <aside className="rds-command-center" role="dialog" aria-label="Nexus3D RDS Command Center" style={{ width: rdsPanelWidth, height: rdsPanelHeight }}>
         <div className="rds-command-header">
           <div className="rds-command-brand"><Activity size={17}/><div><strong>NEXUS3D RDS</strong><small>RUNTIME DIAGNOSTICS · FORENSIC CENTER</small></div></div>
           <div className="rds-command-header-actions"><span className="rds-live-indicator">LIVE</span><button type="button" onClick={() => setRdsPanelOpen(false)} aria-label="Close RDS Command Center"><X size={15}/></button></div>
@@ -7847,7 +7979,7 @@ export default function App() {
             </button>)}
           </nav>
           <main className="rds-command-content">
-            <div className="rds-content-heading"><div><span className="rds-eyebrow">DIAGNOSTIC WORKSPACE</span><h2>{rdsActiveTool === 'Overview' ? 'System Overview' : rdsActiveTool}</h2></div><span className="rds-session-chip">SESSION ACTIVE</span></div>
+            <div className="rds-content-heading"><div><span className="rds-eyebrow">DIAGNOSTIC WORKSPACE</span><h2>{rdsActiveTool === 'Overview' ? 'System Overview' : rdsActiveTool}</h2></div><div className="rds-content-heading-actions"><span className="rds-session-chip">SESSION ACTIVE</span><button type="button" className="rds-tool-button rds-export-zip-button" onClick={() => void exportRdsToolZip(rdsActiveTool)} disabled={rdsExportBusy} title={'Download ' + rdsActiveTool + ' report ZIP'} aria-label={'Download ' + rdsActiveTool + ' report ZIP'}><Download size={15}/></button></div></div>
             {rdsActiveTool === 'Overview' && <>
               <div className="rds-stat-grid">
                 <div className="rds-stat-card"><Activity/><small>Runtime Logs</small><strong>{diagnosticLogs.length}</strong></div>
@@ -7866,7 +7998,7 @@ export default function App() {
                 <button type="button" className="rds-tool-button" onClick={logcatPaused ? resumeLogcat : pauseLogcat} title={logcatPaused ? 'Resume LogCat' : 'Pause LogCat'} aria-label={logcatPaused ? 'Resume LogCat' : 'Pause LogCat'}>{logcatPaused ? <Play size={14}/> : <Pause size={14}/>}</button>
                 <button type="button" className="rds-tool-button" onClick={refreshLogcat} title="Refresh LogCat" aria-label="Refresh LogCat"><RefreshCw size={14}/></button>
                 <button type="button" className="rds-tool-button" onClick={clearDiagnosticLogs} disabled={!getLogcatEntries().length} title="Clear LogCat only" aria-label="Clear LogCat"><Trash2 size={14}/></button>
-                <button type="button" className="rds-tool-button" onClick={exportLogcatReport} title="Download report" aria-label="Download LogCat report"><Download size={14}/></button><button type="button" className="rds-tool-button" onClick={() => void copyDiagnosticText(visibleLogcatEntries)} title="Copy report" aria-label="Copy LogCat report"><Copy size={14}/></button>
+                <button type="button" className="rds-tool-button" onClick={() => void copyDiagnosticText(visibleLogcatEntries)} title="Copy report" aria-label="Copy LogCat report"><Copy size={14}/></button>
               </div>
               <div className="rds-quick-actions">
                 {(['ALL','VERBOSE','DEBUG','INFO','WARN','ERROR','FATAL'] as const).map(level => <button key={level} type="button" className={logcatLevel === level ? 'active' : ''} onClick={() => setLogcatLevel(level)}>{level === 'ALL' ? 'All' : level}</button>)}
@@ -7902,6 +8034,8 @@ export default function App() {
             {rdsActiveTool === 'Reports' && <><div className="rds-quick-actions"><button type="button" onClick={copyAllDfiReport}><Copy size={15}/>Copy All Report</button><button type="button" onClick={copyAllDfiSummary}><ClipboardCopy size={15}/>Copy Scene Summary</button><button type="button" onClick={() => void copyDiagnosticText([{id:'rds-report',time:rdsLastScanAt || new Date().toLocaleTimeString(),level:rdsScanSummary.errors?'ERROR':rdsScanSummary.warnings?'WARN':'INFO',source:'RDS Full Core Scan',message:'Full scan report',details:rdsScanReport + '\n\n' + rdsSourceAuditReport}])}><FileText size={15}/>Copy RDS Report</button></div><pre className="rds-command-report">{rdsScanReport}{'\n\n'}{rdsSourceAuditReport}</pre></>}
           </main>
         </div>
+        <button type="button" className="rds-resize-handle rds-resize-horizontal" aria-label="Resize RDS Panel width" title="Drag left or right to resize RDS Panel width" onPointerDown={event => beginRdsPanelResize(event, 'width')}><span/></button>
+        <button type="button" className="rds-resize-handle rds-resize-vertical" aria-label="Resize RDS Panel height" title="Drag up or down to resize RDS Panel height" onPointerDown={event => beginRdsPanelResize(event, 'height')}><span/></button>
       </aside>}
 
       {geometryRitOpen && !cameraView && !animationMode && <aside className="geometry-rit-panel" role="dialog" aria-label="Independent Geometry RIT Results Report">
