@@ -2684,8 +2684,12 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .rds-resize-handle:active { background:#29485b; border-color:#70cce0; opacity:1; }
 .rds-resize-horizontal { right:2px; top:50%; width:13px; height:58px; transform:translateY(-50%); cursor:ew-resize; }
 .rds-resize-horizontal span { width:3px; height:28px; border-left:1px solid currentColor; border-right:1px solid currentColor; }
-.rds-resize-vertical { bottom:2px; left:50%; width:58px; height:13px; transform:translateX(-50%); cursor:ns-resize; }
-.rds-resize-vertical span { width:28px; height:3px; border-top:1px solid currentColor; border-bottom:1px solid currentColor; }
+.rds-resize-vertical {
+  bottom: max(24px, calc(env(safe-area-inset-bottom, 0px) + 20px));
+  left:50%; width:72px; height:22px; transform:translateX(-50%); cursor:ns-resize;
+}
+.rds-resize-vertical span { width:30px; height:4px; border-top:1px solid currentColor; border-bottom:1px solid currentColor; }
+
 .right-actions .ready-label,
 .right-actions .fullscreen-btn {
   display: none !important;

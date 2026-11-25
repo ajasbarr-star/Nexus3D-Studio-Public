@@ -576,8 +576,14 @@ export default function App() {
         }
       });
       const zip = new JSZip();
-      Object.entries(exportFiles).forEach(([name, content]) => zip.file(name, content));
-      const filename = 'Nexus3D_RDS_' + tool.replace(/[^a-z0-9]+/gi, '_') + '_' + generatedAt.replace(/[:.]/g, '-') + '.zip';
+      const localGeneratedAt = new Date(generatedAt);
+      const timeFolder = localGeneratedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).replace(/\s+/g, '').toLowerCase();
+      const dateFolder = [String(localGeneratedAt.getMonth() + 1).padStart(2, '0'), String(localGeneratedAt.getDate()).padStart(2, '0'), localGeneratedAt.getFullYear()].join('-');
+      const toolFolder = 'Nexus3D_' + tool.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '');
+      const archiveFolder = zip.folder(toolFolder)?.folder(timeFolder)?.folder(dateFolder);
+      if (!archiveFolder) throw new Error('Unable to create RDS ZIP folder structure');
+      Object.entries(exportFiles).forEach(([name, content]) => archiveFolder.file(name, content));
+      const filename = toolFolder + '_' + timeFolder + '_' + dateFolder + '.zip';
       if (Capacitor.isNativePlatform()) {
         const base64 = await zip.generateAsync({ type: 'base64', compression: 'DEFLATE', compressionOptions: { level: 6 } });
         const saved = await Filesystem.writeFile({
