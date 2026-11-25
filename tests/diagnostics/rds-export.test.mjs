@@ -69,5 +69,5 @@ test('RDS ZIP extracts exactly five complete UTF-8 TXT files at the archive root
 
 test('RDS ZIP filename contains sanitized time and date without creating archive folders', () => {
   const filename = buildRdsZipFilename('RIT Trace', '2026-11-26T13:57:00.000Z');
-  assert.match(filename, /^Nexus3D_RIT-Trace_\\d+-\\d+pm_11-26-2026\\.zip$/);
+  assert.match(filename, /^Nexus3D_RIT-Trace_\d+-\d+pm_11-26-2026\.zip$/);
 });
