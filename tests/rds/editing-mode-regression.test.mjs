@@ -246,7 +246,10 @@ test('Extruded side walls receive UVs and keep the verified quad topology stream
 test('RDS LogCat and RIT Trace expose independent controls while preserving live trace capture', () => {
   assert.match(source, /aria-label="Realtime Interaction Trace"/);
   assert.match(source, /rdsActiveTool === 'LogCat'/);
-  assert.match(source, /aria-label="Download LogCat report"/);
+  assert.match(source, /Download ' \+ rdsActiveTool \+ ' report ZIP/);
+  assert.match(source, /Directory\.Documents/);
+  assert.match(source, /rds-resize-horizontal/);
+  assert.match(source, /rds-resize-vertical/);
   assert.match(source, /aria-label="Copy LogCat report"/);
   assert.match(source, /aria-label="Clear LogCat"/);
   assert.match(source, /aria-label="Copy all RIT logs"/);

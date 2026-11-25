@@ -2669,23 +2669,10 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 
 /* RDS compact dock and temporary top-right toolbar declutter. */
 .rds-command-center {
-  width: min(360px, calc(100vw - 18px));
-  height: min(48vh, calc(100dvh - 78px));
-  min-width: 280px;
-  min-height: 180px;
+  width: min(360px, calc(100vw - 18px)) !important;
+  height: min(48vh, calc(100dvh - 78px)) !important;
+  min-height: 180px !important;
 }
-.rds-content-heading-actions { display:flex; align-items:center; gap:6px; }
-.rds-export-zip-button { width:30px; height:30px; flex:0 0 30px; }
-.rds-resize-handle {
-  position:absolute; z-index:4; display:flex; align-items:center; justify-content:center;
-  padding:0; border:1px solid #496174; border-radius:8px; background:#1b2b3b;
-  color:#8ed8e8; touch-action:none; opacity:.9;
-}
-.rds-resize-handle:active { background:#29485b; border-color:#70cce0; opacity:1; }
-.rds-resize-horizontal { right:2px; top:50%; width:13px; height:58px; transform:translateY(-50%); cursor:ew-resize; }
-.rds-resize-horizontal span { width:3px; height:28px; border-left:1px solid currentColor; border-right:1px solid currentColor; }
-.rds-resize-vertical { bottom:2px; left:50%; width:58px; height:13px; transform:translateX(-50%); cursor:ns-resize; }
-.rds-resize-vertical span { width:28px; height:3px; border-top:1px solid currentColor; border-bottom:1px solid currentColor; }
 .right-actions .ready-label,
 .right-actions .fullscreen-btn {
   display: none !important;
@@ -2712,9 +2699,8 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 }
 @media (max-width: 760px) {
   .rds-command-center {
-    min-width: 280px;
-    max-width: calc(100vw - 10px);
-    max-height: calc(100dvh - 68px);
+    width: min(360px, calc(100vw - 10px)) !important;
+    height: min(48vh, calc(100dvh - 68px)) !important;
   }
   .quick-access-rail {
     top: 52px !important;

@@ -32,21 +32,10 @@ test('LogCat provides severity, advanced metadata filters, pause, refresh and cl
   assert.match(app, /aria-label="Clear LogCat"/);
 });
 
-test('each RDS tool has its own ZIP download action and native storage export', () => {
-  assert.match(app, /exportRdsToolZip\(rdsActiveTool\)/);
-  assert.match(app, /Download ' \+ rdsActiveTool \+ ' report ZIP/);
-  assert.match(app, /Directory\.Documents/);
-  assert.match(app, /RDS Reports/);
-  assert.match(app, /buildRdsExportFiles/);
-  assert.doesNotMatch(app, /exportLogcatReport/);
-});
-
-test('RDS panel restores independent bottom and right-side resize sliders', () => {
-  assert.match(app, /rds-resize-horizontal/);
-  assert.match(app, /rds-resize-vertical/);
-  assert.match(app, /beginRdsPanelResize\(event, 'width'\)/);
-  assert.match(app, /beginRdsPanelResize\(event, 'height'\)/);
-  assert.match(app, /style=\{\{ width: rdsPanelWidth, height: rdsPanelHeight \}\}/);
+test('LogCat report is downloaded as a text file, not only copied to clipboard', () => {
+  assert.match(app, /const exportLogcatReport = \(\) =>/);
+  assert.match(app, /anchor\.download/);
+  assert.match(app, /formatDiagnosticReport\(visibleLogcatEntries/);
 });
 
 test('RIT Trace panel retains a dedicated Clear Trace action', () => {
