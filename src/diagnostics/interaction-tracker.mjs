@@ -42,13 +42,12 @@ export function describeInteractionTarget(target) {
 }
 
 export function createInteractionTracker({ emit = () => {}, now = () => 0, createId = () => 'interaction' } = {}) {
-  let active = null;
+  const activePointers = new Map();
   const recentByPointer = new Map();
 
   function begin(event) {
-    if (event?.isPrimary === false && active?.pointerId !== event.pointerId) return null;
     const target = describeInteractionTarget(event?.target);
-    active = {
+    const active = {
       id: createId(),
       pointerId: Number.isFinite(event?.pointerId) ? event.pointerId : 0,
       pointerType: clean(event?.pointerType || 'unknown'),
@@ -61,12 +60,16 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
       moves: 0,
       samples: [],
       target,
+      multiTouch: activePointers.size > 0,
     };
+    if (active.multiTouch) for (const pointer of activePointers.values()) pointer.multiTouch = true;
+    activePointers.set(active.pointerId, active);
     return active.id;
   }
 
   function move(event) {
-    if (!active || event?.pointerId !== active.pointerId) return;
+    const active = activePointers.get(event?.pointerId);
+    if (!active) return;
     const x = Number(event.clientX) || 0;
     const y = Number(event.clientY) || 0;
     const dx = x - active.lastX;
@@ -81,13 +84,13 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
   }
 
   function finish(event, status = 'completed') {
-    if (!active || event?.pointerId !== active.pointerId) return null;
-    const current = active;
-    active = null;
+    const current = activePointers.get(event?.pointerId);
+    if (!current) return null;
+    activePointers.delete(current.pointerId);
     const endedAt = now();
     const durationMs = Math.max(0, endedAt - current.startedAt);
     const distancePx = Math.round(current.distance);
-    const gesture = distancePx < 8 && durationMs < 550 ? 'TAP' :
+    const gesture = current.multiTouch ? 'MULTI_TOUCH' : distancePx < 8 && durationMs < 550 ? 'TAP' :
       distancePx < 8 ? 'LONG_PRESS' : durationMs < 450 ? 'SWIPE' : 'DRAG';
     const result = {
       interactionId: current.id,
@@ -146,7 +149,7 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
       documentLike.removeEventListener('click', onAction, true);
       documentLike.removeEventListener('change', onAction, true);
       documentLike.removeEventListener('input', onAction, true);
-      if (active) active = null;
+      activePointers.clear();
     };
   }
 
