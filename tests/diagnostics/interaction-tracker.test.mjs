@@ -208,3 +208,40 @@ test('cancelled pointer gestures are not reused as successful control activation
   assert.notEqual(records[0].interactionId, records[1].interactionId);
   assert.equal(records[0].status, 'CANCELLED');
 });
+
+
+test('generic tool and panel markers are retained in the interaction hierarchy', () => {
+  const tool = targetNode({ 'data-tool': 'Materials' }, '', null);
+  const panel = targetNode({ 'data-panel': 'Surface' }, '', tool);
+  const control = targetNode({ 'aria-label': 'Roughness' }, '', panel);
+  const described = describeInteractionTarget(control);
+  assert.equal(described.tool, 'Materials');
+  assert.equal(described.panel, 'Surface');
+  assert.deepEqual(described.hierarchy.map(item => item.type), ['tool', 'panel', 'control']);
+});
+
+test('blank viewport touches are explicitly classified without inventing an object selection', () => {
+  const viewport = targetNode({ 'data-rit-viewport': 'MainViewport' }, '', null);
+  const described = describeInteractionTarget(viewport);
+  assert.equal(described.targetKind, 'BLANK_VIEWPORT');
+  assert.equal(described.region, 'MainViewport');
+  assert.deepEqual(described.hierarchy, [
+    { type: 'viewport', label: 'MainViewport', targetKind: 'BLANK_VIEWPORT' }
+  ]);
+  assert.equal(described.objectId, '');
+  assert.equal(described.objectName, '');
+});
+
+test('disabled controls are recorded as disabled rather than normal activations', () => {
+  const records = [];
+  const tracker = createInteractionTracker({
+    emit: item => records.push(item),
+    now: () => 100,
+    createId: () => 'disabled-control'
+  });
+  const target = targetNode({ 'aria-label': 'Delete selected object' }, 'Delete');
+  target.disabled = true;
+  tracker.action({ type: 'click', pointerId: 0, target });
+  assert.equal(records[0].status, 'DISABLED');
+  assert.equal(records[0].event, 'CONTROL_ACTIVATION');
+});
