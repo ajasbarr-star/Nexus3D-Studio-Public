@@ -78,7 +78,8 @@ test('RDS Bottom Slider is rendered inside the command panel and stays anchored 
 test('RDS Bottom Slider uses manual pointer resizing without automatic height expansion', () => {
   assert.match(app, /const beginRdsPanelResize = \(event: React\.PointerEvent<HTMLButtonElement>, axis: 'width' \| 'height'\)/);
   assert.match(app, /window\.addEventListener\('pointermove', move, \{ passive: false \}\)/);
-  assert.match(app, /const minHeight = Math\.min\(180, maxHeight\)/);\n  assert.match(app, /setRdsPanelHeight\(Math\.max\(minHeight, Math\.min\(maxHeight, start\.height \+ start\.y - moveEvent\.clientY\)\)\)/);
+  assert.match(app, /const minHeight = Math\.min\(180, maxHeight\)/);
+  assert.match(app, /setRdsPanelHeight\(Math\.max\(minHeight, Math\.min\(maxHeight, start\.height \+ start\.y - moveEvent\.clientY\)\)\)/);
   assert.doesNotMatch(app, /rdsBottomSliderPosition|new ResizeObserver\(updatePosition\)/);
 });
 
