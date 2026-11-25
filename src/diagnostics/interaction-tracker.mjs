@@ -8,13 +8,14 @@ function clean(value, limit = MAX_LABEL) {
 function nodeLabel(node) {
   if (!node || node.nodeType !== 1) return '';
   const element = node;
+  const control = element.closest?.('button,[role="button"],[role="menuitem"],input,select,textarea,[aria-label],[title]') || element;
   return clean(
-    element.getAttribute?.('aria-label') ||
-    element.getAttribute?.('data-rit-label') ||
-    element.getAttribute?.('title') ||
-    element.getAttribute?.('data-tool') ||
-    element.getAttribute?.('data-object-name') ||
-    element.textContent
+    control.getAttribute?.('aria-label') ||
+    control.getAttribute?.('data-rit-label') ||
+    control.getAttribute?.('title') ||
+    control.getAttribute?.('data-tool') ||
+    control.getAttribute?.('data-object-name') ||
+    control.textContent
   );
 }
 
