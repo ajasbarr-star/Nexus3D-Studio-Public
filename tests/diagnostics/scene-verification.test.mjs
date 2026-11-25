@@ -74,10 +74,11 @@ test('reports tree-only and MainViewport-only objects without falsely passing re
 });
 
 test('distinguishes hidden objects and camera-layer mismatch from scene presence', () => {
-  const hiddenParent = { visible: false, parent: null };
+  const hiddenParent = { visible: false, parent: null, children: [] };
   const hiddenLight = makeObject({ id: 'light-hidden', name: 'DirectionalLight_hidden', type: 'DirectionalLight', parent: hiddenParent });
+  hiddenParent.children.push(hiddenLight);
   const layerLight = makeObject({ id: 'light-layer', name: 'DirectionalLight_layer', type: 'DirectionalLight', layers: 2 });
-  const scene = makeScene([hiddenLight, layerLight]);
+  const scene = makeScene([hiddenParent, layerLight]);
   const snapshot = buildSceneVerificationSnapshot({
     treeItems: [hiddenLight, layerLight].map(object => ({ id: object.userData.editorId, name: object.name, object })),
     scene, camera,
