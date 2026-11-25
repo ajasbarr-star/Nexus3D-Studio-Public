@@ -418,9 +418,14 @@ public class NexusProjectFilesPlugin extends Plugin {
                     String actualName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME));
                     String actualPath = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH));
                     String expectedPath = Environment.DIRECTORY_DOCUMENTS + "/Nexus3D/";
-                    if (!fileName.equals(actualName) || !expectedPath.equals(actualPath)) {
+                    // MediaStore providers may canonicalize RELATIVE_PATH by omitting
+                    // the trailing slash. Compare normalized directory paths, not the
+                    // provider's formatting, while still enforcing the exact folder.
+                    String normalizedActualPath = actualPath == null ? "" : actualPath.replace('\\\\', '/');
+                    if (!normalizedActualPath.endsWith("/")) normalizedActualPath += "/";
+                    if (!fileName.equals(actualName) || !expectedPath.equals(normalizedActualPath)) {
                         throw new IllegalStateException("RDS ZIP destination verification failed: expected Documents/Nexus3D/" + fileName
-                            + " but Android reported " + actualPath + actualName);
+                            + " but Android reported " + actualPath + "/" + actualName);
                     }
                 }
                 ContentValues publish = new ContentValues();
