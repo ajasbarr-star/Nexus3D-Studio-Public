@@ -1394,7 +1394,7 @@ export default function App() {
         { name: 'CameraOrbitControls', controls: activeOrbit, isActive: () => activeOrbit.enabled },
         { name: 'IKOrbitControls', controls: ikOrbit, isActive: () => ikOrbit.enabled }
       ],
-      getViewport: () => runtime.current?.riggingView ? 'IKViewport' :
+      getViewport: () => runtime.current?.riggingView ? 'IK Rigging Viewport' :
         (runtime.current?.cameraView || runtime.current?.animationView) ? 'CameraViewport' : 'MainViewport'
     });
     transform.setMode('translate');
@@ -4434,7 +4434,7 @@ export default function App() {
       } else {
         renderer.render(scene, inCam ? activeCamera : camera);
       }
-      cameraInteractionTracker.markRendered(runtime.current?.riggingView ? 'IKViewport' : inCam ? 'CameraViewport' : 'MainViewport');
+      cameraInteractionTracker.markRendered(runtime.current?.riggingView ? 'IK Rigging Viewport' : inCam ? 'CameraViewport' : 'MainViewport');
       raf = requestAnimationFrame(frameLoop);
     };
     let raf = requestAnimationFrame(frameLoop);
@@ -8070,7 +8070,7 @@ export default function App() {
     <main className={'editor-shell' + (riggingView ? ' rigging-mode' : '') + (animationMode ? ' animation-mode' : '')}>
 
 
-      <div className={'viewport ' + (pathTool ? 'path-tool-active' : '')} ref={hostRef} data-rit-viewport="MainViewport" onPointerDown={e => { if (!pathTool || animationMode) return; const rect = e.currentTarget.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width - .5) * 20; const z = ((e.clientY - rect.top) / rect.height - .5) * -20; setMotionPathPoints(prev => [...prev, {x, y:0.05, z}]); }} onDragOver={e => { if (e.dataTransfer.types.includes('text/nexus3d-object')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }} onDrop={e => { const childId = e.dataTransfer.getData('text/nexus3d-object'); if (!childId) return; e.preventDefault(); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }} />
+      <div className={'viewport ' + (pathTool ? 'path-tool-active' : '')} ref={hostRef} data-rit-viewport={cameraView ? 'CameraViewport' : 'MainViewport'} onPointerDown={e => { if (!pathTool || animationMode) return; const rect = e.currentTarget.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width - .5) * 20; const z = ((e.clientY - rect.top) / rect.height - .5) * -20; setMotionPathPoints(prev => [...prev, {x, y:0.05, z}]); }} onDragOver={e => { if (e.dataTransfer.types.includes('text/nexus3d-object')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }} onDrop={e => { const childId = e.dataTransfer.getData('text/nexus3d-object'); if (!childId) return; e.preventDefault(); const child = runtime.current?.selectable.find((o: THREE.Object3D) => o.userData.editorId === childId); if (child) runtime.current?.reparentObject(child); }} />
       <div ref={ikHostRef} className={'ik-dedicated-viewport ' + (riggingView ? 'active' : '')} aria-label="Dedicated IK Rigging 3D viewport" data-rit-viewport="IK Rigging Viewport" />
        {riggingView && <div className="ik-rig-actions" aria-label="Compact Manual IK tools" data-rit-tool="IK Rigging" data-rit-panel="Manual IK Controls">
          <button type="button" title="Create Root Bone" aria-label="Create Root Bone" onClick={() => runtime.current?.addUniversalBone?.('root')}><Plus size={13}/><span>ROOT</span></button>
