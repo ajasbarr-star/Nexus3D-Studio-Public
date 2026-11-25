@@ -230,9 +230,25 @@ test('RDS bottom slider is an independent fixed control outside the clipped pane
   assert.ok(rule.includes('touch-action:none'));
   const app = await readFile(appPath, 'utf8');
   assert.ok(app.includes('className="rds-bottom-slider"'));
-  assert.ok(app.includes('rdsPanelHeight - 15'));
+  assert.ok(app.includes('ref={rdsPanelElementRef}'));
+  assert.ok(app.includes('panel.getBoundingClientRect()'));
+  assert.ok(app.includes('new ResizeObserver(updatePosition)'));
+  assert.ok(app.includes('rdsBottomSliderPosition.top'));
+  assert.ok(!app.includes('rdsPanelHeight - 15'));
   assert.ok(app.includes('start.height + start.y - moveEvent.clientY'));
+  assert.ok(css.includes('.rds-bottom-slider { position:fixed !important; z-index:80 !important;'));
   assert.ok(!app.includes('className="rds-resize-handle rds-resize-vertical"'));
+});
+
+test('every RDS tool has its own persistent ZIP verification panel and read-back checks', async () => {
+  const app = await readFile(appPath, 'utf8');
+  const css = await readFile(new URL('../../src/index.css', import.meta.url), 'utf8');
+  assert.ok(app.includes('rdsVerificationByTool[rdsActiveTool]'));
+  assert.ok(app.includes('rds-verification-panel'));
+  for (const label of ['Filename', 'Destination', 'File Bytes', 'ZIP CRC32', '5 TXT Files', 'TXT Read-back']) assert.ok(app.includes("label:'" + label + "'"), 'missing verification row ' + label);
+  assert.ok(app.includes("updateRdsVerification(tool, { phase: 'SUCCESS' })"));
+  assert.ok(app.includes("file.async('string')"));
+  assert.ok(css.includes('.rds-verification-panel'));
 });
 
 test('RDS width resize handle is on the left edge and dragging right reduces panel width', async () => {
