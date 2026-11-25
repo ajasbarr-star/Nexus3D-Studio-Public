@@ -5487,7 +5487,6 @@ export default function App() {
     const remaining = sequenceStates.filter(entry => entry.id !== state.id);
     setSequenceStates(remaining);
     setSelectedSequenceState(remaining[Math.max(0, index - 1)]?.id || remaining[0]?.id || '');
-    setExpandedSequenceRulerId('');
     setSelected3DAlphabetMarkerId(current => current === state.id ? '' : current);
     setPendingStateChoice('');
     setSelectedKeyframe(current => current && current.frame >= range.start && current.frame <= range.end ? null : current);
