@@ -6,6 +6,7 @@ import { formatDiagnosticReport } from '../../src/diagnostics/logcat-diagnostics
 function targetNode(attributes = {}, label = '', parent = null) {
   return {
     nodeType: 1,
+    tagName: attributes.__tagName || 'DIV',
     textContent: label,
     className: '',
     getAttribute(name) { return attributes[name] ?? null; },
