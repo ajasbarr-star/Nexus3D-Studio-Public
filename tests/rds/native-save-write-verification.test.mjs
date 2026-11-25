@@ -226,7 +226,7 @@ test('RDS bottom slider stays inside the panel and resizes only the bottom edge'
   const rule = css.slice(start, end);
   assert.ok(rule.includes('position:absolute'));
   assert.ok(rule.includes('left:50%'));
-  assert.ok(rule.includes('bottom:0'));
+  assert.ok(rule.includes('bottom:-15px'));
   assert.ok(rule.includes('width:88px'));
   assert.ok(rule.includes('height:30px'));
   assert.ok(rule.includes('touch-action:none'));
@@ -240,8 +240,8 @@ test('RDS bottom slider stays inside the panel and resizes only the bottom edge'
   assert.ok(app.includes('start.height + start.y - moveEvent.clientY'));
   assert.ok(!app.includes('rdsBottomSliderPosition'));
   assert.ok(!app.includes('new ResizeObserver(updatePosition)'));
-  assert.ok(css.includes('.rds-bottom-slider { position:absolute !important; left:50% !important; bottom:0 !important;'));
-  assert.ok(css.includes('.rds-command-center { position:fixed; z-index:30; top:58px;'));
+  assert.ok(!css.includes('.rds-bottom-slider { position:absolute !important;'));
+  assert.ok(css.includes('.rds-command-center { position:fixed; z-index:30; top:auto; bottom:18px;'));\n  assert.ok(css.includes('max-height:calc(100dvh - 76px)'));\n  assert.ok(app.includes('window.innerHeight - 76'));
   assert.ok(!app.includes("setRdsPanelHeight(") || app.includes("start.height + start.y - moveEvent.clientY"));
   assert.ok(!app.includes('className="rds-resize-handle rds-resize-vertical"'));
 });
