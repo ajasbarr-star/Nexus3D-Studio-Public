@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createInteractionTracker, describeInteractionTarget } from '../../src/diagnostics/interaction-tracker.mjs';
+import { formatDiagnosticReport } from '../../src/diagnostics/logcat-diagnostics.mjs';
 
 function targetNode(attributes = {}, label = '', parent = null) {
   return {
@@ -106,4 +107,21 @@ test('concurrent touch pointers are both retained and classified as multi-touch'
   assert.equal(first.gesture, 'MULTI_TOUCH');
   assert.equal(second.gesture, 'MULTI_TOUCH');
   assert.equal(records.length, 2);
+});
+
+test('LogCat text report exposes the same RIT Interaction ID for correlation', () => {
+  const report = formatDiagnosticReport([{
+    timestampISO: '2026-11-25T12:00:00.000Z',
+    sessionId: 'N3D-test',
+    sequence: 7,
+    interactionId: 'ix-shared-007',
+    level: 'INFO',
+    source: 'Interaction Correlation',
+    componentTag: 'Interaction Trace',
+    tracePoint: 'USER_INTERACTION',
+    message: 'GESTURE_COMPLETE',
+    details: '{"gesture":"DRAG"}',
+  }]);
+  assert.ok(report.includes('interaction ID'));
+  assert.ok(report.includes('ix-shared-007'));
 });
