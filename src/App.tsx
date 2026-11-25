@@ -38,6 +38,7 @@ import { buildRdsExportFiles } from './diagnostics/rds-export.mjs';
 import { buildRdsZipFilename, createRdsZipArchive, getRequiredRdsZipFiles } from './diagnostics/rds-zip.mjs';
 import { loadLogcatEntries, loadRitTraceEntries, saveLogcatEntries, saveRitTraceEntries, clearLogcatEntries, clearRitTraceEntries } from './diagnostics/independent-diagnostic-stores.mjs';
 import { buildRdsNoticeSection } from './diagnostics/rds-notice.mjs';
+import { createInteractionTracker } from './diagnostics/interaction-tracker.mjs';
 import './index.css';
 
 function createProjectMaterial(data: any): THREE.Material {
@@ -274,6 +275,15 @@ function smoothQuadGridGeometry(geometry: THREE.BufferGeometry): boolean {
 }
 
 export default function App() {
+  useEffect(() => {
+    const tracker = createInteractionTracker({
+      now: () => performance.now(),
+      createId: uid,
+      emit: event => diagnosticSinkRef.current('INFO', 'Interaction Trace', event.event, JSON.stringify(event))
+    });
+    return tracker.attach(document);
+  }, []);
+
   const hostRef = useRef<HTMLDivElement>(null);
   const ikHostRef = useRef<HTMLDivElement>(null);
   const runtime = useRef<any>(null);
