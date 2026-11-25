@@ -215,3 +215,48 @@ test('RIT Trace exports standalone blank-viewport gestures and non-creation cont
   assert.ok(report.includes('Tool: Transform Inspector'));
   assert.ok(report.includes('Control event: change'));
 });
+
+
+test('RIT Trace reports measured camera update and first rendered frame latency', () => {
+  const interactionId = 'camera-latency-01';
+  const entries = [
+    {
+      interactionId, timestampISO: '2026-11-26T10:10:00.000Z', level: 'INFO',
+      source: 'Interaction Trace', message: 'CAMERA_GESTURE_COMPLETE',
+      details: JSON.stringify({ gesture: 'PINCH', viewport: 'MainViewport', status: 'INPUT_RECEIVED' })
+    },
+    {
+      interactionId, timestampISO: '2026-11-26T10:10:00.016Z', level: 'INFO',
+      source: 'Interaction Trace', message: 'CAMERA_UPDATE',
+      details: JSON.stringify({ gesture: 'PINCH', viewport: 'MainViewport', controller: 'MainOrbitControls', inputToCameraUpdateMs: 16 })
+    },
+    {
+      interactionId, timestampISO: '2026-11-26T10:10:00.032Z', level: 'INFO',
+      source: 'Interaction Trace', message: 'CAMERA_FIRST_RENDERED_FRAME',
+      details: JSON.stringify({ gesture: 'PINCH', viewport: 'MainViewport', controller: 'MainOrbitControls', inputToFirstRenderedFrameMs: 32, cameraUpdateToFirstRenderedFrameMs: 16 })
+    }
+  ];
+  const report = buildRdsExportFiles({ tool: 'RIT Trace', fullReport: 'Camera test', entries })['Full_Report.txt'];
+  assert.match(report, /Camera gesture: PINCH \| Viewport: MainViewport/);
+  assert.match(report, /Input to camera update: 16 ms/);
+  assert.match(report, /Input to first rendered frame: 32 ms/);
+  assert.match(report, /Camera update to rendered frame: 16 ms/);
+  assert.match(report, /Active controller: MainOrbitControls/);
+});
+
+test('RIT Trace does not fabricate camera latency when no camera update is observed', () => {
+  const report = buildRdsExportFiles({
+    tool: 'RIT Trace',
+    fullReport: 'No camera movement',
+    entries: [{
+      interactionId: 'camera-no-response',
+      level: 'INFO',
+      source: 'Interaction Trace',
+      message: 'CAMERA_GESTURE_COMPLETE',
+      details: JSON.stringify({ gesture: 'DOUBLE_TAP', viewport: 'MainViewport', status: 'NO_CAMERA_UPDATE' })
+    }]
+  })['Full_Report.txt'];
+  assert.match(report, /Camera gesture: DOUBLE_TAP/);
+  assert.match(report, /Status: NO_CAMERA_UPDATE/);
+  assert.doesNotMatch(report, /Input to camera update: [0-9]/);
+});
