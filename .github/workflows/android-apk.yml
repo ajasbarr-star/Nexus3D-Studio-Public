@@ -11,6 +11,7 @@ on:
       - fix/rds-bottom-slider-safe-margin
       - feature/rit-touch-hierarchy-build832
       - feature/rds-scene-tree-mainviewport-verification-build835
+      - feature/rit-touch-hierarchy-build846-clean
   workflow_dispatch:
 
 permissions:
