@@ -45,6 +45,7 @@ function collectSceneObjects(scene) {
  */
 export function buildSceneVerificationSnapshot({
   treeItems = [],
+  selectableObjects = null,
   scene = null,
   renderer = null,
   camera = null,
@@ -55,7 +56,9 @@ export function buildSceneVerificationSnapshot({
   const treeAvailable = Array.isArray(treeItems);
   const sceneObjects = collectSceneObjects(scene);
   const sceneObjectSet = new Set(sceneObjects);
-  const selectableSceneObjects = sceneObjects.filter(object => object?.userData?.editorId);
+  const sceneEditorObjects = sceneObjects.filter(object => object?.userData?.editorId);
+  const selectableInventory = Array.isArray(selectableObjects) ? selectableObjects : sceneEditorObjects;
+  const selectableSceneObjects = selectableInventory.filter(object => sceneObjectSet.has(object));
   const normalizedTreeItems = treeItems.map(item => ({ item, object: item?.object })).filter(entry => entry.object);
   const treeObjectSet = new Set(normalizedTreeItems.map(entry => entry.object));
 
