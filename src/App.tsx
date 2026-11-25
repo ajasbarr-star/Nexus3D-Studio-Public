@@ -39,6 +39,7 @@ import { buildRdsZipFilename, createRdsZipArchive, getRequiredRdsZipFiles } from
 import { loadLogcatEntries, loadRitTraceEntries, saveLogcatEntries, saveRitTraceEntries, clearLogcatEntries, clearRitTraceEntries } from './diagnostics/independent-diagnostic-stores.mjs';
 import { buildRdsNoticeSection } from './diagnostics/rds-notice.mjs';
 import { createInteractionTracker } from './diagnostics/interaction-tracker.mjs';
+import { createCameraInteractionTracker } from './diagnostics/camera-interaction-tracker.mjs';
 import { buildSceneVerificationSnapshot, buildSceneVerificationMetadata, formatSceneVerificationReport } from './diagnostics/scene-verification.mjs';
 import './index.css';
 
@@ -1380,6 +1381,21 @@ export default function App() {
       ikOrbit.enabled = !dragging && inRigView;
       controlDiag('syncViewportControls', { requestedDragging: dragging });
     };
+    const cameraInteractionTracker = createCameraInteractionTracker({
+      now: () => performance.now(),
+      createId: uid,
+      emit: event => diagnosticSinkRef.current('INFO', 'Interaction Trace', event.event, JSON.stringify(event))
+    });
+    const detachCameraInteractionTracker = cameraInteractionTracker.attach({
+      element: renderer.domElement,
+      controls: [
+        { name: 'MainOrbitControls', controls: orbit, isActive: () => orbit.enabled },
+        { name: 'CameraOrbitControls', controls: activeOrbit, isActive: () => activeOrbit.enabled },
+        { name: 'IKOrbitControls', controls: ikOrbit, isActive: () => ikOrbit.enabled }
+      ],
+      getViewport: () => runtime.current?.riggingView ? 'IKViewport' :
+        (runtime.current?.cameraView || runtime.current?.animationView) ? 'CameraViewport' : 'MainViewport'
+    });
     transform.setMode('translate');
     transform.setSpace('world');
     transform.setSize(1.08);
@@ -4417,12 +4433,14 @@ export default function App() {
       } else {
         renderer.render(scene, inCam ? activeCamera : camera);
       }
+      cameraInteractionTracker.markRendered(runtime.current?.riggingView ? 'IKViewport' : inCam ? 'CameraViewport' : 'MainViewport');
       raf = requestAnimationFrame(frameLoop);
     };
     let raf = requestAnimationFrame(frameLoop);
     syncItems();
     return () => {
       cancelAnimationFrame(raf);
+      detachCameraInteractionTracker();
       window.removeEventListener('resize', resize);
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
