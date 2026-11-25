@@ -287,3 +287,34 @@ test('RDS ZIP percentage indicator has visible active, complete, and failure sta
   assert.ok(source.includes('.rds-export-progress.complete'));
   assert.ok(source.includes('.rds-export-progress.failed'));
 });
+
+
+test('RDS native filename validator matches the canonical Philippine-time ZIP contract', async () => {
+  const java = await readFile(nativePath, 'utf8');
+  const app = await readFile(appPath, 'utf8');
+  const helper = await readFile(new URL('../../src/diagnostics/rds-zip.mjs', import.meta.url), 'utf8');
+  assert.ok(java.includes('static boolean isValidRdsZipFilename(String fileName)'));
+  assert.ok(java.includes('(?:[1-9]|1[0-2])-[0-5][0-9](?:am|pm)'));
+  assert.ok(java.includes('dateFormat.setLenient(false)'));
+  assert.ok(java.includes('if (!isValidRdsZipFilename(fileName))'));
+  assert.ok(!java.includes('[0-9]{1,2}:[0-9]{2}(am|pm)'));
+  assert.ok(!java.includes("fileName.replace(':', '_')"));
+  assert.ok(helper.includes("timeZone: 'Asia/Manila'"));
+  assert.ok(helper.includes("hour12: true"));
+  assert.ok(helper.includes("part('month'), part('day'), part('year')"));
+  assert.ok(app.includes("String(saved.name || '') !== filename"));
+  assert.ok(!app.includes('normalizeAndroidName'));
+  assert.ok(!app.includes("replace(/:/g, '_')"));
+});
+
+test('RDS ZIP timestamp is captured once at export invocation before report generation', async () => {
+  const app = await readFile(appPath, 'utf8');
+  const start = app.indexOf('const exportRdsToolZip = async');
+  const end = app.indexOf('const [maintenanceBusy', start);
+  const handler = app.slice(start, end);
+  const capture = handler.indexOf('const generatedAt = new Date().toISOString();');
+  const reportBuild = handler.indexOf('const exportFiles = buildRdsExportFiles({');
+  const filename = handler.indexOf('buildRdsZipFilename(tool, generatedAt)');
+  assert.ok(capture >= 0 && reportBuild > capture && filename > capture);
+  assert.equal((handler.match(/const generatedAt = new Date\(\)\.toISOString\(\);/g) || []).length, 1);
+});
