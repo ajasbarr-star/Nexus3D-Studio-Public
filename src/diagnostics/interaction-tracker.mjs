@@ -26,11 +26,17 @@ function closestValue(target, selector, attribute) {
 
 export function describeInteractionTarget(target) {
   const tool = closestValue(target, '[data-rit-tool]', 'data-rit-tool') ||
-    closestValue(target, '[data-tool]', 'data-tool');
+    closestValue(target, '[data-tool]', 'data-tool') ||
+    closestValue(target, '[data-tool-id]', 'data-tool-id');
   const panel = closestValue(target, '[data-rit-panel]', 'data-rit-panel') ||
-    closestValue(target, '[data-panel]', 'data-panel');
+    closestValue(target, '[data-panel]', 'data-panel') ||
+    closestValue(target, '[data-panel-id]', 'data-panel-id') ||
+    closestValue(target, '[data-rit-section]', 'data-rit-section') ||
+    closestValue(target, '[data-section]', 'data-section');
+  const interactive = target?.closest?.('button,[role="button"],[role="menuitem"],input,select,textarea');
   const action = closestValue(target, '[data-rit-action]', 'data-rit-action') ||
-    closestValue(target, '[data-action]', 'data-action');
+    closestValue(target, '[data-action]', 'data-action') ||
+    (interactive ? (['INPUT', 'SELECT', 'TEXTAREA'].includes(String(interactive.tagName || '').toUpperCase()) ? 'CHANGE' : 'ACTIVATE') : '');
   const objectId = closestValue(target, '[data-object-id], [data-shape-id]', 'data-object-id') ||
     closestValue(target, '[data-shape-id]', 'data-shape-id');
   const objectName = closestValue(target, '[data-object-name]', 'data-object-name');
