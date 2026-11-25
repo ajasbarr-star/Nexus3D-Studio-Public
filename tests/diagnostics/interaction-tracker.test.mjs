@@ -263,3 +263,12 @@ test('RIT resolves tool, section, explicit control, action and object hierarchy 
   assert.equal(described.hierarchy[3].label, 'IMPORT');
   assert.equal(described.objectId, 'project-01');
 });
+
+
+test('active pointer interaction ID is available for camera latency correlation', () => {
+  const tracker = createInteractionTracker({ createId: () => 'shared-rit-id' });
+  const target = targetNode({ 'data-rit-viewport': 'MainViewport' }, '');
+  tracker.begin({ pointerId: 12, pointerType: 'touch', clientX: 1, clientY: 1, target });
+  assert.equal(tracker.getActiveInteractionId(12), 'shared-rit-id');
+  assert.equal(tracker.getActiveInteractionId(13), null);
+});
