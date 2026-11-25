@@ -409,15 +409,13 @@ test('Dragging an Alphabet State letter resizes its ruler right or left while th
 
 test('Alphabet State timeline ruler uses numeric frame labels and graduated minor, medium and major ticks', () => {
 
-  assert.match(app, /alphabet-state-ruler-scale/);
-  assert.match(app, /alphabet-state-ruler-labels/);
-  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)/);
+  assert.match(app, /const getCustomRulerTicks = \(rulerWidth: number\) =>/);
+  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)\.map\(\(tick,index\)=>\s*<span key=\{index\} style=\{\{left:tick\.position\+"%"\}\}/);
+  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)\.map\(\(tick,index\)=>\s*<i key=\{"major-"\+index\} className="major" style=\{\{left:tick\.position\+"%"\}\}/);
   assert.match(app, /index%5===0\?"medium":"minor"/);
-  assert.match(app, /Array\.from\(\{length:4\},\(_,index\)=>\s*<i key=\{"major-"\+index\} className="major" style=\{\{left:\(index\/3\*100\)\+"%"\}\}\/>\)/);
   assert.match(css, /\.alphabet-state-ruler-labels span/);
   assert.match(css, /\.alphabet-state-ruler-ticks i\.medium/);
   assert.match(css, /\.alphabet-state-ruler-ticks i\.major/);
-
 });
 
 test('Timeline scrubbing uses indexed selectable lookup and keeps the Alphabet State reveal workflow intact', () => {
@@ -472,13 +470,12 @@ test('Selected Alphabet State ruler keeps frame labels and ticks horizontal whil
 
   const layout = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
   assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels\{position:absolute!important;inset:0!important;display:block!important/);
-  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:50%/);
+  assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:0!important;right:0!important;top:50%/);
   assert.match(layout, /\.alphabet-state-mini-ruler \.alphabet-state-mini-markers\{position:absolute!important;z-index:4!important;top:2px!important;left:5px!important;right:5px!important;bottom:auto!important;width:auto!important;height:23px!important/);
   assert.match(layout, /\.alphabet-state-mini-ruler input\[type=range\].*top:45px!important/);
   assert.match(layout, /writing-mode:horizontal-tb!important/);
   assert.match(layout, /touch-action:pan-x!important/);
   assert.match(app, /onChange=\{event=>setCurrentFrame\(Number\(event\.target\.value\)\)\}/);
-
 });
 
 test('Alphabet State frame ranges are contiguous without sharing the boundary frame', () => {
@@ -501,10 +498,9 @@ test('Opening an Alphabet State reveals a horizontal numbered ruler beside its l
   assert.match(app, /previous\[state\.id\] \|\| 360/);
   assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)/);
   assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels span\{position:absolute!important;top:50%!important/);
-  assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:50%!important/);
+  assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:0!important;right:0!important;top:50%!important/);
   assert.match(css, /writing-mode:horizontal-tb!important/);
   assert.match(app, /style=\{\{left:\(\(\(at-range\.start\)\/Math\.max\(1,range\.end-range\.start\)\)\*100\)\+'%',top:'50%'\}\}/);
-
 });
 
 test('Add Keyframe stays immediately beside Dope Sheet in the Timeline tools row', () => {
@@ -516,12 +512,10 @@ test('Add Keyframe stays immediately beside Dope Sheet in the Timeline tools row
 
 test('Frame ruler labels every frame in sequence with graduated ticks at 5-frame intervals', () => {
 
-  assert.match(app, /length:4/);
   assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)/);
   assert.match(app, /index%5===0\?"medium":"minor"/);
   assert.match(app, /left:\(index\/Math\.max\(1,Math\.round\(state\.width\)\)\*100\)\+"%"/);
-  assert.match(app, /left:\(index\/3\*100\)\+"%"/);
-
+  assert.doesNotMatch(app, /left:\(index\/3\*100\)\+"%"/);
 });
 
 
@@ -555,10 +549,12 @@ test('Timeline layout keeps its bottom anchor visible with a bounded, internally
 
 
 test('Custom time labels use four evenly spaced ruler positions and include exact START and END endpoints', () => {
-  assert.match(app, /Array\.from\(\{length:4\},\(_,index\)=>/);
-  assert.match(app, /left:\(index\/3\*100\)\+"%"/);
-  assert.match(app, /index \/ Math\.max\(1, labelCount - 1\)/);
-  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)/);
+
+  assert.match(app, /const getCustomRulerTicks = \(rulerWidth: number\) =>/);
+  assert.match(app, /const start = toSeconds\(customRulerStart, customRulerStartUnit\) \/ unitFactor/);
+  assert.match(app, /const end = toSeconds\(customRulerEnd, customRulerEndUnit\) \/ unitFactor/);
+  assert.match(app, /values\.push\(end\)/);
+  assert.match(app, /label: String\(Number\(value\.toFixed\(2\)\)\) \+ displayUnit/);
 });
 
 test('Timeline ruler positions graduated tick lines at the top and centers custom time labels', () => {
@@ -587,10 +583,12 @@ test('REC and LOOP controls align in the Timeline tools row beside the Alphabet 
 
 
 test('Timeline ruler labels and four major ticks share the exact same responsive percentage positions', () => {
-  assert.match(app, /alphabet-state-ruler-labels[\s\S]*?left:\(index\/3\*100\)\+"%"/);
-  assert.match(app, /key=\{"major-"\+index\} className="major" style=\{\{left:\(index\/3\*100\)\+"%"\}\}/);
-  assert.match(css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.')), /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels span\{position:absolute!important;top:50%!important/);
-  assert.match(css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.')), /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:50%!important/);
+
+  assert.match(app, /alphabet-state-ruler-labels[\s\S]*?getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)/);
+  assert.match(app, /key=\{"major-"\+index\} className="major" style=\{\{left:tick\.position\+"%"\}\}/);
+  const canonical = css.slice(css.indexOf('/* Canonical custom-time Timeline Keyframe layout.'));
+  assert.match(canonical, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels span\{position:absolute!important;top:50%!important/);
+  assert.match(canonical, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:0!important;right:0!important;top:50%!important/);
 });
 
 test('Keyframe diamonds align with the ruler center labels while the scrubber remains in its own touch lane', () => {
