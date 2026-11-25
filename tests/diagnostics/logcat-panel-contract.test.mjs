@@ -84,8 +84,8 @@ test('RDS Bottom Slider uses manual pointer resizing without automatic height ex
 
 test('Bottom Slider is positioned inside the RDS panel while its top anchor stays fixed', () => {
   const css = readFileSync(new URL('../../src/index.css', import.meta.url), 'utf8');
-  assert.match(css, /\.rds-command-center \{ position:fixed; z-index:30; top:58px;/);
-  assert.match(css, /\.rds-bottom-slider \{[^}]*position:absolute; left:50%; bottom:0;/s);
-  assert.match(css, /\.rds-bottom-slider \{ position:absolute !important; left:50% !important; bottom:0 !important;/);
-  assert.match(css, /\.rds-command-content \{ padding-bottom:42px; \}/);
+  assert.match(css, /\.rds-command-center \{ position:fixed; z-index:30; top:auto; bottom:18px;/);
+  assert.match(css, /\.rds-bottom-slider \{[^}]*position:absolute; left:50%; bottom:-15px;/s);
+  assert.doesNotMatch(css, /\.rds-bottom-slider \{[^}]*!important/s);
+  assert.match(css, /\.rds-command-content \{ padding-bottom:42px; \}/);\n  assert.match(css, /max-height:calc\(100dvh - 76px\)/);\n  assert.match(app, /window\.innerHeight - 76/);
 });
