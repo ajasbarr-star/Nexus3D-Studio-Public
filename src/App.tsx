@@ -89,7 +89,7 @@ type NexusProjectFilesPlugin = {
   loadProject(): Promise<{ content: string; name: string }>;
   loadProjectArchive(): Promise<{ base64: string; name: string }>;
   saveProjectArchive(options: { fileName: string; base64: string }): Promise<{ uri: string; name: string; writtenBytes?: number; overwritten?: boolean }>;
-  saveRdsArchive(options: { fileName: string; base64: string }): Promise<{ uri: string; name: string; writtenBytes: number }>;
+  saveRdsArchive(options: { fileName: string; base64: string }): Promise<{ uri: string; name: string; path: string; writtenBytes: number }>;
   clearAppCache(): Promise<{ cleared: boolean; message: string }>;
 };
 const NexusProjectFiles = registerPlugin<NexusProjectFilesPlugin>('NexusProjectFiles');
@@ -598,8 +598,8 @@ export default function App() {
         setRdsExportProgress(90);
         const saved = await NexusProjectFiles.saveRdsArchive({ fileName: filename, base64 });
         const verifiedBytes = Number(saved.writtenBytes) || 0;
-        if (!saved.uri || verifiedBytes <= 0 || saved.name !== filename) {
-          throw new Error('Android ZIP save was not verified; the file name, URI, or written byte count is missing');
+        if (!saved.uri || verifiedBytes <= 0 || saved.name !== filename || saved.path !== 'Documents/Nexus3D/' + filename) {
+          throw new Error('Android ZIP save was not verified; the destination, file name, URI, or written byte count does not match');
         }
         setRdsExportProgress(100);
         setRdsExportPhase('done');
