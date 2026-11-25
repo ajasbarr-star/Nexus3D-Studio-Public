@@ -168,7 +168,7 @@ function BufferedNumberInput({ value, step = 0.1, disabled = false, ariaLabel, o
   );
 }
 
-type DiagnosticEntry = { id: string; time: string; level: 'VERBOSE' | 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL'; source: string; message: string; details?: string; sessionId?: string; sequence?: number; timestampISO?: string; origin?: 'USER_ACTION' | 'AUTO_PROCESS' | 'RESTORE' | 'SYSTEM' | 'UNKNOWN_ORIGIN'; componentTag?: string; tracePoint?: string; objectId?: string };
+type DiagnosticEntry = { id: string; time: string; level: 'VERBOSE' | 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL'; source: string; message: string; details?: string; sessionId?: string; sequence?: number; timestampISO?: string; origin?: 'USER_ACTION' | 'AUTO_PROCESS' | 'RESTORE' | 'SYSTEM' | 'UNKNOWN_ORIGIN'; componentTag?: string; tracePoint?: string; objectId?: string; interactionId?: string };
 type Item = { id: string; name: string; object: THREE.Object3D; kind: string };
 type TransformSnapshot = { position: number[]; rotation: number[]; scale: number[] };
 type FrameData = Record<string, TransformSnapshot>;
@@ -451,9 +451,11 @@ export default function App() {
     const timestamp = new Date();
     const metadata = createRuntimeEventMetadata(source, message, timestamp);
     let objectId: string | undefined;
+    let interactionId: string | undefined;
     try {
       const parsed = details ? JSON.parse(details) : null;
-      objectId = parsed?.objectId || parsed?.selectedId || parsed?.selectedObjectId;
+      objectId = parsed?.objectId || parsed?.selectedId || parsed?.selectedObjectId || parsed?.target?.objectId;
+      interactionId = parsed?.interactionId;
     } catch { /* details may be plain text */ }
     const entry: DiagnosticEntry = {
       id: uid(), time: timestamp.toLocaleTimeString(), level, source,
@@ -462,12 +464,18 @@ export default function App() {
       componentTag: source,
       tracePoint: inferTracePoint(source, message, rdsActiveTool),
       objectId,
+      interactionId,
       timestampISO: timestamp.toISOString(),
       ...metadata
     };
     const queue = source === 'Interaction Trace' ? interactionTraceQueueRef.current : diagnosticQueueRef.current;
     queue.push(entry);
     if (queue.length > 100) queue.splice(0, queue.length - 100);
+    // Mirror the same interaction ID into LogCat so runtime events can be correlated with RIT-Trace.
+    if (source === 'Interaction Trace') {
+      diagnosticQueueRef.current.push({ ...entry, source: 'Interaction Correlation', componentTag: 'Interaction Trace' });
+      if (diagnosticQueueRef.current.length > 100) diagnosticQueueRef.current.splice(0, diagnosticQueueRef.current.length - 100);
+    }
   };
   const clearDiagnosticLogs = () => {
     diagnosticQueueRef.current = [];
