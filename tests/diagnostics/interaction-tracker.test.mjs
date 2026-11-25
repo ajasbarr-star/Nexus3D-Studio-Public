@@ -13,7 +13,7 @@ function targetNode(attributes = {}, label = '', parent = null) {
       let node = this;
       while (node) {
         if (selector.split(',').some(part => {
-          const key = part.trim().match(/^\[([^\]]+)\]$/)?.[1];
+          const key = part.trim().match(/^\\[([^\\]]+)\\]$/)?.[1];
           return key && (key.includes('=') ? node.getAttribute(key.split('=')[0]) !== null : node.getAttribute(key) !== null);
         })) return node;
         node = node.parentElement;
@@ -170,4 +170,41 @@ test('completed touch, control activation and scene response can share one Inter
   assert.equal(records[1].interactionId, records[0].interactionId);
   assert.equal(consumed, records[0].interactionId);
   assert.equal(tracker.consumeLastInteractionId(), null);
+});
+
+test('stale pointer IDs are not reused to correlate a later control action', () => {
+  let clock = 10;
+  let sequence = 0;
+  const records = [];
+  const tracker = createInteractionTracker({
+    emit: item => records.push(item),
+    now: () => clock,
+    createId: () => 'ix-' + (++sequence),
+  });
+  const target = targetNode({ 'aria-label': 'Create' }, 'Create');
+  tracker.begin({ pointerId: 4, pointerType: 'touch', clientX: 1, clientY: 1, target });
+  clock = 20;
+  tracker.finish({ pointerId: 4 });
+  clock = 2000;
+  tracker.action({ type: 'click', pointerId: 4, target });
+  assert.notEqual(records[0].interactionId, records[1].interactionId);
+  assert.equal(records[1].interactionId, 'ix-2');
+});
+
+test('cancelled pointer gestures are not reused as successful control activations', () => {
+  let clock = 10;
+  let sequence = 0;
+  const records = [];
+  const tracker = createInteractionTracker({
+    emit: item => records.push(item),
+    now: () => clock,
+    createId: () => 'ix-' + (++sequence),
+  });
+  const target = targetNode({ 'aria-label': 'Create' }, 'Create');
+  tracker.begin({ pointerId: 5, pointerType: 'touch', clientX: 1, clientY: 1, target });
+  clock = 20;
+  tracker.finish({ pointerId: 5 }, 'cancelled');
+  tracker.action({ type: 'click', pointerId: 5, target });
+  assert.notEqual(records[0].interactionId, records[1].interactionId);
+  assert.equal(records[0].status, 'CANCELLED');
 });
