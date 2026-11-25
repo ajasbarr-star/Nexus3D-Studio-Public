@@ -46,8 +46,8 @@ test('RDS panel restores independent standalone bottom and left-edge width slide
   assert.match(app, /rds-resize-horizontal/);
   assert.match(app, /className="rds-bottom-slider"/);
   assert.match(app, /aria-label="Resize RDS Panel height"/);
-  assert.match(app, /beginRdsPanelResize\(event, 'width'\)/);
-  assert.match(app, /beginRdsPanelResize\(event, 'height'\)/);
+  assert.match(app, /beginRdsPanelWidthResize\(event\)/);
+  assert.match(app, /beginRdsBottomResize\(event\)/);
   assert.match(app, /style=\{\{ width: rdsPanelWidth, height: rdsPanelHeight \}\}/);
 });
 
@@ -65,27 +65,26 @@ test('LogCat captures long tasks and slow-frame samples without a new requestAni
 });
 
 
-test('RDS Bottom Slider is rendered inside the command panel and stays anchored to its bottom edge', () => {
+test('RDS Bottom Slider is rendered inside the command panel and follows its moving bottom edge', () => {
   const panelStart = app.indexOf('<aside ref={rdsPanelElementRef}');
   const panelEnd = app.indexOf('</aside>}', panelStart);
   const slider = app.indexOf('className="rds-bottom-slider"', panelStart);
   assert.ok(panelStart >= 0 && panelEnd > panelStart, 'RDS panel boundaries must exist');
   assert.ok(slider > panelStart && slider < panelEnd, 'Bottom Slider must be a child of the RDS panel');
   assert.doesNotMatch(app.slice(panelEnd), /className="rds-bottom-slider"/, 'Bottom Slider must not render outside the panel');
-  assert.match(app, /onPointerDown=\{event => beginRdsPanelResize\(event, 'height'\)\}/);
+  assert.match(app, /onPointerDown=\{event => beginRdsBottomResize\(event\)\}/);
 });
 
-test('RDS Bottom Slider uses manual pointer resizing without automatic height expansion', () => {
-  assert.match(app, /const beginRdsPanelResize = \(event: React\.PointerEvent<HTMLButtonElement>, axis: 'width' \| 'height'\)/);
-  assert.match(app, /window\.addEventListener\('pointermove', move, \{ passive: false \}\)/);
-  assert.match(app, /const minHeight = Math\.min\(180, maxHeight\)/);
-  assert.match(app, /setRdsPanelHeight\(Math\.max\(minHeight, Math\.min\(maxHeight, start\.height \+ start\.y - moveEvent\.clientY\)\)\)/);
+test('RDS Bottom Slider has isolated vertical drag logic: up shrinks, down grows, top stays anchored', () => {
+  assert.match(app, /const beginRdsBottomResize = \(event: React\.PointerEvent<HTMLButtonElement>\)/);
+  assert.match(app, /setRdsPanelHeight\(Math\.max\(minHeight, Math\.min\(maxHeight, start\.height \+ moveEvent\.clientY - start\.y\)\)\)/);
+  assert.match(app, /const beginRdsPanelWidthResize = \(event: React\.PointerEvent<HTMLButtonElement>\)/);
+  assert.doesNotMatch(app, /beginRdsPanelResize|rdsResizeRef/);
   assert.doesNotMatch(app, /rdsBottomSliderPosition|new ResizeObserver\(updatePosition\)/);
 });
-
-test('Bottom Slider overlaps the fixed bottom-center anchor and stays within landscape bounds', () => {
+test('Bottom Slider follows the bottom edge while the panel top remains fixed within landscape bounds', () => {
   const css = readFileSync(new URL('../../src/index.css', import.meta.url), 'utf8');
-  assert.match(css, /\.rds-command-center \{ position:fixed; z-index:30; top:auto; bottom:18px;/);
+  assert.match(css, /\.rds-command-center \{ position:fixed; z-index:30; top:55px; bottom:auto;/);
   assert.match(css, /\.rds-bottom-slider \{[^}]*position:absolute; left:50%; bottom:-15px;/s);
   assert.doesNotMatch(css, /\.rds-bottom-slider \{[^}]*!important/s);
   assert.match(css, /\.rds-command-content \{ padding-bottom:42px; \}/);
