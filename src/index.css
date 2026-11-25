@@ -2616,7 +2616,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 
 /* RDS Command Center — compact horizontal workspace with soft-contrast navigation */
 .rds-launch-btn { gap:5px; }
-.rds-command-center { position:fixed; z-index:30; top:auto; bottom:18px; right:9px; width:min(650px,calc(100vw - 18px)); height:min(72vh,calc(100dvh - 76px)); max-height:calc(100dvh - 76px); min-height:min(180px,calc(100dvh - 76px)); display:flex; flex-direction:column; overflow:visible; color:#c2cbd6; background:rgba(13,19,30,.97); border:1px solid #35465a; border-radius:11px; box-shadow:0 18px 55px #0009,0 0 20px #28b8d51a; backdrop-filter:blur(18px); }
+ .rds-command-center { position:fixed; z-index:30; top:55px; bottom:auto; right:9px; width:min(650px,calc(100vw - 18px)); height:min(72vh,calc(100dvh - 76px)); max-height:calc(100dvh - 76px); min-height:min(180px,calc(100dvh - 76px)); display:flex; flex-direction:column; overflow:visible; color:#c2cbd6; background:rgba(13,19,30,.97); border:1px solid #35465a; border-radius:11px; box-shadow:0 18px 55px #0009,0 0 20px #28b8d51a; backdrop-filter:blur(18px); }
 .rds-command-header { min-height:42px; flex:0 0 42px; display:flex; align-items:center; justify-content:space-between; padding:0 10px; background:#192333; border-bottom:1px solid #2b3b50; }
 .rds-command-brand,.rds-command-header-actions { display:flex; align-items:center; gap:9px; }
 .rds-command-brand>svg { color:#69c9df; }
