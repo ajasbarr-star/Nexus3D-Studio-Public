@@ -388,7 +388,7 @@ export default function App() {
   const beginRdsPanelResize = (event: React.PointerEvent<HTMLButtonElement>, axis: 'width' | 'height') => {
     event.preventDefault();
     event.stopPropagation();
-    const start = { axis, x: event.clientX, y: event.clientY, width: rdsPanelWidth, height: rdsPanelHeight, pointerId: event.pointerId };
+    const start = { axis, x: event.clientX, y: event.clientY, width: rdsPanelWidth, height: rdsPanelElementRef.current?.getBoundingClientRect().height ?? rdsPanelHeight, pointerId: event.pointerId };
     rdsResizeRef.current = start;
     const move = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== start.pointerId) return;
