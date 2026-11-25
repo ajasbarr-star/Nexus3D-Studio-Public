@@ -47,6 +47,60 @@ test('RDS export normalizes only the current-session section separators and summ
   assert.match(files['Summary.txt'], /Historical RIT-Trace entries excluded: 8/);
 });
 
+
+test('RIT Trace Full_Report joins touch hierarchy to the generated object identity by Interaction ID', () => {
+  const interactionId = 'interaction-light-01';
+  const entries = [
+    {
+      interactionId, timestampISO: '2026-11-26T10:00:00.000Z', level: 'INFO',
+      source: 'Interaction Trace', message: 'CONTROL_ACTIVATION',
+      details: JSON.stringify({ target: { hierarchy: [
+        { type: 'tool', label: 'Quick Light Controls' },
+        { type: 'panel', label: 'Directional Light' },
+        { type: 'control', label: 'Add Directional Light' },
+        { type: 'action', label: 'ADD' },
+        { type: 'object', label: 'Directional Light' }
+      ] } })
+    },
+    {
+      interactionId, timestampISO: '2026-11-26T10:00:00.040Z', level: 'INFO',
+      source: 'Interaction Trace', message: 'SCENE_OBJECT_CREATE_RESULT',
+      details: JSON.stringify({
+        action: 'CREATE',
+        object: { id: 'editor-light-01', name: 'DirectionalLight_1', kind: 'DirectionalLight' },
+        verification: { sceneTreeList: 'PRESENT', mainViewportScene: 'PRESENT' },
+        timing: { processingToSceneUpdateMs: 40, firstRenderedFrame: 'NOT_MEASURED' },
+        status: 'SUCCESS'
+      })
+    }
+  ];
+  const files = buildRdsExportFiles({ tool: 'RIT Trace', fullReport: 'Raw event stream', entries });
+  const report = files['Full_Report.txt'];
+  assert.match(report, /\\[USER WORKFLOW HIERARCHY\\]/);
+  assert.match(report, /Tool: Quick Light Controls/);
+  assert.match(report, /Panel: Directional Light/);
+  assert.match(report, /Inside: Add Directional Light/);
+  assert.match(report, /Action: ADD/);
+  assert.match(report, /Object: DirectionalLight_1 \\[ID: editor-light-01\\]/);
+  assert.match(report, /Scene Tree: PRESENT \\| MainViewport: PRESENT/);
+  assert.match(report, /Processing to scene update: 40 ms/);
+  assert.match(report, /First rendered frame: NOT_MEASURED/);
+  assert.match(report, /Result: SUCCESS/);
+  assert.match(report, /Interaction ID: interaction-light-01/);
+});
+
+test('RIT Trace hierarchy does not invent object identity when creation result is missing', () => {
+  const files = buildRdsExportFiles({
+    tool: 'RIT Trace', fullReport: 'Trace only',
+    entries: [{
+      interactionId: 'tap-only', level: 'INFO', message: 'CONTROL_ACTIVATION',
+      details: JSON.stringify({ target: { hierarchy: [{ type: 'tool', label: 'Shape' }] } })
+    }]
+  });
+  assert.match(files['Full_Report.txt'], /No complete tool-to-created-object interaction chains were captured/);
+  assert.doesNotMatch(files['Full_Report.txt'], /Object: Cube/);
+});
+
 test('RDS export extracts severity lines from report-only tools and documents empty sections', () => {
   const files = buildRdsExportFiles({
     tool: 'Source Audit',
