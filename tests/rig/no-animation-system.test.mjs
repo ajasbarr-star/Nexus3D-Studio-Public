@@ -411,7 +411,7 @@ test('Alphabet State timeline ruler uses numeric frame labels and graduated mino
 
   assert.match(app, /alphabet-state-ruler-scale/);
   assert.match(app, /alphabet-state-ruler-labels/);
-  assert.match(app, /getCustomRulerLabel\(index,4\)/);
+  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)/);
   assert.match(app, /index%5===0\?"medium":"minor"/);
   assert.match(app, /Array\.from\(\{length:4\},\(_,index\)=>\s*<i key=\{"major-"\+index\} className="major" style=\{\{left:\(index\/3\*100\)\+"%"\}\}\/>\)/);
   assert.match(css, /\.alphabet-state-ruler-labels span/);
@@ -443,7 +443,7 @@ test('Timeline panel preserves its original footprint and stays permanently bott
 
 test('Timeline ruler uses graduated frame ticks, a taller anchored track, and compact transport controls', () => {
 
-  assert.match(app, /getCustomRulerLabel\(index,4\)/);
+  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)/);
   assert.match(css, /\.timeline-panel\{[\s\S]*?height:148px!important;min-height:136px!important/);
   assert.match(css, /\.alphabet-state-scroll\{[\s\S]*?flex:1 1 58px!important/);
   assert.match(css, /\.alphabet-state-mini-ruler\{[\s\S]*?height:56px!important;min-height:56px!important/);
@@ -499,7 +499,7 @@ test('Opening an Alphabet State reveals a horizontal numbered ruler beside its l
 
   assert.match(app, /sequenceRulerDisplayWidths\[state\.id\] \|\| 360/);
   assert.match(app, /previous\[state\.id\] \|\| 360/);
-  assert.match(app, /getCustomRulerLabel\(index,4\)/);
+  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)/);
   assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-labels span\{position:absolute!important;top:50%!important/);
   assert.match(css, /\.alphabet-state-mini-ruler \.alphabet-state-ruler-ticks\{position:absolute!important;left:5px!important;right:5px!important;top:50%!important/);
   assert.match(css, /writing-mode:horizontal-tb!important/);
@@ -517,7 +517,7 @@ test('Add Keyframe stays immediately beside Dope Sheet in the Timeline tools row
 test('Frame ruler labels every frame in sequence with graduated ticks at 5-frame intervals', () => {
 
   assert.match(app, /length:4/);
-  assert.match(app, /getCustomRulerLabel\(index,4\)/);
+  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)/);
   assert.match(app, /index%5===0\?"medium":"minor"/);
   assert.match(app, /left:\(index\/Math\.max\(1,Math\.round\(state\.width\)\)\*100\)\+"%"/);
   assert.match(app, /left:\(index\/3\*100\)\+"%"/);
@@ -534,7 +534,7 @@ test('Custom START and END use buffered editable decimal inputs and independent 
   assert.match(app, /aria-label="Custom ruler end unit"/);
   assert.match(app, /const toSeconds = \(value: number, unit: 's' \| 'm'\)/);
   assert.match(app, /unit === 'm' \? 60 : 1/);
-  assert.match(app, /getCustomRulerLabel\(index,4\)/);
+  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)/);
   assert.match(app, /customRulerStartUnit === customRulerEndUnit \? customRulerStartUnit : 's'/);
 });
 
@@ -558,7 +558,7 @@ test('Custom time labels use four evenly spaced ruler positions and include exac
   assert.match(app, /Array\.from\(\{length:4\},\(_,index\)=>/);
   assert.match(app, /left:\(index\/3\*100\)\+"%"/);
   assert.match(app, /index \/ Math\.max\(1, labelCount - 1\)/);
-  assert.match(app, /getCustomRulerLabel\(index,4\)/);
+  assert.match(app, /getCustomRulerTicks\(sequenceRulerDisplayWidths\[state\.id\] \|\| 360\)/);
 });
 
 test('Timeline ruler positions graduated tick lines at the top and centers custom time labels', () => {
