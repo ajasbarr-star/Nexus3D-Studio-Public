@@ -210,8 +210,17 @@ test('RDS ZIP progress reaches 100 only after native save verification resolves'
   assert.ok(exportCode.includes("setRdsExportPhase('verifying')"));
   assert.ok(exportCode.includes("setRdsExportPhase('passed')"));
   assert.ok(exportCode.includes('checkCRC32: true'));
-  assert.ok(exportCode.includes("'Full_Report.txt', 'Errors.txt', 'Warnings.txt', 'Summary.txt', 'Metadata.txt'"));
-  assert.ok(exportCode.includes("replace(/:/g, '_')"));
+  assert.ok(exportCode.includes('createRdsZipArchive(exportFiles)'));
+  assert.ok(exportCode.includes('buildRdsZipFilename(tool, generatedAt)'));
+  assert.ok(exportCode.includes('getRequiredRdsZipFiles()'));
+  assert.ok(exportCode.includes('hasNestedEntries'));
+  assert.ok(exportCode.includes('extractedText !== exportFiles[name]'));
+  const zipHelper = await readFile(new URL('../../src/diagnostics/rds-zip.mjs', import.meta.url), 'utf8');
+  for (const name of ['Full_Report.txt', 'Errors.txt', 'Warnings.txt', 'Summary.txt', 'Metadata.txt']) {
+    assert.ok(zipHelper.includes(name), 'ZIP helper must include ' + name);
+  }
+  assert.ok(zipHelper.includes("replace(/:/g, '-')"));
+  assert.ok(zipHelper.includes("zip.file(name, content, { createFolders: false })"));
   assert.ok(exportCode.includes("replace(/\\\\/g, '/')"));
   assert.ok(exportCode.includes("replace(/\\/+/g, '/')"));
   assert.ok(source.includes('rds-verification-panel'));
