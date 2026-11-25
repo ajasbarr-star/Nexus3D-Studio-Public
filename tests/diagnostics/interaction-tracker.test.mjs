@@ -13,7 +13,9 @@ function targetNode(attributes = {}, label = '', parent = null) {
       let node = this;
       while (node) {
         if (selector.split(',').some(part => {
-          const key = part.trim().match(/^\[([^\]]+)\]$/)?.[1];
+          const selectorPart = part.trim();
+          if (selectorPart.toLowerCase() === String(node.tagName || '').toLowerCase()) return true;
+          const key = selectorPart.match(/^\[([^\]]+)\]$/)?.[1];
           return key && (key.includes('=') ? node.getAttribute(key.split('=')[0]) !== null : node.getAttribute(key) !== null);
         })) return node;
         node = node.parentElement;
@@ -271,4 +273,15 @@ test('active pointer interaction ID is available for camera latency correlation'
   tracker.begin({ pointerId: 12, pointerType: 'touch', clientX: 1, clientY: 1, target });
   assert.equal(tracker.getActiveInteractionId(12), 'shared-rit-id');
   assert.equal(tracker.getActiveInteractionId(13), null);
+});
+
+
+test('interactive controls without explicit action markers still record an activation action', () => {
+  const tool = targetNode({ 'data-rit-tool': 'Materials' }, '', null);
+  const panel = targetNode({ 'data-rit-panel': 'Surface' }, '', tool);
+  const button = targetNode({ '__tagName': 'BUTTON', 'data-rit-control': 'Apply Material' }, '', panel);
+  const described = describeInteractionTarget(button);
+  assert.equal(described.label, 'Apply Material');
+  assert.equal(described.action, 'ACTIVATE');
+  assert.deepEqual(described.hierarchy.map(item => item.type), ['tool', 'panel', 'control', 'action']);
 });
