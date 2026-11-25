@@ -19,6 +19,7 @@ export function createCameraInteractionTracker({
   emit = () => {},
   now = () => 0,
   createId = () => 'camera-interaction',
+  resolveInteractionId = () => null,
 } = {}) {
   const pointers = new Map();
   let session = null;
@@ -29,9 +30,9 @@ export function createCameraInteractionTracker({
     emit({ interactionId: session?.id || null, event, ...extra });
   }
 
-  function start(gesture, pointerType, viewport, inputType = 'pointer') {
+  function start(gesture, pointerType, viewport, inputType = 'pointer', pointerId = null) {
     session = {
-      id: createId(),
+      id: (pointerId !== null && pointerId !== undefined ? resolveInteractionId(pointerId) : null) || createId(),
       gesture,
       pointerType: pointerType || 'unknown',
       viewport: viewport || 'UNKNOWN_VIEWPORT',
@@ -55,7 +56,7 @@ export function createCameraInteractionTracker({
       completeWithoutCameraUpdate();
     }
     if (!session || session.firstRenderedAt !== null || session.endedAt !== null) {
-      return start(classifyCameraPointer(event, pointers.size), event?.pointerType, viewport);
+      return start(classifyCameraPointer(event, pointers.size), event?.pointerType, viewport, 'pointer', event?.pointerId ?? 0);
     }
     if (pointers.size > 1) session.gesture = 'PINCH';
     session.lastInputAt = now();
