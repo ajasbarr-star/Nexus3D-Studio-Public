@@ -2682,12 +2682,11 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   color:#8ed8e8; touch-action:none; opacity:.9;
 }
 .rds-resize-handle:active { background:#29485b; border-color:#70cce0; opacity:1; }
-.rds-resize-horizontal { right:2px; top:50%; width:13px; height:58px; transform:translateY(-50%); cursor:ew-resize; }
+.rds-resize-horizontal { left:2px; right:auto; top:50%; width:18px; height:64px; transform:translateY(-50%); cursor:ew-resize; }
 .rds-resize-horizontal span { width:3px; height:28px; border-left:1px solid currentColor; border-right:1px solid currentColor; }
 .rds-resize-vertical {
-  bottom: max(8px, env(safe-area-inset-bottom, 0px));
-  left:50%; width:88px; min-width:88px; height:30px; min-height:30px;
-  transform:translateX(-50%); cursor:ns-resize; z-index:12; pointer-events:auto;
+  bottom:0; left:50%; width:96px; min-width:96px; height:30px; min-height:30px;
+  transform:translate(-50%, 50%); cursor:ns-resize; z-index:12; pointer-events:auto;
   border-color:#4c91a8; background:rgba(18,43,59,.98); color:#a9efff;
 }
 .rds-resize-vertical span { width:34px; height:5px; border-top:1px solid currentColor; border-bottom:1px solid currentColor; }
