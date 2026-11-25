@@ -45,6 +45,7 @@ export function describeInteractionTarget(target) {
 export function createInteractionTracker({ emit = () => {}, now = () => 0, createId = () => 'interaction' } = {}) {
   const activePointers = new Map();
   const recentByPointer = new Map();
+  let lastInteraction = null;
 
   function begin(event) {
     const target = describeInteractionTarget(event?.target);
@@ -110,6 +111,7 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
       monotonicEndMs: endedAt,
     };
     recentByPointer.set(current.pointerId, current.id);
+    lastInteraction = { id: current.id, at: endedAt };
     emit(result);
     return result;
   }
@@ -117,15 +119,29 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
   function action(event) {
     const target = describeInteractionTarget(event?.target);
     const pointerId = Number.isFinite(event?.pointerId) ? event.pointerId : 0;
+    const at = now();
+    const correlatedId = recentByPointer.get(pointerId) || (lastInteraction && at - lastInteraction.at <= 1500 ? lastInteraction.id : null);
+    const interactionId = correlatedId || createId();
+    recentByPointer.delete(pointerId);
+    lastInteraction = { id: interactionId, at };
     emit({
-      interactionId: recentByPointer.get(pointerId) || createId(),
+      interactionId,
       event: event?.type === 'change' || event?.type === 'input' ? 'CONTROL_VALUE' : 'CONTROL_ACTIVATION',
       controlEvent: clean(event?.type || 'click'),
       valueType: event?.target?.type ? clean(event.target.type) : undefined,
       target,
       status: 'INPUT_RECEIVED',
-      monotonicAtMs: now(),
+      monotonicAtMs: at,
     });
+  }
+
+  function consumeLastInteractionId(maxAgeMs = 1500) {
+    if (!lastInteraction) return null;
+    const at = now();
+    if (at - lastInteraction.at > maxAgeMs) { lastInteraction = null; return null; }
+    const id = lastInteraction.id;
+    lastInteraction = null;
+    return id;
   }
 
   function attach(documentLike) {
@@ -154,5 +170,5 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
     };
   }
 
-  return { begin, move, finish, action, attach };
+  return { begin, move, finish, action, attach, consumeLastInteractionId };
 }
