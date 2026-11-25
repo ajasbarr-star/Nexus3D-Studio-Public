@@ -90,16 +90,16 @@ export function buildRdsExportFiles({ tool, fullReport, entries = [], metadata =
   const warnings = entries.filter(entry => LEVEL_WARNING.has(entryLevel(entry)));
   const errorLines = [...new Set([
     ...formatRdsEntries(errors).split('\n').filter(Boolean).filter(line => line !== 'No matching diagnostic entries were captured.'),
-    ...severityLines(report, /\b(ERROR|FATAL)\b/i)
+    ...severityLines(completeReport, /\b(ERROR|FATAL)\b/i)
   ])];
   const warningLines = [...new Set([
     ...formatRdsEntries(warnings).split('\n').filter(Boolean).filter(line => line !== 'No matching diagnostic entries were captured.'),
-    ...severityLines(report, /\b(WARN|WARNING)\b/i)
+    ...severityLines(completeReport, /\b(WARN|WARNING)\b/i)
   ])];
   // Count diagnostic records, not formatted text lines: a single entry may contain
   // multiple detail/stack lines. Fall back to report severity lines for report-only tools.
-  const errorCount = errors.length || severityLines(report, /\b(ERROR|FATAL)\b/i).length;
-  const warningCount = warnings.length || severityLines(report, /\b(WARN|WARNING)\b/i).length;
+  const errorCount = errors.length || severityLines(completeReport, /\b(ERROR|FATAL)\b/i).length;
+  const warningCount = warnings.length || severityLines(completeReport, /\b(WARN|WARNING)\b/i).length;
   const generatedAt = metadata.generatedAt || new Date().toISOString();
   const summary = [
     'NEXUS3D RDS TOOL SUMMARY',
@@ -111,7 +111,7 @@ export function buildRdsExportFiles({ tool, fullReport, entries = [], metadata =
     ...(metadata.sceneVerificationSummary ? ['Scene verification: ' + metadata.sceneVerificationSummary] : []),
     ...(metadata.historicalLogcatEntriesExcluded !== undefined ? ['Historical LogCat entries excluded: ' + metadata.historicalLogcatEntriesExcluded] : []),
     ...(metadata.historicalRitEntriesExcluded !== undefined ? ['Historical RIT-Trace entries excluded: ' + metadata.historicalRitEntriesExcluded] : []),
-    'Full report characters: ' + report.length,
+    'Full report characters: ' + completeReport.length,
     '',
     'This package contains the complete report plus separate error and warning extracts.',
     'An empty error or warning file means no matching entries were captured in this report.'
