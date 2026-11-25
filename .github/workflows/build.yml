@@ -19,11 +19,45 @@ jobs:
         with:
           node-version: 20
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Install dependencies
         run: npm install
 
       - name: Run regression suites
         run: npm run verify:rds && npm run verify:dfi && npm run test:rig && npm run test:logcat
 
-      - name: Build Nexus3D
+      - name: Build Nexus3D Web Assets
         run: npm run build
+
+      - name: Generate Test Android Platform
+        run: npm run cap:add:android
+
+      - name: Sync and Build Test Android APK
+        run: |
+          npm run android:build
+          cd android
+          ./gradlew --no-daemon assembleDebug
+
+      - name: Verify Test APK Signature
+        run: |
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose "$APK"
+
+      - name: Upload Nexus3D Test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexus3D_Test_debug_build${{ github.run_number }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
