@@ -67,7 +67,18 @@ test('RDS ZIP extracts exactly five complete UTF-8 TXT files at the archive root
   assert.match(await extracted.file('Full_Report.txt').async('string'), /café ✓/);
 });
 
-test('RDS ZIP filename contains sanitized time and date without creating archive folders', () => {
+test('RDS ZIP filename uses exact Philippine execution time and canonical filename format', () => {
   const filename = buildRdsZipFilename('RIT Trace', '2026-11-26T13:57:00.000Z');
-  assert.match(filename, /^Nexus3D_RIT-Trace_\d+-\d+pm_11-26-2026\.zip$/);
+  assert.equal(filename, 'Nexus3D_RIT-Trace_9-57pm_11-26-2026.zip');
+  assert.match(filename, /^Nexus3D_[A-Za-z0-9-]+_(?:[1-9]|1[0-2])-[0-5][0-9](?:am|pm)_\\d{2}-\\d{2}-\\d{4}\\.zip$/);
+});
+
+test('RDS ZIP filename uses the Philippine date after crossing midnight', () => {
+  const filename = buildRdsZipFilename('LogCat', '2026-11-26T16:05:00.000Z');
+  assert.equal(filename, 'Nexus3D_LogCat_12-05am_11-27-2026.zip');
+});
+
+test('RDS ZIP filename rejects invalid timestamps and empty tool names', () => {
+  assert.throws(() => buildRdsZipFilename('RIT Trace', 'not-a-date'), /Invalid RDS export timestamp/);
+  assert.throws(() => buildRdsZipFilename('   ', '2026-11-26T13:57:00.000Z'), /Invalid RDS ZIP tool name/);
 });
