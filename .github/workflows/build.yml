@@ -2,7 +2,7 @@ name: Nexus3D Build Test
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/rit-light-shape-hierarchy-build845]
   pull_request:
     branches: [main]
 
