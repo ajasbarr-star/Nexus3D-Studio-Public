@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { configureDirectionalShadow, DEFAULT_DIRECTIONAL_SHADOW_MAP_SIZE } from '../../src/lighting/shadow-optimization.mjs';
+import { readFileSync } from 'node:fs';
+
+const app = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
 
 function mockDirectionalLight() {
   return {
@@ -40,4 +43,17 @@ test('invalid custom map sizes are rejected without changing the light', () => {
   assert.equal(configureDirectionalShadow(light, 0), false);
   assert.equal(configureDirectionalShadow(light, Number.NaN), false);
   assert.deepEqual([light.shadow.mapSize.width, light.shadow.mapSize.height], [512, 512]);
+});
+
+test('Nexus3D applies the lower shadow-map budget to new and restored Directional Lights', () => {
+  assert.match(app, /configureDirectionalShadow\(l\)/);
+  assert.match(app, /if \(node\.isDirectionalLight\) configureDirectionalShadow\(node\)/);
+  assert.match(app, /configureDirectionalShadow\(light\)/);
+});
+
+test('RDS reports directional shadow map sizes and real GPU texture-unit limits', () => {
+  assert.match(app, /Directional Shadow Capacity/);
+  assert.match(app, /MAX_TEXTURE_IMAGE_UNITS/);
+  assert.match(app, /MAX_COMBINED_TEXTURE_IMAGE_UNITS/);
+  assert.match(app, /not an exact shader sampler total/);
 });
