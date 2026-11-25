@@ -189,6 +189,10 @@ test('RDS ZIP export writes to public Documents/Nexus3D and verifies bytes befor
   assert.ok(source.includes("actualPath.replace('\\\\', '/')"));
   assert.ok(source.includes('normalizedActualPath.endsWith("/")'));
   assert.ok(source.includes('destination verification failed'));
+  assert.ok(source.includes('RDS ZIP failed at stage ['));
+  assert.ok(source.includes('String diagnosticUri = uri == null ? "no MediaStore URI created" : uri.toString();'));
+  assert.ok(source.includes('partial file preserved for diagnosis'));
+  assert.ok(!source.includes('getContentResolver().delete(uri, null, null)'));
 });
 
 test('RDS ZIP progress reaches 100 only after native save verification resolves', async () => {
