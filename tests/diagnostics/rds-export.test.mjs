@@ -82,11 +82,11 @@ test('RIT Trace Full_Report joins touch hierarchy to the generated object identi
     'Panel: Directional Light',
     'Inside: Add Directional Light',
     'Action: ADD',
-    'Object: DirectionalLight_1 [ID: editor-light-01]',
+    'Created object: DirectionalLight_1 [ID: editor-light-01]',
     'Scene Tree: PRESENT | MainViewport: PRESENT',
     'Processing to scene update: 40 ms',
     'First rendered frame: NOT_MEASURED',
-    'Result: SUCCESS',
+    'Creation result: SUCCESS',
     'Interaction ID: interaction-light-01'
   ]) assert.ok(report.includes(expected), 'report should include ' + expected);
 });
@@ -156,4 +156,62 @@ test('RDS ZIP filename uses the Philippine date after crossing midnight', () => 
 test('RDS ZIP filename rejects invalid timestamps and empty tool names', () => {
   assert.throws(() => buildRdsZipFilename('RIT Trace', 'not-a-date'), /Invalid RDS export timestamp/);
   assert.throws(() => buildRdsZipFilename('   ', '2026-11-26T13:57:00.000Z'), /Invalid RDS ZIP tool name/);
+});
+
+
+test('RIT Trace exports standalone blank-viewport gestures and non-creation control actions', () => {
+  const files = buildRdsExportFiles({
+    tool: 'RIT Trace',
+    fullReport: 'Touch session',
+    entries: [
+      {
+        interactionId: 'viewport-touch-01',
+        timestampISO: '2026-11-26T10:02:00.000Z',
+        level: 'INFO',
+        source: 'Interaction Trace',
+        message: 'GESTURE_COMPLETE',
+        details: JSON.stringify({
+          pointerId: 3,
+          pointerType: 'touch',
+          gesture: 'DRAG',
+          status: 'INPUT_RECEIVED',
+          durationMs: 320,
+          distancePx: 84,
+          target: {
+            targetKind: 'BLANK_VIEWPORT',
+            region: 'MainViewport',
+            hierarchy: [{ type: 'viewport', label: 'MainViewport', targetKind: 'BLANK_VIEWPORT' }]
+          }
+        })
+      },
+      {
+        interactionId: 'inspector-value-01',
+        timestampISO: '2026-11-26T10:02:01.000Z',
+        level: 'INFO',
+        source: 'Interaction Trace',
+        message: 'CONTROL_VALUE',
+        details: JSON.stringify({
+          controlEvent: 'change',
+          status: 'INPUT_RECEIVED',
+          target: {
+            targetKind: 'CONTROL',
+            region: 'UI',
+            hierarchy: [
+              { type: 'tool', label: 'Transform Inspector' },
+              { type: 'panel', label: 'Position' },
+              { type: 'control', label: 'Position X' }
+            ]
+          }
+        })
+      }
+    ]
+  });
+  const report = files['Full_Report.txt'];
+  assert.ok(report.includes('Interaction ID: viewport-touch-01'));
+  assert.ok(report.includes('Touch: touch · DRAG'));
+  assert.ok(report.includes('Target: BLANK_VIEWPORT | Region: MainViewport'));
+  assert.ok(report.includes('Viewport: MainViewport [BLANK_VIEWPORT]'));
+  assert.ok(report.includes('Interaction ID: inspector-value-01'));
+  assert.ok(report.includes('Tool: Transform Inspector'));
+  assert.ok(report.includes('Control event: change'));
 });
