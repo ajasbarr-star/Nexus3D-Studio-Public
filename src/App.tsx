@@ -1384,6 +1384,7 @@ export default function App() {
     const cameraInteractionTracker = createCameraInteractionTracker({
       now: () => performance.now(),
       createId: uid,
+      resolveInteractionId: pointerId => interactionTrackerRef.current?.getActiveInteractionId?.(pointerId),
       emit: event => diagnosticSinkRef.current('INFO', 'Interaction Trace', event.event, JSON.stringify(event))
     });
     const detachCameraInteractionTracker = cameraInteractionTracker.attach({
@@ -6281,7 +6282,7 @@ export default function App() {
       selectableObjects: rt?.selectable,
       scene: rt?.scene,
       renderer: rt?.renderer,
-      camera: rt?.activeCamera || rt?.camera,
+      camera: rt?.camera,
       frameDiagnostics: typeof rt?.getRenderDiagnostics === 'function' ? rt.getRenderDiagnostics() : null,
     });
   };
