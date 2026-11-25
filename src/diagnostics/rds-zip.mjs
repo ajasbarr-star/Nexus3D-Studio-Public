@@ -8,27 +8,36 @@ const REQUIRED_RDS_FILES = [
   'Metadata.txt'
 ];
 
+/**
+ * Creates the canonical RDS ZIP filename using the Philippine local time
+ * at the captured export invocation timestamp. The timestamp is shared
+ * with Metadata.txt; it is never regenerated during ZIP creation or saving.
+ */
 export function buildRdsZipFilename(tool, generatedAt) {
-  const localGeneratedAt = new Date(generatedAt);
-  if (Number.isNaN(localGeneratedAt.getTime())) {
+  const executionTime = new Date(generatedAt);
+  if (Number.isNaN(executionTime.getTime())) {
     throw new Error('Invalid RDS export timestamp');
   }
-  // Build the time segment from explicit locale parts so NBSP/narrow-NBSP
-  // separators can never leak into a filename on Android or Linux.
-  const timeParts = new Intl.DateTimeFormat('en-US', {
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true
-  }).formatToParts(localGeneratedAt);
-  const part = type => timeParts.find(item => item.type === type)?.value || '';
-  const timePart = part('hour') + '-' + part('minute') + part('dayPeriod').toLowerCase();
-  const datePart = [
-    String(localGeneratedAt.getMonth() + 1).padStart(2, '0'),
-    String(localGeneratedAt.getDate()).padStart(2, '0'),
-    localGeneratedAt.getFullYear()
-  ].join('-');
-  const toolPart = 'Nexus3D_' + String(tool).replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '');
-  return toolPart + '_' + timePart + '_' + datePart + '.zip';
+    hour12: true,
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric'
+  });
+  const parts = formatter.formatToParts(executionTime);
+  const part = type => parts.find(item => item.type === type)?.value || '';
+  const hour = part('hour');
+  const minute = part('minute');
+  const dayPeriod = part('dayPeriod').toLowerCase();
+  const timePart = hour + '-' + minute + dayPeriod;
+  const datePart = [part('month'), part('day'), part('year')].join('-');
+  const toolName = String(tool || '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '');
+  if (!toolName) throw new Error('Invalid RDS ZIP tool name');
+  return 'Nexus3D_' + toolName + '_' + timePart + '_' + datePart + '.zip';
 }
 
 export function createRdsZipArchive(exportFiles) {
