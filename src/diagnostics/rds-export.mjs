@@ -34,14 +34,18 @@ export function buildRdsExportFiles({ tool, fullReport, entries = [], metadata =
     ...formatRdsEntries(warnings).split('\n').filter(Boolean).filter(line => line !== 'No matching diagnostic entries were captured.'),
     ...severityLines(report, /\b(WARN|WARNING)\b/i)
   ])];
+  // Count diagnostic records, not formatted text lines: a single entry may contain
+  // multiple detail/stack lines. Fall back to report severity lines for report-only tools.
+  const errorCount = errors.length || severityLines(report, /\\b(ERROR|FATAL)\\b/i).length;
+  const warningCount = warnings.length || severityLines(report, /\\b(WARN|WARNING)\\b/i).length;
   const generatedAt = metadata.generatedAt || new Date().toISOString();
   const summary = [
     'NEXUS3D RDS TOOL SUMMARY',
     'Tool: ' + tool,
     'Generated: ' + generatedAt,
     'Captured entries: ' + entries.length,
-    'Errors: ' + errorLines.length,
-    'Warnings: ' + warningLines.length,
+    'Errors: ' + errorCount,
+    'Warnings: ' + warningCount,
     'Full report characters: ' + report.length,
     '',
     'This package contains the complete report plus separate error and warning extracts.',
