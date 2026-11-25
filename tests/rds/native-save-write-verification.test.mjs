@@ -184,7 +184,8 @@ test('RDS ZIP export writes to public Documents/Nexus3D and verifies bytes befor
   assert.ok(source.includes('RDS ZIP verification failed'));
   assert.ok(source.includes('response.put("writtenBytes", verifiedBytes)'));
   assert.ok(source.includes('response.put("path", "Documents/Nexus3D/" + fileName)'));
-  assert.ok(source.includes('MediaStore.MediaColumns.RELATIVE_PATH}'));
+  assert.ok(source.includes('MediaStore.MediaColumns.RELATIVE_PATH'));
+  assert.ok(source.includes('String expectedPath = Environment.DIRECTORY_DOCUMENTS + "/Nexus3D/";'));
   assert.ok(source.includes('destination verification failed'));
 });
 
