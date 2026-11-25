@@ -22,5 +22,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Run regression suites
+        run: npm run verify:rds && npm run verify:dfi && npm run test:rig && npm run test:logcat
+
       - name: Build Nexus3D
         run: npm run build

@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -18,6 +17,13 @@
   box-shadow: 0 14px 42px rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(18px);
 }
+.rigging-tabs { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin:9px 0 4px; padding:4px; border:1px solid rgba(121,157,202,.18); border-radius:8px; background:rgba(13,23,36,.8); }
+.rigging-tabs button { min-height:36px; border:1px solid transparent; border-radius:6px; background:transparent; color:#8fa5bf; font-size:10px; font-weight:800; letter-spacing:.04em; }
+.rigging-tabs button.active { color:#dff8ff; border-color:rgba(81,214,255,.42); background:rgba(34,151,192,.22); box-shadow:inset 0 0 14px rgba(81,214,255,.08); }
+.rigging-field input[type="range"] { width:112px; min-width:80px; accent-color:#59ddff; }
+.rigging-warning { padding:7px; border-left:2px solid #d69a52; background:rgba(214,154,82,.08); color:#d9bd96 !important; }
+.rigging-panel { width:min(292px,calc(100vw - 76px)); }
+.rigging-section-body { gap:7px; }
 .rigging-section { margin-top: 9px; border: 1px solid rgba(121, 157, 202, 0.18); border-radius: 8px; overflow: hidden; }
 .rigging-section-toggle { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px; background: rgba(29, 45, 65, 0.72); border: 0; font-size: 10px; letter-spacing: .04em; font-weight: 800; }
 .rigging-section-body { display: grid; gap: 8px; padding: 10px; }
@@ -755,15 +761,6 @@ button:disabled {
 .action-dock button { width:34px; min-width:34px !important; height:34px !important; min-height:34px !important; display:grid; place-items:center; padding:0 !important; color:#a9c9e5; background:#101f30; border:1px solid #29435c; border-radius:7px; }
 .action-dock button.delete-btn { color:#ff9eaa; border-color:#633443; background:#2a1822; }
 .action-dock.timeline-open { bottom:8px !important; z-index:8; }
-.timeline-panel {
-  display: none !important;
-  position: absolute; z-index: 6; left: 8px; right: 8px; bottom: 0;
-  height: min(28vh, 190px); max-height: 30vh; display: flex; flex-direction: column; overflow: hidden;
-  color: #dce7f7; background: rgba(8, 14, 24, .97);
-  border: 1px solid rgba(79, 180, 255, .34); border-radius: 9px;
-  box-shadow: 0 0 22px rgba(20, 150, 255, .10), 0 12px 40px #0008;
-  backdrop-filter: blur(16px);
-}
 .timeline-heading { height: 30px; flex: 0 0 30px; display:flex; align-items:center; justify-content:space-between; padding:0 9px; border-bottom:1px solid #23364b; }
 .timeline-heading-actions { display:flex; align-items:center; gap:2px; }
 .shape-library-popover { position:absolute; z-index:8; top:50%; left:50%; transform:translate(-50%,-50%); width:min(360px, calc(100vw - 20px)); padding:12px; border:1px solid #28516c; border-radius:10px; background:rgba(8,15,26,.97); box-shadow:0 16px 45px #0009,0 0 18px #00cfff12; backdrop-filter:blur(18px); }
@@ -825,7 +822,6 @@ button:disabled {
 button:focus-visible { outline:1px solid #5ce5ff; outline-offset:1px; }
 button:active { box-shadow:0 0 11px #22cfff44; }
 @media (max-width: 760px) {
-  .timeline-panel { left:5px; right:5px; bottom:0; height:min(28vh, 190px); max-height:30vh; }
   .timeline-toolbar { gap:clamp(5px, 2vw, 14px); }
   .timeline-toolbar button { width:34px; height:32px; }
   .track-label small { display:none; }
@@ -833,7 +829,6 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   .timeline-status { height:19px; }
 }
 @media (max-height: 430px) {
-  .timeline-panel { height: min(28vh, 150px); max-height:30vh; bottom:0; }
   .timeline-heading { height:26px; flex-basis:26px; }
   .timeline-toolbar { height:30px; flex-basis:30px; }
   .scrubber-row { height:25px; flex-basis:25px; }
@@ -899,7 +894,9 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .floating-menu-toggle { top:56px; left:8px; width:176px; height:35px; justify-content:flex-start; }
 .menu-glyph { font-size:15px; line-height:1; }
 .hierarchy-panel { width:176px; animation:menu-panel-in .18s ease-out; }
-.menu-panel { position:absolute; z-index:6; top:56px; left:8px; bottom:92px; width:176px; max-height:calc(100vh - 148px); display:flex; flex-direction:column; overflow-x:hidden; overflow-y:auto; scrollbar-width:thin; scrollbar-color:#2a526b #0b1420; color:#dce7f7; background:rgba(12,19,31,.97); border:1px solid rgba(106,143,190,.24); border-radius:8px; box-shadow:0 14px 45px #0005; backdrop-filter:blur(18px); animation:menu-panel-in .18s ease-out; }
+.menu-panel { position:absolute; z-index:6; top:56px; left:8px; bottom:92px; width:176px; max-height:calc(100vh - 148px); display:flex; flex-direction:column; overflow:hidden; color:#dce7f7; background:rgba(12,19,31,.97); border:1px solid rgba(106,143,190,.24); border-radius:8px; box-shadow:0 14px 45px #0005; backdrop-filter:blur(18px); animation:menu-panel-in .18s ease-out; }
+.menu-panel-scroll { flex:1 1 auto; min-height:0; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#2a526b #0b1420; }
+.menu-panel > .panel-bottom-bar { position:relative; z-index:2; flex:0 0 24px; display:flex; align-items:center; justify-content:center; width:100%; margin-top:auto; background:rgba(12,19,31,.98); border-top:1px solid rgba(106,143,190,.2); }
 .menu-panel .panel-heading { flex-shrink:0; }
 .menu-close { display:grid; place-items:center; width:25px; height:25px; border:0; border-radius:5px; background:transparent; color:#8ca6c4; }
 .menu-category { flex-shrink:0; border-bottom:1px solid #1d2d41; }
@@ -1024,7 +1021,6 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .sequence-playback-controls { position:absolute; z-index:15; left:16px; bottom:16px; display:flex; align-items:center; gap:7px; padding:7px; border:1px solid rgba(78,157,190,.38); border-radius:10px; background:rgba(7,15,26,.91); box-shadow:0 10px 28px rgba(0,0,0,.4); backdrop-filter:blur(16px); }
 .sequence-playback-controls button { min-width:62px; height:34px; border:1px solid #2b536b; border-radius:7px; color:#b4d9ec; background:rgba(16,34,51,.92); font:700 9px 'DM Mono',monospace; }
 .sequence-playback-controls button.active { color:#07131d; border-color:#70e7ff; background:#7ce8ff; }
-.animation-mode .timeline-panel { z-index:12; left:190px; right:54px; bottom:12px; transform:none; width:auto; min-width:0; max-width:none; height:148px; min-height:136px; max-height:42vh; border-radius:9px; overflow:visible; background:rgba(7,15,26,.94); border:1px solid #28516c; box-shadow:0 12px 36px #0008,0 0 16px #00cfff12; backdrop-filter:blur(16px); }
 .animation-mode .timeline-heading, .animation-mode .ruler, .animation-mode .track-labels { display:none !important; }
 .animation-mode .timeline-options { display:grid !important; position:absolute; left:0; right:0; bottom:calc(100% + 7px); max-height:48vh; overflow:auto; border:1px solid #294c65; border-radius:8px; box-shadow:0 12px 35px #0009; }
 .animation-mode .timeline-toolbar { height:34px; flex-basis:34px; gap:clamp(2px,1vw,10px); }
@@ -1047,8 +1043,8 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .animation-mode .key-diamond { top:3px; width:7px; height:7px; background:#49eaff; border-color:#49eaff; box-shadow:0 0 7px #49eaffaa; }
 .animation-mode .key-diamond.key-selected { background:#ffb347; border-color:#ffcf75; box-shadow:0 0 10px #ffad36dd; transform:translateX(-50%) rotate(45deg) scale(1.18); }
 .animation-mode .playhead:before { height:4px; }
-@media (max-width:760px) { .animation-mode .timeline-panel { left:184px; right:48px; width:auto; bottom:12px; } }
-@media (max-height:430px) { .animation-mode .timeline-panel { height:124px; min-height:118px; max-height:42vh; bottom:12px; } }
+@media (max-width:760px) { }
+@media (max-height:430px) { }
 .animation-objects-panel { position:absolute; z-index:13; left:8px; top:56px; bottom:174px; width:172px; display:flex; flex-direction:column; overflow:hidden; border:1px solid #2a4d66; border-radius:9px; background:rgba(8,16,27,.95); box-shadow:0 14px 42px #0008; backdrop-filter:blur(16px); }
 .animation-objects-heading { flex:0 0 36px; display:flex; align-items:center; justify-content:space-between; padding:0 8px; border-bottom:1px solid #23394d; color:#a9eaff; font:8px 'DM Mono',monospace; letter-spacing:.5px; }
 .animation-objects-heading>div { display:flex; align-items:center; gap:5px; min-width:0; }
@@ -1059,7 +1055,7 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .animation-object-name { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .animation-object-row small { color:#63849e; font-size:7px; }
 .animation-objects-empty { padding:8px; color:#7896b2; font-size:9px; line-height:1.5; }
-@media (max-width:760px) { .animation-objects-panel { width:164px; } .animation-mode .timeline-panel { left:180px; right:44px; } .sequence-controller { left:180px; right:48px; bottom:12px; transform:none; width:auto; min-width:0; } .sequence-playback-controls { left:8px; bottom:12px; gap:4px; padding:5px; } .sequence-playback-controls button { min-width:48px; padding:0 5px; } }
+@media (max-width:760px) { .animation-objects-panel { width:164px; } .sequence-controller { left:180px; right:48px; bottom:12px; transform:none; width:auto; min-width:0; } .sequence-playback-controls { left:8px; bottom:12px; gap:4px; padding:5px; } .sequence-playback-controls button { min-width:48px; padding:0 5px; } }
 @media (max-height:430px) { .sequence-controller { bottom:8px; padding:5px; } .sequence-playback-controls { bottom:8px; } }
 .bottom-left-extension-panel { display:none; }
 
@@ -1105,8 +1101,6 @@ button:active { box-shadow:0 0 11px #22cfff44; }
 .sequence-ruler { height: 35px !important; flex: 0 0 35px !important; }
 .sequence-key-lane { height: 22px !important; flex: 0 0 22px !important; }
 .sequence-duration-label { flex: 0 0 10px; height: 10px; overflow: hidden; color: #64748b; font: 7px 'DM Mono', monospace; text-align: center; letter-spacing: .3px; white-space: nowrap; }
-/* The replaced alphabet/ruler system is the sole animation timeline UI. */
-.timeline-panel { display: none !important; }
 @media (max-width: 760px) {
   .sequence-controller { left: 50% !important; right: auto !important; bottom: 12px !important; transform: translateX(-50%) !important; width: 92vw !important; max-width: 92vw !important; min-width: 0 !important; }
 }
@@ -1412,4 +1406,1914 @@ button:active { box-shadow:0 0 11px #22cfff44; }
   .right-actions { gap: 3px; }
   .ready-label { display: none; }
   .hierarchy-panel, .menu-panel, .quick-access-panel, .mesh-edit-panel, .floating-menu-toggle { width: 176px !important; max-width: 176px !important; }
+}
+
+
+/* Nexus3D IK Rigging layout — left dock beside Scene Tree; Rig button remains on right. */
+.rigging-panel {
+  position: absolute;
+  z-index: 19;
+  top: 58px;
+  left: 194px;
+  right: auto;
+  bottom: 72px;
+  width: min(306px, calc(100vw - 214px));
+  max-width: 306px;
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 9px;
+  border: 1px solid rgba(81, 214, 255, .38);
+  border-radius: 11px;
+  background: rgba(7, 15, 26, .94);
+  box-shadow: 0 12px 34px rgba(0,0,0,.42), 0 0 18px rgba(0,207,255,.08);
+  backdrop-filter: blur(16px);
+}
+.rigging-panel .quick-panel-heading { min-height: 34px; color: #a9efff; }
+.rigging-panel .rigging-tabs { position: sticky; top: 0; z-index: 2; margin: 7px 0; background: rgba(10,20,33,.96); }
+.rigging-panel .rigging-tabs button { min-height: 38px; }
+.rigging-panel .rigging-section-body { padding: 7px 2px 9px; gap: 6px; }
+.rigging-panel .rigging-action { min-height: 36px; border-radius: 6px; }
+.rigging-panel .rigging-check, .rigging-panel .rigging-field { min-height: 30px; }
+@media (max-width: 760px) {
+  .rigging-panel { left: 184px; right: auto; top: 54px; bottom: 68px; width: min(276px, calc(100vw - 194px)); padding: 7px; }
+  .rigging-panel .rigging-section-body { gap: 5px; }
+  .rigging-panel .rigging-action { min-height: 33px; font-size: 10px; }
+}
+@media (max-height: 430px) {
+  .rigging-panel { top: 52px; bottom: 64px; }
+}
+/* SkeletonHelper draws connected parent-child segments; side colors distinguish mirrored limbs. */
+
+
+/* Universal IK Rigging workspace: switchable viewport with a compact floating panel. */
+.rigging-mode .rigging-panel {
+  position: fixed; left: 194px; right: auto; top: 58px; bottom: auto;
+  width: 280px; height: 400px; max-height: calc(100vh - 76px);
+  overflow: hidden; display: flex; flex-direction: column; z-index: 35;
+  padding: 9px; border: 1px solid rgba(82, 215, 255, .32); border-radius: 10px;
+  background: rgba(8, 16, 28, .94);
+  box-shadow: 0 12px 36px rgba(0,0,0,.42), 0 0 18px rgba(45,190,255,.08);
+  backdrop-filter: blur(16px);
+}
+.rigging-mode .rigging-section-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 7px 3px 12px; }
+.rigging-mode .rigging-tabs { flex: 0 0 auto; }
+.rigging-mode .right-rail { z-index: 40; }
+.rigging-mode .camera-mode-hud { color: #9cecff; }
+@media (max-width: 700px) {
+  .rigging-mode .rigging-panel { left: 184px; top: 54px; width: min(280px, calc(100vw - 194px)); height: 400px; max-height: calc(100vh - 72px); }
+}
+
+
+/* Rigging workspace occupies the former left Menu panel slot below the top toolbar. */
+.rigging-mode .rigging-panel {
+  position: fixed !important;
+  left: 8px !important;
+  right: auto !important;
+  top: 56px !important;
+  bottom: auto !important;
+  width: 280px !important;
+  min-width: 250px !important;
+  max-width: min(300px, calc(100vw - 16px)) !important;
+  height: 300px !important;
+  max-height: calc(100dvh - 144px) !important;
+  box-sizing: border-box !important;
+  z-index: 50 !important;
+}
+.rigging-mode .rigging-panel .rigging-section-body {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+.rigging-mode .floating-menu-toggle,
+.rigging-mode .menu-panel { display: none !important; }
+@media (max-width: 520px) {
+  .rigging-mode .rigging-panel {
+    left: 8px !important;
+    top: 54px !important;
+    width: min(280px, calc(100vw - 16px)) !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 16px) !important;
+    height: 300px !important;
+  }
+}
+
+/* Guided Manual IK workflow: compact accordion steps and a scrollable inner body. */
+.rigging-panel .manual-rig-workflow { display:flex; flex-direction:column; gap:6px; padding:5px 2px 10px; }
+.rigging-panel .rigging-intro { margin:0 2px 3px; color:#91abc4; font-size:9px; line-height:1.45; }
+.rigging-panel .manual-rig-step { flex:0 0 auto; border:1px solid #233d54; border-radius:7px; background:rgba(12,25,39,.78); overflow:hidden; }
+.rigging-panel .manual-rig-step.current { border-color:#287e9c; box-shadow:inset 0 0 0 1px #1c657d33; }
+.rigging-panel .manual-rig-step-heading { width:100%; min-height:34px; display:flex; align-items:center; gap:8px; padding:5px 8px; color:#a9c6df; border:0; background:transparent; text-align:left; }
+.rigging-panel .manual-rig-step-heading strong { flex:1; font:9px 'DM Mono',monospace; letter-spacing:.55px; }
+.rigging-panel .manual-rig-step-number { color:#69dff9; font:9px 'DM Mono',monospace; }
+.rigging-panel .manual-rig-step-heading svg { transition:transform .16s ease; }
+.rigging-panel .manual-rig-step-heading svg.expanded { transform:rotate(180deg); }
+.rigging-panel .manual-rig-step-content { display:flex; flex-direction:column; gap:6px; padding:5px 7px 8px; border-top:1px solid #1d3449; }
+.rigging-panel .manual-rig-step-content p { margin:0 0 2px; color:#829db7; font-size:9px; line-height:1.45; }
+.rigging-panel .manual-rig-next { min-height:29px; margin-top:2px; border:1px solid #286d86; border-radius:5px; color:#9beaff; background:#102b3c; font:8px 'DM Mono',monospace; letter-spacing:.6px; }
+.rigging-mode .rigging-panel { height:300px !important; max-height:calc(100dvh - 144px) !important; }
+.rigging-mode .rigging-panel .rigging-section-body { min-height:0; overflow-x:hidden; overflow-y:auto; }
+
+
+/* IK Rigging workspace — concept-matched three-column layout. */
+.rigging-mode .quick-access-rail { display:none !important; }
+.rigging-mode .rigging-panel {
+  position:fixed !important; left:8px !important; right:auto !important;
+  top:58px !important; bottom:76px !important;
+  width:clamp(258px,22vw,330px) !important; min-width:0 !important;
+  max-width:calc(100vw - 440px) !important; height:auto !important;
+  max-height:none !important; display:flex !important; flex-direction:column !important;
+  padding:9px !important; border:1px solid rgba(65,205,245,.62) !important;
+  border-radius:11px !important; background:rgba(7,16,29,.94) !important;
+  box-shadow:0 12px 36px #0008,0 0 22px #00bfe51c !important;
+}
+.rigging-mode .rig-workspace-heading { min-height:42px !important; flex:0 0 auto; }
+.rigging-mode .rig-workspace-heading>div { display:flex; flex-direction:column; gap:2px; }
+.rigging-mode .rig-workspace-heading strong { color:#a8f0ff; font:700 13px 'DM Mono',monospace; letter-spacing:.8px; }
+.rigging-mode .rig-workspace-heading small { color:#688da9; font:7px 'DM Mono',monospace; letter-spacing:1.1px; }
+.rigging-mode .rigging-tabs { flex:0 0 auto; display:grid; grid-template-columns:1fr 1fr; gap:5px; margin:6px 0 8px; padding:4px; border:1px solid #1d3c54; border-radius:7px; background:#091523; }
+.rigging-mode .rigging-tabs button { min-height:34px; border-radius:5px; font:700 9px 'DM Mono',monospace; }
+.rigging-mode .rigging-section-body { min-height:0; flex:1 1 auto; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; padding:4px 2px 12px; }
+.rigging-mode .manual-rig-workflow { gap:7px; }
+.rigging-mode .manual-rig-step { border-color:#24435d; background:linear-gradient(135deg,rgba(15,31,49,.96),rgba(8,19,32,.96)); }
+.rigging-mode .manual-rig-step.current { border-color:#20b8df; box-shadow:0 0 12px #00bfe51c,inset 0 0 0 1px #20b8df24; }
+.rigging-mode .manual-rig-step-heading { min-height:39px; gap:9px; }
+.rigging-mode .manual-rig-step-number { display:grid; place-items:center; width:23px; height:23px; border-radius:50%; color:#03131d; background:#27d9f5; font:800 10px 'DM Mono',monospace; }
+.rigging-mode .manual-rig-step-heading strong { color:#e1f0ff; font:700 10px 'DM Mono',monospace; letter-spacing:.3px; }
+.rigging-mode .manual-rig-step-content { gap:7px; padding:8px; }
+.rigging-mode .manual-rig-step-content p { font-size:9px; color:#91abc4; }
+.rigging-mode .rigging-action { min-height:36px; font-size:10px; }
+.rigging-mode .hierarchy-panel {
+  position:fixed !important; left:auto !important; right:8px !important;
+  top:58px !important; bottom:auto !important; width:clamp(190px,18vw,238px) !important;
+  max-width:calc(100vw - 440px) !important; height:42vh !important;
+  max-height:390px !important; z-index:42 !important;
+  border:1px solid rgba(57,161,207,.58); border-radius:10px;
+  background:rgba(7,16,29,.94); box-shadow:0 12px 30px #0007;
+}
+.rigging-mode .hierarchy-panel .tree-list { min-height:0; overflow-y:auto; }
+.rigging-mode .quick-access-panel.inspector-panel {
+  position:fixed !important; left:auto !important; right:8px !important;
+  top:calc(58px + min(42vh, 390px) + 9px) !important; bottom:76px !important;
+  width:clamp(190px,18vw,238px) !important; max-width:calc(100vw - 440px) !important;
+  max-height:none !important; z-index:42 !important;
+  border:1px solid rgba(57,161,207,.58); border-radius:10px;
+  background:rgba(7,16,29,.94); box-shadow:0 12px 30px #0007;
+}
+.rigging-mode .quick-access-panel.inspector-panel .quick-panel-content { min-height:0; overflow:auto; }
+.rigging-mode .camera-mode-hud { left:50%; right:auto; transform:translateX(-50%); top:58px; z-index:12; }
+.rigging-mode .action-dock { display:none !important; }
+.rig-workspace-dock {
+  position:fixed; z-index:55; left:8px; right:8px; bottom:8px; min-height:52px;
+  display:flex; align-items:center; justify-content:center; gap:9px; padding:6px 10px;
+  border:1px solid rgba(65,151,196,.55); border-radius:10px;
+  background:rgba(7,16,28,.94); box-shadow:0 10px 28px #0008;
+  backdrop-filter:blur(14px); color:#bcd2e8;
+}
+.rig-workspace-dock button { min-height:34px; display:flex; align-items:center; justify-content:center; gap:6px; padding:0 10px; border:1px solid #29465e; border-radius:6px; color:#c9e5f6; background:#102337; font:700 8px 'DM Mono',monospace; white-space:nowrap; }
+.rig-workspace-dock button:disabled { opacity:.35; }
+.rig-workspace-dock button.rig-dock-primary { border-color:#1688a9; color:#a8f4ff; background:#0b3448; }
+.rig-workspace-dock button.rig-dock-save { border-color:#159db9; color:#b7f5ff; box-shadow:0 0 12px #00cfff20; }
+.rig-workspace-dock label { display:flex; align-items:center; gap:6px; color:#86a9c4; font:8px 'DM Mono',monospace; white-space:nowrap; }
+.rig-workspace-dock select { max-width:100px; min-height:31px; padding:0 6px; border:1px solid #2a536f; border-radius:5px; color:#d5efff; background:#0a1b2b; font-size:9px; }
+.rig-dock-group { display:flex; gap:4px; }
+.rig-dock-group button { width:34px; padding:0; }
+.rig-dock-divider { width:1px; height:25px; background:#29445a; margin:0 3px; }
+@media (max-width:760px) {
+  .rigging-mode .rigging-panel { left:6px !important; top:54px !important; bottom:68px !important; width:clamp(210px,28vw,270px) !important; max-width:calc(100vw - 390px) !important; padding:6px !important; }
+  .rigging-mode .hierarchy-panel { right:6px !important; top:54px !important; width:180px !important; max-width:calc(100vw - 390px) !important; height:40vh !important; }
+  .rigging-mode .quick-access-panel.inspector-panel { right:6px !important; top:calc(54px + 40vh + 7px) !important; bottom:68px !important; width:180px !important; max-width:calc(100vw - 390px) !important; }
+  .rig-workspace-dock { left:6px; right:6px; bottom:5px; min-height:48px; gap:5px; padding:4px; overflow-x:auto; justify-content:flex-start; }
+  .rig-workspace-dock button { min-height:32px; padding:0 7px; font-size:7px; }
+  .rig-workspace-dock label { font-size:7px; }
+}
+@media (max-width:520px) {
+  .rigging-mode .rigging-panel { width:196px !important; max-width:196px !important; }
+  .rigging-mode .hierarchy-panel,.rigging-mode .quick-access-panel.inspector-panel { width:164px !important; max-width:164px !important; }
+  .rigging-mode .camera-mode-hud { display:none; }
+}
+
+
+/* Compact IK workspace refinement: prioritize the 3D viewport on landscape screens. */
+.rigging-mode .rigging-panel {
+  left: 6px !important; top: 56px !important; bottom: 58px !important;
+  width: 184px !important; min-width: 0 !important; max-width: 184px !important;
+  padding: 6px !important; border-radius: 8px !important;
+}
+.rigging-mode .rig-workspace-heading { min-height: 30px !important; }
+.rigging-mode .rig-workspace-heading strong { font-size: 10px !important; }
+.rigging-mode .rig-workspace-heading small { font-size: 6px !important; }
+.rigging-mode .rigging-tabs { margin: 4px 0 5px !important; padding: 3px !important; gap: 3px !important; }
+.rigging-mode .rigging-tabs button { min-height: 27px !important; font-size: 8px !important; }
+.rigging-mode .rigging-intro { font-size: 8px !important; }
+.rigging-mode .manual-rig-step-heading { min-height: 30px !important; padding: 3px 5px !important; gap: 5px !important; }
+.rigging-mode .manual-rig-step-number { width: 18px !important; height: 18px !important; font-size: 8px !important; }
+.rigging-mode .manual-rig-step-heading strong { font-size: 8px !important; }
+.rigging-mode .manual-rig-step-content { gap: 4px !important; padding: 5px !important; }
+.rigging-mode .manual-rig-step-content p { font-size: 8px !important; }
+.rigging-mode .rigging-action { min-height: 29px !important; padding: 4px 6px !important; font-size: 8px !important; }
+.rigging-mode .manual-rig-next { min-height: 24px !important; font-size: 7px !important; }
+.rigging-mode .hierarchy-panel {
+  right: 6px !important; top: 56px !important; bottom: auto !important;
+  width: 154px !important; max-width: 154px !important; height: 38vh !important; max-height: 250px !important;
+}
+.rigging-mode .quick-access-panel.inspector-panel {
+  right: 6px !important; top: calc(56px + min(38vh, 250px) + 6px) !important;
+  bottom: 58px !important; width: 154px !important; max-width: 154px !important;
+}
+.rigging-mode .camera-mode-hud { top: 56px !important; font-size: 8px !important; }
+.rigging-mode .rig-workspace-dock {
+  left: 6px !important; right: 6px !important; bottom: 5px !important;
+  min-height: 42px !important; gap: 4px !important; padding: 3px 5px !important;
+}
+.rigging-mode .rig-workspace-dock button { min-height: 29px !important; padding: 0 6px !important; font-size: 7px !important; }
+.rigging-mode .rig-workspace-dock label { gap: 3px !important; font-size: 7px !important; }
+.rigging-mode .rig-workspace-dock select { min-height: 26px !important; max-width: 76px !important; font-size: 8px !important; }
+@media (max-width: 760px) {
+  .rigging-mode .rigging-panel { left: 4px !important; top: 52px !important; bottom: 54px !important; width: 164px !important; max-width: 164px !important; }
+  .rigging-mode .hierarchy-panel { right: 4px !important; top: 52px !important; width: 138px !important; max-width: 138px !important; height: 36vh !important; }
+  .rigging-mode .quick-access-panel.inspector-panel { right: 4px !important; top: calc(52px + 36vh + 5px) !important; bottom: 54px !important; width: 138px !important; max-width: 138px !important; }
+  .rigging-mode .rig-workspace-dock { bottom: 3px !important; min-height: 38px !important; }
+  .rigging-mode .rig-workspace-dock button { min-height: 26px !important; }
+}
+
+
+/* Nexus3D IK workspace: icon-first access to the original editor panels. */
+.rigging-mode .quick-access-rail {
+  display:flex !important; position:fixed !important; z-index:65 !important;
+  right:50% !important; top:7px !important; bottom:auto !important;
+  transform:translateX(50%) !important; width:auto !important; max-width:calc(100vw - 150px) !important;
+  padding:4px !important; gap:4px !important; border:1px solid rgba(65,190,225,.42) !important;
+  border-radius:9px !important; background:rgba(5,15,27,.92) !important;
+  box-shadow:0 6px 20px #0007 !important; backdrop-filter:blur(12px) !important;
+}
+.rigging-mode .quick-access-rail button {
+  width:38px !important; min-width:38px !important; height:36px !important; min-height:36px !important;
+  padding:0 !important; display:grid !important; place-items:center !important;
+  border:1px solid transparent !important; border-radius:6px !important;
+}
+.rigging-mode .quick-access-rail button span { display:none !important; }
+.rigging-mode .quick-access-rail button.active { border-color:#1aa8ca !important; color:#9ceeff !important; background:#103448 !important; box-shadow:0 0 12px #00cfff24 !important; }
+.rigging-mode .hierarchy-panel {
+  display:flex !important; position:fixed !important; z-index:48 !important;
+  left:5px !important; right:auto !important; top:52px !important; bottom:52px !important;
+  width:clamp(142px,17vw,190px) !important; max-width:34vw !important; height:auto !important;
+  max-height:none !important; overflow:hidden !important; flex-direction:column !important;
+  border-radius:8px !important; background:rgba(6,15,27,.94) !important;
+}
+.rigging-mode .hierarchy-panel .panel-heading { min-height:31px !important; padding:5px 7px !important; }
+.rigging-mode .hierarchy-panel .tree-search input { min-width:0 !important; }
+.rigging-mode .quick-access-panel.inspector-panel {
+  display:flex !important; position:fixed !important; z-index:48 !important;
+  left:auto !important; right:5px !important; top:52px !important; bottom:52px !important;
+  width:clamp(142px,17vw,190px) !important; max-width:34vw !important; height:auto !important;
+  max-height:none !important; overflow:hidden !important; border-radius:8px !important;
+  background:rgba(6,15,27,.94) !important;
+}
+.rigging-mode .quick-access-panel.inspector-panel .quick-panel-content { min-height:0 !important; overflow:auto !important; }
+.rigging-mode .quick-access-panel.inspector-panel .quick-panel-heading { min-height:31px !important; }
+.rigging-mode .quick-access-panel.inspector-panel .quick-panel-heading strong { font-size:8px !important; }
+.rigging-mode .quick-access-panel.inspector-panel .transform-group { padding:5px !important; }
+.rigging-mode .quick-access-panel.inspector-panel .transform-group label { gap:3px !important; }
+.rigging-mode .quick-access-panel.inspector-panel .transform-group input { min-width:0 !important; }
+.rigging-mode .viewport { touch-action:none; }
+@media (max-width:760px) {
+  .rigging-mode .quick-access-rail { top:5px !important; gap:2px !important; }
+  .rigging-mode .quick-access-rail button { width:34px !important; min-width:34px !important; height:33px !important; min-height:33px !important; }
+  .rigging-mode .hierarchy-panel { left:4px !important; top:48px !important; bottom:46px !important; width:132px !important; max-width:34vw !important; }
+  .rigging-mode .quick-access-panel.inspector-panel { right:4px !important; top:48px !important; bottom:46px !important; width:132px !important; max-width:34vw !important; }
+}
+
+
+/* Compact, icon-only IK Rigging toolbox. */
+.rig-toolbox {
+  position:fixed; z-index:72; left:50%; bottom:54px; transform:translateX(-50%);
+  width:min(520px,calc(100vw - 310px)); min-width:230px; max-height:42vh; overflow:auto;
+  display:flex; flex-direction:column; gap:7px; padding:8px;
+  color:#d9efff; background:rgba(5,14,26,.95); border:1px solid rgba(46,170,210,.48);
+  border-radius:11px; box-shadow:0 10px 30px #0009,0 0 18px #00bfe51a; backdrop-filter:blur(14px);
+}
+.rig-toolbox-head { display:flex; align-items:center; gap:8px; min-height:28px; }
+.rig-toolbox-title { display:flex; align-items:center; gap:6px; margin-right:auto; color:#a9efff; font:700 9px 'DM Mono',monospace; letter-spacing:.12em; }
+.rig-toolbox-tabs { display:flex; gap:4px; }
+.rig-toolbox button {
+  width:34px; min-width:34px; height:32px; min-height:32px; display:grid; place-items:center;
+  padding:0; border:1px solid #29465e; border-radius:6px; color:#c9e5f6; background:#102337;
+}
+.rig-toolbox button.active,.rig-toolbox-tabs button.active {
+  border-color:#1aa8ca; color:#a5f2ff; background:#10394d; box-shadow:0 0 10px #00cfff24;
+}
+.rig-toolbox .rig-toolbox-close { width:28px; min-width:28px; height:28px; min-height:28px; }
+.rig-tool-group { display:flex; align-items:center; flex-wrap:wrap; gap:5px; padding-top:6px; border-top:1px solid rgba(83,132,160,.2); }
+.rig-tool-group-label { width:100%; color:#7197b1; font:700 7px 'DM Mono',monospace; letter-spacing:.13em; }
+.rig-tool-group-footer { justify-content:flex-end; }
+.rig-tool-setting { display:flex; align-items:center; gap:5px; min-height:30px; padding:0 5px; border:1px solid #29465e; border-radius:6px; color:#89abc1; font:700 7px 'DM Mono',monospace; }
+.rig-tool-setting select,.rig-tool-setting input {
+  width:58px; min-width:0; height:24px; padding:0 4px; color:#d9efff; background:#091a2a;
+  border:1px solid #29465e; border-radius:4px; font-size:9px;
+}
+.rig-tool-setting input { width:38px; }
+.rig-tool-note { color:#9bb8cb; font-size:8px; line-height:1.45; padding:2px 4px; }
+.rig-toolbox-reopen {
+  position:fixed; z-index:72; left:50%; bottom:8px; transform:translateX(-50%);
+  width:40px; height:36px; display:grid; place-items:center; border:1px solid #1688a9;
+  border-radius:8px; color:#a8f4ff; background:rgba(8,34,49,.96); box-shadow:0 5px 18px #0008;
+}
+@media (max-width:760px) {
+  .rig-toolbox { bottom:48px; width:calc(100vw - 285px); min-width:190px; max-height:38vh; padding:6px; gap:5px; }
+  .rig-toolbox button { width:30px; min-width:30px; height:29px; min-height:29px; }
+  .rig-tool-setting { min-height:27px; }
+}
+
+
+/* Smart Rig Workspace: compact three-mode dock. */
+.rig-toolbox.rig-workspace {
+  width:min(470px,calc(100vw - 300px)); min-width:250px; max-height:36vh;
+  bottom:48px; padding:8px; gap:6px;
+}
+.rig-workspace .rig-toolbox-tabs button {
+  width:auto; min-width:54px; height:34px; padding:3px 7px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+}
+.rig-workspace .rig-toolbox-tabs button small { font-size:6px; line-height:1; letter-spacing:.08em; }
+.rig-workspace-actions { display:flex; flex-wrap:wrap; gap:6px; }
+.rig-workspace-actions.shape-rig-bind-actions button { min-height:36px; flex:1 1 100%; flex-direction:row; justify-content:center; gap:8px; }
+.rig-workspace-actions.shape-rig-bind-actions button span { font-size:8px; letter-spacing:.06em; }
+.rig-workspace-actions button {
+  width:auto; min-width:76px; height:42px; padding:4px 8px; display:flex;
+  flex:1 1 0; flex-direction:column; gap:3px; font-size:8px; color:#c9e5f6;
+}
+.rig-workspace-actions button span { font-size:7px; letter-spacing:.04em; }
+.rig-workspace .rig-tool-note { font-size:7px; line-height:1.35; }
+.rigging-mode .rig-workspace { z-index:76; }
+@media (max-width:760px) {
+  .rig-toolbox.rig-workspace { width:min(390px,calc(100vw - 24px)); min-width:0; max-height:31vh; bottom:44px; }
+  .rig-workspace .rig-toolbox-tabs button { min-width:48px; }
+  .rig-workspace-actions button { min-width:64px; height:38px; }
+}
+/* Bone joint handle palette: normal gray, active cyan, locked amber, detached violet. */
+
+
+/* Clearer viewport-first rig workflow */
+.rig-auto-intro,.rig-manual-guide { display:flex; flex-direction:column; gap:4px; padding:7px 9px; border:1px solid rgba(50,151,190,.3); border-radius:7px; background:rgba(10,29,44,.72); }
+.rig-auto-intro strong,.rig-manual-guide strong { color:#a8f0ff; font:700 8px 'DM Mono',monospace; letter-spacing:.1em; }
+.rig-auto-intro span,.rig-manual-guide span { color:#a9bfd0; font-size:8px; line-height:1.45; }
+.rig-auto-actions .rig-primary-action,.rig-workspace-actions .rig-primary-action { min-height:43px; border-color:#159fbd; color:#baf6ff; background:linear-gradient(135deg,#10425a,#0b2c42); box-shadow:inset 0 0 0 1px #22c5e522,0 0 13px #00cfff16; }
+.rig-auto-actions .rig-primary-action { flex:1.6 1 150px; }
+.rig-auto-actions button:not(.rig-primary-action) { flex:1 1 95px; }
+.rig-auto-steps { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+.rig-auto-steps div { display:flex; align-items:center; gap:6px; min-height:25px; padding:4px 6px; border-radius:5px; background:rgba(16,36,53,.72); color:#a9bfd0; font-size:7px; }
+.rig-auto-steps b { display:grid; place-items:center; width:16px; height:16px; flex:0 0 16px; border-radius:50%; color:#061722; background:#65dff4; font:800 8px 'DM Mono',monospace; }
+@media (max-width:760px) {
+ .rig-auto-intro span,.rig-manual-guide span { font-size:7px; }
+ .rig-auto-steps { gap:4px; }
+ .rig-auto-steps div { font-size:6px; }
+}
+
+
+/* Manual IK quick tools live in the normal Scene viewport, not the IK workspace. */
+.manual-rig-quick-tools {
+  position: fixed;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 82px);
+  z-index: 12000;
+  width: min(236px, calc(100vw - 28px));
+  padding: 8px;
+  border: 1px solid rgba(0, 217, 255, .42);
+  border-radius: 11px;
+  background: rgba(7, 14, 25, .92);
+  color: #d9f7ff;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .38), 0 0 18px rgba(0, 217, 255, .08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  pointer-events: auto;
+}
+.manual-rig-quick-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 3px 8px;
+  color: #69e6ff;
+  font: 800 9px 'DM Mono', monospace;
+  letter-spacing: .08em;
+}
+.manual-rig-quick-head span {
+  margin-left: auto;
+  overflow: hidden;
+  color: #a8bfce;
+  font: 600 8px 'DM Mono', monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.manual-rig-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+.manual-rig-quick-grid button {
+  display: flex;
+  min-width: 0;
+  min-height: 43px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 5px 2px;
+  border: 1px solid rgba(119, 164, 190, .2);
+  border-radius: 7px;
+  background: rgba(22, 39, 55, .9);
+  color: #c8e4ef;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.manual-rig-quick-grid button:active,
+.manual-rig-quick-grid button:focus-visible {
+  border-color: rgba(0, 217, 255, .8);
+  background: rgba(0, 117, 145, .28);
+  color: #75edff;
+  outline: none;
+}
+.manual-rig-quick-grid button small {
+  overflow: hidden;
+  max-width: 100%;
+  font: 700 6px 'DM Mono', monospace;
+  letter-spacing: .025em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .manual-rig-quick-tools {
+    right: max(8px, env(safe-area-inset-right));
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+    width: min(210px, calc(100vw - 16px));
+    padding: 6px;
+  }
+  .manual-rig-quick-grid { gap: 4px; }
+  .manual-rig-quick-grid button { min-height: 40px; }
+}
+
+
+/* Dedicated IK scene viewport: shares the live Three.js scene with Main Viewport,
+   but owns its own camera, orbit controls and renderer. */
+.ik-dedicated-viewport {
+  position:absolute;
+  inset:0;
+  z-index:1;
+  overflow:hidden;
+  visibility:hidden;
+  opacity:0;
+  pointer-events:none;
+  background:#0a101b;
+  touch-action:none;
+}
+.ik-dedicated-viewport.active {
+  visibility:visible;
+  opacity:1;
+  pointer-events:auto;
+}
+.ik-dedicated-viewport canvas {
+  display:block;
+  width:100%;
+  height:100%;
+  outline:none;
+  touch-action:none;
+}
+.rigging-mode .viewport {
+  visibility:hidden;
+}
+.rigging-mode .ik-dedicated-viewport.active {
+  z-index:1;
+}
+
+
+/* Scene Tree touch behavior: scroll normally; hold to drag without Android text-copy selection. */
+.tree-list {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+.tree-row,
+.tree-row .tree-item,
+.tree-row .tree-item * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+.tree-row {
+  touch-action: pan-y;
+}
+.tree-row .tree-item {
+  touch-action: pan-y;
+}
+
+
+/* Expandable character-rig workflow: separated from core IK controls so every action is reachable. */
+.ik-character-rig-panel{position:absolute;z-index:14;top:50px;right:64px;width:236px;max-width:calc(100vw - 18px);max-height:min(56vh,390px);overflow-y:auto;overscroll-behavior:contain;padding:9px;background:rgba(7,15,26,.97);border:1px solid rgba(63,190,225,.48);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.38);backdrop-filter:blur(12px);color:#d7f3ff}
+.ik-character-rig-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;font:800 9px 'DM Mono',monospace;letter-spacing:.06em;color:#bcefff}
+.ik-character-rig-heading button{width:24px;min-width:24px;height:24px;min-height:24px;border:1px solid #28536b;border-radius:5px;background:#10283a;color:#c9f5ff;font-size:16px}
+.ik-character-rig-panel p{margin:7px 0 9px;color:#91b6c8;font:8px/1.5 'DM Mono',monospace}
+.ik-character-rig-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.ik-character-rig-grid button{display:flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0;min-height:34px;padding:5px 7px;border:1px solid #28536b;border-radius:5px;background:#10283a;color:#bdefff;font:700 7px 'DM Mono',monospace;touch-action:manipulation}
+.ik-character-rig-grid button:active{background:#16435a;border-color:#35cfff}
+.ik-character-rig-grid button svg{width:13px;height:13px;flex:0 0 auto}
+.ik-character-rig-grid button span{white-space:nowrap}
+@media(max-width:760px){.ik-character-rig-panel{top:48px;right:54px;width:218px;max-height:54vh;padding:8px}}
+ 
+/* Explicit, compact manual-rig workflow controls. */
+.ik-rig-actions{position:absolute;z-index:12;top:58px;right:64px;display:grid;grid-template-columns:repeat(5,40px);gap:3px;align-items:center;padding:5px;background:rgba(7,15,26,.92);border:1px solid rgba(63,190,225,.35);border-radius:8px;backdrop-filter:blur(12px);max-width:220px}
+.ik-rig-actions button{width:40px;min-width:40px;height:35px;min-height:35px;padding:2px 1px;border:1px solid #28536b;border-radius:5px;background:#10283a;color:#bdefff;font:700 10px 'DM Mono',monospace;letter-spacing:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;touch-action:manipulation}
+.ik-rig-actions button svg{width:12px;height:12px;flex:0 0 auto}
+.ik-rig-actions button span{font:700 6px/1 'DM Mono',monospace;letter-spacing:0;color:#a9cfe0}
+.ik-rig-actions button:active{background:#16435a;border-color:#35cfff}
+.ik-rig-actions button:focus-visible{outline:2px solid #35cfff;outline-offset:1px}
+.ik-rig-actions button.active{background:#12445a;border-color:#35cfff;color:#e0fbff}
+.ik-spring-panel{position:absolute;z-index:13;top:222px;right:64px;width:220px;max-width:calc(100vw - 24px);padding:9px;background:rgba(7,15,26,.96);border:1px solid rgba(63,190,225,.42);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.28);backdrop-filter:blur(12px);color:#d7f3ff}
+.ik-spring-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;font:800 9px 'DM Mono',monospace;letter-spacing:.06em}
+.ik-spring-heading label{display:flex;align-items:center;gap:4px;color:#71ddff;font:700 8px 'DM Mono',monospace}
+.ik-spring-heading input{accent-color:#26c8f3;width:14px;height:14px}
+.ik-spring-panel p{margin:6px 0 9px;color:#8eafc3;font:7px/1.4 'DM Mono',monospace}
+.ik-spring-control{display:block;margin:8px 0;color:#b9dce9;font:700 7px 'DM Mono',monospace}
+.ik-spring-control span{display:flex;justify-content:space-between;gap:6px;margin-bottom:4px}
+.ik-spring-control output{color:#65dfff;font-variant-numeric:tabular-nums}
+.ik-spring-control input{display:block;width:100%;height:15px;margin:0;accent-color:#27c9f2;touch-action:pan-x}
+.ik-spring-control input:disabled{opacity:.38}
+.ik-spring-reset{width:100%;min-height:25px;margin-top:3px;border:1px solid #28536b;border-radius:5px;background:#10283a;color:#bdefff;font:700 7px 'DM Mono',monospace}
+@media(max-width:760px){.ik-spring-panel{top:205px;right:54px;width:200px;padding:7px}}
+@media(max-width:760px){.ik-rig-actions{top:50px;right:54px;grid-template-columns:repeat(5,36px);gap:3px;padding:4px;max-width:200px}.ik-rig-actions button{width:36px;min-width:36px;height:33px;min-height:33px}.ik-rig-actions button span{font-size:5.5px}}
+
+/* Built-in runtime diagnostics inside Menu > Help & System Info. */
+.diagnostic-summary{display:flex;justify-content:space-between;gap:6px;padding:5px 4px;color:#9bc5d8;font:700 7px 'DM Mono',monospace}
+.diagnostic-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:3px 0}
+.diagnostic-actions button,.diagnostic-filters button{display:flex;align-items:center;justify-content:center;gap:3px;min-width:0;min-height:27px;padding:3px 4px;border:1px solid #29465d;border-radius:5px;background:#102235;color:#b9dce9;font:700 7px 'DM Mono',monospace}
+.diagnostic-actions button:disabled{opacity:.38}
+.diagnostic-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;padding:3px 0 5px}
+.diagnostic-filters button.active{border-color:#32c5e8;background:#12445a;color:#c9f8ff}
+.diagnostic-log-list{display:flex;flex-direction:column;gap:5px;max-height:190px;overflow:auto;overscroll-behavior:contain;padding:3px;background:rgba(3,9,16,.55);border:1px solid #20384c;border-radius:5px}
+.diagnostic-empty{padding:12px 7px;color:#829bb1;text-align:center;font-size:8px;line-height:1.5}
+.diagnostic-entry{padding:6px;border:1px solid #2a4054;border-left:3px solid #5b91a8;border-radius:4px;background:rgba(12,25,39,.9);overflow-wrap:anywhere}
+.diagnostic-entry>div{display:flex;justify-content:space-between;gap:5px}
+.diagnostic-entry strong{font:800 7px 'DM Mono',monospace;color:#9bdff0}
+.diagnostic-entry time,.diagnostic-entry>b{font:7px 'DM Mono',monospace;color:#8da9bd}
+.diagnostic-entry>b{display:block;margin-top:4px;color:#7dd8ef}
+.diagnostic-entry p{margin:3px 0 0;color:#d2e3ef;font-size:8px;line-height:1.4;white-space:pre-wrap}
+.diagnostic-entry pre{max-height:100px;overflow:auto;margin:5px 0 0;padding:5px;background:#050b12;color:#a9c2d4;border-radius:3px;font:6px/1.4 'DM Mono',monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+.diagnostic-error{border-left-color:#ff6577}.diagnostic-error strong{color:#ff9aa5}
+.diagnostic-warn{border-left-color:#eab65b}.diagnostic-warn strong{color:#ffd58a}
+
+
+/* Expandable realtime diagnostics panel; monitoring runs independently of visibility. */
+.diagnostic-toggle-button{width:100%;display:flex;align-items:center;gap:7px;min-height:34px;margin:7px 0 3px;padding:7px 9px;border:1px solid #26718b;border-radius:6px;background:linear-gradient(100deg,rgba(11,52,70,.92),rgba(12,29,46,.96));color:#c8f5ff;font:800 8px 'DM Mono',monospace;letter-spacing:.045em;text-align:left}
+.diagnostic-toggle-button span{flex:1}
+.diagnostic-toggle-button.expanded{border-color:#46c8e9;background:linear-gradient(100deg,rgba(13,67,86,.98),rgba(14,37,57,.98));box-shadow:inset 0 0 12px rgba(50,197,232,.08)}
+.diagnostic-panel-expanded{display:flex;flex-direction:column;gap:5px;margin:0 0 9px;padding:7px;border:1px solid #28536a;border-top:2px solid #32c5e8;border-radius:0 0 7px 7px;background:rgba(4,13,23,.94);max-height:min(58vh,520px);overflow-y:auto;overscroll-behavior:contain;animation:diagnosticPanelIn .16s ease-out}
+@keyframes diagnosticPanelIn{from{opacity:.45;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.diagnostic-panel-expanded .diagnostic-log-list{max-height: min(32vh,260px);min-height:70px}
+.diagnostic-panel-expanded .diagnostic-summary{position:sticky;top:-7px;z-index:1;background:#081522;border-radius:4px}
+.diagnostic-panel-expanded .diagnostic-actions button,.diagnostic-panel-expanded .diagnostic-filters button{font-size:7px}
+
+
+/* Compact read-only Core Optimizer report panel. */
+.core-optimizer-actions { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.core-optimizer-report {
+  max-height:180px; overflow:auto; margin:2px 0 0; padding:8px;
+  border:1px solid #29465d; border-radius:5px; background:rgba(2,8,14,.78);
+  color:#b8d8e8; font:7px/1.55 'DM Mono',monospace; white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
+
+
+/* Menu panel visual breathing room: slightly taller without touching the bottom dock. */
+.menu-panel { padding-bottom: 30px !important; }
+
+
+/* Scene Tree Object Manager: compact touch-first row controls. */
+.panel-heading .tree-manager-tools { display:flex; align-items:center; gap:3px; }
+.tree-manager-tools button { width:23px; height:25px; display:grid; place-items:center; padding:0; border:1px solid transparent; border-radius:5px; color:#8da9c7; background:transparent; }
+.tree-manager-tools button:active, .tree-manager-tools button:hover:not(:disabled) { color:#9feaff; border-color:#24516b; background:#102d40; }
+.tree-manager-tools button:disabled { opacity:.32; }
+.tree-manager-tools .count { margin-left:2px; }
+.tree-row { position:relative; }
+.tree-row.menu-open { z-index:14; }
+.tree-row-actions { display:flex; flex:0 0 auto; align-items:center; gap:1px; }
+.tree-row-action { width:20px; height:27px; flex:0 0 20px; display:grid; place-items:center; padding:0; border:0; border-radius:4px; color:#7895b5; background:transparent; touch-action:manipulation; user-select:none; -webkit-user-select:none; }
+.tree-row-action:active, .tree-row-action:hover, .tree-row-action.active { color:#9feaff; background:#12364b; }
+.tree-row-action.locked { color:#ffca78; background:#382b18; }
+.tree-row-action:disabled { opacity:.28; }
+.tree-more-menu { position:absolute; z-index:20; top:27px; right:1px; width:176px; max-width:min(70vw,240px); max-height:min(55vh,320px); overflow-y:auto; display:flex; flex-direction:column; gap:2px; padding:5px; border:1px solid #31506c; border-radius:7px; background:rgba(8,17,29,.98); box-shadow:0 8px 24px #0009; }
+.tree-group-targets { display:flex; flex-direction:column; gap:2px; padding:4px 0 3px 7px; border-top:1px solid #263e55; border-bottom:1px solid #263e55; }
+.tree-group-targets > span { padding:3px 5px; color:#6f9bb8; font-size:8px; letter-spacing:.04em; text-transform:uppercase; }
+.tree-group-targets button { min-height:27px; overflow:hidden; text-overflow:ellipsis; }
+.tree-more-menu button { min-height:29px; display:flex; align-items:center; gap:7px; padding:0 7px; border:0; border-radius:4px; color:#b6cce3; background:transparent; text-align:left; font-size:9px; white-space:nowrap; }
+.tree-more-menu button:active, .tree-more-menu button:hover:not(:disabled) { color:#a6efff; background:#12364b; }
+.tree-more-menu button.danger { color:#f49b9b; }
+.tree-more-menu button:disabled { opacity:.3; }
+.tree-row .tree-item { gap:5px; padding-right:3px; }
+.tree-row .tree-name { flex:1; min-width:0; }
+@media (max-width: 570px) {
+  .tree-row-action { width:19px; flex-basis:19px; }
+  .tree-eye { flex-basis:21px; width:21px; }
+  .tree-row-actions { gap:0; }
+}
+
+.tree-rename-inline { flex:1; min-width:0; display:flex; align-items:center; height:34px; padding-right:3px; }
+.tree-rename-inline input { width:100%; min-width:0; height:25px; padding:0 5px; border:1px solid #39c9eb; border-radius:4px; outline:none; color:#e5f6ff; background:#081725; font:10px 'DM Mono',monospace; box-shadow:0 0 8px #00cfff22; }
+
+
+
+
+/* Right-center horizontal resize handle shared by Scene Tree and Menu dock. */
+.hierarchy-panel, .menu-panel {
+  box-sizing: border-box;
+  max-width: min(48vw, 420px);
+}
+.panel-resize-handle {
+  position: absolute;
+  z-index: 20;
+  top: 50%;
+  right: -1px;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(167, 139, 250, .82);
+  border-right: 0;
+  border-radius: 9px 0 0 9px;
+  background: rgba(32, 20, 58, .98);
+  box-shadow: 0 0 12px rgba(0, 196, 235, .16);
+  touch-action: none;
+  cursor: ew-resize;
+}
+.panel-resize-handle span {
+  display: block;
+  width: 4px;
+  height: 34px;
+  border-left: 1px solid #c4b5fd;
+  border-right: 1px solid #c4b5fd;
+  opacity: .95;
+}
+.panel-resize-handle:active {
+  background: #123c52;
+  border-color: #62d9f3;
+  box-shadow: 0 0 14px rgba(0, 205, 245, .3);
+}
+
+/* Shared dock width must win over legacy fixed-width mobile rules. */
+.hierarchy-panel, .menu-panel {
+  width: var(--nexus-panel-width, 172px) !important;
+  max-width: min(48vw, 420px) !important;
+}
+
+
+/* Independent mother panels: each panel owns its own position and width. */
+.hierarchy-panel {
+  top: var(--nexus-tree-top, 52px) !important;
+  bottom: 54px !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+  border-color: rgba(139, 92, 246, .62) !important;
+  box-shadow: 0 0 16px rgba(139, 92, 246, .10), 0 14px 45px #0005 !important;
+}
+.menu-panel {
+  top: var(--nexus-menu-top, 52px) !important;
+  bottom: 54px !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+  border-color: rgba(139, 92, 246, .72) !important;
+  box-shadow: 0 0 16px rgba(139, 92, 246, .12), 0 14px 45px #0005 !important;
+}
+
+/* Compact visible grip with a finger-friendly touch target. */
+.panel-resize-handle {
+  right: -1px !important;
+  width: 28px !important;
+  height: 58px !important;
+  min-width: 28px !important;
+  min-height: 58px !important;
+  border-radius: 7px 0 0 7px !important;
+  touch-action: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+.panel-resize-handle span {
+  width: 3px !important;
+  height: 23px !important;
+  border-left-width: 1px !important;
+  border-right-width: 1px !important;
+  opacity: .85 !important;
+}
+@media (max-height: 430px) {
+  .hierarchy-panel,
+  .menu-panel {
+    top: 48px !important;
+    bottom: 48px !important;
+  }
+}
+
+
+/* Bottom-anchored compact resize grip for Scene Tree, Menu, and IK Rigging.
+   The grip remains horizontally draggable, but no longer covers object rows or manager tools. */
+.hierarchy-panel,
+.menu-panel {
+  padding-bottom: 32px !important;
+}
+
+.panel-resize-handle {
+  top: auto !important;
+  right: auto !important;
+  left: 50% !important;
+  bottom: 4px !important;
+  transform: translateX(-50%) !important;
+  width: 26px !important;
+  min-width: 26px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  padding: 0 !important;
+  border: 1px solid rgba(72, 174, 207, .58) !important;
+  border-radius: 6px !important;
+  border-right: 1px solid rgba(72, 174, 207, .58) !important;
+  background: rgba(10, 31, 47, .97) !important;
+  cursor: ns-resize !important;
+  touch-action: none !important;
+}
+.panel-resize-handle span {
+  width: 12px !important;
+  height: 2px !important;
+  border: 0 !important;
+  border-top: 1px solid #62d9f3 !important;
+  border-bottom: 1px solid #62d9f3 !important;
+  opacity: .85 !important;
+}
+
+/* IK Rigging previously forced the Scene Tree to 132px on mobile,
+   preventing the shared drag-width state from taking effect. */
+.rigging-mode .hierarchy-panel {
+  width: var(--nexus-panel-width, 172px) !important;
+  max-width: min(48vw, 420px) !important;
+  padding-bottom: 32px !important;
+}
+.rigging-mode .hierarchy-panel .panel-resize-handle {
+  z-index: 30 !important;
+  pointer-events: auto !important;
+}
+
+
+/* Fixed bottom dock bar: keeps the horizontal resize grip out of scrolling tools. */
+.hierarchy-panel,
+.menu-panel {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding-bottom: 0 !important;
+}
+.hierarchy-panel .tree-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 6px;
+}
+.menu-panel {
+  top: var(--nexus-menu-top, 52px) !important;
+  overflow-y: auto !important;
+  scrollbar-width: thin;
+  padding-bottom: 42px !important;
+}
+.panel-bottom-bar {
+  position: absolute;
+  z-index: 25;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 34px;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-top: 1px solid rgba(91, 151, 184, .24);
+  background: linear-gradient(180deg, rgba(15, 30, 46, .96), rgba(7, 17, 29, .99));
+  box-shadow: 0 -5px 14px rgba(0, 0, 0, .22);
+  backdrop-filter: blur(12px);
+  pointer-events: auto;
+}
+.panel-bottom-bar .panel-resize-handle {
+  position: relative !important;
+  z-index: 1 !important;
+  inset: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  top: auto !important;
+  transform: none !important;
+  width: 42px !important;
+  min-width: 42px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  border: 1px solid rgba(72, 174, 207, .58) !important;
+  border-radius: 6px !important;
+  background: rgba(10, 31, 47, .97) !important;
+  cursor: ew-resize !important;
+  touch-action: none !important;
+}
+.panel-bottom-bar .panel-resize-handle span {
+  width: 16px !important;
+  height: 3px !important;
+  border: 0 !important;
+  border-top: 1px solid #62d9f3 !important;
+  border-bottom: 1px solid #62d9f3 !important;
+}
+
+
+/* Nexus3D Modeling Workspace — replacement visual language for the legacy mesh panel. */
+.mesh-edit-panel.nexus-modeling-workspace {
+  top: 62px;
+  left: 10px;
+  width: min(286px, calc(100vw - 20px));
+  max-height: calc(100dvh - 148px);
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(67, 180, 215, .48);
+  border-radius: 12px;
+  background: linear-gradient(155deg, rgba(10, 22, 36, .96), rgba(5, 11, 20, .94));
+  box-shadow: 0 16px 42px rgba(0,0,0,.48), inset 0 1px 0 rgba(175,235,255,.08), 0 0 24px rgba(0,190,230,.08);
+  backdrop-filter: blur(18px) saturate(125%);
+}
+.edit-workspace-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-bottom:9px; border-bottom:1px solid rgba(115,164,194,.18); }
+.edit-workspace-brand { display:flex; align-items:center; gap:9px; min-width:0; }
+.edit-workspace-mark { display:grid; place-items:center; width:29px; height:29px; border:1px solid rgba(53,207,239,.55); border-radius:8px; color:#9deeff; background:linear-gradient(145deg,#153b50,#102337); font-size:13px; font-weight:800; box-shadow:0 0 14px rgba(35,201,239,.12); }
+.edit-workspace-brand div { display:flex; flex-direction:column; gap:2px; }
+.edit-workspace-brand strong { color:#e2f5ff; font-size:10px; letter-spacing:.12em; }
+.edit-workspace-brand small { color:#6889a5; font-size:8px; letter-spacing:.16em; }
+.edit-workspace-live { display:flex; align-items:center; gap:5px; color:#8ce8c2; font:700 8px 'DM Mono',monospace; letter-spacing:.1em; }
+.edit-workspace-live i { width:6px; height:6px; border-radius:50%; background:#55e6a8; box-shadow:0 0 8px #55e6a8; }
+.edit-workspace-target { display:flex; flex-direction:column; gap:4px; padding:9px 10px; border:1px solid rgba(73,126,157,.24); border-radius:8px; background:rgba(17,39,57,.66); }
+.edit-workspace-target span,.edit-workspace-section-label { color:#7397b2; font:700 8px 'DM Mono',monospace; letter-spacing:.15em; }
+.edit-workspace-target strong { overflow:hidden; color:#e2f6ff; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+.edit-workspace-target small { color:#7f9bb1; font-size:8px; line-height:1.4; }
+.edit-workspace-section-label { padding:1px 1px 0; }
+.mesh-edit-panel.nexus-modeling-workspace .shape-edit-modes { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
+.mesh-edit-panel.nexus-modeling-workspace .shape-edit-modes button { min-height:43px; flex-direction:column; gap:4px; border-radius:7px; font-size:9px; }
+.mesh-edit-panel.nexus-modeling-workspace .shape-edit-modes button svg { width:15px; height:15px; }
+.mesh-edit-panel.nexus-modeling-workspace .edit-operations-label { padding-top:5px; }
+.mesh-edit-panel.nexus-modeling-workspace .shape-edit-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; overflow:visible; padding:0; }
+.mesh-edit-panel.nexus-modeling-workspace .shape-edit-actions button { min-height:40px; justify-content:flex-start; padding:0 10px; border-radius:7px; font-size:9px; }
+.mesh-edit-panel.nexus-modeling-workspace .shape-edit-actions button svg { width:14px; height:14px; }
+.mesh-edit-panel.nexus-modeling-workspace .shape-edit-actions button:last-child { color:#ffd28a; }
+.mesh-edit-panel.nexus-modeling-workspace .shape-edit-slider { flex-wrap:wrap; gap:7px; padding-top:10px; }
+.mesh-edit-panel.nexus-modeling-workspace .shape-edit-slider label { flex:1 1 100%; min-width:0; font-size:9px; }
+.mesh-edit-panel.nexus-modeling-workspace .shape-edit-slider input { min-width:0; }
+.mesh-edit-panel.nexus-modeling-workspace button { min-height:36px; border-radius:7px; }
+.mesh-edit-panel.nexus-modeling-workspace .shape-edit-actions button.active,
+.mesh-edit-panel.nexus-modeling-workspace .shape-edit-modes button.active { color:#baf6ff; border-color:#35b9d8; background:linear-gradient(145deg,#16445a,#102c40); box-shadow:inset 0 0 0 1px rgba(89,220,246,.08),0 0 12px rgba(28,196,230,.12); }
+@media (max-width:760px) {
+  .mesh-edit-panel.nexus-modeling-workspace { top:58px; left:8px; width:min(264px,calc(100vw - 16px)); padding:10px; gap:8px; }
+  .mesh-edit-panel.nexus-modeling-workspace .shape-edit-modes button { min-height:40px; font-size:9px; }
+  .mesh-edit-panel.nexus-modeling-workspace .shape-edit-actions button { min-height:38px; font-size:9px; }
+}
+
+
+/* Dedicated horizontal RIT control inside the RDS panel. */
+.rds-rit-toolbar{display:flex;flex-direction:row;align-items:center;width:100%;gap:5px;margin:2px 0}
+.rds-rit-toggle{width:100%;min-height:32px;margin:0;justify-content:flex-start}
+.rds-rit-panel{display:flex;flex-direction:column;gap:5px;margin:0 0 5px;padding:7px;border:1px solid #28536a;border-top:2px solid #32c5e8;border-radius:0 0 6px 6px;background:rgba(3,11,20,.96);animation:diagnosticPanelIn .16s ease-out}
+.rds-rit-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+.rds-icon-button{width:100%;min-height:34px;justify-content:center;padding:7px}
+.rds-icon-actions{display:flex;flex-direction:row;align-items:center;gap:6px}
+.rds-icon-actions button,.rds-icon-filters button{display:inline-flex;align-items:center;justify-content:center;min-width:38px;min-height:36px;padding:7px;border:1px solid #28536a;border-radius:5px;background:rgba(10,29,44,.96);color:#bfefff;cursor:pointer}
+.rds-icon-actions button:disabled{opacity:.35;cursor:not-allowed}
+.rds-icon-actions button:active,.rds-icon-filters button:active{border-color:#46c8e9;background:rgba(13,67,86,.98)}
+.rds-icon-filters{display:flex;flex-direction:row;align-items:center;gap:6px}
+.rds-icon-filters button{flex:1}
+.rds-icon-filters button.active{border-color:#46c8e9;background:rgba(13,67,86,.98);color:#fff;box-shadow:inset 0 0 10px rgba(50,197,232,.1)}
+
+
+/* Nexus DFI Core forensic report: compact, read-only evidence view. */
+.dfi-actions { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.dfi-report { max-height:min(34vh,260px); border-color:#28647a; color:#c4e9f5; }
+.dfi-core-section .diagnostic-summary { flex-wrap:wrap; }
+
+
+/* Advanced DFI: compact icon dashboard, unified reports and evidence severity highlighting. */
+.dfi-tool-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.dfi-tool-button{display:flex;min-width:0;min-height:44px;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:5px 3px;border:1px solid #28536a;border-radius:6px;background:rgba(8,25,39,.96);color:#bfefff;font-size:8px;line-height:1.2;text-align:center;cursor:pointer}
+.dfi-tool-button svg{color:#51d9f5}
+.dfi-tool-button:active{border-color:#55dff8;background:rgba(13,67,86,.98)}
+.dfi-tool-button:disabled{opacity:.45;cursor:wait}
+.dfi-tool-result{border:1px solid #28536a;border-radius:5px;background:rgba(4,15,25,.9);overflow:hidden}
+.dfi-tool-result summary{padding:8px;color:#aeeaff;font:700 9px 'DM Mono',monospace;cursor:pointer}
+.dfi-tool-result .dfi-report{max-height:220px;margin:0;border:0;border-top:1px solid #23495d;border-radius:0}
+.dfi-highlight-report{display:flex;flex-direction:column;gap:2px;white-space:pre-wrap;overflow-wrap:anywhere}
+.dfi-report-line{min-height:1em}
+.dfi-report-line.dfi-error,.dfi-report-line.dfi-conflict{padding:2px 5px;border-left:3px solid #ff5c70;background:rgba(120,25,43,.22);color:#ff9aa7;font-weight:700}
+.dfi-report-line.dfi-crash{padding:2px 5px;border-left:3px solid #ff2f52;background:rgba(150,12,40,.3);color:#ff7389;font-weight:800}
+.dfi-report-line.dfi-warning{padding:2px 5px;border-left:3px solid #e6ae4e;background:rgba(112,75,20,.2);color:#ffd28a}
+.dfi-actions button{min-height:38px}
+@media(max-width:760px){.dfi-tool-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.dfi-tool-button{min-height:46px;font-size:8px}}
+
+.dfi-actions button:only-child{grid-column:1/-1;justify-content:center;}
+
+
+/* Scene Tree dual-axis resizing:
+   width grip lives beside Search; height grip stays centered on the fixed bottom anchor. */
+.hierarchy-panel {
+  top: var(--nexus-tree-top, 52px) !important;
+  bottom: 54px !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 150px !important;
+}
+.hierarchy-panel .tree-search {
+  gap: 5px;
+  min-width: 0;
+}
+.hierarchy-panel .tree-search input {
+  flex: 1 1 auto;
+  width: 0;
+  min-width: 0;
+}
+.tree-width-resize-handle {
+  flex: 0 0 22px !important;
+  width: 22px !important;
+  min-width: 22px !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border: 1px solid rgba(72,174,207,.58) !important;
+  border-radius: 4px !important;
+  background: rgba(10,31,47,.98) !important;
+  color: #62d9f3 !important;
+  cursor: ew-resize !important;
+  touch-action: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+.tree-width-resize-handle span {
+  display: block;
+  width: 10px;
+  height: 2px;
+  border-left: 1px solid #62d9f3;
+  border-right: 1px solid #62d9f3;
+}
+.tree-width-resize-handle:active {
+  border-color: #62d9f3 !important;
+  background: #123c52 !important;
+}
+.hierarchy-panel .tree-height-bottom-bar {
+  position: absolute !important;
+  z-index: 31 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  top: auto !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-top: 1px solid rgba(91,151,184,.24) !important;
+  background: linear-gradient(180deg,rgba(15,30,46,.96),rgba(7,17,29,.99)) !important;
+  pointer-events: auto !important;
+}
+.tree-height-resize-handle {
+  width: 24px !important;
+  min-width: 24px !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border: 1px solid rgba(72,174,207,.58) !important;
+  border-radius: 4px !important;
+  background: rgba(10,31,47,.98) !important;
+  cursor: ns-resize !important;
+  touch-action: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+.tree-height-resize-handle span {
+  display: block;
+  width: 12px;
+  height: 8px;
+  border-top: 1px solid #62d9f3;
+  border-bottom: 1px solid #62d9f3;
+}
+.tree-height-resize-handle:active {
+  border-color: #62d9f3 !important;
+  background: #123c52 !important;
+}
+@media (max-height: 430px) {
+  .hierarchy-panel {
+    top: max(42px, var(--nexus-tree-top, 48px)) !important;
+    bottom: 48px !important;
+  }
+}
+
+
+/* DFI category summaries: each stable ID has its own compact copy control. */
+.dfi-report-copy-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+.dfi-tool-result summary{display:flex;align-items:center;justify-content:space-between;gap:8px;list-style:none}
+.dfi-tool-result summary::-webkit-details-marker{display:none}
+.dfi-result-title{flex:1;min-width:0}
+.dfi-summary-copy-icon{display:grid;place-items:center;flex:0 0 36px;width:36px;height:32px;min-height:32px;padding:0;border:1px solid #28647a;border-radius:5px;background:rgba(8,35,51,.96);color:#62dff8;cursor:pointer;touch-action:manipulation}
+.dfi-summary-copy-icon:active{background:#12445a;border-color:#62dff8}
+@media(max-width:420px){.dfi-report-copy-actions{grid-template-columns:1fr}.dfi-summary-copy-icon{flex-basis:40px;width:40px;height:36px}}
+
+
+/* Independent Scene Tree and Menu Mother Panels with fixed top-left anchors. */
+.hierarchy-panel.scene-tree-mother-panel,
+.menu-panel.menu-mother-panel {
+  position: absolute !important;
+  top: 52px !important;
+  left: 8px !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: var(--nexus-panel-width, 172px) !important;
+  height: var(--nexus-panel-height, 420px) !important;
+  min-width: 150px !important;
+  min-height: 180px !important;
+  max-width: min(48vw, 420px) !important;
+  max-height: calc(100dvh - 100px) !important;
+  display: block !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 14px 45px #0005 !important;
+}
+.hierarchy-panel.scene-tree-mother-panel {
+  border-color: rgba(106, 143, 190, .2) !important;
+}
+.menu-panel.menu-mother-panel {
+  border-color: rgba(106, 143, 190, .24) !important;
+}
+.panel-vertical-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.scene-tree-vertical-box .tree-list {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+.menu-panel-vertical-box .menu-panel-scroll {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+.panel-resize-handle {
+  position: absolute !important;
+  z-index: 40 !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border: 1px solid rgba(167, 139, 250, .86) !important;
+  border-radius: 8px !important;
+  background: rgba(13, 19, 34, .97) !important;
+  color: #b69aff !important;
+  box-shadow: 0 0 10px rgba(139, 92, 246, .24), 0 0 7px rgba(0, 205, 245, .12) !important;
+  touch-action: none !important;
+  -webkit-tap-highlight-color: transparent;
+  cursor: grab !important;
+}
+.panel-resize-handle:active {
+  color: #72e7ff !important;
+  border-color: #62d9f3 !important;
+  background: rgba(13, 43, 59, .98) !important;
+  box-shadow: 0 0 14px rgba(0, 205, 245, .34) !important;
+  cursor: grabbing !important;
+}
+.panel-resize-handle svg {
+  display: block;
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.panel-resize-handle-horizontal {
+  top: 50% !important;
+  right: 0 !important;
+  left: auto !important;
+  bottom: auto !important;
+  width: 24px !important;
+  min-width: 24px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  transform: translate(50%, -50%) !important;
+  cursor: ew-resize !important;
+}
+.panel-resize-handle-vertical {
+  top: auto !important;
+  right: auto !important;
+  left: 50% !important;
+  bottom: 0 !important;
+  width: 42px !important;
+  min-width: 42px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  transform: translate(-50%, 50%) !important;
+  cursor: ns-resize !important;
+}
+@media (max-height: 430px) {
+  .hierarchy-panel.scene-tree-mother-panel,
+  .menu-panel.menu-mother-panel {
+    top: 48px !important;
+    max-height: calc(100dvh - 90px) !important;
+  }
+}
+
+
+/* Nexus3D resize grips: neutral at rest; cyan/violet emphasis only after a real drag begins. */
+.panel-resize-handle {
+  border-color: rgba(121, 157, 202, .34) !important;
+  background: rgba(17, 27, 42, .96) !important;
+  color: #91a7c0 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .22) !important;
+  transition: color .12s ease, border-color .12s ease, background .12s ease, box-shadow .12s ease !important;
+}
+.panel-resize-handle:active {
+  color: #91a7c0 !important;
+  border-color: rgba(121, 157, 202, .34) !important;
+  background: rgba(17, 27, 42, .96) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .22) !important;
+}
+.panel-resize-handle.is-dragging {
+  color: #72e7ff !important;
+  border-color: #62d9f3 !important;
+  background: rgba(13, 43, 59, .98) !important;
+  box-shadow: 0 0 14px rgba(0, 205, 245, .34), 0 0 7px rgba(139, 92, 246, .18) !important;
+  cursor: grabbing !important;
+}
+
+
+/* Independent Geometry RIT diagnostics — separate from Menu, RDS and DFI. */
+.geometry-rit-toolbar-btn { color: #b8a0ff; }
+.geometry-rit-toolbar-btn.active { color: #d9caff; border-color: rgba(177,145,255,.8); background: rgba(112,76,170,.22); }
+.geometry-rit-panel {
+  position: fixed;
+  z-index: 160;
+  top: 58px;
+  right: 12px;
+  width: min(430px, calc(100vw - 24px));
+  max-height: min(72vh, 660px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(159,128,235,.72);
+  border-top: 2px solid #a98aff;
+  border-radius: 9px;
+  color: #e9e7f5;
+  background: rgba(8,10,22,.97);
+  box-shadow: 0 12px 36px rgba(0,0,0,.48), 0 0 18px rgba(139,104,219,.12);
+  backdrop-filter: blur(12px);
+}
+.geometry-rit-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.geometry-rit-heading > div { display:flex; align-items:center; gap:7px; color:#c9b6ff; }
+.geometry-rit-heading strong { font-size:11px; letter-spacing:.12em; }
+.geometry-rit-heading small { margin-left:4px; color:#8990a8; font-size:8px; letter-spacing:.08em; }
+.geometry-rit-heading > button { display:grid; place-items:center; width:30px; height:30px; border:1px solid #34334d; border-radius:6px; color:#c5c0d8; background:#151629; }
+.geometry-rit-summary { display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; padding:7px; border:1px solid #292b43; border-radius:6px; color:#aeb2c9; background:#101322; font-size:9px; }
+.geometry-rit-status { padding:3px 7px; border:1px solid #62528c; border-radius:4px; color:#d6c7ff; background:#28213d; font-weight:800; letter-spacing:.08em; }
+.geometry-rit-status.status-pass { color:#9be8c4; border-color:#286c55; background:#102c25; }
+.geometry-rit-status.status-review,.geometry-rit-status.status-insufficient-evidence { color:#ffd58b; border-color:#80633b; background:#302515; }
+.geometry-rit-status.status-fail { color:#ffaaaa; border-color:#873e4c; background:#351a24; }
+.geometry-rit-actions { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.geometry-rit-actions button { min-height:38px; display:flex; align-items:center; justify-content:center; gap:6px; border:1px solid #66538e; border-radius:6px; color:#e5dcff; background:linear-gradient(180deg,#302547,#201b35); font-size:9px; font-weight:800; letter-spacing:.06em; }
+.geometry-rit-actions button:disabled { opacity:.42; }
+.geometry-rit-report { min-height:100px; max-height: min(42vh,390px); margin:0; padding:9px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; border:1px solid #303149; border-radius:6px; color:#d5d8e8; background:#080d18; font:9px/1.55 "DM Mono",monospace; }
+.geometry-rit-note { color:#9398ae; font-size:8px; line-height:1.45; }
+@media (max-width:760px) {
+  .geometry-rit-panel { top:54px; right:7px; width:min(390px,calc(100vw - 14px)); max-height:74vh; padding:8px; }
+  .geometry-rit-report { max-height:42vh; font-size:8px; }
+  .geometry-rit-heading small { display:none; }
+}
+
+
+/* RDS Command Center — compact horizontal workspace with soft-contrast navigation */
+.rds-launch-btn { gap:5px; }
+.rds-command-center { position:fixed; z-index:30; top:58px; right:9px; width:min(650px,calc(100vw - 18px)); height:min(72vh,calc(100dvh - 78px)); min-height:260px; display:flex; flex-direction:column; overflow:hidden; color:#c2cbd6; background:rgba(13,19,30,.97); border:1px solid #35465a; border-radius:11px; box-shadow:0 18px 55px #0009,0 0 20px #28b8d51a; backdrop-filter:blur(18px); }
+.rds-command-header { min-height:42px; flex:0 0 42px; display:flex; align-items:center; justify-content:space-between; padding:0 10px; background:#192333; border-bottom:1px solid #2b3b50; }
+.rds-command-brand,.rds-command-header-actions { display:flex; align-items:center; gap:9px; }
+.rds-command-brand>svg { color:#69c9df; }
+.rds-command-brand div { display:flex; flex-direction:column; gap:2px; }
+.rds-command-brand strong { color:#d0d7df; font-size:11px; letter-spacing:.8px; }
+.rds-command-brand small,.rds-eyebrow { color:#8997a8; font-size:8px; letter-spacing:.65px; }
+.rds-live-indicator { color:#8bbca7; font:8px 'DM Mono',monospace; letter-spacing:.8px; }
+.rds-live-indicator:before { content:''; display:inline-block; width:5px; height:5px; margin-right:5px; border-radius:50%; background:#73b997; }
+.rds-command-header-actions button { width:27px; height:27px; display:grid; place-items:center; border:1px solid transparent; border-radius:6px; background:transparent; color:#aab5c2; }
+.rds-command-header-actions button:active { background:#2a3d50; }
+.rds-command-body { min-height:0; flex:1; display:flex; flex-direction:row; }
+.rds-command-nav { width:106px; flex:0 0 106px; display:flex; flex-direction:column; gap:4px; padding:7px 6px; overflow-y:auto; background:#151e2b; border-right:1px solid #29384a; }
+.rds-nav-item { min-height:49px; flex:0 0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:4px 2px; border:1px solid transparent; border-radius:7px; background:transparent; color:#a3adba; font-size:11px; font-weight:500; line-height:1.15; -webkit-tap-highlight-color:transparent; transition:background-color .12s ease,border-color .12s ease,color .12s ease; }
+.rds-nav-item svg { color:#9ba8b7; }
+.rds-nav-item:active { background:#263747; border-color:#40586b; color:#d4e0e8; }
+.rds-nav-item:active svg { color:#83c7d8; }
+.rds-nav-item.active { color:#d6e5eb; background:#263d4d; border-color:#47869b; box-shadow:inset 3px 0 0 #64c6dc,0 0 10px #3bbbd01a; }
+.rds-nav-item.active svg { color:#75d1e5; }
+.rds-command-content { min-width:0; min-height:0; flex:1; display:flex; flex-direction:column; gap:9px; padding:10px; overflow:auto; overscroll-behavior:contain; }
+.rds-content-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.rds-content-heading h2 { margin:3px 0 0; color:#d1d8e1; font-size:14px; font-weight:650; }
+.rds-session-chip { padding:4px 6px; border:1px solid #344d55; border-radius:5px; color:#94b6a8; font:8px 'DM Mono',monospace; }
+.rds-stat-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+.rds-stat-card { min-height:66px; display:grid; grid-template-columns:20px 1fr; grid-template-rows:auto 1fr; align-items:center; gap:2px 7px; padding:8px; border:1px solid #2c3b4c; border-radius:7px; background:#1a2635; }
+.rds-stat-card svg { grid-row:1/3; width:19px; height:19px; color:#80b9c9; }
+.rds-stat-card small { color:#9da8b5; font-size:10px; }
+.rds-stat-card strong { color:#d2dbe4; font:600 19px 'DM Mono',monospace; }
+.rds-stat-error svg { color:#d68b91; }.rds-stat-warning svg { color:#d7b77e; }
+.rds-info-card { padding:9px; border:1px solid #2c3b4c; border-radius:7px; background:#182433; color:#bac5d1; font-size:11px; }
+.rds-info-card p { margin:6px 0 0; color:#9ba8b6; line-height:1.5; }
+.rds-card-heading,.rds-result-line { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.rds-card-heading { margin-bottom:7px; color:#cbd4de; font-size:11px; }
+.rds-card-heading span { color:#8291a2; font-size:9px; }
+.rds-result-line { padding:5px 0; border-top:1px solid #293747; color:#9eabb9; font-size:10px; }
+.rds-result-line b { color:#c7d1dc; font-weight:550; text-align:right; }
+.rds-quick-actions { display:flex; flex-wrap:wrap; gap:6px; }
+.rds-quick-actions button { min-height:32px; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:0 9px; border:1px solid #35495b; border-radius:6px; background:#202e3e; color:#c0ccd8; font-size:10px; font-weight:550; }
+.rds-quick-actions button:active { background:#2b4355; border-color:#5b91a4; }
+.rds-quick-actions button:disabled { opacity:.45; }
+.rds-summary-strip { display:flex; flex-wrap:wrap; gap:6px; color:#aeb9c6; font-size:10px; }
+.rds-summary-strip span { padding:5px 7px; border:1px solid #2c3d50; border-radius:5px; background:#192635; }
+.rds-command-log-list { min-height:80px; flex:1; overflow:auto; border:1px solid #29394b; border-radius:7px; background:#111b29; }
+.rds-command-log-list .diagnostic-entry { margin:6px; }
+.rds-command-report { min-height:100px; max-height:none; flex:1; overflow:auto; margin:0; padding:9px; border:1px solid #29394b; border-radius:7px; background:#101a28; color:#aebbc9; font:9px/1.5 'DM Mono',monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+@media (max-width:570px) { .rds-command-center { top:55px; right:5px; width:calc(100vw - 10px); height:min(76vh,calc(100dvh - 68px)); } .rds-command-nav { width:88px; flex-basis:88px; padding:6px 4px; } .rds-nav-item { min-height:46px; font-size:10px; } .rds-nav-item svg { width:20px; height:20px; } .rds-command-content { padding:8px; gap:7px; } .rds-stat-card { min-height:58px; padding:6px; } }
+@media (orientation:landscape) and (max-height:420px) { .rds-command-center { height:calc(100dvh - 66px); top:52px; } .rds-command-nav { gap:2px; }.rds-nav-item { min-height:40px; } }
+/* RDS now has its own dock; avoid duplicate diagnostic accordions inside Menu. */
+.menu-panel .diagnostic-menu-section,.menu-panel .dfi-core-section,.menu-panel .core-optimizer-section { display:none !important; }
+
+
+/* RDS compact dock and temporary top-right toolbar declutter. */
+.rds-command-center {
+  width: min(360px, calc(100vw - 18px)) !important;
+  height: min(48vh, calc(100dvh - 78px)) !important;
+  min-height: 180px !important;
+}
+.right-actions .ready-label,
+.right-actions .fullscreen-btn {
+  display: none !important;
+}
+/* Three quick-access controls: slightly smaller, still fully clickable. */
+.quick-access-rail {
+  top: 52px !important;
+  right: 10px !important;
+  left: auto !important;
+  gap: 4px !important;
+  padding: 3px 4px !important;
+}
+.quick-access-rail button {
+  width: 42px !important;
+  min-width: 42px !important;
+  min-height: 34px !important;
+  padding: 3px 2px !important;
+  gap: 2px !important;
+  font-size: 6px !important;
+}
+.quick-access-rail button svg {
+  width: 13px !important;
+  height: 13px !important;
+}
+@media (max-width: 760px) {
+  .rds-command-center {
+    width: min(360px, calc(100vw - 10px)) !important;
+    height: min(48vh, calc(100dvh - 68px)) !important;
+  }
+  .quick-access-rail {
+    top: 52px !important;
+    right: 6px !important;
+    gap: 3px !important;
+  }
+  .quick-access-rail button {
+    width: 39px !important;
+    min-width: 39px !important;
+    min-height: 33px !important;
+  }
+}
+
+.rds-logcat-toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0}
+.rds-logcat-toolbar input{flex:1 1 150px;min-width:120px;padding:7px 8px;border:1px solid #35495b;border-radius:6px;background:#101a28;color:#d2e3ef;font-size:10px}
+.rds-logcat-filters{margin:6px 0;padding:7px;border:1px solid rgba(121,157,202,.2);border-radius:7px;background:rgba(9,17,29,.65);color:#a9bfd4;font-size:10px}
+.rds-logcat-filters summary{cursor:pointer;font-weight:800;letter-spacing:.04em}
+.rds-logcat-filters>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:8px}
+.rds-logcat-filters label{display:grid;gap:3px;min-width:0}
+.rds-logcat-filters input,.rds-logcat-filters select{width:100%;min-width:0;padding:6px;border:1px solid #35495b;border-radius:5px;background:#101a28;color:#d2e3ef;font-size:9px}
+.rds-logcat-filters .rds-logcat-regex{display:flex;align-items:center;gap:6px}
+.rds-logcat-filters .rds-logcat-regex input{width:auto}
+
+
+
+/* Restored Animation workspace: compact User Camera mode and floating timeline. */
+.animation-mode .topbar,
+.animation-mode .top-actions,
+.animation-mode .shape-edit-toolbar,
+.animation-mode .shape-library-popover,
+.animation-mode .interpolation-float,
+.animation-mode .floating-menu-toggle,
+.animation-mode .menu-panel,
+.animation-mode .hierarchy-panel,
+.animation-mode .right-rail,
+.animation-mode .quick-access-rail,
+.animation-mode .quick-access-panel,
+.animation-mode .ik-rig-actions,
+.animation-mode .ik-rig-panel,
+.animation-mode .ik-spring-panel,
+.animation-mode .action-dock,
+.animation-mode .statusbar,
+.animation-mode .view-label,
+.animation-mode .hint-card,
+.animation-mode .camera-mode-hud { display: none !important; }
+.animation-mode .viewport { z-index: 0; }
+.animation-mode-controls {
+  position:absolute; z-index:15; right:12px; top:50%; transform:translateY(-50%);
+  display:flex; flex-direction:column; gap:8px;
+}
+.animation-mode-controls button {
+  min-width:42px; height:39px; padding:0 8px; display:flex; align-items:center; justify-content:center; gap:5px;
+  border:1px solid #28617a; border-radius:8px; color:#a9edff; background:rgba(8,18,30,.94);
+  box-shadow:0 4px 18px #0006; font:700 9px 'DM Mono',monospace;
+}
+.animation-mode-controls button.active { color:#07131d; background:#7ce8ff; border-color:#7ce8ff; }
+.animation-mode-controls button span { font-size:8px; }
+.timeline-heading { height:22px; min-height:22px; display:flex; align-items:center; gap:9px; padding:0 2px; border-bottom:1px solid #23364b; font:700 9px 'DM Mono',monospace; }
+.timeline-heading strong { display:flex; align-items:center; gap:5px; color:#a9eaff; }
+.timeline-heading > span { color:#8ca8c2; margin-left:auto; font-size:8px; }
+.timeline-heading-actions { display:flex; align-items:center; }
+.timeline-heading-actions button { display:grid; place-items:center; width:22px; height:20px; border:0; border-radius:4px; color:#9ab2c9; background:#152337; }
+.timeline-transport { display:flex; align-items:center; gap:4px; min-height:27px; }
+.timeline-transport button { height:25px; min-width:27px; display:flex; align-items:center; justify-content:center; gap:4px; padding:0 6px; border:1px solid #29425a; border-radius:5px; color:#b8d3ea; background:#102033; font:700 8px 'DM Mono',monospace; }
+.timeline-transport button:disabled { opacity:.35; }
+.timeline-transport .timeline-play { color:#06131c; background:#7ce8ff; border-color:#7ce8ff; }
+.timeline-transport .timeline-key { color:#72e7ff; }
+.timeline-transport .timeline-key span { font-size:13px; }
+.timeline-transport button.record-active { color:#ffd1d5; border-color:#a74756; background:#351b27; }
+.record-dot { width:7px; height:7px; border-radius:50%; background:#687b8e; display:inline-block; }
+.record-active .record-dot { background:#ff5268; box-shadow:0 0 8px #ff5268; }
+.timeline-loop { display:flex; align-items:center; gap:3px; margin-left:auto; color:#91a9c0; font:8px 'DM Mono',monospace; }
+.timeline-loop input { width:12px; height:12px; accent-color:#41c8ec; }
+.alphabet-keyframe-track input[type=range] { width:100%; height:4px; accent-color:#36d4f4; margin:0; }
+.alphabet-keyframe-markers button { position:absolute; top:50%; transform:translate(-50%,-50%); padding:0; border:0; color:#40dfff; background:transparent; font-size:12px; line-height:1; pointer-events:auto; text-shadow:0 0 7px #00d9ff; }
+.timeline-settings { display:flex; align-items:center; gap:8px; min-height:24px; color:#819db8; font:8px 'DM Mono',monospace; }
+.timeline-settings label { display:flex; align-items:center; gap:4px; white-space:nowrap; }
+.timeline-settings input[type=number] { width:38px; height:20px; padding:0 3px; border:1px solid #29445d; border-radius:4px; color:#d5e9fa; background:#0d1b2a; font:8px 'DM Mono',monospace; }
+.timeline-settings input[type=range] { width:55px; accent-color:#37d1f1; }
+.timeline-settings label:nth-child(2) span { color:#a8dff0; }
+.timeline-settings select { max-width:95px; height:21px; padding:0 3px; border:1px solid #29445d; border-radius:4px; color:#d5e9fa; background:#0d1b2a; font:8px 'DM Mono',monospace; }
+.timeline-settings > button { margin-left:auto; width:24px; height:22px; display:grid; place-items:center; border:1px solid #573243; border-radius:4px; color:#ff9eaa; background:#281923; }
+@media (max-width:760px) {
+  .timeline-transport { gap:3px; }
+  .timeline-transport button { min-width:24px; padding:0 4px; }
+  .timeline-settings { gap:5px; font-size:7px; }
+  .timeline-settings input[type=range] { width:40px; }
+  .timeline-settings select { max-width:75px; }
+}
+
+.timeline-clip-select { display:flex; align-items:center; gap:5px; margin-left:2px; color:#8da8c2; font:8px 'DM Mono',monospace; }
+.timeline-clip-select select { max-width:160px; height:21px; padding:0 4px; border:1px solid #31536d; border-radius:4px; color:#c7e9f8; background:#0d1b2a; font:8px 'DM Mono',monospace; }
+@media (max-width:760px) { .timeline-clip-select { max-width:46vw; } .timeline-clip-select select { max-width:34vw; } }
+
+
+/* Alphabet State Timeline: draggable letter handles define expandable continuous ranges. */
+.alphabet-state-row { display:flex; flex-direction:column; gap:4px; min-height:34px; }
+.alphabet-state-handle { position:relative; flex:0 0 auto; min-width:42px; height:29px; display:flex; align-items:center; justify-content:center; gap:5px; border:1px solid #29445d; border-radius:5px; color:#a8c3da; background:#102033; font:800 12px 'DM Mono',monospace; touch-action:pan-y; cursor:ew-resize; user-select:none; }
+.alphabet-state-handle small { color:#6f91ad; font:7px 'DM Mono',monospace; }
+.alphabet-state-handle.active { color:#07131c; border-color:#78e7ff; background:#78e7ff; box-shadow:0 0 10px #36c9ee55; }
+.alphabet-state-handle.active small { color:#24576a; }
+.alphabet-state-add { flex:0 0 30px; height:29px; border:1px dashed #3c6a86; border-radius:5px; color:#83eaff; background:#10283a; font-size:18px; }
+.alphabet-state-choice { display:flex; align-items:center; gap:5px; padding:4px 6px; border:1px solid #31536d; border-radius:5px; background:#0a1928; }
+.alphabet-state-choice span { color:#8ca8c2; font:7px 'DM Mono',monospace; margin-right:auto; }
+.alphabet-state-choice button,.timeline-tool-row button { min-height:23px; padding:0 7px; border:1px solid #29445d; border-radius:4px; color:#9fc2d9; background:#102033; font:700 7px 'DM Mono',monospace; white-space:nowrap; }
+.alphabet-state-choice button:hover,.timeline-tool-row button.active { color:#06131c; border-color:#78e7ff; background:#78e7ff; }
+.timeline-tool-row { display:flex; align-items:center; gap:3px; overflow-x:auto; min-height:23px; scrollbar-width:none; }
+.timeline-tool-row button { min-width:38px; }
+.alphabet-keyframe-markers .timeline-event-marker { color:#ffcf72; text-shadow:0 0 6px #ffb84d; }
+.timeline-tool-empty { display:flex; align-items:center; min-height:22px; color:#819db8; font:7px 'DM Mono',monospace; }
+@media (max-width:760px) {
+  .alphabet-state-handle { min-width:40px; }
+  .timeline-tool-row button { padding:0 5px; }
+}
+
+
+/* Functional Animation Timeline editors: Dope Sheet, Graph channel editing and 3D ghosts. */
+.timeline-dope-sheet{display:flex;flex:0 0 auto;min-height:0;flex-direction:column;gap:4px;overflow:hidden}
+.timeline-graph-editor{display:flex;flex:1;min-height:0;flex-direction:column;gap:4px;overflow:hidden}
+.timeline-dope-actions,.timeline-graph-toolbar{display:flex;align-items:center;gap:5px;min-height:24px;overflow-x:auto}
+.timeline-dope-actions span{margin-right:auto;color:#a8c4df;font:7px 'DM Mono',monospace;white-space:nowrap}
+.timeline-dope-actions button,.timeline-graph-toolbar button{min-height:21px;padding:0 6px;border:1px solid #31536d;border-radius:4px;background:#102033;color:#b9d8eb;font:700 7px 'DM Mono',monospace;white-space:nowrap}
+.timeline-dope-actions button:disabled,.timeline-graph-toolbar button:disabled{opacity:.35}
+.timeline-graph-toolbar label,.timeline-curve-controls label{display:flex;align-items:center;gap:4px;color:#91abc1;font:7px 'DM Mono',monospace;white-space:nowrap}
+.timeline-graph-toolbar select{height:21px;max-width:95px;padding:0 3px;border:1px solid #31536d;border-radius:4px;background:#0d1b2a;color:#d5e9fa;font:7px 'DM Mono',monospace}
+.timeline-graph-toolbar input{width:58px;min-width:48px;height:20px;padding:0 3px;border:1px solid #31536d;border-radius:4px;background:#0d1b2a;color:#d5e9fa;font:8px 'DM Mono',monospace}
+.timeline-curve-controls{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:24px}
+.timeline-curve-controls input{width:55px;accent-color:#42dfff}
+.timeline-curve-controls span{color:#b8d7eb}
+.timeline-curve-controls p{flex-basis:100%;margin:0;color:#819db8;font:7px 'DM Mono',monospace}
+@media(max-width:760px){.timeline-graph-toolbar{gap:3px}.timeline-graph-toolbar label{font-size:6px}.timeline-graph-toolbar input{width:48px}.timeline-curve-controls{gap:4px}}
+
+
+/* Animation workspace reuses the live scene selection, gizmo and transform values. */
+.animation-editor-dock{position:absolute;z-index:16;top:9px;left:9px;bottom:calc(min(34vh,220px) + 18px);width:min(218px,34vw);min-width:158px;display:flex;flex-direction:column;gap:7px;overflow:hidden;padding:7px;border:1px solid rgba(79,180,255,.35);border-radius:8px;background:rgba(7,14,24,.94);box-shadow:0 8px 28px #0007;backdrop-filter:blur(12px);color:#dce7f7}
+.animation-scene-list,.animation-transform-inspector{display:flex;flex-direction:column;gap:5px;min-height:0}
+.animation-scene-list{flex:1 1 42%}
+.animation-transform-inspector{flex:1 1 58%;overflow:auto}
+.animation-dock-heading{display:flex;align-items:center;justify-content:space-between;gap:5px;min-height:22px;padding-bottom:4px;border-bottom:1px solid #24384d;color:#a9eaff;font:700 8px 'DM Mono',monospace}
+.animation-dock-heading strong{display:flex;align-items:center;gap:5px}
+.animation-dock-heading span{color:#829bb2}
+.animation-dock-heading button{padding:3px 6px;border:1px solid #8a416c;border-radius:4px;background:#321a2b;color:#ff8ec6;font:700 8px 'DM Mono',monospace}
+.animation-dock-heading button:disabled{opacity:.35}
+.animation-scene-items{display:flex;flex-direction:column;gap:2px;overflow:auto;min-height:0}
+.animation-scene-items button{min-height:23px;padding:3px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;border:1px solid transparent;border-radius:4px;background:#102033;color:#9db8ce;font:8px 'DM Mono',monospace}
+.animation-scene-items button.active{border-color:#55c8e8;background:#15394b;color:#c9f5ff}
+.animation-transform-group{display:flex;flex-direction:column;gap:3px;padding:3px 0;border-bottom:1px solid #203247}
+.animation-transform-group>strong{color:#8db4ce;font:700 7px 'DM Mono',monospace}
+.animation-transform-group label{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;gap:4px}
+.animation-transform-group label>span{display:flex;align-items:center;gap:4px;color:#8ea9c0;font:8px 'DM Mono',monospace}
+.animation-transform-group label>span button{padding:0;border:0;background:transparent;color:#9ab2c9;font-size:13px;line-height:1}
+.animation-transform-group label>span button.keyed{color:#ff63ad;text-shadow:0 0 7px #ff4fa3}
+.animation-transform-group input{width:100%;min-width:0;height:20px;padding:0 4px;border:1px solid #29445d;border-radius:4px;background:#0d1b2a;color:#d5e9fa;font:8px 'DM Mono',monospace}
+.animation-dock-empty{padding:8px;color:#819db8;font:8px 'DM Mono',monospace}
+.animation-gizmo-tools{display:flex;align-items:center;gap:4px;padding-top:5px;border-top:1px solid #24384d}
+.animation-gizmo-tools button{height:25px;min-width:27px;display:flex;align-items:center;justify-content:center;gap:3px;padding:0 5px;border:1px solid #29445d;border-radius:4px;background:#102033;color:#a9c7dc}
+.animation-gizmo-tools button.active{border-color:#78e7ff;background:#15394b;color:#a9edff}
+.animation-gizmo-tools button span{font:7px 'DM Mono',monospace}
+@media(max-width:760px){.animation-editor-dock{top:6px;left:5px;bottom:calc(34vh + 13px);width:178px;min-width:150px;padding:5px}.animation-scene-items button{min-height:21px}.animation-transform-group label{grid-template-columns:38px minmax(0,1fr)}}
+@media(orientation:landscape) and (max-height:420px){.animation-editor-dock{bottom:calc(min(34vh,220px) + 14px);width:190px}.animation-scene-list{flex-basis:34%}.animation-transform-inspector{flex-basis:66%}}
+.alphabet-state-handle{position:relative;display:flex;flex:0 0 36px;flex-direction:column;align-items:center;justify-content:center;gap:0;min-width:34px;width:36px;height:36px;padding:2px;border:1px solid #29445d;border-radius:5px;color:#a8c3da;background:#102033;font:800 12px 'DM Mono',monospace;touch-action:none;cursor:ew-resize;user-select:none}
+.alphabet-state-handle small{color:#7796b0;font:6px 'DM Mono',monospace}
+.alphabet-state-handle .state-resize-grip{position:absolute;right:1px;bottom:0;color:#62dfff;font:8px 'DM Mono',monospace}
+.alphabet-state-handle.active{color:#07131c;border-color:#78e7ff;background:#78e7ff;box-shadow:0 0 10px #36c9ee55}
+.alphabet-state-handle.active small,.alphabet-state-handle.active .state-resize-grip{color:#24576a}
+.alphabet-state-add{display:flex;flex:0 0 38px;flex-direction:column;align-items:center;justify-content:center;gap:0;min-width:36px;height:38px;padding:1px;border:1px dashed #3c6a86;border-radius:5px;color:#83eaff;background:#10283a;font-size:17px}
+.alphabet-state-add small{font:6px 'DM Mono',monospace}
+.alphabet-state-choice{display:flex;flex-direction:column;align-items:stretch;gap:3px;width:100%;padding:4px 2px;border:1px solid #31536d;border-radius:5px;background:#0a1928}
+.alphabet-state-choice span{color:#8ca8c2;font:6px 'DM Mono',monospace;text-align:center}
+.alphabet-state-choice button{min-height:23px;padding:2px;border:1px solid #29445d;border-radius:4px;color:#9fc2d9;background:#102033;font:700 6px 'DM Mono',monospace}
+.alphabet-state-keyframe-heading span{color:#83a4bf;font:6px 'DM Mono',monospace;text-align:right}
+.alphabet-state-keyframe-empty{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:0;color:#83a4bf;text-align:center;font:8px 'DM Mono',monospace}
+.alphabet-state-keyframe-empty strong{color:#a9eaff;font-size:9px}
+.alphabet-state-keyframe-empty span{max-width:220px;line-height:1.5}
+@media(max-width:760px){.alphabet-state-handle{width:32px;min-width:32px}.alphabet-state-add{min-width:32px}.alphabet-state-keyframe-heading span{font-size:5px}}
+.timeline-playback-panel .timeline-transport button{min-width:0;width:100%;height:25px;padding:0 3px}
+.timeline-tools-panel{display:flex;flex:0 0 auto;min-width:0;max-width:100%;padding:2px 4px;border:1px solid #203c52;border-radius:6px;background:rgba(10,25,40,.76)}
+.timeline-tools-panel .timeline-tool-row{width:100%;min-width:0;min-height:23px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:#28536d transparent;touch-action:pan-x}
+.timeline-tools-panel .timeline-tool-row button{flex:0 0 auto;min-width:38px}
+.alphabet-state-item{display:flex;flex:0 0 auto;align-items:center;gap:3px;min-width:0}
+.alphabet-state-item .alphabet-state-handle{display:flex;flex:0 0 25px;align-items:center;justify-content:center;width:25px;min-width:25px;height:23px;padding:0;border-radius:4px;font:800 10px "DM Mono",monospace;touch-action:pan-y;cursor:ew-resize}
+.alphabet-state-mini-ruler{position:relative;flex:0 0 auto;height:12px;max-width:150px;min-width:52px;border:1px solid #29445d;border-radius:3px;background:repeating-linear-gradient(90deg,#14283a 0,#14283a 8px,#31536d 9px,#14283a 10px);overflow:hidden}
+.alphabet-state-mini-ruler span{position:absolute;right:3px;top:-1px;color:#91abc1;background:#102033;font:6px "DM Mono",monospace}
+.alphabet-state-panel .alphabet-state-add{display:flex;flex:0 0 54px;align-items:center;justify-content:center;gap:2px;width:54px;min-width:54px;height:23px;padding:0;border-radius:4px;font-size:13px}
+.alphabet-state-panel .alphabet-state-add small{font:6px "DM Mono",monospace}
+.alphabet-state-panel .alphabet-state-choice{flex-direction:row;align-self:flex-start;width:auto;max-width:100%;padding:2px 4px}
+.alphabet-state-panel .alphabet-state-choice span{margin-right:3px}
+.alphabet-state-panel .alphabet-state-choice button{min-height:19px;padding:1px 5px;font-size:6px}
+.alphabet-state-keyframe-heading strong{white-space:nowrap}
+.alphabet-state-keyframe-heading span{margin-left:auto;white-space:nowrap}
+.timeline-keyframe-button{flex:0 0 auto;height:19px;padding:0 6px;border:1px solid #3b718a;border-radius:4px;color:#83eaff;background:#10283a;font:700 7px "DM Mono",monospace}
+.timeline-keyframe-button:disabled{opacity:.35}
+.alphabet-state-keyframe-empty{flex:1 1 auto;min-height:18px;font-size:7px}
+.alphabet-state-keyframe-empty strong{font-size:8px}
+@media(max-width:760px){.timeline-playback-panel .timeline-transport button{height:23px;min-width:20px}.timeline-tools-panel{padding:2px}.timeline-tools-panel .timeline-tool-row{gap:2px}.timeline-tools-panel .timeline-tool-row button{min-width:34px;padding:0 4px;font-size:6px}.alphabet-state-item .alphabet-state-handle{flex-basis:23px;width:23px;min-width:23px;height:22px}.alphabet-state-mini-ruler{min-width:40px}.alphabet-state-panel .alphabet-state-add{flex-basis:48px;width:48px;min-width:48px}.alphabet-state-keyframe-heading span{font-size:5px}}
+@media(max-height:430px){.timeline-playback-panel .timeline-transport button{height:21px}}
+
+
+/* Animation workspace: independent compact Scene List and Transform panels. */
+.animation-floating-panel{position:absolute;z-index:16;left:7px;width:clamp(112px,15vw,148px);min-width:0;max-height:calc(100% - 170px);overflow:hidden;padding:5px;border:1px solid rgba(79,180,255,.3);border-radius:6px;background:rgba(7,14,24,.92);box-shadow:0 5px 18px #0006;backdrop-filter:blur(9px);color:#dce7f7}
+.animation-scene-list.animation-floating-panel{top:7px;bottom:auto;height:28%;min-height:74px;display:flex;flex-direction:column;gap:4px}
+.animation-transform-inspector.animation-floating-panel{top:calc(28% + 15px);bottom:calc(min(34vh,220px) + 18px);height:auto;display:flex;flex-direction:column;gap:3px}
+.animation-floating-panel .animation-dock-heading{min-height:18px;padding-bottom:3px;font-size:7px}
+.animation-floating-panel .animation-scene-items{gap:1px}
+.animation-floating-panel .animation-scene-items button{min-height:18px;padding:2px 4px;font-size:7px}
+.animation-floating-panel .animation-transform-group{gap:2px;padding:2px 0}
+.animation-floating-panel .animation-transform-group label{grid-template-columns:30px minmax(0,1fr);gap:3px}
+.animation-floating-panel .animation-transform-group input{height:17px;font-size:7px}
+.animation-floating-panel .animation-transform-group label>span{font-size:7px}
+.animation-floating-panel .animation-dock-heading button{padding:2px 4px;font-size:7px}
+.animation-floating-gizmo{position:absolute;z-index:16;left:7px;bottom:calc(min(34vh,220px) + 23px);display:flex;gap:3px;padding:3px;border:1px solid #24384d;border-radius:5px;background:rgba(7,14,24,.92)}
+.animation-floating-gizmo button{height:21px;min-width:23px;padding:0 3px}
+@media(max-width:760px){.animation-floating-panel{left:5px;width:clamp(104px,27vw,126px);padding:4px}.animation-scene-list.animation-floating-panel{top:5px;height:25%;min-height:62px}.animation-transform-inspector.animation-floating-panel{top:calc(25% + 10px);bottom:calc(34vh + 18px)}.animation-floating-gizmo{left:5px;bottom:calc(34vh + 20px)}}
+@media(orientation:landscape) and (max-height:430px){.animation-scene-list.animation-floating-panel{height:23%;min-height:52px}.animation-transform-inspector.animation-floating-panel{top:calc(23% + 11px);bottom:calc(min(34vh,220px) + 17px)}.animation-floating-panel .animation-transform-group{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:4px}.animation-floating-panel .animation-transform-group>strong{grid-column:1/-1}.animation-floating-panel .animation-transform-group label{grid-template-columns:16px minmax(0,1fr)}}
+
+
+/* Visible keyframe curve canvas for Graph mode. */
+.timeline-graph-plot{position:relative;display:flex;flex:1 1 52px;min-height:46px;overflow:hidden;border:1px solid #29445d;border-radius:4px;background:repeating-linear-gradient(0deg,transparent 0,transparent 18px,#20384d 19px),repeating-linear-gradient(90deg,transparent 0,transparent 29px,#20384d 30px),#091624}
+.timeline-graph-plot svg{display:block;width:100%;height:100%;min-height:46px;overflow:visible}
+.timeline-graph-zero{stroke:#49657b;stroke-width:.7;stroke-dasharray:3 3}
+.timeline-graph-line{fill:none;stroke:#54dfff;stroke-width:2;vector-effect:non-scaling-stroke;filter:drop-shadow(0 0 3px #36d9ff88)}
+.timeline-graph-point{fill:#f2c879;stroke:#081521;stroke-width:1.2;vector-effect:non-scaling-stroke}
+.timeline-graph-point.active{fill:#fff;stroke:#53e4ff;stroke-width:2}
+.timeline-graph-empty{display:flex;align-items:center;justify-content:center;width:100%;padding:5px;color:#8ba8c2;text-align:center;font:7px 'DM Mono',monospace}
+.timeline-dope-sheet .timeline-tool-empty{padding:3px 5px;border:1px dashed #29445d;border-radius:4px}
+.alphabet-state-keyframe-content .alphabet-keyframe-track { min-height:22px; background-image:repeating-linear-gradient(90deg,transparent 0,transparent 13px,rgba(78,174,211,.16) 13px,rgba(78,174,211,.16) 14px); border-bottom:1px solid rgba(72,190,225,.28); }
+.alphabet-state-keyframe-content .alphabet-keyframe-track input[type=range] { position:relative; z-index:1; }
+.alphabet-state-keyframe-content .alphabet-keyframe-markers { z-index:2; }
+.alphabet-state-keyframe-content .alphabet-keyframe-markers button { font-size:13px; }
+.animation-mode .timeline-playback-panel .timeline-transport button{flex:0 0 27px;width:27px;height:22px}
+.animation-mode .timeline-tools-panel
+{margin-left:0;margin-right:0}
+.animation-mode .alphabet-keyframe-track input[type=range]{position:absolute;inset:0;width:100%;height:100%;margin:0;z-index:1;appearance:none;background:transparent;pointer-events:auto}
+.animation-mode .alphabet-keyframe-track input[type=range]::-webkit-slider-runnable-track{height:3px;background:#34556b;border-radius:3px}
+.animation-mode .alphabet-keyframe-track input[type=range]::-moz-range-track{height:3px;background:#34556b;border-radius:3px}
+.animation-mode .alphabet-keyframe-track input[type=range]::-webkit-slider-thumb{appearance:none;width:9px;height:9px;margin-top:-3px;border:1px solid #e9fbff;border-radius:50%;background:#41dafa;box-shadow:0 0 7px #36dfff}
+.animation-mode .alphabet-keyframe-track input[type=range]::-moz-range-thumb{width:8px;height:8px;border:1px solid #e9fbff;border-radius:50%;background:#41dafa;box-shadow:0 0 7px #36dfff}
+.animation-mode .alphabet-keyframe-markers button{pointer-events:auto;z-index:3}
+.animation-mode .alphabet-keyframe-markers .timeline-event-marker{z-index:4;color:#f4c66f}
+.animation-panel-switcher{position:absolute;z-index:19;top:7px;left:7px;display:flex;align-items:center;gap:3px;padding:3px;border:1px solid #29445d;border-radius:6px;background:rgba(7,14,24,.92);box-shadow:0 4px 14px #0006}
+.animation-panel-switcher button{display:grid;place-items:center;width:28px;height:26px;padding:0;border:1px solid transparent;border-radius:4px;color:#a9c7df;background:#102033}
+.animation-panel-switcher button.active{color:#07131c;border-color:#78e7ff;background:#78e7ff}
+.animation-floating-panel{top:42px!important;left:7px!important;right:auto!important;bottom:auto!important;width:clamp(150px,24vw,230px)!important;max-height:calc(100% - 190px)!important;height:auto!important;min-height:70px;display:flex;flex-direction:column;gap:4px;overflow:auto}
+.animation-floating-panel .animation-dock-heading{display:flex;align-items:center;justify-content:space-between;gap:6px;flex:0 0 auto}
+.animation-floating-panel .animation-dock-heading button{display:grid;place-items:center;min-width:22px;min-height:22px}
+.animation-gizmo-tools.animation-floating-gizmo{top:7px!important;bottom:auto!important;left:50%!important;right:auto!important;transform:translateX(-50%);z-index:19}
+@media(max-width:760px){.animation-panel-switcher{top:5px;left:5px}.animation-floating-panel{top:38px!important;left:5px!important;width:clamp(145px,34vw,205px)!important}.animation-gizmo-tools.animation-floating-gizmo{top:5px!important;left:50%!important}}
+.animation-mode .timeline-playback-panel .timeline-transport button{
+  flex:0 0 25px;
+  width:25px;
+  height:23px;
+  min-width:25px;
+}
+.animation-mode .timeline-playback-panel .timeline-transport button:nth-child(6){flex-basis:38px;width:38px}
+.animation-mode .alphabet-keyframe-track input[type=range]{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  width:100%;
+  height:100%;
+  margin:0;
+  appearance:none;
+  background:transparent;
+  pointer-events:auto;
+}
+.animation-mode .alphabet-keyframe-track input[type=range]::-webkit-slider-runnable-track{height:3px;background:#34556b;border-radius:3px}
+.animation-mode .alphabet-keyframe-track input[type=range]::-moz-range-track{height:3px;background:#34556b;border-radius:3px}
+.animation-mode .alphabet-keyframe-track input[type=range]::-webkit-slider-thumb{
+  appearance:none;width:9px;height:9px;margin-top:-3px;border:1px solid #e9fbff;
+  border-radius:50%;background:#41dafa;box-shadow:0 0 7px #36dfff
+}
+.animation-mode .alphabet-keyframe-track input[type=range]::-moz-range-thumb{
+  width:9px;height:9px;border:1px solid #e9fbff;border-radius:50%;
+  background:#41dafa;box-shadow:0 0 7px #36dfff
+}
+.animation-mode .alphabet-keyframe-markers button{
+  position:absolute;
+  top:50%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:0;
+  min-width:15px;
+  min-height:26px;
+  padding:0 1px;
+  transform:translate(-50%,-50%);
+  border:0;
+  color:#48e3ff;
+  background:rgba(7,18,29,.72);
+  font:700 8px 'DM Mono',monospace;
+  line-height:9px;
+  white-space:nowrap;
+  text-shadow:0 0 6px #00d9ff;
+  pointer-events:auto;
+}
+.animation-mode .alphabet-keyframe-markers button .keyframe-diamond{font-size:12px;line-height:12px}
+.animation-mode .alphabet-keyframe-markers button .keyframe-frame-number{font-size:7px;line-height:8px;color:#d6f8ff}
+.animation-mode .alphabet-keyframe-markers button.selected-keyframe{
+  color:#fff3a6;
+  background:rgba(67,52,13,.82);
+  text-shadow:0 0 7px #ffcf55;
+}
+.animation-mode .alphabet-keyframe-markers button.selected-keyframe .keyframe-frame-number{color:#ffe08a}
+.animation-mode .alphabet-keyframe-markers .timeline-event-marker{
+  z-index:4;
+  top:2px;
+  transform:translateX(-50%);
+  min-height:12px;
+  color:#f4c66f;
+  background:transparent;
+}
+@media(max-width:760px){
+  .animation-mode .timeline-playback-panel .timeline-transport button{flex-basis:23px;width:23px;min-width:23px;height:22px}
+  .animation-mode .timeline-playback-panel .timeline-transport button:nth-child(6){flex-basis:34px;width:34px}
+}
+.animation-mode .alphabet-state-panel .alphabet-keyframe-markers button{min-height:33px}
+@media(max-height:430px){
+}
+
+/* Canonical Animation Timeline layout — replaces the legacy vertical/rail layouts.
+   The mother panel keeps its existing footprint; its inner row owns the available height. */
+.timeline-panel{display:flex!important;position:absolute;z-index:14;left:8px;right:8px;bottom:8px;box-sizing:border-box;height:148px;min-height:136px;max-height:42vh;flex-direction:column;gap:4px;overflow:hidden;padding:5px 7px}
+.timeline-heading{flex:0 0 20px;height:20px;min-height:20px;padding:0 4px}
+.animation-state-layout{display:flex;flex:1 1 0;flex-direction:row;align-items:stretch;gap:5px;min-width:0;min-height:0;overflow:hidden}
+.timeline-playback-panel{display:flex;flex:0 0 112px;width:112px;min-width:104px;min-height:0;align-self:stretch;align-items:center;justify-content:center;padding:3px;border:1px solid #203c52;border-radius:6px;background:rgba(10,25,40,.76)}
+.timeline-playback-panel .timeline-transport{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-content:center;gap:3px;width:100%;min-height:0}
+.timeline-playback-panel .timeline-transport button{width:100%;min-width:0;height:22px;min-height:22px;padding:0 2px}
+.timeline-playback-panel .timeline-loop{grid-column:1/-1;justify-content:center;margin:0}
+.timeline-editor-stack{display:flex;flex:1 1 0;flex-direction:column;gap:3px;width:auto;min-width:0;min-height:0;margin:0;overflow:hidden}
+.timeline-tools-panel{flex:0 0 23px;min-width:0;min-height:23px;max-width:100%;padding:1px 3px}
+.timeline-tools-panel .timeline-tool-row{min-width:0;min-height:19px;gap:2px}
+.timeline-tools-panel .timeline-tool-row button{min-width:0;min-height:18px;padding:0 4px;font-size:6px}
+.alphabet-state-panel{display:flex;flex:1 1 0;flex-direction:column;align-self:stretch;gap:2px;width:100%;min-width:0;min-height:0;max-width:100%;padding:3px 4px;overflow:hidden}
+.alphabet-state-scroll{display:flex;flex:0 0 25px;align-items:center;gap:3px;width:100%;min-width:0;min-height:25px;overflow-x:auto;overflow-y:hidden;padding:1px;overflow-anchor:none!important;overscroll-behavior-x:contain!important}
+.alphabet-state-keyframe-ruler{display:flex;flex:1 1 0;flex-direction:column;gap:2px;width:100%;min-width:0;min-height:0;margin:0;padding-top:2px;overflow:hidden;border-top:1px solid #203c52}
+.alphabet-state-keyframe-heading{display:flex;flex:0 0 16px;align-items:center;min-height:16px;gap:4px;justify-content:flex-start}
+.alphabet-state-keyframe-heading strong{white-space:nowrap}
+.alphabet-state-keyframe-heading span{min-width:0;margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:5px}
+.alphabet-state-keyframe-scroll{display:block;flex:1 1 0;width:100%;min-width:0;min-height:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain}
+.alphabet-state-keyframe-content{display:flex;flex-direction:column;gap:2px;width:max-content;min-width:100%;min-height:100%}
+.alphabet-keyframe-track-row{display:flex;flex:0 0 32px;align-items:center;gap:4px;width:100%;min-width:0;min-height:32px}
+.alphabet-keyframe-track-name{flex:0 0 48px;width:48px;min-width:40px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:6px}
+.alphabet-keyframe-track{position:relative;flex:1 1 0;width:auto;min-width:0;height:30px;overflow:visible;border-radius:4px;background:repeating-linear-gradient(90deg,#0c1c2b 0,#0c1c2b 13px,#18344a 14px)}
+.alphabet-keyframe-markers{position:absolute;inset:0 4.5px;z-index:2;overflow:visible;pointer-events:none}
+.alphabet-keyframe-markers button{pointer-events:auto}
+@media(max-width:760px){
+.timeline-panel{left:5px;right:5px;bottom:5px;padding:4px}
+.animation-state-layout{gap:4px}
+.timeline-playback-panel{flex-basis:104px;width:104px;min-width:96px;padding:2px}
+.timeline-playback-panel .timeline-transport{gap:2px}
+.timeline-playback-panel .timeline-transport button{height:21px;min-height:21px}
+.timeline-tools-panel{padding:1px 2px}
+.timeline-tools-panel .timeline-tool-row button{padding:0 3px;font-size:5px}
+.alphabet-state-scroll{gap:2px;min-height:24px;flex-basis:24px}
+.alphabet-state-keyframe-heading span{font-size:5px}
+.alphabet-keyframe-track-name{flex-basis:40px;width:40px;min-width:36px}
+}
+@media(max-height:430px){
+.timeline-panel{height:126px;min-height:118px}
+.timeline-heading{flex-basis:18px;height:18px;min-height:18px}
+.timeline-playback-panel .timeline-transport{gap:2px}
+.timeline-playback-panel .timeline-transport button{height:19px;min-height:19px}
+.timeline-tools-panel{flex-basis:21px;min-height:21px}
+.timeline-tools-panel .timeline-tool-row{min-height:17px}
+.timeline-tools-panel .timeline-tool-row button{min-height:16px}
+.alphabet-state-scroll{flex-basis:22px;min-height:22px}
+.alphabet-state-keyframe-heading{flex-basis:14px;min-height:14px}
+.alphabet-keyframe-track-row{flex-basis:28px;min-height:28px}
+.alphabet-keyframe-track{height:26px}
+}
+
+/* Unified Alphabet Ruler Keyframe Timeline — replaces the former detached ruler/track layout. */
+.alphabet-state-panel{display:flex;flex:1 1 0;flex-direction:column;align-self:stretch;gap:3px;width:100%;min-width:0;min-height:0;max-width:100%;padding:3px 4px;overflow:hidden}
+.alphabet-state-scroll{display:flex;flex:0 0 25px;align-items:center;gap:3px;width:100%;min-width:0;min-height:25px;overflow-x:auto;overflow-y:hidden;padding:1px}
+.alphabet-state-keyframe-ruler{display:flex;flex:1 1 0;flex-direction:column;gap:3px;width:100%;min-width:0;min-height:0;margin:0;padding:3px 4px 4px;overflow:hidden;border:1px solid #203c52;border-radius:5px;background:rgba(8,22,35,.72)}
+.alphabet-state-keyframe-heading{display:flex;flex:0 0 17px;align-items:center;min-height:17px;gap:4px;justify-content:flex-start}
+.alphabet-state-keyframe-heading strong{white-space:nowrap}
+.alphabet-state-keyframe-heading span{min-width:0;margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:5px}
+.alphabet-state-keyframe-scroll{display:block;flex:1 1 0;width:100%;min-width:0;min-height:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain}
+.alphabet-state-keyframe-content{display:flex;flex-direction:column;gap:2px;width:max-content;min-width:100%;min-height:100%}
+.alphabet-keyframe-track-row{display:flex;flex:0 0 46px;align-items:center;gap:4px;width:100%;min-width:0;min-height:46px}
+.alphabet-keyframe-track-name{flex:0 0 48px;width:48px;min-width:40px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:6px}
+.alphabet-keyframe-track{position:relative;flex:1 1 0;width:auto;min-width:0;height:42px;overflow:visible;border-radius:4px;background:repeating-linear-gradient(90deg,#0c1c2b 0,#0c1c2b 13px,#18344a 14px)}
+.alphabet-keyframe-markers{position:absolute;inset:0 4.5px;z-index:2;overflow:visible;pointer-events:none}
+.alphabet-keyframe-markers button{pointer-events:auto}
+.alphabet-state-keyframe-content .alphabet-keyframe-track{min-height:42px;background-image:repeating-linear-gradient(90deg,transparent 0,transparent 13px,rgba(78,174,211,.16) 13px,rgba(78,174,211,.16) 14px);border-bottom:1px solid rgba(72,190,225,.28)}
+.alphabet-state-keyframe-content .alphabet-keyframe-track input[type=range]{position:relative;z-index:1}
+.alphabet-state-keyframe-content .alphabet-keyframe-markers{z-index:2}
+.alphabet-state-keyframe-content .alphabet-keyframe-markers button{font-size:13px}
+.animation-mode .alphabet-keyframe-track input[type=range]{position:absolute;inset:0;z-index:1;width:100%;height:100%;margin:0;appearance:none;background:transparent;pointer-events:auto}
+.animation-mode .alphabet-keyframe-track input[type=range]::-webkit-slider-runnable-track{height:3px;background:#34556b;border-radius:3px}
+.animation-mode .alphabet-keyframe-track input[type=range]::-moz-range-track{height:3px;background:#34556b;border-radius:3px}
+.animation-mode .alphabet-keyframe-track input[type=range]::-webkit-slider-thumb{appearance:none;width:9px;height:9px;margin-top:-3px;border:1px solid #e9fbff;border-radius:50%;background:#41dafa;box-shadow:0 0 7px #36dfff}
+.animation-mode .alphabet-keyframe-track input[type=range]::-moz-range-thumb{width:9px;height:9px;border:1px solid #e9fbff;border-radius:50%;background:#41dafa;box-shadow:0 0 7px #36dfff}
+.animation-mode .alphabet-keyframe-markers button{position:absolute;top:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;min-width:15px;min-height:42px;padding:0 1px;transform:translate(-50%,-50%);border:0;color:#48e3ff;background:rgba(7,18,29,.72);font:700 8px 'DM Mono',monospace;line-height:9px;white-space:nowrap;text-shadow:0 0 6px #00d9ff;pointer-events:auto}
+.animation-mode .alphabet-keyframe-markers button .keyframe-diamond{font-size:14px;line-height:16px}
+.animation-mode .alphabet-keyframe-markers button .keyframe-frame-number{font-size:8px;line-height:10px;color:#d6f8ff}
+.animation-mode .alphabet-keyframe-markers button.selected-keyframe{color:#fff3a6;background:rgba(67,52,13,.82);text-shadow:0 0 7px #ffcf55}
+.animation-mode .alphabet-keyframe-markers button.selected-keyframe .keyframe-frame-number{color:#ffe08a}
+.animation-mode .alphabet-keyframe-markers .timeline-event-marker{z-index:4;top:2px;transform:translateX(-50%);min-height:12px;color:#f4c66f;background:transparent}
+@media(max-width:760px){
+ .alphabet-state-keyframe-heading span{font-size:5px}
+ .alphabet-keyframe-track-name{flex-basis:40px;width:40px;min-width:36px}
+ .alphabet-keyframe-track-row{flex-basis:42px;min-height:42px}
+ .alphabet-keyframe-track{height:38px}
+ .animation-mode .alphabet-keyframe-markers button{min-height:38px}
+}
+@media(max-height:430px){
+ .alphabet-state-scroll{flex-basis:22px;min-height:22px}
+ .alphabet-state-keyframe-heading{flex-basis:14px;min-height:14px}
+ .alphabet-keyframe-track-row{flex-basis:38px;min-height:38px}
+ .alphabet-keyframe-track{height:34px}
+ .animation-mode .alphabet-keyframe-markers button{min-height:34px}
+}
+
+
+/* Alphabet states: one continuous touch-scroll row; each state owns its compact keyframe ruler. */
+.alphabet-state-panel{overflow:hidden;min-width:0}
+.alphabet-state-scroll{display:flex;flex:0 0 34px;flex-wrap:nowrap;justify-content:flex-start;align-self:stretch;gap:7px;width:100%;max-width:100%;min-width:0;min-height:34px;overflow-x:auto;overflow-y:hidden;white-space:nowrap;touch-action:pan-x;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:#32718b #0a1724}
+.alphabet-state-item{flex:0 0 auto;min-width:max-content;gap:4px}
+.alphabet-state-item .alphabet-state-handle{flex:0 0 25px;width:25px;min-width:25px;height:28px;touch-action:pan-x}
+.alphabet-state-mini-ruler{position:relative;display:flex;flex:0 0 auto;align-items:center;height:28px;min-width:110px;max-width:none;overflow:hidden;border:1px solid #28536b;border-radius:4px;background:repeating-linear-gradient(90deg,#102438 0,#102438 12px,#1b3c52 13px,#102438 14px);touch-action:pan-x}
+.alphabet-state-mini-ruler.active{border-color:#46dfff;box-shadow:inset 0 0 0 1px #46dfff33,0 0 6px #20bde044}
+.alphabet-state-mini-ruler input[type=range]{position:absolute;inset:0;z-index:1;width:100%;height:100%;margin:0;opacity:.24;accent-color:#4be2ff;cursor:ew-resize}
+.alphabet-state-frame-label{position:absolute;right:3px;top:1px;z-index:3;padding:0 2px;color:#a9c8dc;background:#0a1a2a;font:6px 'DM Mono',monospace;pointer-events:none}
+.alphabet-state-mini-markers{position:absolute;inset:0 3px;z-index:2;pointer-events:none}
+.alphabet-state-mini-markers button{position:absolute;top:50%;transform:translate(-50%,-50%);min-width:12px;min-height:20px;padding:0;border:0;color:#52eaff;background:rgba(5,17,28,.76);font-size:10px;line-height:12px;pointer-events:auto;text-shadow:0 0 5px #00dfff}
+.alphabet-state-mini-markers button.selected-keyframe{color:#ffe18a;text-shadow:0 0 6px #ffca50}
+.alphabet-state-mini-key{position:absolute;left:3px;bottom:1px;z-index:4;height:11px;min-width:20px;padding:0 3px;border:1px solid #3a829b;border-radius:3px;color:#dffaff;background:#102d40;font:700 5px 'DM Mono',monospace}
+.alphabet-state-panel .alphabet-state-add{flex:0 0 48px;width:48px;min-width:48px;height:28px}
+/* Legacy inline Dope Sheet / Graph detail layout removed; use timeline-floating-tool-panel below. */
+
+/* Canonical Alphabet State ruler — native horizontal swipe and enlarged keyframe track. */
+.alphabet-state-panel{min-width:0;min-height:0;overflow:hidden}
+.alphabet-state-scroll{
+  display:flex;flex:0 0 64px;align-items:center;flex-wrap:nowrap;gap:7px;
+  width:100%;max-width:100%;min-width:0;min-height:64px;
+  overflow-x:auto;overflow-y:hidden;white-space:nowrap;
+  touch-action:pan-x;overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;scrollbar-width:thin;
+}
+.alphabet-state-item{display:flex;flex:0 0 auto;align-items:center;min-width:max-content;gap:4px}
+.alphabet-state-item .alphabet-state-handle{
+  display:flex;flex:0 0 25px;align-items:center;justify-content:center;
+  width:25px;min-width:25px;height:58px;min-height:58px;
+  padding:0;touch-action:pan-x;cursor:pointer;
+}
+.alphabet-state-mini-ruler{
+  position:relative;display:flex;flex:0 0 auto;align-items:center;
+  height:58px;min-height:58px;min-width:110px;max-width:none;
+  overflow:hidden;border:1px solid #28536b;border-radius:5px;
+  background:repeating-linear-gradient(90deg,#102438 0,#102438 12px,#1b3c52 13px,#102438 14px);
+}
+.alphabet-state-mini-ruler input[type=range]{
+  position:absolute;inset:0;z-index:1;width:100%;height:100%;margin:0;
+  opacity:.3;accent-color:#4be2ff;cursor:ew-resize;touch-action:pan-x;
+}
+.alphabet-state-mini-markers{position:absolute;inset:0 4px;z-index:2;pointer-events:none}
+.alphabet-state-mini-markers button{pointer-events:auto;min-height:28px}
+.alphabet-state-frame-label{top:3px;font-size:8px}
+.alphabet-state-mini-key{bottom:3px;height:17px;min-width:28px;font-size:8px}
+.alphabet-state-panel .alphabet-state-add{
+  display:flex;flex:0 0 48px;align-items:center;justify-content:center;
+  width:48px;min-width:48px;height:58px;min-height:58px;
+}
+@media(max-height:430px){
+  .alphabet-state-scroll{flex-basis:64px;min-height:64px}
+  .alphabet-state-item .alphabet-state-handle,
+  .alphabet-state-mini-ruler,
+  .alphabet-state-panel .alphabet-state-add{height:58px;min-height:58px}
+}
+
+
+/* Alphabet State horizontal strip: native touch scrolling with no fixed ruler-width ceiling. */
+.alphabet-state-scroll{
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  touch-action:pan-x!important;
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-gutter:stable;
+  user-select:none;
+  -webkit-user-select:none;
+}
+.alphabet-state-scroll>.alphabet-state-item,
+.alphabet-state-scroll .alphabet-state-handle{
+  flex-shrink:0;
+  touch-action:pan-x!important;
+}
+.alphabet-state-mini-ruler{flex-shrink:0;max-width:none!important;transition:border-color .12s ease,box-shadow .12s ease}
+.alphabet-state-mini-ruler.active{border-color:#48c8e8;box-shadow:inset 0 0 10px rgba(55,205,238,.08)}
+.alphabet-state-item .alphabet-state-handle{touch-action:none!important}
+.timeline-tool-row .timeline-delete-state{
+  display:inline-flex;
+  flex:0 0 26px!important;
+  align-items:center;
+  justify-content:center;
+  min-width:26px!important;
+  width:26px;
+  padding:0!important;
+  color:#ffb2b2;
+  border-color:#75414b;
+}
+.timeline-tool-row .timeline-delete-state:disabled{opacity:.35}
+
+
+/* New floating Dope Sheet / Graph workspace: replaces the former inline detail row. */
+.timeline-editor-stack{position:relative;overflow:visible!important}
+.alphabet-state-panel{position:relative;overflow:visible!important}
+.timeline-floating-tool-panel{
+  position:fixed!important;z-index:24;left:124px;right:70px;bottom:160px;
+  display:block;max-height:74px;min-height:38px;overflow:auto;
+  padding:5px 7px;border:1px solid rgba(72,190,225,.48);border-radius:8px;
+  background:rgba(7,16,28,.97);box-shadow:0 10px 28px rgba(0,0,0,.55),0 0 18px rgba(46,190,225,.12);
+  backdrop-filter:blur(14px);
+}
+.timeline-floating-tool-panel .timeline-dope-sheet,
+.timeline-floating-tool-panel .timeline-graph-editor{max-height:none;overflow:visible}
+.timeline-floating-tool-panel .timeline-graph-editor{display:grid;grid-template-columns:minmax(0,1fr);gap:4px}
+.timeline-floating-tool-panel .timeline-graph-plot{min-height:36px;height:36px}
+.timeline-floating-tool-panel .timeline-curve-controls{display:flex;flex-wrap:wrap;gap:5px}
+.timeline-floating-tool-panel .timeline-settings{display:none}
+.alphabet-state-mini-ruler:not(.active){display:none!important}
+.alphabet-state-mini-ruler.collapsed{
+  flex-basis:96px!important;width:96px!important;height:25px!important;min-height:25px!important;
+}
+.alphabet-state-mini-ruler.collapsed input[type=range],
+.alphabet-state-mini-ruler.collapsed .alphabet-state-mini-markers,
+.alphabet-state-mini-ruler.collapsed .alphabet-state-mini-key{display:none!important}
+.alphabet-state-mini-ruler.collapsed .alphabet-state-frame-label{top:5px;left:5px}
+
+
+/* Canonical custom-time Timeline Keyframe layout.
+   This replaces the stacked legacy ruler overrides and keeps the workspace bottom-anchored. */
+.timeline-panel{
+  position:fixed!important;z-index:30!important;left:8px!important;right:8px!important;
+  bottom:max(8px,env(safe-area-inset-bottom))!important;box-sizing:border-box!important;
+  display:flex!important;flex-direction:column!important;gap:3px!important;
+  width:auto!important;height:148px!important;min-height:136px!important;
+  max-height:min(42vh,calc(100dvh - 16px - env(safe-area-inset-bottom)))!important;
+  padding:4px 6px!important;overflow:hidden!important;
+}
+.timeline-heading{flex:0 0 19px!important;height:19px!important;min-height:19px!important;padding:0 3px!important}
+.animation-state-layout{display:flex!important;flex:1 1 0!important;flex-direction:row!important;align-items:stretch!important;gap:4px!important;min-width:0!important;min-height:0!important;overflow:hidden!important}
+.timeline-playback-panel{display:flex!important;flex:0 0 112px!important;width:112px!important;min-width:112px!important;min-height:0!important;align-self:stretch!important;align-items:center!important;justify-content:center!important;padding:2px!important}
+.timeline-playback-panel .timeline-transport{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:flex-start!important;gap:3px!important;width:100%!important;min-width:0!important}
+.timeline-playback-panel .timeline-transport button{flex:0 0 19px!important;width:19px!important;min-width:19px!important;height:24px!important;min-height:24px!important;padding:0!important}
+.timeline-playback-panel .timeline-transport{height:100%!important;align-content:center!important;justify-content:center!important}
+.timeline-tools-panel .timeline-record-toggle{display:inline-flex!important;align-items:center!important;gap:3px!important}
+.timeline-tools-panel .timeline-loop-toggle{display:inline-flex!important;align-items:center!important;gap:2px!important;margin:0 2px!important;color:#91a9c0!important;font:700 6px 'DM Mono',monospace!important;white-space:nowrap!important}
+.timeline-tools-panel .timeline-loop-toggle input{width:10px!important;height:10px!important;margin:0!important;accent-color:#41c8ec!important}
+.timeline-editor-stack{display:flex!important;flex:1 1 0!important;flex-direction:column!important;gap:2px!important;width:auto!important;min-width:0!important;min-height:0!important;margin:0!important;overflow:hidden!important}
+.timeline-tools-panel{flex:0 0 20px!important;min-width:0!important;min-height:20px!important;max-width:100%!important;padding:1px 2px!important;overflow:hidden!important}
+.timeline-tools-panel .timeline-tool-row{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;gap:2px!important;min-width:0!important;min-height:18px!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none!important}
+.timeline-tools-panel .timeline-tool-row button{flex:0 0 auto!important;min-width:0!important;min-height:17px!important;height:17px!important;padding:0 4px!important;font-size:6px!important}
+.timeline-tool-row .timeline-add-keyframe{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:22px!important;min-width:22px!important;height:18px!important;min-height:18px!important;padding:0!important;color:#9ff3ff!important;border-color:#3288a3!important}
+.timeline-add-keyframe span{font-size:12px;line-height:1}
+.timeline-tool-row .timeline-add-keyframe.has-current-keyframe{color:#ff72c8!important;border-color:#ff4fb8!important;background:rgba(255,79,184,.16)!important;box-shadow:0 0 7px rgba(255,79,184,.42)!important}
+.timeline-tool-row .timeline-add-keyframe.has-current-keyframe span{color:#ff72c8!important;text-shadow:0 0 5px rgba(255,79,184,.7)!important}
+.alphabet-state-panel{display:flex!important;flex:1 1 0!important;flex-direction:column!important;align-self:stretch!important;gap:2px!important;width:100%!important;min-width:0!important;min-height:0!important;max-width:100%!important;padding:0!important;overflow:hidden!important}
+.timeline-custom-range-controls{display:flex!important;flex:0 0 20px!important;align-items:center!important;justify-content:flex-start!important;gap:7px!important;width:100%!important;min-width:0!important;min-height:20px!important;overflow-x:auto!important;overflow-y:hidden!important;white-space:nowrap!important;scrollbar-width:none!important}
+.timeline-custom-time{display:inline-flex!important;flex:0 0 auto!important;align-items:center!important;gap:3px!important;height:19px!important;min-height:19px!important;padding:0 4px!important;border:1px solid #28536b!important;border-radius:4px!important;color:#9fd9eb!important;background:rgba(8,24,38,.92)!important;font:700 7px 'DM Mono',monospace!important;white-space:nowrap!important}
+.timeline-custom-time span{color:#58dff6!important;font:800 7px 'DM Mono',monospace!important}
+.timeline-custom-time input{width:43px!important;min-width:43px!important;height:15px!important;min-height:15px!important;padding:0 2px!important;border:1px solid #31546b!important;border-radius:2px!important;color:#e4fbff!important;background:#091725!important;font:700 8px 'DM Mono',monospace!important}
+.timeline-custom-time select{width:24px!important;min-width:24px!important;height:15px!important;min-height:15px!important;padding:0!important;border:1px solid #31546b!important;border-radius:2px!important;color:#7feaff!important;background:#091725!important;font:700 7px 'DM Mono',monospace!important}
+.alphabet-state-scroll{display:flex!important;flex:1 1 58px!important;align-items:center!important;flex-wrap:nowrap!important;gap:4px!important;width:100%!important;max-width:100%!important;min-width:0!important;min-height:34px!important;overflow-x:auto!important;overflow-y:hidden!important;padding:1px!important;white-space:nowrap!important;touch-action:pan-x!important;overscroll-behavior-x:contain!important;-webkit-overflow-scrolling:touch!important;scrollbar-width:thin!important}
+.alphabet-state-item{display:flex!important;flex:0 0 auto!important;align-items:center!important;gap:3px!important;min-width:0!important}
+.alphabet-state-item .alphabet-state-handle,.alphabet-state-panel .alphabet-state-add{display:flex!important;flex:0 0 25px!important;align-items:center!important;justify-content:center!important;width:25px!important;min-width:25px!important;height:48px!important;min-height:48px!important;padding:0!important;border-radius:4px!important;font:800 10px 'DM Mono',monospace!important}
+.alphabet-state-panel .alphabet-state-add{flex-basis:48px!important;width:48px!important;min-width:48px!important;gap:2px!important;font-size:12px!important}
+.alphabet-state-mini-ruler{position:relative!important;display:flex!important;flex:0 0 auto!important;align-items:center!important;height:56px!important;min-height:56px!important;max-width:none!important;min-width:52px!important;align-self:center!important;overflow:hidden!important;border:1px solid #28536b!important;border-radius:4px!important;background:repeating-linear-gradient(90deg,#102438 0,#102438 12px,#1b3c52 13px,#102438 14px)!important;touch-action:pan-x!important}
+.alphabet-state-mini-ruler.active{border-color:#46dfff!important;box-shadow:inset 0 0 0 1px #46dfff33,0 0 6px #20bde044!important}
+.alphabet-state-mini-ruler.collapsed{height:25px!important;min-height:25px!important;flex-basis:96px!important}
+.alphabet-state-mini-ruler .alphabet-state-ruler-scale{position:absolute!important;z-index:2!important;top:2px!important;left:12px!important;right:12px!important;width:auto!important;height:23px!important;display:block!important;pointer-events:none!important}
+.alphabet-state-mini-ruler .alphabet-state-ruler-labels{position:absolute!important;inset:0!important;display:block!important;z-index:2!important}
+.alphabet-state-mini-ruler .alphabet-state-ruler-labels span{position:absolute!important;top:50%!important;display:block!important;transform:translate(-50%,-50%)!important;padding:0 2px!important;border-radius:2px!important;color:#d7f4ff!important;background:#102438!important;font:700 6px 'DM Mono',monospace!important;line-height:10px!important;white-space:nowrap!important;right:auto!important;bottom:auto!important;width:max-content!important;max-width:none!important;text-align:center!important}
+.alphabet-state-mini-ruler .alphabet-state-ruler-ticks{position:absolute!important;left:0!important;right:0!important;top:50%!important;bottom:auto!important;width:auto!important;height:18px!important;display:block!important;transform:translateY(-50%)!important;border:0!important}
+.alphabet-state-mini-ruler .alphabet-state-ruler-ticks i{position:absolute!important;top:50%!important;width:1px!important;height:5px!important;transform:translate(-.5px,-50%)!important;background:#6b9eb8!important}
+.alphabet-state-mini-ruler .alphabet-state-ruler-ticks i.medium{height:9px!important;background:#83c4dc!important}
+.alphabet-state-mini-ruler .alphabet-state-ruler-ticks i.major{height:18px!important;background:#c1f1ff!important;box-shadow:0 0 4px rgba(72,220,255,.45)!important}
+.alphabet-state-mini-ruler .alphabet-state-mini-markers{position:absolute!important;z-index:4!important;top:2px!important;left:5px!important;right:5px!important;bottom:auto!important;width:auto!important;height:23px!important;pointer-events:none!important}
+.alphabet-state-mini-ruler .alphabet-state-mini-markers button{position:absolute!important;top:50%!important;transform:translate(-50%,-50%)!important;min-width:18px!important;width:18px!important;min-height:16px!important;height:16px!important;padding:0!important;pointer-events:auto!important;touch-action:manipulation!important}
+.alphabet-state-mini-ruler .alphabet-state-mini-markers .alphabet-state-keyframe-marker{display:flex!important;align-items:center!important;justify-content:center!important;border:1px solid #ff4fb8!important;border-radius:3px!important;background:rgba(36,10,30,.96)!important;color:#ff72c8!important;box-shadow:0 0 5px rgba(255,79,184,.38)!important}
+.alphabet-state-mini-ruler .alphabet-state-mini-markers .alphabet-state-keyframe-marker span{color:#ff72c8!important;font-size:11px!important;line-height:1!important}
+.alphabet-state-mini-ruler .alphabet-state-mini-markers .alphabet-state-keyframe-marker small{display:none!important}
+.alphabet-state-mini-ruler .alphabet-state-mini-markers .alphabet-state-keyframe-marker.selected-keyframe{background:#5a1746!important;box-shadow:0 0 8px rgba(255,79,184,.8)!important}
+.alphabet-state-mini-ruler .alphabet-state-mini-markers .alphabet-state-mini-event-marker{color:#ffcf72!important;background:#352a13!important}
+.alphabet-state-mini-ruler input[type=range],.alphabet-state-mini-ruler .alphabet-state-scrubber{position:absolute!important;z-index:1!important;top:45px!important;left:5px!important;right:5px!important;bottom:auto!important;width:calc(100% - 10px)!important;height:9px!important;margin:0!important;writing-mode:horizontal-tb!important;direction:ltr!important;opacity:.55!important;touch-action:pan-x!important;cursor:ew-resize!important}
+.alphabet-state-mini-ruler .alphabet-state-frame-label{top:auto!important;right:3px!important;bottom:2px!important;pointer-events:none!important}
+.alphabet-state-mini-ruler.collapsed .alphabet-state-ruler-scale,.alphabet-state-mini-ruler.collapsed .alphabet-state-ruler-ticks,.alphabet-state-mini-ruler.collapsed .alphabet-state-mini-markers{display:none!important}
+.alphabet-state-mini-ruler.collapsed input[type=range],.alphabet-state-mini-ruler.collapsed .alphabet-state-scrubber{top:5px!important;height:14px!important;opacity:.45!important}
+.alphabet-state-choice{flex:0 0 auto!important;max-width:100%!important;max-height:24px!important;overflow-x:auto!important;overflow-y:hidden!important}
+.timeline-floating-tool-panel{max-height:min(42vh,calc(100dvh - 176px))!important;overflow:auto!important}
+@media(max-width:760px){
+ .timeline-panel{left:5px!important;right:5px!important;padding:3px 4px!important}
+ .timeline-playback-panel{flex-basis:112px!important;width:112px!important;min-width:112px!important}
+ .timeline-playback-panel .timeline-transport{gap:2px!important}
+ .timeline-playback-panel .timeline-transport button{flex-basis:19px!important;width:19px!important;min-width:19px!important}
+ .timeline-custom-range-controls{gap:4px!important}
+ .timeline-custom-time{gap:2px!important;padding:0 3px!important}
+ .timeline-custom-time input{width:38px!important;min-width:38px!important}
+}
+@media(max-height:430px){
+ .timeline-panel{height:126px!important;min-height:118px!important;max-height:calc(100dvh - 12px - env(safe-area-inset-bottom))!important}
+ .timeline-heading{flex-basis:17px!important;height:17px!important;min-height:17px!important}
+ .timeline-tools-panel{flex-basis:18px!important;min-height:18px!important}
+ .timeline-tools-panel .timeline-tool-row,.timeline-tools-panel .timeline-tool-row button{min-height:16px!important;height:16px!important}
+ .timeline-custom-range-controls{flex-basis:18px!important;min-height:18px!important}
+ .timeline-custom-time{height:17px!important;min-height:17px!important}
+ .alphabet-state-scroll{min-height:30px!important}
+ .alphabet-state-mini-ruler:not(.collapsed){height:48px!important;min-height:48px!important}
+ .alphabet-state-mini-ruler:not(.collapsed) .alphabet-state-ruler-scale{height:20px!important}
+ .alphabet-state-mini-ruler:not(.collapsed) .alphabet-state-mini-markers{top:2px!important;height:20px!important}
+ .alphabet-state-mini-ruler:not(.collapsed) .alphabet-state-scrubber{top:38px!important;height:7px!important}
+ .alphabet-state-item .alphabet-state-handle,.alphabet-state-panel .alphabet-state-add{height:42px!important;min-height:42px!important}
 }

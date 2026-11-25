@@ -1,23 +1,46 @@
 {
-  "name": "vite-react-app",
+  "name": "nexus3d-studio",
   "private": true,
   "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "cap:add:android": "cap add android",
+    "cap:sync": "cap sync android",
+    "cap:open": "cap open android",
+    "android:build": "npm run build && cap sync android",
+    "test:rds": "node --test tests/rds/*.test.mjs",
+    "rds:audit": "node scripts/rds-source-audit.mjs",
+    "verify:rds": "npm run test:rds && npm run rds:audit",
+    "dfi:audit": "node scripts/dfi-source-audit.mjs",
+    "test:dfi": "node --test tests/dfi/*.test.mjs",
+    "verify:dfi": "npm run test:dfi && npm run dfi:audit",
+    "test:rig": "node --test tests/rig/*.test.mjs",
+    "test:logcat": "node --test tests/diagnostics/*.test.mjs"
   },
   "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/screen-orientation": "^7.0.0",
+    "@capacitor/status-bar": "^7.0.0",
+    "@fontsource/dm-mono": "^5.2.6",
+    "@fontsource/manrope": "^5.2.6",
     "lucide-react": "^0.469.0",
     "three": "^0.172.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "@capacitor/filesystem": "^7.1.4",
+    "@capacitor/share": "^7.0.2",
+    "jszip": "^3.10.1",
+    "@pixiv/three-vrm": "3.4.2"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.0.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.4.3",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.0",

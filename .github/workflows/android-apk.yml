@@ -1,0 +1,160 @@
+name: Nexus3D Test Android APK
+
+on:
+  push:
+    branches:
+      - test/nexus3d-test-apk
+      - integration/cumulative-build481-manual-ik-logcat
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout Nexus3D Test branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run RDS and DFI forensic audits and regression tests
+        run: npm run verify:rds && npm run verify:dfi && npm run test:rig && npm run test:logcat
+
+      - name: Build bundled Nexus3D editor
+        run: npm run build
+
+      - name: Generate native Android project
+        run: npx cap add android
+
+      - name: Apply Nexus3D Test native activity and plugin
+        run: |
+          TEST_JAVA_DIR="android/app/src/main/java/com/nexus3d/studio/test"
+          mkdir -p "$TEST_JAVA_DIR"
+          cp native/android/MainActivity.java "$TEST_JAVA_DIR/MainActivity.java"
+          cp native/android/NexusProjectFilesPlugin.java "$TEST_JAVA_DIR/NexusProjectFilesPlugin.java"
+
+      - name: Sync bundled editor and native plugins
+        run: npx cap sync android
+
+      - name: Validate and decode Test signing keystore
+        env:
+          TEST_KEYSTORE_BASE64: ${{ secrets.TEST_ANDROID_KEYSTORE_BASE64 }}
+          TEST_KEYSTORE_PASSWORD: ${{ secrets.TEST_ANDROID_KEYSTORE_PASSWORD }}
+          TEST_KEY_PASSWORD: ${{ secrets.TEST_ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$TEST_KEYSTORE_BASE64" ] || [ -z "$TEST_KEYSTORE_PASSWORD" ] || [ -z "$TEST_KEY_PASSWORD" ]; then
+            echo "::error::Missing Test signing secrets. Add TEST_ANDROID_KEYSTORE_BASE64, TEST_ANDROID_KEYSTORE_PASSWORD, and TEST_ANDROID_KEY_PASSWORD in GitHub Actions secrets."
+            exit 1
+          fi
+          printf '%s' "$TEST_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/nexus3d-test-release.jks"
+          test -s "$RUNNER_TEMP/nexus3d-test-release.jks"
+
+      - name: Calculate Test release version
+        run: |
+          # Android workflow runs 1-2 are already consumed in this public repo.
+          # Map run 3 to product Build 482 and continue monotonically.
+          BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 477))
+          VERSION_PATCH=$((BUILD_NUMBER - 192))
+          echo "NEXUS3D_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "NEXUS3D_VERSION_PATCH=$VERSION_PATCH" >> "$GITHUB_ENV"
+          echo "Nexus3D Test version: 1.0.$VERSION_PATCH (build $BUILD_NUMBER)"
+
+      - name: Configure Test release signing and version
+        env:
+          NEXUS3D_KEYSTORE_PATH: ${{ runner.temp }}/nexus3d-test-release.jks
+          NEXUS3D_KEYSTORE_PASSWORD: ${{ secrets.TEST_ANDROID_KEYSTORE_PASSWORD }}
+          NEXUS3D_KEY_ALIAS: nexus3dtest
+          NEXUS3D_KEY_PASSWORD: ${{ secrets.TEST_ANDROID_KEY_PASSWORD }}
+          NEXUS3D_VERSION_CODE: ${{ env.NEXUS3D_BUILD_NUMBER }}
+          NEXUS3D_VERSION_PATCH: ${{ env.NEXUS3D_VERSION_PATCH }}
+        run: |
+          cat > android/nexus3d-release.gradle <<'GRADLE'
+          def nexus3dVersionCode = (System.getenv("NEXUS3D_VERSION_CODE") ?: "1").toInteger()
+          def nexus3dVersionPatch = System.getenv("NEXUS3D_VERSION_PATCH") ?: "1"
+          def nexus3dKeystorePath = System.getenv("NEXUS3D_KEYSTORE_PATH")
+          def nexus3dStorePassword = System.getenv("NEXUS3D_KEYSTORE_PASSWORD")
+          def nexus3dKeyAlias = System.getenv("NEXUS3D_KEY_ALIAS")
+          def nexus3dKeyPassword = System.getenv("NEXUS3D_KEY_PASSWORD")
+
+          if (!nexus3dKeystorePath || !nexus3dStorePassword || !nexus3dKeyAlias || !nexus3dKeyPassword) {
+              throw new GradleException("Nexus3D Test release signing configuration is incomplete.")
+          }
+
+          android {
+              defaultConfig {
+                  versionCode nexus3dVersionCode
+                  versionName "1.0.${nexus3dVersionPatch}"
+              }
+              signingConfigs {
+                  release {
+                      storeFile file(nexus3dKeystorePath)
+                      storePassword nexus3dStorePassword
+                      keyAlias nexus3dKeyAlias
+                      keyPassword nexus3dKeyPassword
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
+          }
+          GRADLE
+          printf '\napply from: rootProject.file("nexus3d-release.gradle")\n' >> android/app/build.gradle
+
+      - name: Build signed Test APK
+        env:
+          NEXUS3D_KEYSTORE_PATH: ${{ runner.temp }}/nexus3d-test-release.jks
+          NEXUS3D_KEYSTORE_PASSWORD: ${{ secrets.TEST_ANDROID_KEYSTORE_PASSWORD }}
+          NEXUS3D_KEY_ALIAS: nexus3dtest
+          NEXUS3D_KEY_PASSWORD: ${{ secrets.TEST_ANDROID_KEY_PASSWORD }}
+          NEXUS3D_VERSION_CODE: ${{ env.NEXUS3D_BUILD_NUMBER }}
+          NEXUS3D_VERSION_PATCH: ${{ env.NEXUS3D_VERSION_PATCH }}
+        working-directory: android
+        run: ./gradlew assembleRelease
+
+      - name: Verify APK signature
+        run: |
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::Android apksigner was not found."
+            exit 1
+          fi
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+
+      - name: Rename APK with build number and version
+        run: |
+          APK_NAME="Nexus3D_Test_build${NEXUS3D_BUILD_NUMBER}_v1.0.${NEXUS3D_VERSION_PATCH}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "android/app/build/outputs/apk/release/$APK_NAME"
+          echo "NEXUS3D_APK_NAME=$APK_NAME" >> "$GITHUB_ENV"
+          echo "Created $APK_NAME"
+
+      - name: Upload signed Nexus3D Test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexus3D_Test_build${{ env.NEXUS3D_BUILD_NUMBER }}_v1.0.${{ env.NEXUS3D_VERSION_PATCH }}
+          path: android/app/build/outputs/apk/release/${{ env.NEXUS3D_APK_NAME }}
+          if-no-files-found: error
+          retention-days: 14
