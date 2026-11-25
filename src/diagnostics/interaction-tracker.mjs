@@ -25,21 +25,30 @@ function closestValue(target, selector, attribute) {
 }
 
 export function describeInteractionTarget(target) {
-  const tool = closestValue(target, '[data-rit-tool]', 'data-rit-tool');
-  const panel = closestValue(target, '[data-rit-panel]', 'data-rit-panel');
-  const action = closestValue(target, '[data-rit-action]', 'data-rit-action');
+  const tool = closestValue(target, '[data-rit-tool]', 'data-rit-tool') ||
+    closestValue(target, '[data-tool]', 'data-tool');
+  const panel = closestValue(target, '[data-rit-panel]', 'data-rit-panel') ||
+    closestValue(target, '[data-panel]', 'data-panel');
+  const action = closestValue(target, '[data-rit-action]', 'data-rit-action') ||
+    closestValue(target, '[data-action]', 'data-action');
   const objectId = closestValue(target, '[data-object-id], [data-shape-id]', 'data-object-id') ||
     closestValue(target, '[data-shape-id]', 'data-shape-id');
+  const objectName = closestValue(target, '[data-object-name]', 'data-object-name');
   const chain = [];
   if (tool) chain.push({ type: 'tool', label: tool });
   if (panel) chain.push({ type: 'panel', label: panel });
   const label = nodeLabel(target);
   if (label) chain.push({ type: 'control', label });
   if (action) chain.push({ type: 'action', label: action });
-  if (objectId) chain.push({ type: 'object', id: objectId });
+  if (objectName || objectId) chain.push({ type: 'object', ...(objectId ? { id: objectId } : {}), ...(objectName ? { label: objectName } : {}) });
   const viewport = target?.closest?.('[data-rit-viewport], canvas, .main-viewport, .ik-viewport');
   const region = viewport ? clean(viewport.getAttribute?.('data-rit-viewport') || viewport.className?.baseVal || viewport.className || 'VIEWPORT') : 'UI';
-  return { tool, panel, action, objectId, label, region, hierarchy: chain };
+  const isViewport = Boolean(viewport);
+  const targetKind = isViewport
+    ? (!tool && !panel && !objectId && !objectName && !action && !label ? 'BLANK_VIEWPORT' : 'VIEWPORT')
+    : (objectId || objectName ? 'OBJECT' : (tool || panel || action || label ? 'CONTROL' : 'UI'));
+  if (isViewport) chain.push({ type: 'viewport', label: region, targetKind });
+  return { tool, panel, action, objectId, objectName, label, region, targetKind, hierarchy: chain };
 }
 
 export function createInteractionTracker({ emit = () => {}, now = () => 0, createId = () => 'interaction' } = {}) {
@@ -97,6 +106,8 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
     const result = {
       interactionId: current.id,
       event: 'GESTURE_COMPLETE',
+      pointerId: current.pointerId,
+      pointerType: current.pointerType,
       gesture,
       status: status === 'cancelled' ? 'CANCELLED' : 'INPUT_RECEIVED',
       pointerType: current.pointerType,
@@ -110,8 +121,10 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
       monotonicStartMs: current.startedAt,
       monotonicEndMs: endedAt,
     };
-    recentByPointer.set(current.pointerId, current.id);
-    lastInteraction = { id: current.id, at: endedAt };
+    if (status !== 'cancelled') {
+      recentByPointer.set(current.pointerId, { id: current.id, at: endedAt });
+      lastInteraction = { id: current.id, at: endedAt };
+    }
     emit(result);
     return result;
   }
@@ -120,7 +133,11 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
     const target = describeInteractionTarget(event?.target);
     const pointerId = Number.isFinite(event?.pointerId) ? event.pointerId : 0;
     const at = now();
-    const correlatedId = recentByPointer.get(pointerId) || (lastInteraction && at - lastInteraction.at <= 1500 ? lastInteraction.id : null);
+    const recent = recentByPointer.get(pointerId);
+    const recentIsFresh = recent && at >= recent.at && at - recent.at <= 1500;
+    if (recent && !recentIsFresh) recentByPointer.delete(pointerId);
+    const correlatedId = (recentIsFresh ? recent.id : null) ||
+      (lastInteraction && at >= lastInteraction.at && at - lastInteraction.at <= 1500 ? lastInteraction.id : null);
     const interactionId = correlatedId || createId();
     recentByPointer.delete(pointerId);
     lastInteraction = { id: interactionId, at };
@@ -130,7 +147,8 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
       controlEvent: clean(event?.type || 'click'),
       valueType: event?.target?.type ? clean(event.target.type) : undefined,
       target,
-      status: 'INPUT_RECEIVED',
+      status: event?.target?.disabled || event?.target?.getAttribute?.('aria-disabled') === 'true'
+        ? 'DISABLED' : 'INPUT_RECEIVED',
       monotonicAtMs: at,
     });
   }
