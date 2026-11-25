@@ -44,7 +44,6 @@ export function describeInteractionTarget(target) {
   const viewport = target?.closest?.('[data-rit-viewport], canvas, .main-viewport, .ik-viewport');
   const region = viewport ? clean(viewport.getAttribute?.('data-rit-viewport') || viewport.className?.baseVal || viewport.className || 'VIEWPORT') : 'UI';
   const isViewport = Boolean(viewport);
-  const isCanvasTarget = Boolean(target?.matches?.('canvas') || target?.closest?.('canvas'));
   const targetKind = isViewport
     ? (!tool && !panel && !objectId && !objectName && !action && !label ? 'BLANK_VIEWPORT' : 'VIEWPORT')
     : (objectId || objectName ? 'OBJECT' : (tool || panel || action || label ? 'CONTROL' : 'UI'));
