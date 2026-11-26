@@ -12,8 +12,21 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(NexusProjectFilesPlugin.class);
+        registerPlugin(NexusDeviceIdentityPlugin.class);
         super.onCreate(savedInstanceState);
         applyImmersiveMode();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        NexusDeviceIdentityPlugin.onAppForegroundChanged(getApplicationContext(), true);
+    }
+
+    @Override
+    public void onPause() {
+        NexusDeviceIdentityPlugin.onAppForegroundChanged(getApplicationContext(), false);
+        super.onPause();
     }
 
     @Override

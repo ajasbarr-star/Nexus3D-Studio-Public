@@ -15,6 +15,7 @@ on:
       - feature/rit-camera-latency-build849
       - feature/rds-shadow-diagnostics-build877
       - feature/rds-light-shadow-capacity-build878
+      - feature/automatic-device-release-diagnostics
   workflow_dispatch:
 
 permissions:
@@ -62,6 +63,7 @@ jobs:
           mkdir -p "$TEST_JAVA_DIR"
           cp native/android/MainActivity.java "$TEST_JAVA_DIR/MainActivity.java"
           cp native/android/NexusProjectFilesPlugin.java "$TEST_JAVA_DIR/NexusProjectFilesPlugin.java"
+          cp native/android/NexusDeviceIdentityPlugin.java "$TEST_JAVA_DIR/NexusDeviceIdentityPlugin.java"
 
       - name: Sync bundled editor and native plugins
         run: npx cap sync android
