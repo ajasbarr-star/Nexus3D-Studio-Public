@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import * as THREE from 'three';
-import { configureDirectionalShadow } from './lighting/shadow-optimization.mjs';
+import { configureDirectionalShadow, configureNewDirectionalLight } from './lighting/shadow-optimization.mjs';
 import { getIkSolvePath, isIkBoneLocked } from './rig/ik-constraints.mjs';
 import { buildCharacterMeshAssignments, summarizeCharacterAssignments, isCharacterMeshCandidate } from './rig/character-rigging.mjs';
 import { buildTopologyFromCanonicalQuadGeometry, buildTopologyFromIndexedQuadGeometry, updateTopologyPositionsFromRenderGeometry } from './geometry/topology-model.mjs';
@@ -1577,7 +1577,7 @@ export default function App() {
       const suffix = '_' + number;
       if (type === 'Directional') {
         const l = new THREE.DirectionalLight(0xffffff, 3);
-        configureDirectionalShadow(l); l.position.set(5, 8, 5); l.castShadow = true; light = l;
+        configureNewDirectionalLight(l); l.position.set(5, 8, 5); light = l;
       } else if (type === 'Point') {
         const l = new THREE.PointLight(0xffffff, 3, 20, 2);
         l.position.set(1, 3, 1); l.castShadow = true; light = l;
