@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { StatusBar } from '@capacitor/status-bar';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
 import '@fontsource/manrope/400.css';
@@ -13,8 +13,13 @@ import '@fontsource/dm-mono/500.css';
 import App from './App';
 import './index.css';
 
+const NexusDeviceIdentity = registerPlugin<any>('NexusDeviceIdentity');
+
 // The native APK uses bundled assets and native display controls.
 if (Capacitor.isNativePlatform()) {
+  void NexusDeviceIdentity.getOrCreateIdentity()
+    .then(() => NexusDeviceIdentity.requestCloudConsent())
+    .catch((error: unknown) => console.warn('Nexus3D device registration is pending:', error));
   void StatusBar.hide().catch((error) => console.warn('Nexus3D status bar could not be hidden:', error));
   void ScreenOrientation.lock({ orientation: 'landscape' }).catch((error) => console.warn('Nexus3D landscape lock is unavailable:', error));
 }
