@@ -179,7 +179,7 @@ export function formatShadowMapAnalysis(snapshot = {}) {
     'PER-FRAME RENDER COUNT: NOT EXPOSED',
     'The current Three.js WebGLRenderer public API does not expose a per-frame counter for completed shadow-map passes. The count above is the visible shadow-casting light inventory, not a claim that every listed map rendered in the last frame.',
     'No shadow, light, renderer, or scene settings were changed.'
-  ].join('\\n');
+  ].join('\n');
 }
 
 export function formatMaterialTextureAnalysis(snapshot = {}) {
@@ -200,7 +200,7 @@ export function formatMaterialTextureAnalysis(snapshot = {}) {
     'Device fragment texture-unit limit: ' + (snapshot.webgl?.fragmentTextureUnits ?? 'UNAVAILABLE'),
     'This inventory is a material-slot estimate. The final active sampler count must be read from the linked shader program; it is not inferred from the total scene texture count.',
     'No material, texture, or shader was changed.'
-  ].join('\\n');
+  ].join('\n');
 }
 
 export function attachShaderErrorCapture(renderer, onError) {
@@ -302,5 +302,5 @@ export function formatShadowRenderCapture(snapshot = {}) {
     '',
     'LIMITATION: Each count is one invocation of Three.js WebGLShadowMap.render(). It is an update-cycle count, not a count of individual lights or completed per-light GPU shadow passes. Frame time includes the whole editor frame and is correlated, not attributed solely to shadows.',
     'No scene, light, shadow, material, or renderer settings were changed.'
-  ].join('\\n');
+  ].join('\n');
 }
