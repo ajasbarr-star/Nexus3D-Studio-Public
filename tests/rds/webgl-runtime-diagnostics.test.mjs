@@ -9,6 +9,8 @@ import {
   formatShadowMapAnalysis,
   formatWebGLDiagnostics
 } from '../../src/diagnostics/webgl-runtime-diagnostics.mjs';
+import { getDirectionalShadowCapacityStatus } from '../../src/lighting/shadow-capacity.mjs';
+import { configureNewDirectionalLight } from '../../src/lighting/shadow-optimization.mjs';
 
 function makeScene(objects) {
   const root = { visible: true, children: [], traverse(callback) {
@@ -191,4 +193,31 @@ test('keeps lifetime frame averages consistent when stored samples are capped', 
 
 test('reports shadow render instrumentation unavailable when Three.js hook is absent', () => {
   assert.throws(() => attachShadowRenderCapture({ shadowMap: {} }), /hook is unavailable/);
+});
+
+
+test('new Directional Lights preserve intensity but do not enable shadow casting by default', () => {
+  const light = {
+    isDirectionalLight: true,
+    intensity: 3,
+    castShadow: true,
+    shadow: { mapSize: { set(width, height) { this.width = width; this.height = height; } }, needsUpdate: false }
+  };
+  assert.equal(configureNewDirectionalLight(light), true);
+  assert.equal(light.intensity, 3);
+  assert.equal(light.castShadow, false);
+  assert.equal(light.shadow.mapSize.width, 256);
+  assert.equal(light.shadow.mapSize.height, 256);
+  assert.equal(light.shadow.needsUpdate, true);
+  assert.equal(configureNewDirectionalLight({ isDirectionalLight: false }), false);
+});
+
+test('device-aware shadow capacity advisory warns early without claiming an exact sampler cap', () => {
+  assert.deepEqual(getDirectionalShadowCapacityStatus(0, 16), {
+    count: 0, fragmentTextureUnits: 16, warningThreshold: 12, status: 'WITHIN_ADVISORY_RANGE'
+  });
+  assert.equal(getDirectionalShadowCapacityStatus(12, 16).status, 'WARNING');
+  assert.equal(getDirectionalShadowCapacityStatus(16, 16).status, 'EXCEEDED');
+  assert.equal(getDirectionalShadowCapacityStatus(17, 16).status, 'EXCEEDED');
+  assert.equal(getDirectionalShadowCapacityStatus(17, null).status, 'UNKNOWN');
 });
