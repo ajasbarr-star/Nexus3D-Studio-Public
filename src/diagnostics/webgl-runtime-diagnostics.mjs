@@ -1,3 +1,5 @@
+import { getDirectionalShadowCapacityStatus } from '../lighting/shadow-capacity.mjs';
+
 let nextSceneIdentity = 1;
 let nextSnapshotId = 1;
 const SCENE_IDENTITIES = new WeakMap();
@@ -89,6 +91,8 @@ export function collectWebGLDiagnostics({ renderer, scene, shaderErrors = [] } =
   const render = renderer?.info?.render || {};
   const memory = renderer?.info?.memory || {};
   const directionalShadowLights = shadowLights.filter(light => light.isDirectionalLight || light.type === 'DirectionalLight');
+  const fragmentTextureUnits = readLimit(gl, 'MAX_TEXTURE_IMAGE_UNITS');
+  const directionalShadowCapacity = getDirectionalShadowCapacityStatus(directionalShadowLights.length, fragmentTextureUnits);
   const capturedAt = new Date().toISOString();
   return {
     snapshotId: nextSnapshotId++,
@@ -100,7 +104,7 @@ export function collectWebGLDiagnostics({ renderer, scene, shaderErrors = [] } =
       vendor: gl ? readLimit(gl, 'VENDOR') : null,
       contextLost: gl ? Boolean(gl.isContextLost?.()) : null,
       maxTextureSize: readLimit(gl, 'MAX_TEXTURE_SIZE'),
-      fragmentTextureUnits: readLimit(gl, 'MAX_TEXTURE_IMAGE_UNITS'),
+      fragmentTextureUnits,
       vertexTextureUnits: readLimit(gl, 'MAX_VERTEX_TEXTURE_IMAGE_UNITS'),
       combinedTextureUnits: readLimit(gl, 'MAX_COMBINED_TEXTURE_IMAGE_UNITS'),
       fragmentUniformVectors: readLimit(gl, 'MAX_FRAGMENT_UNIFORM_VECTORS'),
@@ -123,6 +127,7 @@ export function collectWebGLDiagnostics({ renderer, scene, shaderErrors = [] } =
       autoUpdate: renderer?.shadowMap?.autoUpdate ?? null,
       shadowCastingLights: shadowLights.length,
       directionalShadowCastingLights: directionalShadowLights.length,
+      directionalShadowCapacity,
       directionalMaps: directionalShadowLights.map(light => ({
         name: light.name || light.type || 'Unnamed Directional Light',
         editorId: light.userData?.editorId || null,
@@ -236,7 +241,8 @@ export function formatShadowMapAnalysis(snapshot = {}) {
     'Directional map sizes: ' + ((shadows.directionalMaps || []).map(map => map.name + ':' + (map.width ?? '?') + 'x' + (map.height ?? '?')).join(', ') || 'None'),
     'Device fragment texture-unit limit: ' + (snapshot.webgl?.fragmentTextureUnits ?? 'UNAVAILABLE'),
     'Device combined texture-unit limit: ' + (snapshot.webgl?.combinedTextureUnits ?? 'UNAVAILABLE'),
-    'Capacity interpretation: directional shadow casters are a potential sampler-pressure indicator, not the final linked shader sampler count.',
+    'Capacity advisory: ' + (shadows.directionalShadowCapacity?.status || 'UNKNOWN') + ' · ' + (shadows.directionalShadowCapacity?.count ?? (shadows.directionalShadowCastingLights ?? 0)) + ' directional shadow caster(s) · early warning at ' + (shadows.directionalShadowCapacity?.warningThreshold ?? 'UNKNOWN') + ' of ' + (shadows.directionalShadowCapacity?.fragmentTextureUnits ?? snapshot.webgl?.fragmentTextureUnits ?? 'UNKNOWN') + ' fragment texture units.',
+    'Capacity interpretation: the 75% threshold is an early-warning heuristic, not a guaranteed safe sampler cap; actual linked shader samplers may include other features.',
     '',
     'SHADOW MAP INVENTORY',
     ...(maps.length ? maps.map((map, index) => (index + 1) + '. ' + map.name + ' [' + map.type + '] · ' + (map.width ?? '?') + 'x' + (map.height ?? '?') + ' · allocated: ' + map.mapAllocated + ' · visible: ' + (map.visible ?? 'UNKNOWN')) : ['No shadow-casting lights were found in the scene.']),
