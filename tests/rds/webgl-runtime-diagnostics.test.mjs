@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  attachShaderErrorCapture,\n  attachShadowRenderCapture,\n  formatShadowRenderCapture,
+  attachShaderErrorCapture,
+  attachShadowRenderCapture,
+  formatShadowRenderCapture,
   collectWebGLDiagnostics,
   formatMaterialTextureAnalysis,
   formatShadowMapAnalysis,
