@@ -165,8 +165,12 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             body.put("installationId", identity.installationId);
             body.put("deviceCode", identity.credential);
             body.put("appVersion", getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0).versionName);
-            body.put("versionCode", (long) getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0).getLongVersionCode());
-            body.put("buildNumber", (long) getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0).getLongVersionCode());
+            android.content.pm.PackageInfo packageInfo = getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0);
+            long installedVersionCode = Build.VERSION.SDK_INT >= 28
+                    ? packageInfo.getLongVersionCode()
+                    : packageInfo.versionCode;
+            body.put("versionCode", installedVersionCode);
+            body.put("buildNumber", installedVersionCode);
             JSONObject info = new JSONObject();
             info.put("manufacturer", Build.MANUFACTURER == null ? "" : Build.MANUFACTURER);
             info.put("model", Build.MODEL == null ? "" : Build.MODEL);
