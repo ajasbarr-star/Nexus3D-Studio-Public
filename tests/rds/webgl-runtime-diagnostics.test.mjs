@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  attachShaderErrorCapture,
+  attachShaderErrorCapture,\n  attachShadowRenderCapture,\n  formatShadowRenderCapture,
   collectWebGLDiagnostics,
   formatMaterialTextureAnalysis,
   formatShadowMapAnalysis,
@@ -61,4 +61,31 @@ test('captures shader error logs and restores the previous Three.js callback', (
   assert.match(captured.details, /too many texture image units/);
   stop();
   assert.equal(renderer.debug.onShaderError, previous);
+});
+
+
+test('counts shadow-map update cycles per frame and restores the renderer hook', () => {
+  let clock = 0;
+  let invocations = 0;
+  const original = function () { invocations += 1; };
+  const renderer = { shadowMap: { render: original } };
+  const capture = attachShadowRenderCapture(renderer, { now: () => clock });
+  renderer.shadowMap.render([], {}, {});
+  clock = 4;
+  capture.recordFrame(16.7);
+  renderer.shadowMap.render([], {}, {});
+  clock = 7;
+  capture.recordFrame(17.2);
+  const snapshot = capture.getSnapshot();
+  assert.equal(invocations, 2);
+  assert.equal(snapshot.totalUpdateCycles, 2);
+  assert.equal(snapshot.averageUpdateCyclesPerFrame, 1);
+  assert.equal(snapshot.averageShadowRenderMsPerFrame, 3.5);
+  assert.match(formatShadowRenderCapture(snapshot), /not a count of individual lights/);
+  capture.stop();
+  assert.equal(renderer.shadowMap.render, original);
+});
+
+test('reports shadow render instrumentation unavailable when Three.js hook is absent', () => {
+  assert.throws(() => attachShadowRenderCapture({ shadowMap: {} }), /hook is unavailable/);
 });
