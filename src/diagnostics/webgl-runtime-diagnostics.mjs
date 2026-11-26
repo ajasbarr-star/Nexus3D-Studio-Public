@@ -196,10 +196,10 @@ export function formatShadowMapAnalysis(snapshot = {}) {
     'Shadow-caster counts (entire scene): ' + (counts.join(', ') || 'None'),
     '',
     'SHADOW MAP INVENTORY',
-    ...(maps.length ? maps.map((map, index) => (index + 1) + '. ' + map.name + ' [' + map.type + '] · ' + (map.width ?? '?') + 'x' + (map.height ?? '?') + ' · allocated: ' + map.mapAllocated + ' · visible: ' + (map.visible ?? 'UNKNOWN')) : ['No visible shadow-casting lights were found.']),
+    ...(maps.length ? maps.map((map, index) => (index + 1) + '. ' + map.name + ' [' + map.type + '] · ' + (map.width ?? '?') + 'x' + (map.height ?? '?') + ' · allocated: ' + map.mapAllocated + ' · visible: ' + (map.visible ?? 'UNKNOWN')) : ['No shadow-casting lights were found in the scene.']),
     '',
     'PER-FRAME RENDER COUNT: NOT EXPOSED',
-    'The current Three.js WebGLRenderer public API does not expose a per-frame counter for completed shadow-map passes. The count above is the visible shadow-casting light inventory, not a claim that every listed map rendered in the last frame.',
+    'The current Three.js WebGLRenderer public API does not expose a per-frame counter for completed shadow-map passes. The count above is the scene shadow-caster inventory, not a claim that every listed map rendered in the last frame.',
     'No shadow, light, renderer, or scene settings were changed.'
   ].join('\n');
 }
