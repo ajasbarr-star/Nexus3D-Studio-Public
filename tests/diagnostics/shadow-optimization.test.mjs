@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { configureDirectionalShadow, DEFAULT_DIRECTIONAL_SHADOW_MAP_SIZE } from '../../src/lighting/shadow-optimization.mjs';
+import { configureDirectionalShadow, configureNewDirectionalLight, DEFAULT_DIRECTIONAL_SHADOW_MAP_SIZE } from '../../src/lighting/shadow-optimization.mjs';
 import { readFileSync } from 'node:fs';
 
 const app = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
@@ -46,7 +46,8 @@ test('invalid custom map sizes are rejected without changing the light', () => {
 });
 
 test('Nexus3D applies the lower shadow-map budget to new and restored Directional Lights', () => {
-  assert.match(app, /configureDirectionalShadow\(l\)/);
+  assert.match(app, /configureNewDirectionalLight\(l\)/);
+  assert.match(app, /const l = new THREE\.DirectionalLight\(0xffffff, 3\)/);
   assert.match(app, /if \(node\.isDirectionalLight\) configureDirectionalShadow\(node\)/);
   assert.match(app, /configureDirectionalShadow\(light\)/);
 });
@@ -56,4 +57,14 @@ test('RDS reports directional shadow map sizes and real GPU texture-unit limits'
   assert.match(app, /MAX_TEXTURE_IMAGE_UNITS/);
   assert.match(app, /MAX_COMBINED_TEXTURE_IMAGE_UNITS/);
   assert.match(app, /not an exact shader sampler total/);
+});
+
+
+test('new Directional Light defaults keep intensity 3 while disabling shadow casting', () => {
+  const light = mockDirectionalLight();
+  light.intensity = 3;
+  assert.equal(configureNewDirectionalLight(light), true);
+  assert.equal(light.intensity, 3);
+  assert.equal(light.castShadow, false);
+  assert.deepEqual([light.shadow.mapSize.width, light.shadow.mapSize.height], [256, 256]);
 });
