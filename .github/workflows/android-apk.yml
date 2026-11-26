@@ -14,6 +14,7 @@ on:
       - feature/rit-touch-hierarchy-build846-clean
       - feature/rit-camera-latency-build849
       - feature/rds-shadow-diagnostics-build877
+      - feature/rds-light-shadow-capacity-build878
   workflow_dispatch:
 
 permissions:
