@@ -628,7 +628,7 @@ export default function App() {
           break;
         case 'Shadow Maps':
           entries = allLogs.filter(entry => /Shadow Map/i.test(entry.source));
-          fullReport = [rdsShadowReport, rdsShadowCaptureReport].join('\\n\\n');
+          fullReport = [rdsShadowReport, rdsShadowCaptureReport].join('\n\n');
           break;
         case 'Materials & Textures':
           entries = allLogs.filter(entry => /Material Texture/i.test(entry.source));
@@ -8334,7 +8334,7 @@ export default function App() {
               <div className="rds-summary-strip"><span>{rdsWebglShaderErrors.length} shader errors</span><span>{rdsWebglSnapshot?.webgl?.fragmentTextureUnits ?? '—'} fragment units</span><span>{rdsWebglSnapshot?.materials?.materialTextureSlots ?? '—'} material texture slots</span></div>
               <pre className="rds-command-report">{rdsWebglReport}</pre>
             </>}
-            {rdsActiveTool === 'Shadow Maps' && <><div className="rds-quick-actions"><button type="button" onClick={runRdsWebGLAnalysis}><ScanEye size={15}/>Analyze Shadow Inventory</button><button type="button" onClick={rdsShadowCaptureEnabled ? stopRdsShadowCapture : startRdsShadowCapture}>{rdsShadowCaptureEnabled ? <Pause size={14}/> : <Play size={14}/ >}{rdsShadowCaptureEnabled ? 'Stop Render Capture' : 'Start Render Capture'}</button></div><pre className="rds-command-report">{rdsShadowReport + '\\n\\n' + rdsShadowCaptureReport}</pre></>}
+            {rdsActiveTool === 'Shadow Maps' && <><div className="rds-quick-actions"><button type="button" onClick={runRdsWebGLAnalysis}><ScanEye size={15}/>Analyze Shadow Inventory</button><button type="button" onClick={rdsShadowCaptureEnabled ? stopRdsShadowCapture : startRdsShadowCapture}>{rdsShadowCaptureEnabled ? <Pause size={14}/> : <Play size={14}/>}{rdsShadowCaptureEnabled ? 'Stop Render Capture' : 'Start Render Capture'}</button></div><pre className="rds-command-report">{rdsShadowReport + '\\n\\n' + rdsShadowCaptureReport}</pre></>}
             {rdsActiveTool === 'Materials & Textures' && <><div className="rds-quick-actions"><button type="button" onClick={runRdsWebGLAnalysis}><ScanEye size={15}/>Analyze Materials & Textures</button></div><pre className="rds-command-report">{rdsMaterialReport}</pre></>}
             {rdsActiveTool === 'DFI Core' && <><div className="rds-summary-strip"><span>{dfiSummary.findings} findings</span><span>{dfiSummary.errors} errors</span><span>{dfiSummary.warnings} warnings</span></div><div className="rds-quick-actions"><button type="button" onClick={() => void runDfiInvestigation()} disabled={dfiBusy}><ScanEye size={15}/>{dfiBusy ? 'Investigating…' : 'Run Deep Analysis'}</button><button type="button" onClick={() => void copyDiagnosticText([{id:'dfi-report',time:new Date().toLocaleTimeString(),level:dfiSummary.errors?'ERROR':dfiSummary.warnings?'WARN':'INFO',source:'DFI Core',message:'Forensic investigation report',details:dfiReport}])}><Copy size={14}/>Copy Report</button></div><pre className="rds-command-report">{dfiReport}</pre></>}
             {rdsActiveTool === 'Mesh DFI' && <><div className="rds-quick-actions"><button type="button" onClick={() => runDfiToolScan('Shape Core')} disabled={Boolean(dfiToolBusy)}><Box size={15}/>{dfiToolBusy ? 'Scanning…' : 'Scan Mesh Integrity'}</button></div><pre className="rds-command-report">{dfiToolReports['Shape Core'] || 'Mesh integrity scan has not been run yet.'}</pre></>}
