@@ -13,6 +13,7 @@ on:
       - feature/rds-scene-tree-mainviewport-verification-build835
       - feature/rit-touch-hierarchy-build846-clean
       - feature/rit-camera-latency-build849
+      - feature/rds-shadow-diagnostics-build877
   workflow_dispatch:
 
 permissions:
