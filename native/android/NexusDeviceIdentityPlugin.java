@@ -124,7 +124,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
         }
         getActivity().runOnUiThread(() -> new android.app.AlertDialog.Builder(getActivity())
             .setTitle("Nexus3D Device Diagnostics")
-            .setMessage("Allow Nexus3D to register a random installation ID and share limited technical information (device manufacturer/model, Android version, app version/build and connection timestamps) with Nexus3D Diagnostics? No files, contacts, GPS, IMEI or personal account data are collected. You can change this choice later in Diagnostics settings.")
+            .setMessage("Allow Nexus3D to register a random installation ID and share limited technical information (device manufacturer/model, Android version, app version/build, whether the Editor is foreground-active or backgrounded, and last-active timestamps) with Nexus3D Diagnostics? No files, contacts, GPS, IMEI or personal account data are collected. You can change this choice later in Diagnostics settings.")
             .setPositiveButton("Allow", (dialog, which) -> {
                 prefs.edit().putBoolean(CONSENT, true).putBoolean("consent_decided", true).apply();
                 try {
