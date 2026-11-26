@@ -222,3 +222,85 @@ export function attachShaderErrorCapture(renderer, onError) {
     if (debug.onShaderError === handler) debug.onShaderError = previous;
   };
 }
+
+
+// Opt-in wrapper around Three.js WebGLShadowMap.render(). This measures renderer
+// shadow-map update cycles, not individual per-light GPU passes.
+export function attachShadowRenderCapture(renderer, { now = () => performance.now(), maxSamples = 1200 } = {}) {
+  const shadowMap = renderer?.shadowMap;
+  if (!shadowMap || typeof shadowMap.render !== 'function') throw new Error('Three.js shadowMap.render hook is unavailable in this renderer');
+  const previous = shadowMap.render;
+  const samples = [];
+  let pendingCycles = 0, pendingRenderMs = 0, totalCycles = 0, totalRenderMs = 0, stopped = false;
+  const wrapped = function (...args) {
+    const started = now();
+    pendingCycles += 1;
+    totalCycles += 1;
+    try { return previous.apply(this, args); }
+    finally {
+      const elapsed = Math.max(0, now() - started);
+      pendingRenderMs += elapsed;
+      totalRenderMs += elapsed;
+    }
+  };
+  shadowMap.render = wrapped;
+  const recordFrame = frameMs => {
+    if (stopped) return;
+    samples.push({ frameMs: Number.isFinite(frameMs) ? Math.max(0, frameMs) : null, updateCycles: pendingCycles, shadowRenderMs: pendingRenderMs });
+    if (samples.length > maxSamples) samples.shift();
+    pendingCycles = 0;
+    pendingRenderMs = 0;
+  };
+  const getSnapshot = () => {
+    if (pendingCycles || pendingRenderMs) recordFrame(null);
+    const validFrames = samples.filter(sample => sample.frameMs !== null);
+    const cycles = samples.map(sample => sample.updateCycles);
+    const renderTimes = samples.map(sample => sample.shadowRenderMs);
+    const frameTimes = validFrames.map(sample => sample.frameMs);
+    const sum = values => values.reduce((total, value) => total + value, 0);
+    const avg = values => values.length ? sum(values) / values.length : null;
+    return {
+      capturedAt: new Date().toISOString(),
+      instrumentation: 'renderer.shadowMap.render wrapper',
+      measurement: 'Shadow-map update cycles entered per renderer frame; not per-light GPU passes.',
+      totalUpdateCycles: totalCycles,
+      totalShadowRenderMs: Number(totalRenderMs.toFixed(3)),
+      frames: samples.length,
+      averageUpdateCyclesPerFrame: avg(cycles),
+      minUpdateCyclesPerFrame: cycles.length ? Math.min(...cycles) : null,
+      maxUpdateCyclesPerFrame: cycles.length ? Math.max(...cycles) : null,
+      averageShadowRenderMsPerFrame: avg(renderTimes),
+      maxShadowRenderMsPerFrame: renderTimes.length ? Math.max(...renderTimes) : null,
+      averageFrameMs: avg(frameTimes),
+      estimatedFpsFromFrameTime: avg(frameTimes) > 0 ? 1000 / avg(frameTimes) : null,
+      samples: samples.map(sample => ({ ...sample }))
+    };
+  };
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    if (shadowMap.render === wrapped) shadowMap.render = previous;
+  };
+  return { recordFrame, getSnapshot, stop };
+}
+
+export function formatShadowRenderCapture(snapshot = {}) {
+  const fmt = value => Number.isFinite(value) ? Number(value).toFixed(2) : 'UNAVAILABLE';
+  return [
+    'NEXUS3D RDS · ACTUAL SHADOW RENDER CAPTURE',
+    'Captured: ' + (snapshot.capturedAt || 'NOT CAPTURED'),
+    'Instrumentation: ' + (snapshot.instrumentation || 'UNAVAILABLE'),
+    'Total shadow-map update cycles: ' + (snapshot.totalUpdateCycles ?? 'UNAVAILABLE'),
+    'Measured frames: ' + (snapshot.frames ?? 0),
+    'Average update cycles per frame: ' + fmt(snapshot.averageUpdateCyclesPerFrame),
+    'Minimum update cycles per frame: ' + fmt(snapshot.minUpdateCyclesPerFrame),
+    'Maximum update cycles per frame: ' + fmt(snapshot.maxUpdateCyclesPerFrame),
+    'Average shadow-map render time per frame (ms): ' + fmt(snapshot.averageShadowRenderMsPerFrame),
+    'Maximum shadow-map render time per frame (ms): ' + fmt(snapshot.maxShadowRenderMsPerFrame),
+    'Average frame time (ms): ' + fmt(snapshot.averageFrameMs),
+    'Estimated FPS from average frame time: ' + fmt(snapshot.estimatedFpsFromFrameTime),
+    '',
+    'LIMITATION: Each count is one invocation of Three.js WebGLShadowMap.render(). It is an update-cycle count, not a count of individual lights or completed per-light GPU shadow passes. Frame time includes the whole editor frame and is correlated, not attributed solely to shadows.',
+    'No scene, light, shadow, material, or renderer settings were changed.'
+  ].join('\\n');
+}
