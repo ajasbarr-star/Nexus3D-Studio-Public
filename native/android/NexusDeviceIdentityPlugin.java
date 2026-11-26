@@ -96,6 +96,53 @@ public class NexusDeviceIdentityPlugin extends Plugin {
         }
     }
 
+
+    @PluginMethod
+    public void requestCloudConsent(PluginCall call) {
+        SharedPreferences prefs = preferences();
+        if (prefs.getBoolean("consent_decided", false)) {
+            boolean enabled = prefs.getBoolean(CONSENT, false);
+            if (enabled) {
+                try {
+                    Identity identity = loadOrCreate(getContext());
+                    executor.execute(() -> registerWithBackend(identity));
+                } catch (Exception error) {
+                    android.util.Log.w("NexusDeviceIdentity", "Identity initialization deferred.", error);
+                }
+            }
+            JSObject result = new JSObject();
+            result.put("enabled", enabled);
+            result.put("alreadyDecided", true);
+            call.resolve(result);
+            return;
+        }
+        getActivity().runOnUiThread(() -> new android.app.AlertDialog.Builder(getActivity())
+            .setTitle("Nexus3D Device Diagnostics")
+            .setMessage("Allow Nexus3D to register a random installation ID and share limited technical information (device manufacturer/model, Android version, app version/build and connection timestamps) with Nexus3D Diagnostics? No files, contacts, GPS, IMEI or personal account data are collected. You can change this choice later in Diagnostics settings.")
+            .setPositiveButton("Allow", (dialog, which) -> {
+                prefs.edit().putBoolean(CONSENT, true).putBoolean("consent_decided", true).apply();
+                try {
+                    Identity identity = loadOrCreate(getContext());
+                    executor.execute(() -> registerWithBackend(identity));
+                } catch (Exception error) {
+                    android.util.Log.w("NexusDeviceIdentity", "Registration deferred.", error);
+                }
+                JSObject result = new JSObject();
+                result.put("enabled", true);
+                result.put("alreadyDecided", false);
+                call.resolve(result);
+            })
+            .setNegativeButton("Not now", (dialog, which) -> {
+                prefs.edit().putBoolean(CONSENT, false).putBoolean("consent_decided", true).apply();
+                JSObject result = new JSObject();
+                result.put("enabled", false);
+                result.put("alreadyDecided", false);
+                call.resolve(result);
+            })
+            .setCancelable(false)
+            .show());
+    }
+
     private Identity loadOrCreate(Context context) throws Exception {
         SharedPreferences prefs = preferences();
         String installationId = prefs.getString(ID, null);
