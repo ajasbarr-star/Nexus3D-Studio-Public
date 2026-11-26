@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(NexusProjectFilesPlugin.class);
+        registerPlugin(NexusDiagnosticsBridgePlugin.class);
         super.onCreate(savedInstanceState);
         applyImmersiveMode();
     }
