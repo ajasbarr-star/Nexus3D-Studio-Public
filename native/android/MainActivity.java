@@ -18,6 +18,18 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        NexusDeviceIdentityPlugin.onAppForegroundChanged(getApplicationContext(), true);
+    }
+
+    @Override
+    protected void onPause() {
+        NexusDeviceIdentityPlugin.onAppForegroundChanged(getApplicationContext(), false);
+        super.onPause();
+    }
+
+    @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
