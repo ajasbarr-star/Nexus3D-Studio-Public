@@ -754,7 +754,7 @@ export default function App() {
   const [rdsLastScanAt, setRdsLastScanAt] = useState('');
   const [rdsSourceAuditReport, setRdsSourceAuditReport] = useState('Build-time source audit has not been loaded yet.');
   const [rdsWebglCaptureEnabled, setRdsWebglCaptureEnabled] = useState(false);
-  const [rdsWebglShaderErrors, setRdsWebglShaderErrors] = useState<Array<{ message: string; details: string; timestamp: string }>>([]);
+  const [rdsWebglShaderErrors, setRdsWebglShaderErrors] = useState<Array<{ message: string; details: string; timestamp: string; category?: string; context?: ReturnType<typeof collectWebGLDiagnostics> | null }>>([]);
   const [rdsWebglSnapshot, setRdsWebglSnapshot] = useState<any>(null);
   const [rdsWebglReport, setRdsWebglReport] = useState('Run WebGL / Shader Analysis to inspect the current renderer.');
   const [rdsShadowReport, setRdsShadowReport] = useState('Run Shadow Map Analysis to inspect visible shadow-casting lights.');
@@ -6338,8 +6338,8 @@ export default function App() {
     try {
       rdsShaderCaptureCleanupRef.current = attachShaderErrorCapture(renderer, error => {
         setRdsWebglShaderErrors(previous => [...previous, error].slice(-50));
-        diagnosticSinkRef.current('ERROR', 'WebGL Shader', error.message, error.details);
-      });
+        diagnosticSinkRef.current('ERROR', 'WebGL Shader', error.message, error.details + (error.context ? '\nEvent-time scene snapshot: ' + error.context.sceneIdentity + ' · snapshot ' + error.context.snapshotId + ' · directional shadow casters: ' + error.context.shadows?.directionalShadowCastingLights + ' · fragment texture units: ' + error.context.webgl?.fragmentTextureUnits : ''));
+      }, { getContext: () => collectWebGLDiagnostics({ renderer, scene: runtime.current?.scene }) });
       setRdsWebglCaptureEnabled(true);
       diagnosticSinkRef.current('INFO', 'WebGL Shader', 'Opt-in shader error capture started', 'Event-driven capture of shader compile/link failures. No per-frame polling was enabled.');
       setStatus('WebGL shader error capture started · opt-in');
