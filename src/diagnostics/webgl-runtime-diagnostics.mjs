@@ -6,11 +6,21 @@ const TEXTURE_SLOT_NAMES = [
   'transmissionMap','thicknessMap','gradientMap'
 ];
 
-function visibleObjects(scene) {
+function allSceneObjects(scene) {
   const objects = [];
-  if (!scene || typeof scene.traverseVisible !== 'function') return objects;
-  scene.traverseVisible(object => objects.push(object));
+  if (!scene) return objects;
+  if (typeof scene.traverse === 'function') scene.traverse(object => objects.push(object));
+  else if (typeof scene.traverseVisible === 'function') scene.traverseVisible(object => objects.push(object));
   return objects;
+}
+
+function isEffectivelyVisible(object) {
+  let current = object;
+  while (current) {
+    if (current.visible === false) return false;
+    current = current.parent || null;
+  }
+  return true;
 }
 
 function getMaterialList(objects) {
@@ -56,10 +66,13 @@ function readLimit(gl, key) {
 
 export function collectWebGLDiagnostics({ renderer, scene, shaderErrors = [] } = {}) {
   const gl = renderer?.getContext?.() || null;
-  const objects = visibleObjects(scene);
-  const materialEntries = getMaterialList(objects).map(inspectMaterial);
+  const objects = allSceneObjects(scene);
+  const visible = objects.filter(isEffectivelyVisible);
+  const materialEntries = getMaterialList(visible).map(inspectMaterial);
   const lights = objects.filter(object => object?.isLight);
   const shadowLights = lights.filter(light => light.castShadow);
+  const visibleShadowLights = shadowLights.filter(isEffectivelyVisible);
+  const hiddenShadowLights = shadowLights.filter(light => !isEffectivelyVisible(light));
   const textureBindings = materialEntries.flatMap(material => material.bindings);
   const uniqueTextures = new Set(textureBindings.map(binding => binding.uuid || binding.texture));
   const render = renderer?.info?.render || {};
@@ -79,14 +92,20 @@ export function collectWebGLDiagnostics({ renderer, scene, shaderErrors = [] } =
       vertexUniformVectors: readLimit(gl, 'MAX_VERTEX_UNIFORM_VECTORS')
     },
     scene: {
-      visibleObjects: objects.length,
-      visibleMeshes: objects.filter(object => object?.isMesh).length,
-      visibleLights: lights.length
+      totalObjects: objects.length,
+      visibleObjects: visible.length,
+      hiddenObjects: objects.length - visible.length,
+      visibleMeshes: visible.filter(object => object?.isMesh).length,
+      totalLights: lights.length,
+      visibleLights: lights.filter(isEffectivelyVisible).length,
+      hiddenLights: lights.filter(light => !isEffectivelyVisible(light)).length
     },
     shadows: {
       enabled: Boolean(renderer?.shadowMap?.enabled),
       autoUpdate: renderer?.shadowMap?.autoUpdate ?? null,
       shadowCastingLights: shadowLights.length,
+      visibleShadowCastingLights: visibleShadowLights.length,
+      hiddenShadowCastingLights: hiddenShadowLights.length,
       byType: shadowLights.reduce((counts, light) => {
         const type = light.type || (light.isDirectionalLight ? 'DirectionalLight' : light.isPointLight ? 'PointLight' : light.isSpotLight ? 'SpotLight' : 'OtherLight');
         counts[type] = (counts[type] || 0) + 1;
@@ -97,7 +116,8 @@ export function collectWebGLDiagnostics({ renderer, scene, shaderErrors = [] } =
         type: light.type || 'Unknown',
         width: light.shadow?.mapSize?.width ?? null,
         height: light.shadow?.mapSize?.height ?? null,
-        mapAllocated: Boolean(light.shadow?.map)
+        mapAllocated: Boolean(light.shadow?.map),
+        visible: isEffectivelyVisible(light)
       }))
     },
     materials: {
@@ -170,11 +190,13 @@ export function formatShadowMapAnalysis(snapshot = {}) {
     'Captured: ' + (snapshot.capturedAt || 'NOT CAPTURED'),
     'Renderer shadow maps enabled: ' + Boolean(shadows.enabled),
     'Automatic shadow updates: ' + (shadows.autoUpdate ?? 'UNKNOWN'),
-    'Visible shadow-casting lights: ' + (shadows.shadowCastingLights ?? 0),
-    'Shadow-caster counts: ' + (counts.join(', ') || 'None'),
+    'Shadow-casting lights (entire scene): ' + (shadows.shadowCastingLights ?? 0),
+    'Visible shadow-casting lights: ' + (shadows.visibleShadowCastingLights ?? shadows.shadowCastingLights ?? 0),
+    'Hidden shadow-casting lights: ' + (shadows.hiddenShadowCastingLights ?? 0),
+    'Shadow-caster counts (entire scene): ' + (counts.join(', ') || 'None'),
     '',
     'SHADOW MAP INVENTORY',
-    ...(maps.length ? maps.map((map, index) => (index + 1) + '. ' + map.name + ' [' + map.type + '] · ' + (map.width ?? '?') + 'x' + (map.height ?? '?') + ' · allocated: ' + map.mapAllocated) : ['No visible shadow-casting lights were found.']),
+    ...(maps.length ? maps.map((map, index) => (index + 1) + '. ' + map.name + ' [' + map.type + '] · ' + (map.width ?? '?') + 'x' + (map.height ?? '?') + ' · allocated: ' + map.mapAllocated + ' · visible: ' + (map.visible ?? 'UNKNOWN')) : ['No visible shadow-casting lights were found.']),
     '',
     'PER-FRAME RENDER COUNT: NOT EXPOSED',
     'The current Three.js WebGLRenderer public API does not expose a per-frame counter for completed shadow-map passes. The count above is the visible shadow-casting light inventory, not a claim that every listed map rendered in the last frame.',
@@ -231,7 +253,9 @@ export function attachShadowRenderCapture(renderer, { now = () => performance.no
   if (!shadowMap || typeof shadowMap.render !== 'function') throw new Error('Three.js shadowMap.render hook is unavailable in this renderer');
   const previous = shadowMap.render;
   const samples = [];
-  let pendingCycles = 0, pendingRenderMs = 0, totalCycles = 0, totalRenderMs = 0, stopped = false;
+  let pendingCycles = 0, pendingRenderMs = 0, totalCycles = 0, totalRenderMs = 0;
+  let totalFrames = 0, totalFrameMs = 0, framesWithTiming = 0;
+  let minCycles = null, maxCycles = null, maxRenderMs = null, stopped = false;
   const wrapped = function (...args) {
     const started = now();
     pendingCycles += 1;
@@ -246,33 +270,39 @@ export function attachShadowRenderCapture(renderer, { now = () => performance.no
   shadowMap.render = wrapped;
   const recordFrame = frameMs => {
     if (stopped) return;
-    samples.push({ frameMs: Number.isFinite(frameMs) ? Math.max(0, frameMs) : null, updateCycles: pendingCycles, shadowRenderMs: pendingRenderMs });
+    const measuredFrameMs = Number.isFinite(frameMs) ? Math.max(0, frameMs) : null;
+    totalFrames += 1;
+    if (measuredFrameMs !== null) {
+      totalFrameMs += measuredFrameMs;
+      framesWithTiming += 1;
+    }
+    minCycles = minCycles === null ? pendingCycles : Math.min(minCycles, pendingCycles);
+    maxCycles = maxCycles === null ? pendingCycles : Math.max(maxCycles, pendingCycles);
+    maxRenderMs = maxRenderMs === null ? pendingRenderMs : Math.max(maxRenderMs, pendingRenderMs);
+    samples.push({ frameMs: measuredFrameMs, updateCycles: pendingCycles, shadowRenderMs: pendingRenderMs });
     if (samples.length > maxSamples) samples.shift();
     pendingCycles = 0;
     pendingRenderMs = 0;
   };
   const getSnapshot = () => {
     if (pendingCycles || pendingRenderMs) recordFrame(null);
-    const validFrames = samples.filter(sample => sample.frameMs !== null);
-    const cycles = samples.map(sample => sample.updateCycles);
-    const renderTimes = samples.map(sample => sample.shadowRenderMs);
-    const frameTimes = validFrames.map(sample => sample.frameMs);
-    const sum = values => values.reduce((total, value) => total + value, 0);
-    const avg = values => values.length ? sum(values) / values.length : null;
+    const averageFrameMs = framesWithTiming ? totalFrameMs / framesWithTiming : null;
     return {
       capturedAt: new Date().toISOString(),
       instrumentation: 'renderer.shadowMap.render wrapper',
-      measurement: 'Shadow-map update cycles entered per renderer frame; not per-light GPU passes.',
+      measurement: 'Shadow-map update cycles entered per recorded renderer frame; not per-light GPU passes.',
       totalUpdateCycles: totalCycles,
       totalShadowRenderMs: Number(totalRenderMs.toFixed(3)),
-      frames: samples.length,
-      averageUpdateCyclesPerFrame: avg(cycles),
-      minUpdateCyclesPerFrame: cycles.length ? Math.min(...cycles) : null,
-      maxUpdateCyclesPerFrame: cycles.length ? Math.max(...cycles) : null,
-      averageShadowRenderMsPerFrame: avg(renderTimes),
-      maxShadowRenderMsPerFrame: renderTimes.length ? Math.max(...renderTimes) : null,
-      averageFrameMs: avg(frameTimes),
-      estimatedFpsFromFrameTime: avg(frameTimes) > 0 ? 1000 / avg(frameTimes) : null,
+      frames: totalFrames,
+      measuredFrames: totalFrames,
+      storedSamples: samples.length,
+      averageUpdateCyclesPerFrame: totalFrames ? totalCycles / totalFrames : null,
+      minUpdateCyclesPerFrame: minCycles,
+      maxUpdateCyclesPerFrame: maxCycles,
+      averageShadowRenderMsPerFrame: totalFrames ? totalRenderMs / totalFrames : null,
+      maxShadowRenderMsPerFrame: maxRenderMs,
+      averageFrameMs,
+      estimatedFpsFromFrameTime: averageFrameMs > 0 ? 1000 / averageFrameMs : null,
       samples: samples.map(sample => ({ ...sample }))
     };
   };
@@ -291,7 +321,8 @@ export function formatShadowRenderCapture(snapshot = {}) {
     'Captured: ' + (snapshot.capturedAt || 'NOT CAPTURED'),
     'Instrumentation: ' + (snapshot.instrumentation || 'UNAVAILABLE'),
     'Total shadow-map update cycles: ' + (snapshot.totalUpdateCycles ?? 'UNAVAILABLE'),
-    'Measured frames: ' + (snapshot.frames ?? 0),
+    'Measured frames: ' + (snapshot.measuredFrames ?? snapshot.frames ?? 0),
+    'Stored samples: ' + (snapshot.storedSamples ?? snapshot.frames ?? 0),
     'Average update cycles per frame: ' + fmt(snapshot.averageUpdateCyclesPerFrame),
     'Minimum update cycles per frame: ' + fmt(snapshot.minUpdateCyclesPerFrame),
     'Maximum update cycles per frame: ' + fmt(snapshot.maxUpdateCyclesPerFrame),
