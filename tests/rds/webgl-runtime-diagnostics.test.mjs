@@ -68,15 +68,15 @@ test('captures shader error logs and restores the previous Three.js callback', (
 
 test('counts shadow-map update cycles per frame and restores the renderer hook', () => {
   let clock = 0;
+  let step = 4;
   let invocations = 0;
-  const original = function () { invocations += 1; };
+  const original = function () { invocations += 1; clock += step; };
   const renderer = { shadowMap: { render: original } };
   const capture = attachShadowRenderCapture(renderer, { now: () => clock });
   renderer.shadowMap.render([], {}, {});
-  clock = 4;
   capture.recordFrame(16.7);
+  step = 3;
   renderer.shadowMap.render([], {}, {});
-  clock = 7;
   capture.recordFrame(17.2);
   const snapshot = capture.getSnapshot();
   assert.equal(invocations, 2);
