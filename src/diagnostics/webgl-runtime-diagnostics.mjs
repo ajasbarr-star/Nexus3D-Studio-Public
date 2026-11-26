@@ -158,7 +158,7 @@ export function formatWebGLDiagnostics(snapshot = {}) {
     'Textures: ' + (render.textures ?? 'UNAVAILABLE'),
     '',
     'LIMITATION: Three.js exposes scene shadow-caster inventory publicly, but not the exact number of shadow-map render passes completed in each frame. See Shadow Map Analysis for the measured inventory and this limitation.'
-  ].join('\\n');
+  ].join('\n');
 }
 
 export function formatShadowMapAnalysis(snapshot = {}) {
