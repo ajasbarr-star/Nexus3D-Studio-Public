@@ -55,6 +55,9 @@ test('collects WebGL limits, all-scene shadow casters and visible material slots
   assert.equal(material.map, texture);
   assert.match(formatWebGLDiagnostics(snapshot), /WEBGL \/ SHADER DIAGNOSTICS/);
   assert.match(formatShadowMapAnalysis(snapshot), /PER-FRAME RENDER COUNT: NOT EXPOSED/);
+  assert.equal(snapshot.scene.identity, snapshot.sceneIdentity);
+  assert.equal(snapshot.shadows.directionalShadowCastingLights, 1);
+  assert.match(formatShadowMapAnalysis(snapshot), /Directional shadow casters: 1/);
   assert.match(formatMaterialTextureAnalysis(snapshot), /albedo/);
 });
 
@@ -76,6 +79,8 @@ test('counts shadow casters under hidden parents and reports their effective vis
   assert.equal(snapshot.shadows.visibleShadowCastingLights, 0);
   assert.equal(snapshot.shadows.hiddenShadowCastingLights, 17);
   assert.equal(snapshot.shadows.maps.length, 17);
+  assert.equal(snapshot.shadows.directionalShadowCastingLights, 17);
+  assert.equal(snapshot.shadows.directionalMaps.length, 17);
   assert.equal(snapshot.shadows.maps.every(map => map.visible === false), true);
   assert.match(formatShadowMapAnalysis(snapshot), /Shadow-casting lights \(entire scene\): 17/);
   assert.match(formatShadowMapAnalysis(snapshot), /Hidden shadow-casting lights: 17/);
@@ -96,6 +101,50 @@ test('captures shader error logs and restores the previous Three.js callback', (
   assert.match(captured.details, /too many texture image units/);
   stop();
   assert.equal(renderer.debug.onShaderError, previous);
+});
+
+
+test('keeps a stable scene identity across inventory snapshots and records changing light counts', () => {
+  const scene = makeScene([]);
+  const renderer = makeRenderer();
+  const first = collectWebGLDiagnostics({ renderer, scene });
+  const light = {
+    isLight: true, isDirectionalLight: true, type: 'DirectionalLight',
+    name: 'Sun', castShadow: true, visible: true,
+    shadow: { mapSize: { width: 256, height: 256 }, map: null }
+  };
+  light.parent = scene;
+  scene.children.push(light);
+  const second = collectWebGLDiagnostics({ renderer, scene });
+  assert.equal(first.sceneIdentity, second.sceneIdentity);
+  assert.notEqual(first.snapshotId, second.snapshotId);
+  assert.equal(first.shadows.directionalShadowCastingLights, 0);
+  assert.equal(second.shadows.directionalShadowCastingLights, 1);
+  assert.match(formatShadowMapAnalysis(second), /Scene identity:/);
+});
+
+test('captures the exact sampler location/component linking failure and event-time scene context', () => {
+  const renderer = { debug: { onShaderError: null } };
+  const context = {
+    snapshotId: 9,
+    sceneIdentity: 'scene-test-1',
+    webgl: { fragmentTextureUnits: 16, combinedTextureUnits: 32 },
+    shadows: { directionalShadowCastingLights: 17 }
+  };
+  let captured;
+  const stop = attachShaderErrorCapture(renderer, value => { captured = value; }, { getContext: () => context });
+  renderer.debug.onShaderError({
+    getProgramInfoLog: () => 'Sampler location or component exceeds max allowed. Linking failed.',
+    getShaderInfoLog: () => ''
+  }, {}, {}, {});
+  assert.equal(captured.category, 'SAMPLER_LIMIT');
+  assert.match(captured.message, /sampler location\/component limit exceeded/i);
+  assert.match(captured.details, /Sampler location or component exceeds max allowed/);
+  assert.equal(captured.context, context);
+  const report = formatWebGLDiagnostics({ shaderErrors: [captured] });
+  assert.match(report, /directional shadow casters: 17/);
+  assert.match(report, /fragment units: 16/);
+  stop();
 });
 
 
