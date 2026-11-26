@@ -27,6 +27,9 @@ import java.security.SecureRandom;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -50,6 +53,9 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     private static final String SUPABASE_URL = "https://rupftghvjmalntjoesnv.supabase.co";
     private static final String SUPABASE_KEY = "sb_publishable_t3-BF5smZ21bzc59TVrYIw_4MHGG3Dq";
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private static final ScheduledExecutorService PRESENCE_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
+    private static final Object PRESENCE_LOCK = new Object();
+    private static ScheduledFuture<?> presenceTask;
 
     @PluginMethod
     public void getOrCreateIdentity(PluginCall call) {
@@ -205,6 +211,77 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             }
         } catch (Exception error) {
             android.util.Log.w("NexusDeviceIdentity", "Automatic registration deferred until next launch.", error);
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    /**
+     * Called directly by MainActivity lifecycle callbacks. The device credential
+     * remains native-only and is decrypted only for authenticated presence calls.
+     */
+    public static void onAppForegroundChanged(Context suppliedContext, boolean foreground) {
+        Context context = suppliedContext.getApplicationContext();
+        synchronized (PRESENCE_LOCK) {
+            if (foreground) {
+                if (presenceTask != null && !presenceTask.isCancelled() && !presenceTask.isDone()) return;
+                presenceTask = PRESENCE_EXECUTOR.scheduleAtFixedRate(
+                    () -> sendPresence(context, "online"), 0, 45, TimeUnit.SECONDS
+                );
+            } else {
+                if (presenceTask != null) {
+                    presenceTask.cancel(false);
+                    presenceTask = null;
+                }
+                PRESENCE_EXECUTOR.execute(() -> sendPresence(context, "offline"));
+            }
+        }
+    }
+
+    private static void sendPresence(Context context, String state) {
+        HttpURLConnection connection = null;
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            if (!prefs.getBoolean(CONSENT, false) || !prefs.getBoolean(REGISTERED, false)) return;
+            String installationId = prefs.getString(ID, null);
+            String ivValue = prefs.getString(SECRET_IV, null);
+            String cipherValue = prefs.getString(SECRET_CIPHER, null);
+            if (installationId == null || ivValue == null || cipherValue == null) return;
+
+            KeyStore store = KeyStore.getInstance("AndroidKeyStore");
+            store.load(null);
+            SecretKey key = (SecretKey) store.getKey(KEY_ALIAS, null);
+            if (key == null) return;
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, key,
+                new GCMParameterSpec(128, Base64.decode(ivValue, Base64.NO_WRAP)));
+            String credential = new String(
+                cipher.doFinal(Base64.decode(cipherValue, Base64.NO_WRAP)),
+                StandardCharsets.UTF_8
+            );
+
+            JSONObject body = new JSONObject();
+            body.put("installationId", installationId);
+            body.put("deviceCode", credential);
+            body.put("state", state);
+            URL endpoint = new URL(SUPABASE_URL + "/functions/v1/device-presence");
+            connection = (HttpURLConnection) endpoint.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(8000);
+            connection.setReadTimeout(10000);
+            connection.setRequestProperty("apikey", SUPABASE_KEY);
+            connection.setRequestProperty("Authorization", "Bearer " + SUPABASE_KEY);
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setDoOutput(true);
+            try (OutputStream output = connection.getOutputStream()) {
+                output.write(body.toString().getBytes(StandardCharsets.UTF_8));
+            }
+            int status = connection.getResponseCode();
+            if (status < 200 || status >= 300) {
+                android.util.Log.w("NexusDeviceIdentity", "Presence update deferred: HTTP " + status);
+            }
+        } catch (Exception error) {
+            android.util.Log.w("NexusDeviceIdentity", "Presence update deferred until the next heartbeat.", error);
         } finally {
             if (connection != null) connection.disconnect();
         }
