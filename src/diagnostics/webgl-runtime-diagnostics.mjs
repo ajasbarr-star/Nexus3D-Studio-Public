@@ -1,3 +1,14 @@
+let nextSceneIdentity = 1;
+let nextSnapshotId = 1;
+const SCENE_IDENTITIES = new WeakMap();
+
+function getSceneIdentity(scene) {
+  if (!scene || (typeof scene !== 'object' && typeof scene !== 'function')) return 'UNAVAILABLE';
+  if (scene.uuid) return String(scene.uuid);
+  if (!SCENE_IDENTITIES.has(scene)) SCENE_IDENTITIES.set(scene, 'scene-' + nextSceneIdentity++);
+  return SCENE_IDENTITIES.get(scene);
+}
+
 const TEXTURE_SLOT_NAMES = [
   'map','alphaMap','aoMap','bumpMap','normalMap','displacementMap','emissiveMap',
   'envMap','lightMap','metalnessMap','roughnessMap','clearcoatMap','clearcoatNormalMap',
@@ -77,8 +88,12 @@ export function collectWebGLDiagnostics({ renderer, scene, shaderErrors = [] } =
   const uniqueTextures = new Set(textureBindings.map(binding => binding.uuid || binding.texture));
   const render = renderer?.info?.render || {};
   const memory = renderer?.info?.memory || {};
+  const directionalShadowLights = shadowLights.filter(light => light.isDirectionalLight || light.type === 'DirectionalLight');
+  const capturedAt = new Date().toISOString();
   return {
-    capturedAt: new Date().toISOString(),
+    snapshotId: nextSnapshotId++,
+    capturedAt,
+    sceneIdentity: getSceneIdentity(scene),
     webgl: {
       version: gl ? readLimit(gl, 'VERSION') : null,
       renderer: gl ? readLimit(gl, 'RENDERER') : null,
@@ -92,6 +107,9 @@ export function collectWebGLDiagnostics({ renderer, scene, shaderErrors = [] } =
       vertexUniformVectors: readLimit(gl, 'MAX_VERTEX_UNIFORM_VECTORS')
     },
     scene: {
+      identity: getSceneIdentity(scene),
+      name: scene?.name || 'Unnamed Scene',
+      uuid: scene?.uuid || null,
       totalObjects: objects.length,
       visibleObjects: visible.length,
       hiddenObjects: objects.length - visible.length,
@@ -104,6 +122,15 @@ export function collectWebGLDiagnostics({ renderer, scene, shaderErrors = [] } =
       enabled: Boolean(renderer?.shadowMap?.enabled),
       autoUpdate: renderer?.shadowMap?.autoUpdate ?? null,
       shadowCastingLights: shadowLights.length,
+      directionalShadowCastingLights: directionalShadowLights.length,
+      directionalMaps: directionalShadowLights.map(light => ({
+        name: light.name || light.type || 'Unnamed Directional Light',
+        editorId: light.userData?.editorId || null,
+        uuid: light.uuid || null,
+        width: light.shadow?.mapSize?.width ?? null,
+        height: light.shadow?.mapSize?.height ?? null,
+        visible: isEffectivelyVisible(light)
+      })),
       visibleShadowCastingLights: visibleShadowLights.length,
       hiddenShadowCastingLights: hiddenShadowLights.length,
       byType: shadowLights.reduce((counts, light) => {
@@ -145,7 +172,8 @@ export function formatWebGLDiagnostics(snapshot = {}) {
   const render = snapshot.render || {};
   return [
     'NEXUS3D RDS · WEBGL / SHADER DIAGNOSTICS',
-    'Captured: ' + (snapshot.capturedAt || 'NOT CAPTURED'),
+    'Snapshot: ' + (snapshot.snapshotId ?? 'UNAVAILABLE') + ' · Captured: ' + (snapshot.capturedAt || 'NOT CAPTURED'),
+    'Scene identity: ' + (snapshot.sceneIdentity || scene.identity || 'UNAVAILABLE'),
     '',
     'DEVICE / WEBGL LIMITS',
     'Version: ' + (webgl.version || 'UNAVAILABLE'),
@@ -169,7 +197,16 @@ export function formatWebGLDiagnostics(snapshot = {}) {
     materials.note || '',
     '',
     'SHADER ERRORS CAPTURED: ' + (snapshot.shaderErrors || []).length,
-    ...(snapshot.shaderErrors || []).map((error, index) => '[' + (index + 1) + '] ' + (error.message || 'Shader program error') + (error.details ? '\\n' + error.details : '')),
+    ...(snapshot.shaderErrors || []).map((error, index) => {
+      const context = error.context || {};
+      const contextShadows = context.shadows || {};
+      const contextWebgl = context.webgl || {};
+      return '[' + (index + 1) + '] ' + (error.message || 'Shader program error') + (error.category ? ' · ' + error.category : '') +
+        (error.details ? '\\n' + error.details : '') +
+        (error.context ? '\\n  Event scene: ' + (context.sceneIdentity || 'UNAVAILABLE') + ' · snapshot ' + (context.snapshotId ?? 'UNAVAILABLE') +
+          ' · directional shadow casters: ' + (contextShadows.directionalShadowCastingLights ?? 'UNAVAILABLE') +
+          ' · fragment units: ' + (contextWebgl.fragmentTextureUnits ?? 'UNAVAILABLE') : '');
+    }),
     '',
     'LAST RENDERER INFO SNAPSHOT',
     'Draw calls: ' + (render.drawCalls ?? 'UNAVAILABLE'),
@@ -187,13 +224,19 @@ export function formatShadowMapAnalysis(snapshot = {}) {
   const maps = shadows.maps || [];
   return [
     'NEXUS3D RDS · SHADOW MAP ANALYSIS',
-    'Captured: ' + (snapshot.capturedAt || 'NOT CAPTURED'),
+    'Snapshot: ' + (snapshot.snapshotId ?? 'UNAVAILABLE') + ' · Captured: ' + (snapshot.capturedAt || 'NOT CAPTURED'),
+    'Scene identity: ' + (snapshot.sceneIdentity || snapshot.scene?.identity || 'UNAVAILABLE'),
     'Renderer shadow maps enabled: ' + Boolean(shadows.enabled),
     'Automatic shadow updates: ' + (shadows.autoUpdate ?? 'UNKNOWN'),
     'Shadow-casting lights (entire scene): ' + (shadows.shadowCastingLights ?? 0),
     'Visible shadow-casting lights: ' + (shadows.visibleShadowCastingLights ?? shadows.shadowCastingLights ?? 0),
     'Hidden shadow-casting lights: ' + (shadows.hiddenShadowCastingLights ?? 0),
     'Shadow-caster counts (entire scene): ' + (counts.join(', ') || 'None'),
+    'Directional shadow casters: ' + (shadows.directionalShadowCastingLights ?? 0),
+    'Directional map sizes: ' + ((shadows.directionalMaps || []).map(map => map.name + ':' + (map.width ?? '?') + 'x' + (map.height ?? '?')).join(', ') || 'None'),
+    'Device fragment texture-unit limit: ' + (snapshot.webgl?.fragmentTextureUnits ?? 'UNAVAILABLE'),
+    'Device combined texture-unit limit: ' + (snapshot.webgl?.combinedTextureUnits ?? 'UNAVAILABLE'),
+    'Capacity interpretation: directional shadow casters are a potential sampler-pressure indicator, not the final linked shader sampler count.',
     '',
     'SHADOW MAP INVENTORY',
     ...(maps.length ? maps.map((map, index) => (index + 1) + '. ' + map.name + ' [' + map.type + '] · ' + (map.width ?? '?') + 'x' + (map.height ?? '?') + ' · allocated: ' + map.mapAllocated + ' · visible: ' + (map.visible ?? 'UNKNOWN')) : ['No shadow-casting lights were found in the scene.']),
@@ -225,7 +268,7 @@ export function formatMaterialTextureAnalysis(snapshot = {}) {
   ].join('\n');
 }
 
-export function attachShaderErrorCapture(renderer, onError) {
+export function attachShaderErrorCapture(renderer, onError, { getContext } = {}) {
   if (!renderer?.debug || typeof onError !== 'function') throw new Error('WebGL renderer debug hook is unavailable');
   const debug = renderer.debug;
   const previous = debug.onShaderError;
@@ -235,9 +278,16 @@ export function attachShaderErrorCapture(renderer, onError) {
     try { const value = gl?.getProgramInfoLog?.(program); if (value) parts.push('Program: ' + value); } catch {}
     try { const value = gl?.getShaderInfoLog?.(vertexShader); if (value) parts.push('Vertex shader: ' + value); } catch {}
     try { const value = gl?.getShaderInfoLog?.(fragmentShader); if (value) parts.push('Fragment shader: ' + value); } catch {}
-    const details = parts.join('\\n');
-    const message = /sampler|texture image unit|too many/i.test(details) ? 'Shader link/compile error · possible sampler or texture-unit overflow' : 'WebGL shader compile/link error';
-    onError({ message, details, timestamp: new Date().toISOString() });
+    const details = parts.join('\n');
+    const samplerOverflow = /sampler location|component exceeds max allowed|sampler|texture image unit|too many/i.test(details);
+    const message = /sampler location or component exceeds max allowed/i.test(details)
+      ? 'Shader link error · sampler location/component limit exceeded'
+      : samplerOverflow ? 'Shader link/compile error · possible sampler or texture-unit overflow' : 'WebGL shader compile/link error';
+    let context = null;
+    try { context = typeof getContext === 'function' ? getContext() : null; } catch (error) {
+      context = { contextCaptureError: error instanceof Error ? error.message : String(error) };
+    }
+    onError({ message, category: samplerOverflow ? 'SAMPLER_LIMIT' : 'SHADER_COMPILE_OR_LINK', details, timestamp: new Date().toISOString(), context });
   };
   debug.onShaderError = handler;
   return () => {
