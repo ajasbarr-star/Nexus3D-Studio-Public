@@ -97,6 +97,11 @@ type NexusProjectFilesPlugin = {
 };
 const NexusProjectFiles = registerPlugin<NexusProjectFilesPlugin>('NexusProjectFiles');
 
+type NexusDiagnosticsBridgePlugin = {
+  sendEvents(options: { events: Array<Record<string, unknown>> }): Promise<{ accepted: number; destination: string }>;
+};
+const NexusDiagnosticsBridge = registerPlugin<NexusDiagnosticsBridgePlugin>('NexusDiagnosticsBridge');
+
 type BufferedNumberInputProps = {
   value: number;
   step?: number;
@@ -518,6 +523,54 @@ export default function App() {
       saveRitTraceEntries(localStorage, next);
       return next;
     });
+
+    // Local RDS persistence remains primary. Forward bounded batches to the
+    // separate Diagnostics APK when it is installed; bridge failures never
+    // interrupt the Editor's own LogCat or RIT Trace capture.
+    if (Capacitor.isNativePlatform() && (logBatch.length || traceBatch.length)) {
+      const bridgeEvents = [
+        ...logBatch.map(entry => ({
+          source: 'RDS_LOGCAT',
+          severity: String(entry.level || 'INFO').toUpperCase(),
+          title: String(entry.message || 'Runtime event').slice(0, 240),
+          details: JSON.stringify({
+            originalSource: entry.source,
+            message: entry.message,
+            details: entry.details || '',
+            timestampISO: entry.timestampISO || '',
+            sequence: entry.sequence ?? null,
+            origin: entry.origin || 'UNKNOWN_ORIGIN',
+            tracePoint: entry.tracePoint || '',
+            objectId: entry.objectId || '',
+            interactionId: entry.interactionId || ''
+          }).slice(0, 2200),
+          sessionId: entry.sessionId || RUNTIME_SESSION_ID,
+          timestampEpochMs: Date.parse(entry.timestampISO || '') || Date.now()
+        })),
+        ...traceBatch.map(entry => ({
+          source: 'RIT_TRACE',
+          severity: String(entry.level || 'INFO').toUpperCase(),
+          title: String(entry.message || 'Interaction trace').slice(0, 240),
+          details: JSON.stringify({
+            originalSource: entry.source,
+            message: entry.message,
+            details: entry.details || '',
+            timestampISO: entry.timestampISO || '',
+            sequence: entry.sequence ?? null,
+            origin: entry.origin || 'UNKNOWN_ORIGIN',
+            interactionId: entry.interactionId || ''
+          }).slice(0, 2200),
+          sessionId: entry.sessionId || RUNTIME_SESSION_ID,
+          timestampEpochMs: Date.parse(entry.timestampISO || '') || Date.now()
+        }))
+      ];
+      for (let index = 0; index < bridgeEvents.length; index += 20) {
+        const batch = bridgeEvents.slice(index, index + 20);
+        void NexusDiagnosticsBridge.sendEvents({ events: batch }).catch(() => {
+          // Diagnostics may be absent or offline; keep the Editor's local logs.
+        });
+      }
+    }
   };
   useEffect(() => {
     const timer = window.setInterval(flush, 1000);
