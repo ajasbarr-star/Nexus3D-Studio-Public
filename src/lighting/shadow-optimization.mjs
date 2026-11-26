@@ -14,3 +14,15 @@ export function configureDirectionalShadow(light, mapSize = DEFAULT_DIRECTIONAL_
   light.shadow.needsUpdate = true;
   return true;
 }
+
+
+/**
+ * Configure a newly-created DirectionalLight without opting it into shadow
+ * rendering. Intensity and light color are deliberately left untouched.
+ */
+export function configureNewDirectionalLight(light, mapSize = DEFAULT_DIRECTIONAL_SHADOW_MAP_SIZE) {
+  if (!light?.isDirectionalLight) return false;
+  configureDirectionalShadow(light, mapSize);
+  light.castShadow = false;
+  return true;
+}
