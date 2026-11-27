@@ -20,6 +20,7 @@ export function createCameraInteractionTracker({
   now = () => 0,
   createId = () => 'camera-interaction',
   resolveInteractionId = () => null,
+  enabled = () => true,
 } = {}) {
   const pointers = new Map();
   let session = null;
@@ -64,6 +65,7 @@ export function createCameraInteractionTracker({
   }
 
   function onPointerDown(event, viewport) {
+    if (!enabled()) return null;
     const point = { startX: finite(event?.clientX), startY: finite(event?.clientY), x: finite(event?.clientX), y: finite(event?.clientY), pointerType: event?.pointerType || 'unknown' };
     pointers.set(event?.pointerId ?? 0, point);
     const current = ensurePointerSession(event, viewport);
@@ -76,6 +78,7 @@ export function createCameraInteractionTracker({
   }
 
   function onPointerMove(event) {
+    if (!enabled()) return;
     const point = pointers.get(event?.pointerId ?? 0);
     if (!point) return;
     point.x = finite(event?.clientX);
@@ -84,6 +87,7 @@ export function createCameraInteractionTracker({
   }
 
   function onPointerUp(event, status = 'completed') {
+    if (!enabled()) { pointers.delete(event?.pointerId ?? 0); if (!pointers.size) session = null; return null; }
     const pointerId = event?.pointerId ?? 0;
     const point = pointers.get(pointerId);
     if (!point) return null;
@@ -141,6 +145,7 @@ export function createCameraInteractionTracker({
   }
 
   function onWheel(event, viewport) {
+    if (!enabled()) return null;
     const at = now();
     if (session?.endedAt !== null && session?.endedAt !== undefined && session.cameraUpdateAt === null) {
       completeWithoutCameraUpdate();
@@ -154,7 +159,7 @@ export function createCameraInteractionTracker({
   }
 
   function cameraChanged(controller, viewport, isActive = true) {
-    if (!isActive || !session || session.viewport !== viewport || session.cameraUpdateAt !== null) return null;
+    if (!enabled() || !isActive || !session || session.viewport !== viewport || session.cameraUpdateAt !== null) return null;
     const at = now();
     session.cameraUpdateAt = at;
     session.controller = controller || 'OrbitControls';
@@ -171,7 +176,7 @@ export function createCameraInteractionTracker({
   }
 
   function markRendered(viewport) {
-    if (!session || session.viewport !== viewport) return null;
+    if (!enabled() || !session || session.viewport !== viewport) return null;
     const at = now();
     if (session.cameraUpdateAt === null) {
       if (session.endedAt !== null || session.inputType === 'wheel') {
