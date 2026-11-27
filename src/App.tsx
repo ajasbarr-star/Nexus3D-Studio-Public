@@ -686,6 +686,39 @@ export default function App() {
           entries = allLogs;
           fullReport = formatDiagnosticReport(allLogs, { sessionId: RUNTIME_SESSION_ID });
       }
+      const toolCapture = rdsRecordingControllerRef.current?.getToolRecords(tool);
+      const toolCaptureRecords = tool === 'RIT Trace' ? [] : (toolCapture?.records || []);
+      const toolSceneSnapshots = toolCapture?.sceneSnapshots || [];
+      const captureReport = [
+        '[RDS TOOL RECORDING]',
+        'Run Analysis: ' + (toolCapture?.analysisEnabled ? 'ON' : 'OFF'),
+        'Capture Scene: ' + (toolCapture?.sceneCaptureEnabled ? 'ON' : 'OFF'),
+        'Captured interaction/runtime events: ' + toolCaptureRecords.length,
+        'Captured scene snapshots: ' + toolSceneSnapshots.length,
+        ...(toolCaptureRecords.length ? toolCaptureRecords.map(record =>
+          '[' + record.timestampISO + '] [' + record.level + '] ' + record.event + ' | ' + JSON.stringify(record.details)
+        ) : ['NO DATA CAPTURED — no per-tool analysis events were recorded.']),
+        ...(toolSceneSnapshots.length ? toolSceneSnapshots.map(record =>
+          '[' + record.timestampISO + '] SCENE_CAPTURE [' + record.source + ']\n' + JSON.stringify(record.snapshot, null, 2)
+        ) : ['NO SCENE SNAPSHOT CAPTURED.'])
+      ].join('\\n');
+      entries = [
+        ...entries,
+        ...toolCaptureRecords.map(record => ({
+          id: record.id, level: record.level, source: 'RDS Tool Capture',
+          message: record.event, details: JSON.stringify(record.details),
+          timestampISO: record.timestampISO, sessionId: record.sessionId,
+          interactionId: record.details?.interactionId, deviceId: record.deviceId,
+          buildNumber: record.buildNumber
+        })),
+        ...toolSceneSnapshots.map(record => ({
+          id: record.id, level: 'INFO', source: 'RDS Scene Capture',
+          message: 'SCENE_CAPTURE', details: JSON.stringify(record.snapshot),
+          timestampISO: record.timestampISO, sessionId: record.sessionId,
+          deviceId: record.deviceId, buildNumber: record.buildNumber
+        }))
+      ];
+      fullReport = [fullReport, captureReport].filter(Boolean).join('\\n\\n');
       const exportFiles = buildRdsExportFiles({
         tool, fullReport, entries,
         metadata: {
