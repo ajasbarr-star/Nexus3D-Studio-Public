@@ -157,3 +157,44 @@ test('camera tracker emits no records while the capture gate is off', () => {
   tracker.markRendered('MainViewport');
   assert.equal(records.length, 2);
 });
+
+test('camera tracker measures actual movement deltas and gesture frame timing without claiming accuracy', () => {
+  let clock = 0;
+  let cameraState = {
+    position: [0, 0, 0],
+    quaternion: [0, 0, 0, 1],
+    target: [0, 0, 0],
+  };
+  const records = [];
+  const tracker = createCameraInteractionTracker({
+    emit: event => records.push(event),
+    now: () => clock,
+    createId: () => 'camera-movement',
+    getCameraState: () => cameraState,
+  });
+  tracker.onPointerDown({ pointerId: 7, pointerType: 'touch', clientX: 0, clientY: 0 }, 'MainViewport');
+  cameraState = {
+    position: [3, 4, 0],
+    quaternion: [0, 0, Math.SQRT1_2, Math.SQRT1_2],
+    target: [0, 1, 0],
+  };
+  clock = 10;
+  tracker.cameraChanged('MainOrbit', 'MainViewport');
+  clock = 26;
+  tracker.markRendered('MainViewport');
+  clock = 42;
+  tracker.markRendered('MainViewport');
+  clock = 43;
+  tracker.onPointerUp({ pointerId: 7, clientX: 20, clientY: 0 });
+  const update = records.find(item => item.event === 'CAMERA_UPDATE');
+  const complete = records.find(item => item.event === 'CAMERA_GESTURE_COMPLETE');
+  assert.equal(update.cameraPositionDeltaUnits, 5);
+  assert.equal(update.cameraRotationDeltaDegrees, 90);
+  assert.equal(update.cameraTargetDeltaUnits, 1);
+  assert.match(update.movementAccuracy, /NOT_MEASURED/);
+  assert.equal(complete.frameMetricStatus, 'MEASURED');
+  assert.equal(complete.frameTimeSamples, 1);
+  assert.equal(complete.frameTimeAverageMs, 16);
+  assert.equal(complete.frameTimeMaxMs, 16);
+  assert.equal(complete.droppedFrameEstimate60Hz, 0);
+});
