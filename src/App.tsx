@@ -177,7 +177,7 @@ function BufferedNumberInput({ value, step = 0.1, disabled = false, ariaLabel, o
 const NexusDeviceIdentity = registerPlugin<{
   getOrCreateIdentity(options: { legacyDeviceId: string }): Promise<{ deviceId: string; registered: boolean; cloudConsent: boolean }>;
   enqueueRdsEvents(options: { deviceId: string; eventsJson: string }): Promise<{ accepted: number; acknowledged: number; pending: number; cloudPending?: number; cloudConsent?: boolean; cloudQueueFull?: boolean; cloudQueuePersisted?: boolean }>;
-  flushRdsOutbox(): Promise<{ acknowledged: number; pending: number }>;
+  flushRdsOutbox(): Promise<{ acknowledged: number; pending: number; cloudPending?: number; cloudConsent?: boolean }>;
   requestCloudConsent(): Promise<{ enabled: boolean; alreadyDecided: boolean }>;
 }>('NexusDeviceIdentity');
 
@@ -492,7 +492,11 @@ export default function App() {
     const flushPending = () => {
       if (document.visibilityState === 'visible' && nativeIdentityReadyRef.current) {
         void flushPendingRdsIpcEvents();
-        void NexusDeviceIdentity.flushRdsOutbox().catch(() => { /* retain pending IPC events for the next retry */ });
+        void NexusDeviceIdentity.flushRdsOutbox().then(result => {
+          if (result?.cloudConsent && Number(result.cloudPending || 0) > 0) {
+            setStatus('Cloud diagnostics sync pending: ' + Number(result.cloudPending) + ' event(s)');
+          }
+        }).catch(() => { /* retain pending IPC events for the next retry */ });
       }
     };
     document.addEventListener('visibilitychange', flushPending);
