@@ -1500,6 +1500,16 @@ export default function App() {
       createId: uid,
       resolveInteractionId: pointerId => interactionTrackerRef.current?.getActiveInteractionId?.(pointerId),
       enabled: () => Boolean(rdsRecordingControllerRef.current?.isAnalysisEnabled(rdsActiveToolRef.current)),
+      getCameraState: viewport => {
+        const controls = viewport === 'IK Rigging Viewport' ? ikOrbit :
+          viewport === 'CameraViewport' ? activeOrbit : orbit;
+        const object = controls?.object;
+        return {
+          position: object?.position?.toArray?.() || null,
+          quaternion: object?.quaternion?.toArray?.() || null,
+          target: controls?.target?.toArray?.() || null
+        };
+      },
       emit: event => diagnosticSinkRef.current('INFO', 'Interaction Trace', event.event, JSON.stringify(event))
     });
     cameraInteractionTrackerRef.current = cameraInteractionTracker;
