@@ -111,12 +111,17 @@ public class NexusDeviceIdentityPlugin extends Plugin {
         SharedPreferences prefs = preferences();
         if (prefs.getBoolean("consent_decided", false) && prefs.getInt(CONSENT_VERSION_KEY, 0) >= CURRENT_CONSENT_VERSION) {
             boolean enabled = prefs.getBoolean(CONSENT, false);
-            if (enabled && !prefs.getBoolean(REGISTERED, false)) {
+            if (enabled) {
                 try {
                     Identity identity = loadOrCreate(getContext(), "");
-                    registrationExecutor.execute(() -> registerWithBackend(identity));
+                    if (!prefs.getBoolean(REGISTERED, false)) {
+                        registrationExecutor.execute(() -> registerWithBackend(identity));
+                    } else {
+                        scheduleCloudOutboxFlush();
+                        if (appForeground) onAppForegroundChanged(getContext().getApplicationContext(), true);
+                    }
                 } catch (Exception error) {
-                    android.util.Log.w("NexusDeviceIdentity", "Registration retry deferred.", error);
+                    android.util.Log.w("NexusDeviceIdentity", "Registration or cloud sync retry deferred.", error);
                 }
             }
             JSObject result = new JSObject();
@@ -132,9 +137,14 @@ public class NexusDeviceIdentityPlugin extends Plugin {
                 prefs.edit().putBoolean(CONSENT, true).putBoolean("consent_decided", true).putInt(CONSENT_VERSION_KEY, CURRENT_CONSENT_VERSION).commit();
                 try {
                     Identity identity = loadOrCreate(getContext(), "");
-                    registrationExecutor.execute(() -> registerWithBackend(identity));
+                    if (!prefs.getBoolean(REGISTERED, false)) {
+                        registrationExecutor.execute(() -> registerWithBackend(identity));
+                    } else {
+                        scheduleCloudOutboxFlush();
+                        if (appForeground) onAppForegroundChanged(getContext().getApplicationContext(), true);
+                    }
                 } catch (Exception error) {
-                    android.util.Log.w("NexusDeviceIdentity", "Registration deferred.", error);
+                    android.util.Log.w("NexusDeviceIdentity", "Registration or cloud sync deferred.", error);
                 }
                 JSObject result = new JSObject();
                 result.put("enabled", true);
