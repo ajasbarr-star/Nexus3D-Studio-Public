@@ -5,6 +5,17 @@ import android.content.SharedPreferences;
 import android.content.ContentResolver;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.HashSet;
@@ -42,6 +53,14 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     private static final int MAX_QUEUE = 2000;
     private static final int MAX_BATCH = 20;
     private static final int MAX_PAYLOAD_BYTES = 120 * 1024;
+    private static final String CONSENT = "cloud_diagnostics_consent";
+    private static final String REGISTERED = "registered";
+    private static final String SUPABASE_URL = "https://rupftghvjmalntjoesnv.supabase.co";
+    private static final String SUPABASE_KEY = "sb_publishable_t3-BF5smZ21bzc59TVrYIw_4MHGG3Dq";
+    private final java.util.concurrent.ExecutorService registrationExecutor = Executors.newSingleThreadExecutor();
+    private static final ScheduledExecutorService PRESENCE_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
+    private static final Object PRESENCE_LOCK = new Object();
+    private static ScheduledFuture<?> presenceTask;
 
     @PluginMethod
     public void getOrCreateIdentity(PluginCall call) {
@@ -50,15 +69,203 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             Identity identity = loadOrCreate(getContext(), legacyId);
             JSObject result = new JSObject();
             result.put("deviceId", identity.installationId);
-            result.put("registered", preferences().getBoolean("registered", false));
-            result.put("cloudConsent", preferences().getBoolean("cloud_diagnostics_consent", false));
+            boolean consent = preferences().getBoolean(CONSENT, false);
+            result.put("registered", preferences().getBoolean(REGISTERED, false));
+            result.put("cloudConsent", consent);
             call.resolve(result);
+            if (consent && !preferences().getBoolean(REGISTERED, false)) {
+                registrationExecutor.execute(() -> registerWithBackend(identity));
+            }
         } catch (Exception error) {
             android.util.Log.e("NexusDeviceIdentity", "Identity continuity check failed; refusing to generate a replacement.", error);
             call.reject("Existing Nexus3D installation identity is incomplete or unreadable. No replacement ID was created.", error);
         }
     }
 
+
+    /**
+     * Cloud enrollment is strictly opt-in. The installation UUID and credential
+     * remain native-only; no request is sent until the user taps Allow.
+     */
+    @PluginMethod
+    public void requestCloudConsent(PluginCall call) {
+        SharedPreferences prefs = preferences();
+        if (prefs.getBoolean("consent_decided", false)) {
+            boolean enabled = prefs.getBoolean(CONSENT, false);
+            if (enabled && !prefs.getBoolean(REGISTERED, false)) {
+                try {
+                    Identity identity = loadOrCreate(getContext(), "");
+                    registrationExecutor.execute(() -> registerWithBackend(identity));
+                } catch (Exception error) {
+                    android.util.Log.w("NexusDeviceIdentity", "Registration retry deferred.", error);
+                }
+            }
+            JSObject result = new JSObject();
+            result.put("enabled", enabled);
+            result.put("alreadyDecided", true);
+            call.resolve(result);
+            return;
+        }
+        getActivity().runOnUiThread(() -> new android.app.AlertDialog.Builder(getActivity())
+            .setTitle("Nexus3D Device Diagnostics")
+            .setMessage("Allow Nexus3D Editor to register a random installation ID with Nexus3D Diagnostics and share limited technical details: device manufacturer/model, Android version, Editor app version/build, foreground/background presence and last-active timestamps? No project files, scene content, contacts, GPS, IMEI or personal account data are collected. Registration is separate from your Diagnostics account login.")
+            .setPositiveButton("Allow", (dialog, which) -> {
+                prefs.edit().putBoolean(CONSENT, true).putBoolean("consent_decided", true).commit();
+                try {
+                    Identity identity = loadOrCreate(getContext(), "");
+                    registrationExecutor.execute(() -> registerWithBackend(identity));
+                } catch (Exception error) {
+                    android.util.Log.w("NexusDeviceIdentity", "Registration deferred.", error);
+                }
+                JSObject result = new JSObject();
+                result.put("enabled", true);
+                result.put("alreadyDecided", false);
+                call.resolve(result);
+            })
+            .setNegativeButton("Not now", (dialog, which) -> {
+                prefs.edit().putBoolean(CONSENT, false).putBoolean("consent_decided", true).commit();
+                JSObject result = new JSObject();
+                result.put("enabled", false);
+                result.put("alreadyDecided", false);
+                call.resolve(result);
+            })
+            .setCancelable(false)
+            .show());
+    }
+
+    private void registerWithBackend(Identity identity) {
+        if (!preferences().getBoolean(CONSENT, false)) return;
+        HttpURLConnection connection = null;
+        try {
+            Context context = getContext().getApplicationContext();
+            android.content.pm.PackageInfo packageInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+            long versionCode = android.os.Build.VERSION.SDK_INT >= 28
+                    ? packageInfo.getLongVersionCode() : packageInfo.versionCode;
+            JSONObject body = new JSONObject();
+            body.put("installationId", identity.installationId);
+            body.put("deviceCode", identity.credential);
+            body.put("appVersion", packageInfo.versionName == null ? "unknown" : packageInfo.versionName);
+            body.put("buildNumber", versionCode);
+            body.put("versionCode", versionCode);
+            JSONObject deviceInfo = new JSONObject();
+            deviceInfo.put("manufacturer", Build.MANUFACTURER == null ? "" : Build.MANUFACTURER);
+            deviceInfo.put("model", Build.MODEL == null ? "" : Build.MODEL);
+            deviceInfo.put("androidVersion", Build.VERSION.RELEASE == null ? "" : Build.VERSION.RELEASE);
+            body.put("deviceInfo", deviceInfo);
+
+            URL endpoint = new URL(SUPABASE_URL + "/functions/v1/auto-register-device");
+            connection = (HttpURLConnection) endpoint.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(12000);
+            connection.setReadTimeout(15000);
+            connection.setRequestProperty("apikey", SUPABASE_KEY);
+            connection.setRequestProperty("Authorization", "Bearer " + SUPABASE_KEY);
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setDoOutput(true);
+            try (OutputStream output = connection.getOutputStream()) {
+                output.write(body.toString().getBytes(StandardCharsets.UTF_8));
+            }
+            int status = connection.getResponseCode();
+            InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
+            StringBuilder responseText = new StringBuilder();
+            if (stream != null) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) responseText.append(line);
+                }
+            }
+            if (status >= 200 && status < 300) {
+                JSONObject response = new JSONObject(responseText.toString());
+                String returnedId = response.optString("deviceId", "").toLowerCase(java.util.Locale.ROOT);
+                if (!identity.installationId.equalsIgnoreCase(returnedId)
+                        || !response.optBoolean("registered", false)
+                        || !"active".equalsIgnoreCase(response.optString("status", ""))) {
+                    throw new IllegalStateException("Registration response did not confirm the canonical ACTIVE installation.");
+                }
+                if (!preferences().edit().putBoolean(REGISTERED, true).commit()) {
+                    throw new IllegalStateException("Unable to persist registration state.");
+                }
+                sendPresence(context, "online");
+            } else {
+                android.util.Log.w("NexusDeviceIdentity", "Automatic registration deferred: HTTP " + status);
+            }
+        } catch (Exception error) {
+            android.util.Log.w("NexusDeviceIdentity", "Automatic registration deferred; canonical identity retained.", error);
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    /** Presence is sent only after consent and confirmed ACTIVE registration. */
+    public static void onAppForegroundChanged(Context suppliedContext, boolean foreground) {
+        Context context = suppliedContext.getApplicationContext();
+        synchronized (PRESENCE_LOCK) {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            if (!prefs.getBoolean(CONSENT, false) || !prefs.getBoolean(REGISTERED, false)) return;
+            if (foreground) {
+                if (presenceTask != null && !presenceTask.isCancelled() && !presenceTask.isDone()) return;
+                presenceTask = PRESENCE_EXECUTOR.scheduleAtFixedRate(
+                    () -> sendPresence(context, "online"), 0, 45, TimeUnit.SECONDS
+                );
+            } else {
+                if (presenceTask != null) {
+                    presenceTask.cancel(false);
+                    presenceTask = null;
+                }
+                PRESENCE_EXECUTOR.execute(() -> sendPresence(context, "offline"));
+            }
+        }
+    }
+
+    private static void sendPresence(Context context, String state) {
+        HttpURLConnection connection = null;
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            if (!prefs.getBoolean(CONSENT, false) || !prefs.getBoolean(REGISTERED, false)) return;
+            String installationId = prefs.getString(ID, null);
+            String iv = prefs.getString(SECRET_IV, null);
+            String encrypted = prefs.getString(SECRET_CIPHER, null);
+            if (installationId == null || iv == null || encrypted == null) return;
+
+            KeyStore store = KeyStore.getInstance("AndroidKeyStore");
+            store.load(null);
+            SecretKey key = (SecretKey) store.getKey(KEY_ALIAS, null);
+            if (key == null) return;
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, key,
+                new GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)));
+            String credential = new String(
+                cipher.doFinal(Base64.decode(encrypted, Base64.NO_WRAP)),
+                StandardCharsets.UTF_8
+            );
+            if (credential.length() != 64) return;
+
+            JSONObject body = new JSONObject();
+            body.put("installationId", installationId);
+            body.put("deviceCode", credential);
+            body.put("state", state);
+            URL endpoint = new URL(SUPABASE_URL + "/functions/v1/device-presence");
+            connection = (HttpURLConnection) endpoint.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(8000);
+            connection.setReadTimeout(10000);
+            connection.setRequestProperty("apikey", SUPABASE_KEY);
+            connection.setRequestProperty("Authorization", "Bearer " + SUPABASE_KEY);
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setDoOutput(true);
+            try (OutputStream output = connection.getOutputStream()) {
+                output.write(body.toString().getBytes(StandardCharsets.UTF_8));
+            }
+            int status = connection.getResponseCode();
+            if (status < 200 || status >= 300) {
+                android.util.Log.w("NexusDeviceIdentity", "Presence update deferred: HTTP " + status);
+            }
+        } catch (Exception error) {
+            android.util.Log.w("NexusDeviceIdentity", "Presence update deferred; no identity was changed.", error);
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
 
     /** Accepts only newly captured RDS events. The durable queue is separate from RDS report stores. */
     @PluginMethod
