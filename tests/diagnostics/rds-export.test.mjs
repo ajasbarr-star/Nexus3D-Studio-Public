@@ -260,3 +260,9 @@ test('RIT Trace does not fabricate camera latency when no camera update is obser
   assert.match(report, /Status: NO_CAMERA_UPDATE/);
   assert.doesNotMatch(report, /Input to camera update: [0-9]/);
 });
+
+test('empty per-tool interaction reports explicitly state NO DATA CAPTURED', () => {
+  const files = buildRdsExportFiles({ tool: 'RIT Trace', fullReport: 'NO DATA CAPTURED', entries: [] });
+  assert.match(files['Full_Report.txt'], /NO DATA CAPTURED/);
+  assert.match(files['Full_Report.txt'], /no user interaction events were recorded/i);
+});
