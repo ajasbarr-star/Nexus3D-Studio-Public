@@ -109,6 +109,14 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     @PluginMethod
     public void requestCloudConsent(PluginCall call) {
         SharedPreferences prefs = preferences();
+        if (prefs.getBoolean("consent_decided", false) && !prefs.getBoolean(CONSENT, false)) {
+            prefs.edit().putInt(CONSENT_VERSION_KEY, CURRENT_CONSENT_VERSION).commit();
+            JSObject result = new JSObject();
+            result.put("enabled", false);
+            result.put("alreadyDecided", true);
+            call.resolve(result);
+            return;
+        }
         if (prefs.getBoolean("consent_decided", false) && prefs.getInt(CONSENT_VERSION_KEY, 0) >= CURRENT_CONSENT_VERSION) {
             boolean enabled = prefs.getBoolean(CONSENT, false);
             if (enabled) {
