@@ -93,13 +93,19 @@ test('a restarted analysis run begins with empty records and scene captures', ()
   assert.equal(state.sceneCaptureEnabled, false);
 });
 
-test('RDS records adopt the native canonical device ID for subsequent events', () => {
-  const controller = createRdsRecordingController({ tools: ['Runtime'], deviceId: 'N3D-legacy-id' });
+test('RDS records adopt the native canonical device ID after identity becomes ready', () => {
+  const controller = createRdsRecordingController({ tools: ['Runtime'], deviceId: 'UNKNOWN_DEVICE_ID' });
   controller.startAnalysis('Runtime');
   const before = controller.record('Runtime', 'PRE_NATIVE_ID');
-  assert.equal(before.deviceId, 'N3D-legacy-id');
+  controller.setSceneCapture('Runtime', true);
+  const scene = controller.captureScene('Runtime', { objects: 1 });
+  const startup = controller.recordStartup('EDITOR_READY');
+  assert.equal(before.deviceId, 'UNKNOWN_DEVICE_ID');
   assert.equal(controller.setDeviceId('12345678-1234-1234-1234-123456789abc'), true);
   const after = controller.record('Runtime', 'POST_NATIVE_ID');
+  assert.equal(before.deviceId, '12345678-1234-1234-1234-123456789abc');
+  assert.equal(scene.deviceId, '12345678-1234-1234-1234-123456789abc');
+  assert.equal(startup.deviceId, '12345678-1234-1234-1234-123456789abc');
   assert.equal(after.deviceId, '12345678-1234-1234-1234-123456789abc');
   assert.equal(controller.setDeviceId(''), false);
   assert.equal(controller.record('Runtime', 'ID_UNCHANGED').deviceId, '12345678-1234-1234-1234-123456789abc');
