@@ -21,6 +21,7 @@ export function createCameraInteractionTracker({
   createId = () => 'camera-interaction',
   resolveInteractionId = () => null,
   enabled = () => true,
+  getCameraState = () => null,
 } = {}) {
   const pointers = new Map();
   let session = null;
@@ -29,6 +30,32 @@ export function createCameraInteractionTracker({
 
   function publish(event, extra = {}) {
     emit({ interactionId: session?.id || null, event, ...extra });
+  }
+
+  function readCameraState(viewport) {
+    try {
+      const state = getCameraState(viewport);
+      return state ? JSON.parse(JSON.stringify(state)) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function vectorDistance(a, b) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length < 3 || b.length < 3) return null;
+    const values = [0, 1, 2].map(index => Number(b[index]) - Number(a[index]));
+    if (!values.every(Number.isFinite)) return null;
+    return Number(Math.hypot(...values).toFixed(4));
+  }
+
+  function quaternionDeltaDegrees(a, b) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length < 4 || b.length < 4) return null;
+    const av = a.slice(0, 4).map(Number), bv = b.slice(0, 4).map(Number);
+    if (![...av, ...bv].every(Number.isFinite)) return null;
+    const al = Math.hypot(...av), bl = Math.hypot(...bv);
+    if (!al || !bl) return null;
+    const dot = Math.min(1, Math.max(-1, Math.abs(av.reduce((sum, value, index) => sum + value * bv[index], 0) / (al * bl))));
+    return Number((2 * Math.acos(dot) * 180 / Math.PI).toFixed(4));
   }
 
   function start(gesture, pointerType, viewport, inputType = 'pointer', pointerId = null) {
@@ -48,6 +75,9 @@ export function createCameraInteractionTracker({
       multiTouch: false,
       framesAfterEnd: 0,
       completionEmitted: false,
+      initialCameraState: readCameraState(viewport),
+      lastFrameAt: null,
+      frameTimes: [],
     };
     return session;
   }
@@ -128,6 +158,12 @@ export function createCameraInteractionTracker({
   function completeGesture(status) {
     if (!session || session.completionEmitted) return;
     session.completionEmitted = true;
+    const frameTimes = session.frameTimes || [];
+    const frameAverageMs = frameTimes.length ? frameTimes.reduce((sum, value) => sum + value, 0) / frameTimes.length : null;
+    const frameVariance = frameTimes.length && frameAverageMs !== null
+      ? frameTimes.reduce((sum, value) => sum + Math.pow(value - frameAverageMs, 2), 0) / frameTimes.length : null;
+    const frameMaxMs = frameTimes.length ? Math.max(...frameTimes) : null;
+    const droppedFrameEstimate60Hz = frameTimes.reduce((sum, value) => sum + Math.max(0, Math.round(value / 16.67) - 1), 0);
     publish('CAMERA_GESTURE_COMPLETE', {
       gesture: session.gesture,
       pointerType: session.pointerType,
@@ -135,6 +171,13 @@ export function createCameraInteractionTracker({
       status,
       durationMs: Number(Math.max(0, (session.endedAt ?? now()) - session.startedAt).toFixed(2)),
       inputType: session.inputType,
+      frameMetricStatus: frameTimes.length ? 'MEASURED' : 'NOT_MEASURED',
+      frameTimeSamples: frameTimes.length,
+      frameTimeAverageMs: frameAverageMs === null ? null : Number(frameAverageMs.toFixed(2)),
+      frameTimeMaxMs: frameMaxMs === null ? null : Number(frameMaxMs.toFixed(2)),
+      frameTimeJitterStdDevMs: frameVariance === null ? null : Number(Math.sqrt(frameVariance).toFixed(2)),
+      droppedFrameEstimate60Hz: frameTimes.length ? droppedFrameEstimate60Hz : null,
+      droppedFrameEstimateBasis: '60Hz target interval 16.67ms; estimate only',
     });
   }
 
@@ -164,6 +207,14 @@ export function createCameraInteractionTracker({
     session.cameraUpdateAt = at;
     session.controller = controller || 'OrbitControls';
     session.changeCount += 1;
+    const currentCameraState = readCameraState(viewport);
+    const initialCameraState = session.initialCameraState;
+    const movement = {
+      cameraPositionDeltaUnits: vectorDistance(initialCameraState?.position, currentCameraState?.position),
+      cameraRotationDeltaDegrees: quaternionDeltaDegrees(initialCameraState?.quaternion, currentCameraState?.quaternion),
+      cameraTargetDeltaUnits: vectorDistance(initialCameraState?.target, currentCameraState?.target),
+      movementAccuracy: 'NOT_MEASURED — no expected camera path or target was supplied',
+    };
     publish('CAMERA_UPDATE', {
       gesture: session.gesture,
       viewport: session.viewport,
@@ -171,6 +222,7 @@ export function createCameraInteractionTracker({
       status: 'MEASURED',
       inputToCameraUpdateMs: Number(Math.max(0, at - session.startedAt).toFixed(2)),
       changeCount: session.changeCount,
+      ...movement,
     });
     return session.id;
   }
@@ -185,8 +237,16 @@ export function createCameraInteractionTracker({
       }
       return null;
     }
-    if (session.firstRenderedAt !== null) return null;
+    if (session.firstRenderedAt !== null) {
+      if (session.lastFrameAt !== null) {
+        const frameTimeMs = Math.max(0, at - session.lastFrameAt);
+        if (frameTimeMs > 0) session.frameTimes.push(Number(frameTimeMs.toFixed(2)));
+      }
+      session.lastFrameAt = at;
+      return null;
+    }
     session.firstRenderedAt = at;
+    session.lastFrameAt = at;
     publish('CAMERA_FIRST_RENDERED_FRAME', {
       gesture: session.gesture,
       viewport: session.viewport,
