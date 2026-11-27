@@ -34,6 +34,7 @@ import { CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES } from './geometry/clean-flat-sur
 import { scanGeometryRit, formatGeometryRitReport } from './geometry/geometry-rit';
 import { RUNTIME_SESSION_ID, RUNTIME_SESSION_STARTED_AT, createRuntimeEventMetadata, formatRuntimeTraceReport } from './diagnostics/runtime-session.mjs';
 import { getOrCreateDeviceId } from './diagnostics/device-identity.mjs';
+import { createRdsRecordingController } from './diagnostics/rds-recording-controller.mjs';
 import { inferTracePoint, filterDiagnosticEntries, formatDiagnosticReport, summarizeFrameTimes } from './diagnostics/logcat-diagnostics.mjs';
 import { buildRdsExportFiles } from './diagnostics/rds-export.mjs';
 import { buildRdsZipFilename, createRdsZipArchive, getRequiredRdsZipFiles } from './diagnostics/rds-zip.mjs';
@@ -286,7 +287,7 @@ export default function App() {
     const tracker = createInteractionTracker({
       now: () => performance.now(),
       createId: uid,
-      enabled: () => ritCaptureEnabledRef.current,
+      enabled: () => Boolean(rdsRecordingControllerRef.current?.isAnalysisEnabled(rdsActiveToolRef.current)),
       emit: event => diagnosticSinkRef.current('INFO', 'Interaction Trace', event.event, JSON.stringify(event))
     });
     const detachTracker = tracker.attach(document);
@@ -399,6 +400,16 @@ export default function App() {
   const [diagnosticPanelOpen, setDiagnosticPanelOpen] = useState(false);
   const [rdsPanelOpen, setRdsPanelOpen] = useState(false);
   const [rdsActiveTool, setRdsActiveTool] = useState('Overview');
+  const rdsActiveToolRef = useRef(rdsActiveTool);
+  rdsActiveToolRef.current = rdsActiveTool;
+  const rdsRecordingControllerRef = useRef<any>(null);
+  if (!rdsRecordingControllerRef.current) rdsRecordingControllerRef.current = createRdsRecordingController({
+    tools: ['Overview', 'Runtime', 'LogCat', 'RIT Trace', 'WebGL / Shader', 'Shadow Maps', 'Materials & Textures', 'DFI Core', 'Mesh DFI', 'Root Cause', 'Source Audit', 'Reports'],
+    sessionId: RUNTIME_SESSION_ID,
+    buildNumber: runtimeBuildNumber,
+    deviceId: runtimeDeviceIdRef.current,
+  });
+  const [rdsSceneCaptureByTool, setRdsSceneCaptureByTool] = useState<Record<string, boolean>>({});
   const [ritCaptureEnabled, setRitCaptureEnabled] = useState(false);
   const startupClockRef = useRef({ startedAt: performance.now(), first3DRender: false, editorReady: false });
   const ritCaptureEnabledRef = useRef(false);
@@ -487,6 +498,8 @@ export default function App() {
       buildNumber: runtimeBuildNumber,
       ...metadata
     };
+    rdsRecordingControllerRef.current?.record(rdsActiveToolRef.current, message, { source, details: details || null, level });
+    if (source === 'Interaction Trace' && rdsActiveToolRef.current !== 'RIT Trace') return;
     if (source === 'Interaction Trace' && !ritCaptureEnabledRef.current) return;
     const queue = source === 'Interaction Trace' ? interactionTraceQueueRef.current : diagnosticQueueRef.current;
     queue.push(entry);
@@ -8296,7 +8309,7 @@ export default function App() {
             </button>)}
           </nav>
           <main className="rds-command-content">
-            <div className="rds-content-heading"><div><span className="rds-eyebrow">DIAGNOSTIC WORKSPACE</span><h2>{rdsActiveTool === 'Overview' ? 'System Overview' : rdsActiveTool}</h2></div><div className="rds-content-heading-actions"><span className="rds-session-chip">SESSION ACTIVE</span><button type="button" className="rds-tool-button rds-export-zip-button" onClick={() => void exportRdsToolZip(rdsActiveTool)} disabled={rdsExportBusy} title={'Download ' + rdsActiveTool + ' report ZIP'} aria-label={'Download ' + rdsActiveTool + ' report ZIP'}><Download size={15}/></button></div></div>
+            <div className="rds-content-heading"><div><span className="rds-eyebrow">DIAGNOSTIC WORKSPACE</span><h2>{rdsActiveTool === 'Overview' ? 'System Overview' : rdsActiveTool}</h2></div><div className="rds-content-heading-actions"><span className="rds-session-chip">SESSION ACTIVE</span><button type="button" className="rds-tool-button" onClick={() => { const controller = rdsRecordingControllerRef.current; if (controller.isAnalysisEnabled(rdsActiveTool)) { controller.stopAnalysis(rdsActiveTool); if (rdsActiveTool === 'RIT Trace') { ritCaptureEnabledRef.current = false; setRitCaptureEnabled(false); } setStatus(rdsActiveTool + ' analysis recording stopped'); } else { if (rdsActiveTool === 'RIT Trace') clearInteractionTraceLogs(); controller.startAnalysis(rdsActiveTool); if (rdsActiveTool === 'RIT Trace') { ritCaptureEnabledRef.current = true; setRitCaptureEnabled(true); } setStatus(rdsActiveTool + ' analysis recording started'); } }} title="Start or stop recording for this RDS tool" aria-label="Run Analysis">{rdsRecordingControllerRef.current.isAnalysisEnabled(rdsActiveTool) ? <Pause size={15}/> : <Activity size={15}/>}</button><button type="button" className="rds-tool-button" disabled={!rdsRecordingControllerRef.current.isAnalysisEnabled(rdsActiveTool)} onClick={() => { const controller = rdsRecordingControllerRef.current; const next = !controller.isSceneCaptureEnabled(rdsActiveTool); controller.setSceneCapture(rdsActiveTool, next); setRdsSceneCaptureByTool(current => ({ ...current, [rdsActiveTool]: next })); if (next) { const snapshot = getSceneVerificationSnapshot(); controller.captureScene(rdsActiveTool, snapshot); setStatus(rdsActiveTool + ' scene snapshot captured'); } else setStatus(rdsActiveTool + ' scene capture stopped'); }} title="Capture the current editor scene while this tool is recording" aria-label="Capture Scene"><ScanEye size={15}/></button><button type="button" className="rds-tool-button rds-export-zip-button" onClick={() => void exportRdsToolZip(rdsActiveTool)} disabled={rdsExportBusy} title={'Download ' + rdsActiveTool + ' report ZIP'} aria-label={'Download ' + rdsActiveTool + ' report ZIP'}><Download size={15}/></button></div></div>
             <section className="rds-verification-panel" aria-label={rdsActiveTool + ' ZIP verification'} aria-live="polite">
               <div className="rds-verification-heading"><strong>ZIP VERIFICATION · {rdsActiveTool.toUpperCase()}</strong><span className={'rds-verification-phase phase-' + String(rdsVerificationByTool[rdsActiveTool]?.phase || 'NOT RUN').toLowerCase().replace(/[^a-z]+/g, '-')}>{rdsExportBusy && rdsExportTool === rdsActiveTool ? rdsExportPhase.toUpperCase() + ' ' + rdsExportProgress + '%' : rdsVerificationByTool[rdsActiveTool]?.phase || 'NOT RUN'}</span></div>
               <div className="rds-verification-grid">
