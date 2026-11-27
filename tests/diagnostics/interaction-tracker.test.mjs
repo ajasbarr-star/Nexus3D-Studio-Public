@@ -296,3 +296,21 @@ test('canvas interaction resolves the enclosing named viewport instead of a gene
   assert.equal(described.targetKind, 'BLANK_VIEWPORT');
   assert.equal(described.hierarchy.at(-1).label, 'MainViewport');
 });
+
+test('interaction tracker does not emit while its capture gate is off', () => {
+  let enabled = false;
+  const records = [];
+  const tracker = createInteractionTracker({
+    emit: event => records.push(event),
+    now: () => 10,
+    createId: () => 'gated-rit',
+    enabled: () => enabled,
+  });
+  tracker.begin({ pointerId: 1, pointerType: 'touch', target: null });
+  tracker.action({ type: 'click', pointerId: 1, target: null });
+  assert.equal(records.length, 0);
+  enabled = true;
+  tracker.begin({ pointerId: 2, pointerType: 'touch', target: null });
+  tracker.finish({ pointerId: 2, clientX: 0, clientY: 0 });
+  assert.equal(records.length, 1);
+});
