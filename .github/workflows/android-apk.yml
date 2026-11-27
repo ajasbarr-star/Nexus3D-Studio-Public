@@ -51,7 +51,9 @@ jobs:
         run: npm run verify:rds && npm run verify:dfi && npm run test:rig && npm run test:logcat
 
       - name: Build bundled Nexus3D editor
-        run: npm run build
+        run: |
+          BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 477))
+          VITE_BUILD_NUMBER="$BUILD_NUMBER" npm run build
 
       - name: Generate native Android project
         run: npx cap add android
