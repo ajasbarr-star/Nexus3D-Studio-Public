@@ -178,6 +178,7 @@ const NexusDeviceIdentity = registerPlugin<{
   getOrCreateIdentity(options: { legacyDeviceId: string }): Promise<{ deviceId: string; registered: boolean; cloudConsent: boolean }>;
   enqueueRdsEvents(options: { deviceId: string; eventsJson: string }): Promise<{ accepted: number; acknowledged: number; pending: number }>;
   flushRdsOutbox(): Promise<{ acknowledged: number; pending: number }>;
+  requestCloudConsent(): Promise<{ enabled: boolean; alreadyDecided: boolean }>;
 }>('NexusDeviceIdentity');
 
 type DiagnosticEntry = { id: string; time: string; level: 'VERBOSE' | 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL'; source: string; message: string; details?: string; sessionId?: string; sequence?: number; timestampISO?: string; origin?: 'USER_ACTION' | 'AUTO_PROCESS' | 'RESTORE' | 'SYSTEM' | 'UNKNOWN_ORIGIN'; componentTag?: string; tracePoint?: string; objectId?: string; interactionId?: string };
@@ -436,6 +437,11 @@ export default function App() {
           deviceId: canonical, registered: Boolean(identity.registered), cloudConsent: Boolean(identity.cloudConsent),
           source: 'ANDROID_NATIVE_KEYSTORE'
         }));
+        // This displays a one-time native consent choice before any cloud enrollment.
+        // Local identity and offline diagnostics remain available when the user declines.
+        void NexusDeviceIdentity.requestCloudConsent().catch(error => {
+          console.warn('[Nexus3D Diagnostics] Cloud registration remains disabled or deferred:', error);
+        });
         void NexusDeviceIdentity.flushRdsOutbox().catch(error => console.warn('[Nexus3D IPC] Pending RDS delivery will retry on next foreground:', error));
       })
       .catch(error => {
