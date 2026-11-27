@@ -436,6 +436,7 @@ export default function App() {
           deviceId: canonical, registered: Boolean(identity.registered), cloudConsent: Boolean(identity.cloudConsent),
           source: 'ANDROID_NATIVE_KEYSTORE'
         }));
+        void NexusDeviceIdentity.flushRdsOutbox().catch(error => console.warn('[Nexus3D IPC] Pending RDS delivery will retry on next foreground:', error));
       })
       .catch(error => {
         if (!active) return;
@@ -446,6 +447,20 @@ export default function App() {
           error instanceof Error ? error.message : String(error));
       });
     return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const flushPending = () => {
+      if (document.visibilityState === 'visible' && nativeIdentityReadyRef.current) {
+        void NexusDeviceIdentity.flushRdsOutbox().catch(() => { /* retain pending IPC events for the next retry */ });
+      }
+    };
+    document.addEventListener('visibilitychange', flushPending);
+    window.addEventListener('focus', flushPending);
+    return () => {
+      document.removeEventListener('visibilitychange', flushPending);
+      window.removeEventListener('focus', flushPending);
+    };
   }, []);
   const [rdsSceneCaptureByTool, setRdsSceneCaptureByTool] = useState<Record<string, boolean>>({});
   const [ritCaptureEnabled, setRitCaptureEnabled] = useState(false);
