@@ -543,7 +543,14 @@ public class NexusDeviceIdentityPlugin extends Plugin {
         SharedPreferences prefs = preferences();
         JSONArray queue = new JSONArray(prefs.getString(OUTBOX, "[]"));
         int totalAcknowledged = 0;
+        int consecutiveUnacknowledged = 0;
+        String[] authorities = new String[] {
+                "content://com.nexus3d.diagnostics.bridge",
+                "content://com.nexus3d.diagnostics.debug.bridge"
+        };
+
         while (queue.length() > 0) {
+            int passLimit = queue.length();
             JSONArray batch = new JSONArray();
             int end = Math.min(queue.length(), MAX_BATCH);
             for (int i = 0; i < end; i++) {
@@ -554,38 +561,74 @@ public class NexusDeviceIdentityPlugin extends Plugin {
                 batch.put(candidate);
             }
             if (batch.length() == 0) break;
-            Bundle extras = new Bundle();
-            extras.putString("eventsJson", batch.toString());
-            Bundle response = null;
-            String[] authorities = new String[] {
-                    "content://com.nexus3d.diagnostics.bridge",
-                    "content://com.nexus3d.diagnostics.debug.bridge"
-            };
-            for (String authority : authorities) {
-                try {
-                    response = getContext().getContentResolver().call(Uri.parse(authority), "ingestBatch", null, extras);
-                    if (response != null && response.getBoolean("ok", false)) break;
-                    response = null;
-                } catch (Exception unavailable) { response = null; }
+
+            Bundle response = callDiagnosticsProvider(batch, authorities);
+            // A single invalid event can reject an otherwise valid batch. Isolate the
+            // head event before deciding whether the provider itself is unavailable.
+            if (response == null && batch.length() > 1) {
+                JSONArray single = new JSONArray().put(queue.getJSONObject(0));
+                response = callDiagnosticsProvider(single, authorities);
             }
-            if (response == null) break;
-            java.util.ArrayList<String> ack = response.getStringArrayList("acknowledgedEventIds");
+
             Set<String> acknowledgedIds = new HashSet<>();
-            if (ack != null) acknowledgedIds.addAll(ack);
-            if (acknowledgedIds.isEmpty()) break;
+            if (response != null && response.getBoolean("ok", false)) {
+                java.util.ArrayList<String> ack = response.getStringArrayList("acknowledgedEventIds");
+                if (ack != null) acknowledgedIds.addAll(ack);
+            }
+
             JSONArray remaining = new JSONArray();
             int removed = 0;
             for (int i = 0; i < queue.length(); i++) {
                 JSONObject item = queue.getJSONObject(i);
-                if (acknowledgedIds.contains(item.optString("eventId"))) removed++;
-                else remaining.put(item);
+                if (acknowledgedIds.contains(item.optString("eventId"))) {
+                    removed++;
+                } else {
+                    remaining.put(item);
+                }
             }
-            if (removed == 0) break;
-            if (!prefs.edit().putString(OUTBOX, remaining.toString()).commit()) throw new IllegalStateException("Unable to persist IPC acknowledgments.");
-            totalAcknowledged += removed;
-            queue = remaining;
+
+            if (removed > 0) {
+                if (!prefs.edit().putString(OUTBOX, remaining.toString()).commit()) {
+                    throw new IllegalStateException("Unable to persist IPC acknowledgments.");
+                }
+                totalAcknowledged += removed;
+                queue = remaining;
+                consecutiveUnacknowledged = 0;
+                continue;
+            }
+
+            // Preserve the original event and its ID. Move an unacknowledged head
+            // event to the tail after one failed isolated attempt so it cannot block
+            // later valid records. If every event fails, stop after one complete pass.
+            JSONObject deferred = queue.getJSONObject(0);
+            deferred.put("ipcRetryCount", deferred.optInt("ipcRetryCount", 0) + 1);
+            JSONArray rotated = new JSONArray();
+            for (int i = 1; i < queue.length(); i++) rotated.put(queue.getJSONObject(i));
+            rotated.put(deferred);
+            if (!prefs.edit().putString(OUTBOX, rotated.toString()).commit()) {
+                throw new IllegalStateException("Unable to persist deferred IPC event order.");
+            }
+            queue = rotated;
+            consecutiveUnacknowledged++;
+            if (consecutiveUnacknowledged >= passLimit) break;
         }
         return totalAcknowledged;
+    }
+
+    private Bundle callDiagnosticsProvider(JSONArray batch, String[] authorities) {
+        Bundle extras = new Bundle();
+        extras.putString("eventsJson", batch.toString());
+        for (String authority : authorities) {
+            try {
+                Bundle response = getContext().getContentResolver().call(
+                        Uri.parse(authority), "ingestBatch", null, extras
+                );
+                if (response != null && response.getBoolean("ok", false)) return response;
+            } catch (Exception unavailableOrRejected) {
+                // Try the alternate installed package, then let the caller retain/reorder the event.
+            }
+        }
+        return null;
     }
 
     private void scheduleCloudOutboxFlush() {
