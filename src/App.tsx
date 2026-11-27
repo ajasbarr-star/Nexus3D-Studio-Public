@@ -715,17 +715,23 @@ export default function App() {
           fullReport = formatDiagnosticReport(allLogs, { sessionId: RUNTIME_SESSION_ID });
       }
       const toolCapture = rdsRecordingControllerRef.current?.getToolRecords(tool);
-      const toolCaptureRecords = ['Overview', 'Runtime', 'LogCat', 'RIT Trace', 'Reports'].includes(tool) ? [] : (toolCapture?.records || []);
+      const allToolCaptureRecords = toolCapture?.records || [];
+      const consolidatedTool = ['Overview', 'Runtime', 'LogCat', 'RIT Trace', 'Reports'].includes(tool);
+      const toolCaptureRecords = consolidatedTool ? [] : allToolCaptureRecords;
       const toolSceneSnapshots = toolCapture?.sceneSnapshots || [];
       const captureReport = [
         '[RDS TOOL RECORDING]',
         'Run Analysis: ' + (toolCapture?.analysisEnabled ? 'ON' : 'OFF'),
         'Capture Scene: ' + (toolCapture?.sceneCaptureEnabled ? 'ON' : 'OFF'),
-        'Captured interaction/runtime events: ' + toolCaptureRecords.length,
+        'Captured interaction/runtime events: ' + allToolCaptureRecords.length,
         'Captured scene snapshots: ' + toolSceneSnapshots.length,
-        ...(toolCaptureRecords.length ? toolCaptureRecords.map(record =>
-          '[' + record.timestampISO + '] [' + record.level + '] ' + record.event + ' | ' + JSON.stringify(record.details)
-        ) : ['NO DATA CAPTURED — no per-tool analysis events were recorded.']),
+        ...(allToolCaptureRecords.length
+          ? consolidatedTool
+            ? ['Captured event details are included in the main tool report above; duplicate event lines are intentionally omitted.']
+            : allToolCaptureRecords.map(record =>
+                '[' + record.timestampISO + '] [' + record.level + '] ' + record.event + ' | ' + JSON.stringify(record.details)
+              )
+          : ['NO DATA CAPTURED — no per-tool analysis events were recorded.']),
         ...(toolSceneSnapshots.length ? toolSceneSnapshots.map(record =>
           '[' + record.timestampISO + '] SCENE_CAPTURE [' + record.source + ']\n' + JSON.stringify(record.snapshot, null, 2)
         ) : ['NO SCENE SNAPSHOT CAPTURED.'])
