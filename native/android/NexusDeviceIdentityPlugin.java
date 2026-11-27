@@ -59,10 +59,13 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     private static final String SECRET_IV = "credential_iv";
     private static final String SECRET_CIPHER = "credential_cipher";
     private static final String OUTBOX = "rds_ipc_outbox_v1";
+    private static final String CLOUD_OUTBOX = "rds_cloud_outbox_v1";
     private static final String NEXT_SEQUENCE = "rds_ipc_next_sequence_v1";
     private static final int MAX_QUEUE = 2000;
     private static final int MAX_BATCH = 20;
     private static final int MAX_PAYLOAD_BYTES = 120 * 1024;
+    private static final int MAX_CLOUD_PAYLOAD_BYTES = 240 * 1024;
+    private static final Object CLOUD_FLUSH_LOCK = new Object();
     private static final String CONSENT = "cloud_diagnostics_consent";
     private static final String REGISTERED = "registered";
     private static final String SUPABASE_URL = "https://rupftghvjmalntjoesnv.supabase.co";
@@ -193,6 +196,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
                     throw new IllegalStateException("Unable to persist registration state.");
                 }
                 if (appForeground) onAppForegroundChanged(context, true);
+                flushCloudOutbox(context, identity.credential);
             } else {
                 android.util.Log.w("NexusDeviceIdentity", "Automatic registration deferred: HTTP " + status);
             }
@@ -334,6 +338,8 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             int status = connection.getResponseCode();
             if (status < 200 || status >= 300) {
                 android.util.Log.w("NexusDeviceIdentity", "Presence update deferred: HTTP " + status);
+            } else {
+                flushCloudOutbox(context, credential);
             }
         } catch (Exception error) {
             android.util.Log.w("NexusDeviceIdentity", "Presence update deferred; no identity was changed.", error);
@@ -354,30 +360,65 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             JSONArray queue = new JSONArray(prefs.getString(OUTBOX, "[]"));
             Set<String> known = new HashSet<>();
             for (int i = 0; i < queue.length(); i++) known.add(queue.getJSONObject(i).optString("eventId"));
+
+            boolean cloudConsent = prefs.getBoolean(CONSENT, false);
+            JSONArray cloudQueue = new JSONArray(prefs.getString(CLOUD_OUTBOX, "[]"));
+            Set<String> knownCloud = new HashSet<>();
+            for (int i = 0; i < cloudQueue.length(); i++) knownCloud.add(cloudQueue.getJSONObject(i).optString("eventId"));
+            boolean cloudQueueFull = false;
+
             for (int i = 0; i < incoming.length(); i++) {
                 JSONObject source = incoming.getJSONObject(i);
                 JSONObject event = toBridgeEvent(source, deviceId, prefs);
-                if (!known.add(event.getString("eventId"))) continue;
-                if (queue.length() >= MAX_QUEUE) throw new IllegalStateException("Diagnostics IPC outbox is full; unsent events were retained and new events were not accepted.");
-                queue.put(event);
+                String eventId = event.getString("eventId");
+                if (known.add(eventId)) {
+                    if (queue.length() >= MAX_QUEUE) throw new IllegalStateException("Diagnostics IPC outbox is full; unsent events were retained and new events were not accepted.");
+                    queue.put(event);
+                }
+                if (cloudConsent && knownCloud.add(eventId)) {
+                    if (cloudQueue.length() >= MAX_QUEUE) {
+                        cloudQueueFull = true;
+                    } else {
+                        cloudQueue.put(new JSONObject(event.toString()));
+                    }
+                }
             }
             if (!prefs.edit().putString(OUTBOX, queue.toString()).commit()) {
                 throw new IllegalStateException("Unable to persist Diagnostics IPC outbox.");
             }
-            int accepted = incoming.length();
+            if (cloudConsent && !prefs.edit().putString(CLOUD_OUTBOX, cloudQueue.toString()).commit()) {
+                android.util.Log.w("NexusDeviceIdentity", "Cloud outbox persistence deferred; local Diagnostics IPC queue remains saved.");
+            }
+            if (cloudQueueFull) {
+                android.util.Log.w("NexusDeviceIdentity", "Cloud outbox is full; pending cloud events were retained and new cloud events were not queued.");
+            }
+
             int acknowledged = flushOutbox();
             int pending = new JSONArray(prefs.getString(OUTBOX, "[]")).length();
+            if (cloudConsent) {
+                Context context = getContext().getApplicationContext();
+                registrationExecutor.execute(() -> {
+                    try {
+                        Identity identity = loadOrCreate(context, "");
+                        flushCloudOutbox(context, identity.credential);
+                    } catch (Exception error) {
+                        android.util.Log.w("NexusDeviceIdentity", "Cloud diagnostics sync deferred; queued events retained.", error);
+                    }
+                });
+            }
+            int cloudPending = new JSONArray(prefs.getString(CLOUD_OUTBOX, "[]")).length();
             JSObject result = new JSObject();
-            result.put("accepted", accepted);
+            result.put("accepted", incoming.length());
             result.put("acknowledged", acknowledged);
             result.put("pending", pending);
+            result.put("cloudPending", cloudPending);
+            result.put("cloudConsent", cloudConsent);
             call.resolve(result);
         } catch (Exception error) {
             android.util.Log.w("NexusDeviceIdentity", "RDS IPC events remain pending or were rejected.", error);
             call.reject("Unable to enqueue or deliver RDS diagnostics events.", error);
         }
     }
-
     @PluginMethod
     public synchronized void flushRdsOutbox(PluginCall call) {
         try {
@@ -477,6 +518,102 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             queue = remaining;
         }
         return totalAcknowledged;
+    }
+
+    /** Cloud delivery has its own durable queue and ACK lifecycle, separate from local IPC ACKs. */
+    private static void flushCloudOutbox(Context context, String credential) {
+        synchronized (CLOUD_FLUSH_LOCK) {
+            HttpURLConnection connection = null;
+            try {
+                SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+                if (!prefs.getBoolean(CONSENT, false) || !prefs.getBoolean(REGISTERED, false)) return;
+                if (credential == null || credential.length() != 64) return;
+
+                JSONArray queue = new JSONArray(prefs.getString(CLOUD_OUTBOX, "[]"));
+                while (queue.length() > 0) {
+                    JSONArray batch = new JSONArray();
+                    int end = Math.min(queue.length(), MAX_BATCH);
+                    for (int i = 0; i < end; i++) {
+                        JSONObject cloudEvent = toCloudEvent(queue.getJSONObject(i));
+                        JSONArray trial = new JSONArray(batch.toString());
+                        trial.put(cloudEvent);
+                        JSONObject trialBody = new JSONObject().put("events", trial);
+                        if (trialBody.toString().getBytes(StandardCharsets.UTF_8).length > MAX_CLOUD_PAYLOAD_BYTES) break;
+                        batch.put(cloudEvent);
+                    }
+                    if (batch.length() == 0) return;
+
+                    JSONObject body = new JSONObject().put("events", batch);
+                    URL endpoint = new URL(SUPABASE_URL + "/functions/v1/ingest-events");
+                    connection = (HttpURLConnection) endpoint.openConnection();
+                    connection.setRequestMethod("POST");
+                    connection.setConnectTimeout(10000);
+                    connection.setReadTimeout(15000);
+                    connection.setRequestProperty("apikey", SUPABASE_KEY);
+                    connection.setRequestProperty("Authorization", "Bearer " + credential);
+                    connection.setRequestProperty("Content-Type", "application/json");
+                    connection.setDoOutput(true);
+                    try (OutputStream output = connection.getOutputStream()) {
+                        output.write(body.toString().getBytes(StandardCharsets.UTF_8));
+                    }
+
+                    int status = connection.getResponseCode();
+                    InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
+                    StringBuilder responseText = new StringBuilder();
+                    if (stream != null) {
+                        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+                            String line;
+                            while ((line = reader.readLine()) != null) responseText.append(line);
+                        }
+                    }
+                    if (status < 200 || status >= 300) {
+                        android.util.Log.w("NexusDeviceIdentity", "Cloud diagnostics sync deferred: HTTP " + status);
+                        return;
+                    }
+
+                    JSONObject response = new JSONObject(responseText.toString());
+                    if (!response.optBoolean("ok", false)) return;
+                    JSONArray ack = response.optJSONArray("acknowledgedEventIds");
+                    Set<String> acknowledgedIds = new HashSet<>();
+                    if (ack != null) for (int i = 0; i < ack.length(); i++) acknowledgedIds.add(ack.optString(i));
+                    if (acknowledgedIds.isEmpty()) return;
+
+                    JSONArray remaining = new JSONArray();
+                    int removed = 0;
+                    for (int i = 0; i < queue.length(); i++) {
+                        JSONObject item = queue.getJSONObject(i);
+                        if (acknowledgedIds.contains(item.optString("eventId"))) removed++;
+                        else remaining.put(item);
+                    }
+                    if (removed == 0) return;
+                    if (!prefs.edit().putString(CLOUD_OUTBOX, remaining.toString()).commit()) {
+                        throw new IllegalStateException("Unable to persist cloud diagnostics acknowledgments.");
+                    }
+                    queue = remaining;
+                }
+            } catch (Exception error) {
+                android.util.Log.w("NexusDeviceIdentity", "Cloud diagnostics sync failed; unacknowledged events remain queued.", error);
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        }
+    }
+
+    private static JSONObject toCloudEvent(JSONObject stored) throws Exception {
+        long timestamp = stored.optLong("timestampEpochMs", System.currentTimeMillis());
+        java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US);
+        formatter.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        JSONObject event = new JSONObject();
+        event.put("eventId", stored.optString("eventId"));
+        event.put("sessionId", stored.optString("sessionId", "UNASSIGNED_SESSION"));
+        event.put("sequence", stored.optLong("sequence", 0));
+        event.put("schemaVersion", stored.optInt("schemaVersion", 1));
+        event.put("source", stored.optString("source", "RUNTIME"));
+        event.put("severity", stored.optString("severity", "INFO"));
+        event.put("title", stored.optString("title", "RDS event"));
+        event.put("details", stored.optString("details", ""));
+        event.put("timestamp", formatter.format(new java.util.Date(timestamp)));
+        return event;
     }
 
     private boolean isUuid(String value) {
