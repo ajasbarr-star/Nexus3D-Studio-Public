@@ -59,12 +59,13 @@ export function describeInteractionTarget(target) {
   return { tool, panel, action, objectId, objectName, label, region, targetKind, hierarchy: chain };
 }
 
-export function createInteractionTracker({ emit = () => {}, now = () => 0, createId = () => 'interaction' } = {}) {
+export function createInteractionTracker({ emit = () => {}, now = () => 0, createId = () => 'interaction', enabled = () => true } = {}) {
   const activePointers = new Map();
   const recentByPointer = new Map();
   let lastInteraction = null;
 
   function begin(event) {
+    if (!enabled()) return null;
     const target = describeInteractionTarget(event?.target);
     const active = {
       id: createId(),
@@ -87,6 +88,7 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
   }
 
   function move(event) {
+    if (!enabled()) return;
     const active = activePointers.get(event?.pointerId);
     if (!active) return;
     const x = Number(event.clientX) || 0;
@@ -103,6 +105,7 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
   }
 
   function finish(event, status = 'completed') {
+    if (!enabled()) { activePointers.delete(event?.pointerId); return null; }
     const current = activePointers.get(event?.pointerId);
     if (!current) return null;
     activePointers.delete(current.pointerId);
@@ -138,6 +141,7 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
   }
 
   function action(event) {
+    if (!enabled()) return;
     const target = describeInteractionTarget(event?.target);
     const pointerId = Number.isFinite(event?.pointerId) ? event.pointerId : 0;
     const at = now();
@@ -197,6 +201,7 @@ export function createInteractionTracker({ emit = () => {}, now = () => 0, creat
   }
 
   function getActiveInteractionId(pointerId) {
+    if (!enabled()) return null;
     return activePointers.get(pointerId)?.id || null;
   }
 
