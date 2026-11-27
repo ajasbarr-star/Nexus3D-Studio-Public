@@ -2,6 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRdsRecordingController } from '../../src/diagnostics/rds-recording-controller.mjs';
 
+
+test('default RDS IDs are unique UUIDs across tool, scene, and startup records', () => {
+  const controller = createRdsRecordingController({ tools: ['Runtime'] });
+  controller.startAnalysis('Runtime');
+  const event = controller.record('Runtime', 'OBJECT_TOUCHED');
+  controller.setSceneCapture('Runtime', true);
+  const scene = controller.captureScene('Runtime', { objects: 1 });
+  const startup = controller.recordStartup('EDITOR_READY');
+  const ids = [event.id, scene.id, startup.id];
+
+  assert.equal(new Set(ids).size, ids.length);
+  for (const id of ids) {
+    assert.match(id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  }
+});
+
 test('tool interaction records are opt-in and isolated by RDS tool', () => {
   let tick = 0;
   const controller = createRdsRecordingController({
@@ -45,7 +61,7 @@ test('startup telemetry is independent from tool capture gates', () => {
   assert.equal(controller.getStartupRecords().length, 1);
 });
 
-test('endSession clears active records and blocks new records without affecting external exports', () => {
+test('endSession stops recording but preserves captured records for final export', () => {
   const controller = createRdsRecordingController({ tools: ['RIT Trace'] });
   controller.startAnalysis('RIT Trace');
   controller.record('RIT Trace', 'TOUCH');
@@ -54,9 +70,11 @@ test('endSession clears active records and blocks new records without affecting 
   controller.recordStartup('EDITOR_READY');
   controller.endSession();
   assert.equal(controller.isEnded(), true);
-  assert.equal(controller.getToolRecords('RIT Trace').records.length, 0);
-  assert.equal(controller.getToolRecords('RIT Trace').sceneSnapshots.length, 0);
-  assert.equal(controller.getStartupRecords().length, 0);
+  assert.equal(controller.getToolRecords('RIT Trace').analysisEnabled, false);
+  assert.equal(controller.getToolRecords('RIT Trace').sceneCaptureEnabled, false);
+  assert.equal(controller.getToolRecords('RIT Trace').records.length, 1);
+  assert.equal(controller.getToolRecords('RIT Trace').sceneSnapshots.length, 1);
+  assert.equal(controller.getStartupRecords().length, 1);
   assert.equal(controller.record('RIT Trace', 'AFTER_EXIT'), null);
   assert.equal(controller.startAnalysis('RIT Trace'), false);
 });
