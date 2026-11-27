@@ -31,6 +31,13 @@ public class MainActivity extends BridgeActivity {
     public void onResume() {
         super.onResume();
         activityResumeElapsedRealtimeMs = SystemClock.elapsedRealtime();
+        NexusDeviceIdentityPlugin.onAppForegroundChanged(getApplicationContext(), true);
+    }
+
+    @Override
+    public void onPause() {
+        NexusDeviceIdentityPlugin.onAppForegroundChanged(getApplicationContext(), false);
+        super.onPause();
     }
 
     @Override
