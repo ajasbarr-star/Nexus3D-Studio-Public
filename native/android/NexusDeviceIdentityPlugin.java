@@ -452,10 +452,8 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             if (!outboxUpdate.commit()) {
                 throw new IllegalStateException("Unable to persist local diagnostics outboxes.");
             }
+            // A successful commit above persisted the IPC and both consented cloud queues.
             boolean cloudQueuePersisted = true;
-            if (!cloudQueuePersisted) {
-                android.util.Log.w("NexusDeviceIdentity", "Cloud outbox persistence deferred; local Diagnostics IPC queue remains saved.");
-            }
             if (cloudQueueFull) {
                 android.util.Log.w("NexusDeviceIdentity", "Cloud outbox is full; pending cloud events were retained and new cloud events were not queued.");
             }
