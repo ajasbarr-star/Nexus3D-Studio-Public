@@ -151,6 +151,8 @@ export function createRdsRecordingController({
     recordStartup,
     getToolRecords,
     getStartupRecords,
+    isAnalysisEnabled: tool => Boolean(states.get(String(tool || '').trim())?.analysisEnabled),
+    isSceneCaptureEnabled: tool => Boolean(states.get(String(tool || '').trim())?.sceneCaptureEnabled),
     endSession,
     isEnded: () => ended,
   };
