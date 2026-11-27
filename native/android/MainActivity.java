@@ -22,6 +22,7 @@ public class MainActivity extends BridgeActivity {
             processStartElapsedRealtimeMs = Process.getStartElapsedRealtime();
         }
         registerPlugin(NexusProjectFilesPlugin.class);
+        registerPlugin(NexusDeviceIdentityPlugin.class);
         super.onCreate(savedInstanceState);
         applyImmersiveMode();
     }
