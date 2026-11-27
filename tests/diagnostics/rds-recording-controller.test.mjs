@@ -2,6 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRdsRecordingController } from '../../src/diagnostics/rds-recording-controller.mjs';
 
+
+test('default RDS IDs are unique UUIDs across tool, scene, and startup records', () => {
+  const controller = createRdsRecordingController({ tools: ['Runtime'] });
+  controller.startAnalysis('Runtime');
+  const event = controller.record('Runtime', 'OBJECT_TOUCHED');
+  controller.setSceneCapture('Runtime', true);
+  const scene = controller.captureScene('Runtime', { objects: 1 });
+  const startup = controller.recordStartup('EDITOR_READY');
+  const ids = [event.id, scene.id, startup.id];
+
+  assert.equal(new Set(ids).size, ids.length);
+  for (const id of ids) {
+    assert.match(id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  }
+});
+
 test('tool interaction records are opt-in and isolated by RDS tool', () => {
   let tick = 0;
   const controller = createRdsRecordingController({
