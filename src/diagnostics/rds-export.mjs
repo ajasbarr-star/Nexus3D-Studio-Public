@@ -7,7 +7,7 @@ function entryLevel(entry) {
 }
 
 export function formatRdsEntries(entries = []) {
-  if (!entries.length) return 'No matching diagnostic entries were captured.';
+  if (!entries.length) return 'NO DATA CAPTURED — no matching diagnostic entries were recorded for this tool.';
   return entries.map(entry => {
     const timestamp = entry.timestampISO || entry.time || 'UNKNOWN_TIME';
     const level = entryLevel(entry);
@@ -128,7 +128,7 @@ export function formatInteractionHierarchy(entries = []) {
     }
     lines.push('');
   }
-  return lines.length ? lines.join('\n').trimEnd() : 'No user interaction events were captured.';
+  return lines.length ? lines.join('\n').trimEnd() : 'NO DATA CAPTURED — no user interaction events were recorded.';
 }
 
 function severityLines(report, matcher) {
