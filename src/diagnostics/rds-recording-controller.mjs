@@ -153,10 +153,8 @@ export function createRdsRecordingController({
       state.sceneCaptureEnabled = false;
       state.analysisStartedAt = null;
       state.captureStartedAt = null;
-      state.records.length = 0;
-      state.sceneSnapshots.length = 0;
     }
-    startupRecords.length = 0;
+    // Keep captured records available for the final report/export after recording stops.
     return true;
   }
 
