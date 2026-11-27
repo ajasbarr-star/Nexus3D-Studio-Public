@@ -395,8 +395,21 @@ public class NexusDeviceIdentityPlugin extends Plugin {
         long sequence = prefs.getLong(NEXT_SEQUENCE, 1L);
         if (!prefs.edit().putLong(NEXT_SEQUENCE, sequence + 1L).commit()) throw new IllegalStateException("Unable to persist IPC sequence.");
         String tool = source.optString("tool", "RDS");
-        String sourceName = tool.equalsIgnoreCase("LogCat") ? "RDS_LOGCAT"
-                : tool.equalsIgnoreCase("RIT Trace") ? "RIT_TRACE" : "RUNTIME";
+        String normalizedTool = tool.trim().toUpperCase(java.util.Locale.ROOT);
+        String sourceName;
+        switch (normalizedTool) {
+            case "LOGCAT": sourceName = "RDS_LOGCAT"; break;
+            case "RIT TRACE": sourceName = "RIT_TRACE"; break;
+            case "WEBGL / SHADER": sourceName = "WEBGL_SHADER"; break;
+            case "SHADOW MAPS": sourceName = "SHADOW_MAPS"; break;
+            case "MATERIALS & TEXTURES": sourceName = "MATERIALS_TEXTURES"; break;
+            case "DFI CORE": sourceName = "DFI_CORE"; break;
+            case "MESH DFI": sourceName = "MESH_DFI"; break;
+            case "ROOT CAUSE": sourceName = "ROOT_CAUSE"; break;
+            case "SOURCE AUDIT": sourceName = "SOURCE_AUDIT"; break;
+            case "REPORTS": sourceName = "REPORTS"; break;
+            default: sourceName = "RUNTIME"; break;
+        }
         String level = source.optString("level", "INFO").toUpperCase(java.util.Locale.ROOT);
         if (!level.matches("VERBOSE|DEBUG|INFO|WARN|ERROR|FATAL")) level = "INFO";
         String title = source.optString("event", source.optString("message", "RDS event"));
@@ -410,7 +423,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
         event.put("source", sourceName);
         event.put("severity", level);
         event.put("title", title.length() > 240 ? title.substring(0, 240) : title);
-        event.put("details", details.length() > 2400 ? details.substring(0, 2400) : details);
+        event.put("details", details.length() > 24000 ? details.substring(0, 24000) : details);
         event.put("sessionId", source.optString("sessionId", "UNASSIGNED_SESSION"));
         event.put("timestampEpochMs", source.optLong("timestampEpochMs", System.currentTimeMillis()));
         return event;
