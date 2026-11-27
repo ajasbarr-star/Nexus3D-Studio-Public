@@ -34,6 +34,7 @@ import { CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES } from './geometry/clean-flat-sur
 import { scanGeometryRit, formatGeometryRitReport } from './geometry/geometry-rit';
 import { RUNTIME_SESSION_ID, RUNTIME_SESSION_STARTED_AT, createRuntimeEventMetadata, formatRuntimeTraceReport } from './diagnostics/runtime-session.mjs';
 import { getOrCreateDeviceId } from './diagnostics/device-identity.mjs';
+import { registerPlugin, Capacitor } from '@capacitor/core';
 import { createRdsRecordingController } from './diagnostics/rds-recording-controller.mjs';
 import { inferTracePoint, filterDiagnosticEntries, formatDiagnosticReport, summarizeFrameTimes } from './diagnostics/logcat-diagnostics.mjs';
 import { buildRdsExportFiles } from './diagnostics/rds-export.mjs';
@@ -173,6 +174,8 @@ function BufferedNumberInput({ value, step = 0.1, disabled = false, ariaLabel, o
     />
   );
 }
+
+const NexusDeviceIdentity = registerPlugin<{ getOrCreateIdentity(options: { legacyDeviceId: string }): Promise<{ deviceId: string; registered: boolean; cloudConsent: boolean }> }>('NexusDeviceIdentity');
 
 type DiagnosticEntry = { id: string; time: string; level: 'VERBOSE' | 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL'; source: string; message: string; details?: string; sessionId?: string; sequence?: number; timestampISO?: string; origin?: 'USER_ACTION' | 'AUTO_PROCESS' | 'RESTORE' | 'SYSTEM' | 'UNKNOWN_ORIGIN'; componentTag?: string; tracePoint?: string; objectId?: string; interactionId?: string };
 type Item = { id: string; name: string; object: THREE.Object3D; kind: string };
@@ -411,6 +414,33 @@ export default function App() {
     buildNumber: runtimeBuildNumber,
     deviceId: runtimeDeviceIdRef.current,
   });
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let active = true;
+    NexusDeviceIdentity.getOrCreateIdentity({ legacyDeviceId: runtimeDeviceIdRef.current })
+      .then(identity => {
+        if (!active) return;
+        const canonical = String(identity?.deviceId || '').toLowerCase();
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(canonical)) {
+          throw new Error('Native identity provider returned an invalid installation UUID.');
+        }
+        runtimeDeviceIdRef.current = canonical;
+        try { localStorage.setItem('nexus3d_installation_device_id_v1', 'N3D-' + canonical); } catch { /* native identity remains authoritative */ }
+        rdsRecordingControllerRef.current?.setDeviceId?.(canonical);
+        diagnosticSinkRef.current('INFO', 'Device Identity', 'NATIVE_INSTALLATION_ID_READY', JSON.stringify({
+          deviceId: canonical, registered: Boolean(identity.registered), cloudConsent: Boolean(identity.cloudConsent),
+          source: 'ANDROID_NATIVE_KEYSTORE'
+        }));
+      })
+      .catch(error => {
+        if (!active) return;
+        runtimeDeviceIdRef.current = 'UNKNOWN_DEVICE_ID';
+        rdsRecordingControllerRef.current?.setDeviceId?.('UNKNOWN_DEVICE_ID');
+        diagnosticSinkRef.current('ERROR', 'Device Identity', 'NATIVE_IDENTITY_UNAVAILABLE_FAIL_CLOSED',
+          error instanceof Error ? error.message : String(error));
+      });
+    return () => { active = false; };
+  }, []);
   const [rdsSceneCaptureByTool, setRdsSceneCaptureByTool] = useState<Record<string, boolean>>({});
   const [ritCaptureEnabled, setRitCaptureEnabled] = useState(false);
   const startupClockRef = useRef({ startedAt: performance.now(), first3DRender: false, editorReady: false });
