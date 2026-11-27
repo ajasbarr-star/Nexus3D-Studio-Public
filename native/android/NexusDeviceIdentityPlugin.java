@@ -416,7 +416,8 @@ public class NexusDeviceIdentityPlugin extends Plugin {
         String details = source.optJSONObject("details") != null
                 ? source.optJSONObject("details").toString() : source.optString("details", "");
         JSONObject event = new JSONObject();
-        event.put("eventId", UUID.randomUUID().toString());
+        String originalEventId = source.optString("id", "");
+        event.put("eventId", isUuid(originalEventId) ? originalEventId : UUID.randomUUID().toString());
         event.put("deviceId", deviceId);
         event.put("sequence", sequence);
         event.put("schemaVersion", 1);
