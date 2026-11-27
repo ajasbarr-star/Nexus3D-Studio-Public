@@ -73,6 +73,8 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     private static final String CONSENT_VERSION_KEY = "cloud_diagnostics_consent_version";
     private static final int CURRENT_CONSENT_VERSION = 2;
     private static final String REGISTERED = "registered";
+    private static final String APP_VERSION = "editor_app_version";
+    private static final String APP_BUILD_NUMBER = "editor_app_build_number";
     private static final String SUPABASE_URL = "https://rupftghvjmalntjoesnv.supabase.co";
     private static final String SUPABASE_KEY = "sb_publishable_t3-BF5smZ21bzc59TVrYIw_4MHGG3Dq";
     private final java.util.concurrent.ExecutorService registrationExecutor = Executors.newSingleThreadExecutor();
@@ -85,6 +87,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     public void getOrCreateIdentity(PluginCall call) {
         try {
             String legacyId = call.getString("legacyDeviceId", "");
+            cacheAppVersionMetadata(getContext().getApplicationContext());
             Identity identity = loadOrCreate(getContext(), legacyId);
             JSObject result = new JSObject();
             result.put("deviceId", identity.installationId);
@@ -178,6 +181,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             android.content.pm.PackageInfo packageInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
             long versionCode = android.os.Build.VERSION.SDK_INT >= 28
                     ? packageInfo.getLongVersionCode() : packageInfo.versionCode;
+            cacheAppVersionMetadata(context);
             JSONObject body = new JSONObject();
             body.put("installationId", identity.installationId);
             body.put("deviceCode", identity.credential);
@@ -227,6 +231,20 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             android.util.Log.w("NexusDeviceIdentity", "Automatic registration deferred; canonical identity retained.", error);
         } finally {
             if (connection != null) connection.disconnect();
+        }
+    }
+
+    private static void cacheAppVersionMetadata(Context context) {
+        try {
+            android.content.pm.PackageInfo packageInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+            long versionCode = android.os.Build.VERSION.SDK_INT >= 28
+                    ? packageInfo.getLongVersionCode() : packageInfo.versionCode;
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                    .putString(APP_VERSION, packageInfo.versionName == null ? "unknown" : packageInfo.versionName)
+                    .putLong(APP_BUILD_NUMBER, versionCode)
+                    .apply();
+        } catch (Exception error) {
+            android.util.Log.w("NexusDeviceIdentity", "Unable to refresh Editor version metadata.", error);
         }
     }
 
@@ -347,6 +365,8 @@ public class NexusDeviceIdentityPlugin extends Plugin {
                 context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
             long versionCode = android.os.Build.VERSION.SDK_INT >= 28
                 ? packageInfo.getLongVersionCode() : packageInfo.versionCode;
+            prefs.edit().putString(APP_VERSION, packageInfo.versionName == null ? "unknown" : packageInfo.versionName)
+                .putLong(APP_BUILD_NUMBER, versionCode).apply();
             body.put("appVersion", packageInfo.versionName == null ? "unknown" : packageInfo.versionName);
             body.put("buildNumber", versionCode);
             body.put("versionCode", versionCode);
@@ -487,8 +507,20 @@ public class NexusDeviceIdentityPlugin extends Plugin {
         String level = source.optString("level", "INFO").toUpperCase(java.util.Locale.ROOT);
         if (!level.matches("VERBOSE|DEBUG|INFO|WARN|ERROR|FATAL")) level = "INFO";
         String title = source.optString("event", source.optString("message", "RDS event"));
-        String details = source.optJSONObject("details") != null
+        String rawDetails = source.optJSONObject("details") != null
                 ? source.optJSONObject("details").toString() : source.optString("details", "");
+        JSONObject detailsEnvelope = new JSONObject();
+        detailsEnvelope.put("deviceId", deviceId);
+        detailsEnvelope.put("appVersion", prefs.getString(APP_VERSION, "unknown"));
+        detailsEnvelope.put("buildNumber", source.optLong("buildNumber", prefs.getLong(APP_BUILD_NUMBER, 0L)));
+        int payloadLength = rawDetails.length();
+        String details = "";
+        while (true) {
+            detailsEnvelope.put("eventDetails", rawDetails.substring(0, payloadLength));
+            details = detailsEnvelope.toString();
+            if (details.length() <= 24000 || payloadLength == 0) break;
+            payloadLength = Math.max(0, payloadLength - (details.length() - 24000));
+        }
         JSONObject event = new JSONObject();
         String originalEventId = source.optString("id", "");
         event.put("eventId", isUuid(originalEventId) ? originalEventId : UUID.randomUUID().toString());
