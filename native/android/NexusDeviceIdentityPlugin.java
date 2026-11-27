@@ -68,6 +68,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     private static final int MAX_PAYLOAD_BYTES = 120 * 1024;
     private static final int MAX_CLOUD_PAYLOAD_BYTES = 240 * 1024;
     private static final Object CLOUD_FLUSH_LOCK = new Object();
+    private static final java.util.concurrent.atomic.AtomicBoolean CLOUD_FLUSH_SCHEDULED = new java.util.concurrent.atomic.AtomicBoolean(false);
     private static final String CONSENT = "cloud_diagnostics_consent";
     private static final String REGISTERED = "registered";
     private static final String SUPABASE_URL = "https://rupftghvjmalntjoesnv.supabase.co";
@@ -408,17 +409,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
 
             int acknowledged = flushOutbox();
             int pending = new JSONArray(prefs.getString(OUTBOX, "[]")).length();
-            if (cloudConsent) {
-                Context context = getContext().getApplicationContext();
-                registrationExecutor.execute(() -> {
-                    try {
-                        Identity identity = loadOrCreate(context, "");
-                        flushCloudOutbox(context, identity.credential);
-                    } catch (Exception error) {
-                        android.util.Log.w("NexusDeviceIdentity", "Cloud diagnostics sync deferred; queued events retained.", error);
-                    }
-                });
-            }
+            if (cloudConsent) scheduleCloudOutboxFlush();
             int cloudPending = new JSONArray(prefs.getString(CLOUD_OUTBOX, "[]")).length();
             JSObject result = new JSObject();
             result.put("accepted", incoming.length());
@@ -436,9 +427,13 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     public synchronized void flushRdsOutbox(PluginCall call) {
         try {
             int acknowledged = flushOutbox();
+            boolean cloudConsent = preferences().getBoolean(CONSENT, false);
+            if (cloudConsent) scheduleCloudOutboxFlush();
             JSObject result = new JSObject();
             result.put("acknowledged", acknowledged);
             result.put("pending", new JSONArray(preferences().getString(OUTBOX, "[]")).length());
+            result.put("cloudPending", new JSONArray(preferences().getString(CLOUD_OUTBOX, "[]")).length());
+            result.put("cloudConsent", cloudConsent);
             call.resolve(result);
         } catch (Exception error) {
             call.reject("Diagnostics IPC outbox flush failed; pending events were retained.", error);
@@ -531,6 +526,21 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             queue = remaining;
         }
         return totalAcknowledged;
+    }
+
+    private void scheduleCloudOutboxFlush() {
+        if (!CLOUD_FLUSH_SCHEDULED.compareAndSet(false, true)) return;
+        Context context = getContext().getApplicationContext();
+        registrationExecutor.execute(() -> {
+            try {
+                Identity identity = loadOrCreate(context, "");
+                flushCloudOutbox(context, identity.credential);
+            } catch (Exception error) {
+                android.util.Log.w("NexusDeviceIdentity", "Cloud diagnostics sync deferred; queued events retained.", error);
+            } finally {
+                CLOUD_FLUSH_SCHEDULED.set(false);
+            }
+        });
     }
 
     /** Cloud delivery has its own durable queue and ACK lifecycle, separate from local IPC ACKs. */
