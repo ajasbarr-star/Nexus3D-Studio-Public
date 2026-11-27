@@ -1438,7 +1438,7 @@ export default function App() {
       now: () => performance.now(),
       createId: uid,
       resolveInteractionId: pointerId => interactionTrackerRef.current?.getActiveInteractionId?.(pointerId),
-      enabled: () => ritCaptureEnabledRef.current,
+      enabled: () => Boolean(rdsRecordingControllerRef.current?.isAnalysisEnabled(rdsActiveToolRef.current)),
       emit: event => diagnosticSinkRef.current('INFO', 'Interaction Trace', event.event, JSON.stringify(event))
     });
     const detachCameraInteractionTracker = cameraInteractionTracker.attach({
@@ -8360,7 +8360,6 @@ export default function App() {
               </article>)}{!visibleLogcatEntries.length && <div className="diagnostic-empty">No LogCat events match these filters.</div>}</div>
             </>}
             {rdsActiveTool === 'RIT Trace' && <>
-              <div className="rds-quick-actions"><button type="button" onClick={() => { if (ritCaptureEnabled) { setRitCaptureEnabled(false); setStatus('RIT Trace recording stopped'); } else { clearInteractionTraceLogs(); setRitCaptureEnabled(true); setStatus('RIT Trace recording started · current session only'); } }}><Activity size={14}/>{ritCaptureEnabled ? 'Stop Analysis' : 'Run Analysis'}</button><button type="button" onClick={() => { if (!ritCaptureEnabled) { setStatus('Turn on Run Analysis before capturing the scene'); return; } const snapshot = getSceneVerificationSnapshot(); recordInteractionTrace('SCENE_CAPTURE', { snapshot, captureStatus: 'MEASURED' }); setStatus('RIT Trace scene snapshot captured'); }} disabled={!ritCaptureEnabled}><ScanEye size={14}/>Capture Scene</button></div>
               <div className="rds-summary-strip" aria-label="Realtime Interaction Trace"><span>Session {RUNTIME_SESSION_ID}</span><span>{getRitTraceEntries().length} events</span><span>{ritCaptureEnabled ? 'RECORDING' : 'OFF'}</span></div>
               <div className="rds-command-log-list">{getRitTraceEntries().slice().reverse().map(entry => <article className="diagnostic-entry diagnostic-info" key={entry.id}>
                 <div><strong>{entry.origin || 'UNKNOWN'}</strong><time>{entry.time}</time></div><small className="rit-event-meta">{entry.sessionId === RUNTIME_SESSION_ID ? 'CURRENT SESSION' : entry.sessionId ? 'PREVIOUS SESSION' : 'LEGACY'} · SEQ {entry.sequence ?? '—'}</small>
