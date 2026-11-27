@@ -34,7 +34,6 @@ import { CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES } from './geometry/clean-flat-sur
 import { scanGeometryRit, formatGeometryRitReport } from './geometry/geometry-rit';
 import { RUNTIME_SESSION_ID, RUNTIME_SESSION_STARTED_AT, createRuntimeEventMetadata, formatRuntimeTraceReport } from './diagnostics/runtime-session.mjs';
 import { getOrCreateDeviceId } from './diagnostics/device-identity.mjs';
-import { registerPlugin, Capacitor } from '@capacitor/core';
 import { createRdsRecordingController } from './diagnostics/rds-recording-controller.mjs';
 import { inferTracePoint, filterDiagnosticEntries, formatDiagnosticReport, summarizeFrameTimes } from './diagnostics/logcat-diagnostics.mjs';
 import { buildRdsExportFiles } from './diagnostics/rds-export.mjs';
