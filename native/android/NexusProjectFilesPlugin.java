@@ -41,6 +41,22 @@ public class NexusProjectFilesPlugin extends Plugin {
     // SAF providers can be slow; keep project staging, writes, and verification off the UI thread.
     private final ExecutorService projectIo = Executors.newSingleThreadExecutor();
 
+    @PluginMethod
+    public void getNativeStartupTiming(PluginCall call) {
+        JSObject response = new JSObject();
+        long processStart = MainActivity.processStartElapsedRealtimeMs;
+        long activityCreate = MainActivity.activityCreateElapsedRealtimeMs;
+        long activityResume = MainActivity.activityResumeElapsedRealtimeMs;
+        response.put("processStartElapsedRealtimeMs", processStart >= 0L ? processStart : JSObject.NULL);
+        response.put("activityCreateElapsedRealtimeMs", activityCreate >= 0L ? activityCreate : JSObject.NULL);
+        response.put("activityResumeElapsedRealtimeMs", activityResume >= 0L ? activityResume : JSObject.NULL);
+        response.put("processToActivityCreateMs", processStart >= 0L && activityCreate >= processStart ? activityCreate - processStart : JSObject.NULL);
+        response.put("activityCreateToResumeMs", activityCreate >= 0L && activityResume >= activityCreate ? activityResume - activityCreate : JSObject.NULL);
+        response.put("processStartStatus", processStart >= 0L ? "MEASURED" : "NOT_MEASURED");
+        response.put("clock", "SystemClock.elapsedRealtime");
+        call.resolve(response);
+    }
+
     /** Clears only temporary WebView and app cache files. User projects and app data are preserved. */
     @PluginMethod
     public void clearAppCache(PluginCall call) {
