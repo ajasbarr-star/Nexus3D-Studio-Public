@@ -299,7 +299,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
         HttpURLConnection connection = null;
         try {
             SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-            if (!prefs.getBoolean(CONSENT, false) || !prefs.getBoolean(REGISTERED, false)) return;
+            if (!hasCurrentConsent(prefs) || !prefs.getBoolean(REGISTERED, false)) return;
             String installationId = prefs.getString(ID, null);
             String iv = prefs.getString(SECRET_IV, null);
             String encrypted = prefs.getString(SECRET_CIPHER, null);
@@ -434,7 +434,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     public synchronized void flushRdsOutbox(PluginCall call) {
         try {
             int acknowledged = flushOutbox();
-            boolean cloudConsent = preferences().getBoolean(CONSENT, false);
+            boolean cloudConsent = hasCurrentConsent(preferences());
             if (cloudConsent) scheduleCloudOutboxFlush();
             JSObject result = new JSObject();
             result.put("acknowledged", acknowledged);
