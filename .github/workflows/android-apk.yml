@@ -15,6 +15,7 @@ on:
       - feature/rit-camera-latency-build849
       - feature/rds-shadow-diagnostics-build877
       - feature/rds-light-shadow-capacity-build878
+      - feature/rds-fresh-session-startup-camera
   workflow_dispatch:
 
 permissions:
