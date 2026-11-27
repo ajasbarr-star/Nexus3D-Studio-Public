@@ -98,6 +98,7 @@ type NexusProjectFilesPlugin = {
   saveProjectArchive(options: { fileName: string; base64: string }): Promise<{ uri: string; name: string; writtenBytes?: number; overwritten?: boolean }>;
   saveRdsArchive(options: { fileName: string; base64: string }): Promise<{ uri: string; name: string; path: string; writtenBytes: number }>;
   clearAppCache(): Promise<{ cleared: boolean; message: string }>;
+  getNativeStartupTiming(): Promise<{ processStartElapsedRealtimeMs: number | null; activityCreateElapsedRealtimeMs: number | null; activityResumeElapsedRealtimeMs: number | null; processToActivityCreateMs: number | null; activityCreateToResumeMs: number | null; processStartStatus: string; clock: string }>;
 };
 const NexusProjectFiles = registerPlugin<NexusProjectFilesPlugin>('NexusProjectFiles');
 
@@ -527,7 +528,20 @@ export default function App() {
   useEffect(() => {
     const elapsedMs = Number(Math.max(0, performance.now() - startupClockRef.current.startedAt).toFixed(2));
     diagnosticSinkRef.current('INFO', 'Startup Performance', 'WEBVIEW_APP_MOUNTED', JSON.stringify({ elapsedSinceAppMountMs: elapsedMs, measurement: 'WEBVIEW_APP', status: 'MEASURED', nativeProcessStart: 'NOT_MEASURED', buildNumber: runtimeBuildNumber, deviceId: runtimeDeviceIdRef.current }));
-    diagnosticSinkRef.current('WARN', 'Startup Performance', 'NATIVE_PROCESS_START', JSON.stringify({ status: 'NOT_MEASURED', reason: 'Native process launch timestamp is not yet exposed to the WebView bridge.' }));
+    if (Capacitor.isNativePlatform()) {
+      void NexusProjectFiles.getNativeStartupTiming().then(timing => {
+        diagnosticSinkRef.current('INFO', 'Startup Performance', 'NATIVE_STARTUP_TIMING', JSON.stringify(timing));
+      }).catch(error => {
+        diagnosticSinkRef.current('WARN', 'Startup Performance', 'NATIVE_STARTUP_TIMING', JSON.stringify({
+          status: 'NOT_MEASURED',
+          reason: error instanceof Error ? error.message : String(error)
+        }));
+      });
+    } else {
+      diagnosticSinkRef.current('INFO', 'Startup Performance', 'NATIVE_STARTUP_TIMING', JSON.stringify({
+        status: 'NOT_APPLICABLE', reason: 'This session is not running in the Android native app.'
+      }));
+    }
   }, []);
   const recordInteractionTrace = (action: string, details: Record<string, unknown> = {}) => {
     const correlatedInteractionId = details.interactionId || interactionTrackerRef.current?.consumeLastInteractionId?.();
