@@ -246,6 +246,21 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             body.put("installationId", installationId);
             body.put("deviceCode", credential);
             body.put("state", state);
+
+            // Send live installed-app and device metadata with every authenticated
+            // presence update so upgrades and device changes refresh the same record.
+            android.content.pm.PackageInfo packageInfo =
+                context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+            long versionCode = android.os.Build.VERSION.SDK_INT >= 28
+                ? packageInfo.getLongVersionCode() : packageInfo.versionCode;
+            body.put("appVersion", packageInfo.versionName == null ? "unknown" : packageInfo.versionName);
+            body.put("buildNumber", versionCode);
+            body.put("versionCode", versionCode);
+            JSONObject deviceInfo = new JSONObject();
+            deviceInfo.put("manufacturer", Build.MANUFACTURER == null ? "" : Build.MANUFACTURER);
+            deviceInfo.put("model", Build.MODEL == null ? "" : Build.MODEL);
+            deviceInfo.put("androidVersion", Build.VERSION.RELEASE == null ? "" : Build.VERSION.RELEASE);
+            body.put("deviceInfo", deviceInfo);
             URL endpoint = new URL(SUPABASE_URL + "/functions/v1/device-presence");
             connection = (HttpURLConnection) endpoint.openConnection();
             connection.setRequestMethod("POST");
