@@ -413,6 +413,38 @@ export default function App() {
   const rdsActiveToolRef = useRef(rdsActiveTool);
   rdsActiveToolRef.current = rdsActiveTool;
   const rdsRecordingControllerRef = useRef<any>(null);
+  const pendingRdsIpcEventsRef = useRef<any[]>([]);
+  const pendingRdsIpcFlushRef = useRef(false);
+  const flushPendingRdsIpcEvents = async () => {
+    if (!Capacitor.isNativePlatform() || !nativeIdentityReadyRef.current || pendingRdsIpcFlushRef.current) return;
+    const deviceId = String(runtimeDeviceIdRef.current || '');
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(deviceId)) return;
+    pendingRdsIpcFlushRef.current = true;
+    try {
+      while (pendingRdsIpcEventsRef.current.length) {
+        const batch = pendingRdsIpcEventsRef.current.slice(0, 20);
+        const result = await NexusDeviceIdentity.enqueueRdsEvents({
+          deviceId,
+          eventsJson: JSON.stringify(batch.map(event => ({
+            ...event,
+            timestampEpochMs: Date.parse(event.timestampISO),
+          }))),
+        });
+        const accepted = Number(result?.accepted || 0);
+        if (accepted < batch.length) break;
+        pendingRdsIpcEventsRef.current.splice(0, batch.length);
+        if (result?.cloudQueueFull || result?.cloudQueuePersisted === false) {
+          setStatus(result.cloudQueueFull
+            ? 'RDS delivered locally; cloud queue is full and needs retry'
+            : 'RDS delivered locally; cloud queue persistence needs retry');
+        }
+      }
+    } catch (error) {
+      console.warn('[Nexus3D IPC] Pending local RDS events remain queued for retry:', error);
+    } finally {
+      pendingRdsIpcFlushRef.current = false;
+    }
+  };
   if (!rdsRecordingControllerRef.current) rdsRecordingControllerRef.current = createRdsRecordingController({
     tools: ['Overview', 'Runtime', 'LogCat', 'RIT Trace', 'WebGL / Shader', 'Shadow Maps', 'Materials & Textures', 'DFI Core', 'Mesh DFI', 'Root Cause', 'Source Audit', 'Reports'],
     sessionId: RUNTIME_SESSION_ID,
@@ -433,6 +465,7 @@ export default function App() {
         nativeIdentityReadyRef.current = true;
         try { localStorage.setItem('nexus3d_installation_device_id_v1', 'N3D-' + canonical); } catch { /* native identity remains authoritative */ }
         rdsRecordingControllerRef.current?.setDeviceId?.(canonical);
+        void flushPendingRdsIpcEvents();
         diagnosticSinkRef.current('INFO', 'Device Identity', 'NATIVE_INSTALLATION_ID_READY', JSON.stringify({
           deviceId: canonical, registered: Boolean(identity.registered), cloudConsent: Boolean(identity.cloudConsent),
           source: 'ANDROID_NATIVE_KEYSTORE'
@@ -458,6 +491,7 @@ export default function App() {
     if (!Capacitor.isNativePlatform()) return;
     const flushPending = () => {
       if (document.visibilityState === 'visible' && nativeIdentityReadyRef.current) {
+        void flushPendingRdsIpcEvents();
         void NexusDeviceIdentity.flushRdsOutbox().catch(() => { /* retain pending IPC events for the next retry */ });
       }
     };
@@ -563,24 +597,13 @@ export default function App() {
     // The canonical Device ID is attached later when the Android identity provider is ready.
     const capturedRdsEvent = recordingController?.record(activeRdsTool, message, { source, details: details || null, level }) || null;
     if (capturedRdsEvent && Capacitor.isNativePlatform()) {
-      const canonicalId = String(runtimeDeviceIdRef.current || '');
-      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(canonicalId)) {
-        void NexusDeviceIdentity.enqueueRdsEvents({
-          deviceId: canonicalId,
-          eventsJson: JSON.stringify([{
-            ...capturedRdsEvent,
-            timestampEpochMs: Date.parse(capturedRdsEvent.timestampISO),
-          }]),
-        }).then(result => {
-          if (result?.cloudQueueFull || result?.cloudQueuePersisted === false) {
-            setStatus(result.cloudQueueFull
-              ? 'RDS saved locally; cloud queue is full and needs retry'
-              : 'RDS saved locally; cloud queue persistence needs retry');
-          }
-        }).catch(error => {
-          // Native IPC/cloud failures never stop local RDS capture or ZIP exports.
-          console.warn('[Nexus3D IPC] RDS event enqueue deferred; local report retained:', error);
-        });
+      if (nativeIdentityReadyRef.current) {
+        pendingRdsIpcEventsRef.current.push(capturedRdsEvent);
+        void flushPendingRdsIpcEvents();
+      } else {
+        // Keep pre-identity events in a bounded in-memory retry queue; local report data remains intact.
+        if (pendingRdsIpcEventsRef.current.length < 2000) pendingRdsIpcEventsRef.current.push(capturedRdsEvent);
+        else setStatus('Local RDS recording continues; Diagnostics delivery buffer is full');
       }
     }
     const sceneRelevantEvent = source === 'Interaction Trace' ||
