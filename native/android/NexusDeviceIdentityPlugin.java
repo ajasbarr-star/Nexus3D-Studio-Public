@@ -84,10 +84,11 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             }
             int accepted = incoming.length();
             int acknowledged = flushOutbox();
+            int pending = new JSONArray(prefs.getString(OUTBOX, "[]")).length();
             JSObject result = new JSObject();
             result.put("accepted", accepted);
             result.put("acknowledged", acknowledged);
-            result.put("pending", Math.max(0, queue.length() - acknowledged));
+            result.put("pending", pending);
             call.resolve(result);
         } catch (Exception error) {
             android.util.Log.w("NexusDeviceIdentity", "RDS IPC events remain pending or were rejected.", error);
@@ -163,10 +164,9 @@ public class NexusDeviceIdentityPlugin extends Plugin {
                 } catch (Exception unavailable) { response = null; }
             }
             if (response == null) break;
-            JSONArray ack = response.getParcelableArrayList("acknowledgedEventIds") == null
-                    ? new JSONArray() : new JSONArray(response.getString("acknowledgedEventIds", "[]"));
+            java.util.ArrayList<String> ack = response.getStringArrayList("acknowledgedEventIds");
             Set<String> acknowledgedIds = new HashSet<>();
-            for (int i = 0; i < ack.length(); i++) acknowledgedIds.add(ack.optString(i));
+            if (ack != null) acknowledgedIds.addAll(ack);
             if (acknowledgedIds.isEmpty()) break;
             JSONArray remaining = new JSONArray();
             int removed = 0;
