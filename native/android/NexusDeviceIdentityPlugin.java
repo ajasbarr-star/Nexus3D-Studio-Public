@@ -71,7 +71,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     private static final java.util.concurrent.atomic.AtomicBoolean CLOUD_FLUSH_SCHEDULED = new java.util.concurrent.atomic.AtomicBoolean(false);
     private static final String CONSENT = "cloud_diagnostics_consent";
     private static final String CONSENT_VERSION_KEY = "cloud_diagnostics_consent_version";
-    private static final int CURRENT_CONSENT_VERSION = 2;
+    private static final int CURRENT_CONSENT_VERSION = 3;
     private static final String REGISTERED = "registered";
     private static final String APP_VERSION = "editor_app_version";
     private static final String APP_BUILD_NUMBER = "editor_app_build_number";
@@ -143,7 +143,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
         }
         getActivity().runOnUiThread(() -> new android.app.AlertDialog.Builder(getActivity())
             .setTitle("Nexus3D Device Diagnostics")
-            .setMessage("Allow Nexus3D Editor to register a random installation ID with Nexus3D Diagnostics and share technical details: device manufacturer/model, CPU and GPU identifiers, Android version, total RAM, data-partition storage capacity, Editor app version/build, foreground/background presence and last-active timestamps? No project files, scene content, contacts, GPS, IMEI or personal account data are collected. Registration is separate from your Diagnostics account login.")
+            .setMessage("Allow Nexus3D Editor to register a random installation ID with Nexus3D Diagnostics and share technical details: device manufacturer/model, CPU and GPU identifiers, Android version, total RAM, data-partition storage capacity, Editor app version/build, foreground/background presence and last-active timestamps, plus RDS diagnostic events. RDS events may include tool and control labels, interaction metadata, object names or IDs, scene hierarchy references, and camera/runtime performance measurements when you enable Run Analysis. Project files, mesh geometry, textures, saved scenes, contacts, GPS, IMEI and personal account data are not uploaded by this diagnostics event sync. Registration is separate from your Diagnostics account login.")
             .setPositiveButton("Allow", (dialog, which) -> {
                 prefs.edit().putBoolean(CONSENT, true).putBoolean("consent_decided", true).putInt(CONSENT_VERSION_KEY, CURRENT_CONSENT_VERSION).commit();
                 try {
