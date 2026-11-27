@@ -283,6 +283,7 @@ export default function App() {
     const tracker = createInteractionTracker({
       now: () => performance.now(),
       createId: uid,
+      enabled: () => ritCaptureEnabledRef.current,
       emit: event => diagnosticSinkRef.current('INFO', 'Interaction Trace', event.event, JSON.stringify(event))
     });
     const detachTracker = tracker.attach(document);
@@ -395,6 +396,9 @@ export default function App() {
   const [diagnosticPanelOpen, setDiagnosticPanelOpen] = useState(false);
   const [rdsPanelOpen, setRdsPanelOpen] = useState(false);
   const [rdsActiveTool, setRdsActiveTool] = useState('Overview');
+  const [ritCaptureEnabled, setRitCaptureEnabled] = useState(false);
+  const ritCaptureEnabledRef = useRef(false);
+  ritCaptureEnabledRef.current = ritCaptureEnabled;
   const [rdsPanelWidth, setRdsPanelWidth] = useState(() => Math.min(360, Math.max(280, window.innerWidth - 18)));
   const [rdsPanelHeight, setRdsPanelHeight] = useState(() => Math.min(Math.round(window.innerHeight * 0.48), Math.max(1, window.innerHeight - 76)));
   const [rdsExportBusy, setRdsExportBusy] = useState(false);
@@ -477,6 +481,7 @@ export default function App() {
       timestampISO: timestamp.toISOString(),
       ...metadata
     };
+    if (source === 'Interaction Trace' && !ritCaptureEnabledRef.current) return;
     const queue = source === 'Interaction Trace' ? interactionTraceQueueRef.current : diagnosticQueueRef.current;
     queue.push(entry);
     if (queue.length > 100) queue.splice(0, queue.length - 100);
@@ -1408,6 +1413,7 @@ export default function App() {
       now: () => performance.now(),
       createId: uid,
       resolveInteractionId: pointerId => interactionTrackerRef.current?.getActiveInteractionId?.(pointerId),
+      enabled: () => ritCaptureEnabledRef.current,
       emit: event => diagnosticSinkRef.current('INFO', 'Interaction Trace', event.event, JSON.stringify(event))
     });
     const detachCameraInteractionTracker = cameraInteractionTracker.attach({
@@ -8322,7 +8328,8 @@ export default function App() {
               </article>)}{!visibleLogcatEntries.length && <div className="diagnostic-empty">No LogCat events match these filters.</div>}</div>
             </>}
             {rdsActiveTool === 'RIT Trace' && <>
-              <div className="rds-summary-strip" aria-label="Realtime Interaction Trace"><span>Session {RUNTIME_SESSION_ID}</span><span>{getRitTraceEntries().length} events</span></div>
+              <div className="rds-quick-actions"><button type="button" onClick={() => { if (ritCaptureEnabled) { setRitCaptureEnabled(false); setStatus('RIT Trace recording stopped'); } else { clearInteractionTraceLogs(); setRitCaptureEnabled(true); setStatus('RIT Trace recording started · current session only'); } }}><Activity size={14}/>{ritCaptureEnabled ? 'Stop Analysis' : 'Run Analysis'}</button><button type="button" onClick={() => { if (!ritCaptureEnabled) { setStatus('Turn on Run Analysis before capturing the scene'); return; } const snapshot = getSceneVerificationSnapshot(); recordInteractionTrace('SCENE_CAPTURE', { snapshot, captureStatus: 'MEASURED' }); setStatus('RIT Trace scene snapshot captured'); }} disabled={!ritCaptureEnabled}><ScanEye size={14}/>Capture Scene</button></div>
+              <div className="rds-summary-strip" aria-label="Realtime Interaction Trace"><span>Session {RUNTIME_SESSION_ID}</span><span>{getRitTraceEntries().length} events</span><span>{ritCaptureEnabled ? 'RECORDING' : 'OFF'}</span></div>
               <div className="rds-command-log-list">{getRitTraceEntries().slice().reverse().map(entry => <article className="diagnostic-entry diagnostic-info" key={entry.id}>
                 <div><strong>{entry.origin || 'UNKNOWN'}</strong><time>{entry.time}</time></div><small className="rit-event-meta">{entry.sessionId === RUNTIME_SESSION_ID ? 'CURRENT SESSION' : entry.sessionId ? 'PREVIOUS SESSION' : 'LEGACY'} · SEQ {entry.sequence ?? '—'}</small>
                 <p>{entry.message}</p>{entry.details && <pre>{entry.details}</pre>}
