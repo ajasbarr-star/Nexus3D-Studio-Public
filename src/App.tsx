@@ -701,7 +701,7 @@ export default function App() {
         ...(toolSceneSnapshots.length ? toolSceneSnapshots.map(record =>
           '[' + record.timestampISO + '] SCENE_CAPTURE [' + record.source + ']\n' + JSON.stringify(record.snapshot, null, 2)
         ) : ['NO SCENE SNAPSHOT CAPTURED.'])
-      ].join('\\n');
+      ].join('\n');
       entries = [
         ...entries,
         ...toolCaptureRecords.map(record => ({
@@ -718,7 +718,7 @@ export default function App() {
           deviceId: record.deviceId, buildNumber: record.buildNumber
         }))
       ];
-      fullReport = [fullReport, captureReport].filter(Boolean).join('\\n\\n');
+      fullReport = [fullReport, captureReport].filter(Boolean).join('\n\n');
       const exportFiles = buildRdsExportFiles({
         tool, fullReport, entries,
         metadata: {
