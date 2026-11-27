@@ -445,7 +445,8 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             if (!prefs.edit().putString(OUTBOX, queue.toString()).commit()) {
                 throw new IllegalStateException("Unable to persist Diagnostics IPC outbox.");
             }
-            if (cloudConsent && !prefs.edit().putString(CLOUD_OUTBOX, cloudQueue.toString()).commit()) {
+            boolean cloudQueuePersisted = !cloudConsent || prefs.edit().putString(CLOUD_OUTBOX, cloudQueue.toString()).commit();
+            if (!cloudQueuePersisted) {
                 android.util.Log.w("NexusDeviceIdentity", "Cloud outbox persistence deferred; local Diagnostics IPC queue remains saved.");
             }
             if (cloudQueueFull) {
@@ -462,6 +463,8 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             result.put("pending", pending);
             result.put("cloudPending", cloudPending);
             result.put("cloudConsent", cloudConsent);
+            result.put("cloudQueueFull", cloudQueueFull);
+            result.put("cloudQueuePersisted", cloudQueuePersisted);
             call.resolve(result);
         } catch (Exception error) {
             android.util.Log.w("NexusDeviceIdentity", "RDS IPC events remain pending or were rejected.", error);
