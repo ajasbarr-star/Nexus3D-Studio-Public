@@ -61,6 +61,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     private static final ScheduledExecutorService PRESENCE_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
     private static final Object PRESENCE_LOCK = new Object();
     private static ScheduledFuture<?> presenceTask;
+    private static volatile boolean appForeground = false;
 
     @PluginMethod
     public void getOrCreateIdentity(PluginCall call) {
@@ -185,7 +186,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
                 if (!preferences().edit().putBoolean(REGISTERED, true).commit()) {
                     throw new IllegalStateException("Unable to persist registration state.");
                 }
-                sendPresence(context, "online");
+                if (appForeground) onAppForegroundChanged(context, true);
             } else {
                 android.util.Log.w("NexusDeviceIdentity", "Automatic registration deferred: HTTP " + status);
             }
@@ -200,6 +201,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     public static void onAppForegroundChanged(Context suppliedContext, boolean foreground) {
         Context context = suppliedContext.getApplicationContext();
         synchronized (PRESENCE_LOCK) {
+            appForeground = foreground;
             SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             if (!prefs.getBoolean(CONSENT, false) || !prefs.getBoolean(REGISTERED, false)) return;
             if (foreground) {
