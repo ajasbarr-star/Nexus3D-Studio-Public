@@ -36,6 +36,7 @@ export function formatRuntimeTraceReport(entries, session = {}) {
     `Current session: ${sessionId}`,
     `Session started: ${startedAt}`,
     `Events: ${entries.length} · Current session: ${current} · Previous/legacy: ${previous}`,
+    ...(entries.length ? [] : ['NO DATA CAPTURED — no runtime interaction records were captured in this session.']),
     'Origin labels: USER_ACTION = direct interaction trace; AUTO_PROCESS = runtime monitor; RESTORE = project restore/import; SYSTEM = other runtime event.',
     '',
     ...entries.map(entry => {
