@@ -1,6 +1,16 @@
 package com.nexus3d.studio.test;
 
 import android.content.Context;
+import android.app.ActivityManager;
+import android.os.Environment;
+import android.os.StatFs;
+import android.opengl.EGL14;
+import android.opengl.EGLConfig;
+import android.opengl.EGLContext;
+import android.opengl.EGLDisplay;
+import android.opengl.EGLSurface;
+import android.opengl.GLES20;
+import java.io.File;
 import android.content.SharedPreferences;
 import android.content.ContentResolver;
 import android.net.Uri;
@@ -148,11 +158,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             body.put("appVersion", packageInfo.versionName == null ? "unknown" : packageInfo.versionName);
             body.put("buildNumber", versionCode);
             body.put("versionCode", versionCode);
-            JSONObject deviceInfo = new JSONObject();
-            deviceInfo.put("manufacturer", Build.MANUFACTURER == null ? "" : Build.MANUFACTURER);
-            deviceInfo.put("model", Build.MODEL == null ? "" : Build.MODEL);
-            deviceInfo.put("androidVersion", Build.VERSION.RELEASE == null ? "" : Build.VERSION.RELEASE);
-            body.put("deviceInfo", deviceInfo);
+            body.put("deviceInfo", collectDeviceInfo(context));
 
             URL endpoint = new URL(SUPABASE_URL + "/functions/v1/auto-register-device");
             connection = (HttpURLConnection) endpoint.openConnection();
@@ -195,6 +201,62 @@ public class NexusDeviceIdentityPlugin extends Plugin {
         } finally {
             if (connection != null) connection.disconnect();
         }
+    }
+
+    private static JSONObject collectDeviceInfo(Context context) {
+        JSONObject info = new JSONObject();
+        try { info.put("manufacturer", Build.MANUFACTURER == null ? "" : Build.MANUFACTURER); } catch (Exception ignored) {}
+        try { info.put("model", Build.MODEL == null ? "" : Build.MODEL); } catch (Exception ignored) {}
+        try { info.put("androidVersion", Build.VERSION.RELEASE == null ? "" : Build.VERSION.RELEASE); } catch (Exception ignored) {}
+        try {
+            String cpu = "";
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(new java.io.FileInputStream("/proc/cpuinfo"), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    String lower = line.toLowerCase(java.util.Locale.ROOT);
+                    if (lower.startsWith("hardware") || lower.startsWith("model name") || lower.startsWith("processor")) {
+                        int colon = line.indexOf(':');
+                        if (colon >= 0 && line.substring(colon + 1).trim().length() > 2) { cpu = line.substring(colon + 1).trim(); if (lower.startsWith("hardware") || lower.startsWith("model name")) break; }
+                    }
+                }
+            } catch (Exception ignored) {}
+            if (cpu.isEmpty()) cpu = Build.HARDWARE + " (" + (Build.SUPPORTED_ABIS.length > 0 ? Build.SUPPORTED_ABIS[0] : "unknown ABI") + ")";
+            info.put("cpu", cpu);
+        } catch (Exception ignored) {}
+        try {
+            String gpu = "";
+            EGLDisplay display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
+            int[] version = new int[2];
+            if (display != EGL14.EGL_NO_DISPLAY && EGL14.eglInitialize(display, version, 0, version, 1)) {
+                int[] configAttrs = {EGL14.EGL_RENDERABLE_TYPE, 4, EGL14.EGL_SURFACE_TYPE, EGL14.EGL_PBUFFER_BIT, EGL14.EGL_RED_SIZE, 8, EGL14.EGL_GREEN_SIZE, 8, EGL14.EGL_BLUE_SIZE, 8, EGL14.EGL_NONE};
+                EGLConfig[] configs = new EGLConfig[1]; int[] count = new int[1];
+                if (EGL14.eglChooseConfig(display, configAttrs, 0, configs, 0, 1, count, 0) && count[0] > 0) {
+                    int[] contextAttrs = {0x3098, 2, EGL14.EGL_NONE};
+                    EGLContext glContext = EGL14.eglCreateContext(display, configs[0], EGL14.EGL_NO_CONTEXT, contextAttrs, 0);
+                    int[] surfaceAttrs = {EGL14.EGL_WIDTH, 1, EGL14.EGL_HEIGHT, 1, EGL14.EGL_NONE};
+                    EGLSurface surface = EGL14.eglCreatePbufferSurface(display, configs[0], surfaceAttrs, 0);
+                    if (glContext != EGL14.EGL_NO_CONTEXT && surface != EGL14.EGL_NO_SURFACE && EGL14.eglMakeCurrent(display, surface, surface, glContext)) {
+                        String renderer = GLES20.glGetString(GLES20.GL_RENDERER);
+                        if (renderer != null) gpu = renderer;
+                    }
+                    EGL14.eglMakeCurrent(display, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT);
+                    if (surface != EGL14.EGL_NO_SURFACE) EGL14.eglDestroySurface(display, surface);
+                    if (glContext != EGL14.EGL_NO_CONTEXT) EGL14.eglDestroyContext(display, glContext);
+                }
+                EGL14.eglTerminate(display);
+            }
+            info.put("gpu", gpu);
+        } catch (Exception error) { try { info.put("gpu", "Unavailable"); } catch (Exception ignored) {} }
+        try {
+            ActivityManager.MemoryInfo memory = new ActivityManager.MemoryInfo();
+            ActivityManager manager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+            if (manager != null) { manager.getMemoryInfo(memory); info.put("ramBytes", memory.totalMem); }
+        } catch (Exception ignored) {}
+        try {
+            StatFs storage = new StatFs(Environment.getDataDirectory().getAbsolutePath());
+            info.put("romBytes", storage.getTotalBytes());
+        } catch (Exception ignored) {}
+        return info;
     }
 
     /** Presence is sent only after consent and confirmed ACTIVE registration. */
@@ -256,11 +318,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             body.put("appVersion", packageInfo.versionName == null ? "unknown" : packageInfo.versionName);
             body.put("buildNumber", versionCode);
             body.put("versionCode", versionCode);
-            JSONObject deviceInfo = new JSONObject();
-            deviceInfo.put("manufacturer", Build.MANUFACTURER == null ? "" : Build.MANUFACTURER);
-            deviceInfo.put("model", Build.MODEL == null ? "" : Build.MODEL);
-            deviceInfo.put("androidVersion", Build.VERSION.RELEASE == null ? "" : Build.VERSION.RELEASE);
-            body.put("deviceInfo", deviceInfo);
+            body.put("deviceInfo", collectDeviceInfo(context));
             URL endpoint = new URL(SUPABASE_URL + "/functions/v1/device-presence");
             connection = (HttpURLConnection) endpoint.openConnection();
             connection.setRequestMethod("POST");
