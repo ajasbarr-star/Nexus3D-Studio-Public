@@ -70,6 +70,8 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     private static final Object CLOUD_FLUSH_LOCK = new Object();
     private static final java.util.concurrent.atomic.AtomicBoolean CLOUD_FLUSH_SCHEDULED = new java.util.concurrent.atomic.AtomicBoolean(false);
     private static final String CONSENT = "cloud_diagnostics_consent";
+    private static final String CONSENT_VERSION_KEY = "cloud_diagnostics_consent_version";
+    private static final int CURRENT_CONSENT_VERSION = 2;
     private static final String REGISTERED = "registered";
     private static final String SUPABASE_URL = "https://rupftghvjmalntjoesnv.supabase.co";
     private static final String SUPABASE_KEY = "sb_publishable_t3-BF5smZ21bzc59TVrYIw_4MHGG3Dq";
@@ -86,7 +88,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             Identity identity = loadOrCreate(getContext(), legacyId);
             JSObject result = new JSObject();
             result.put("deviceId", identity.installationId);
-            boolean consent = preferences().getBoolean(CONSENT, false);
+            boolean consent = hasCurrentConsent(preferences());
             result.put("registered", preferences().getBoolean(REGISTERED, false));
             result.put("cloudConsent", consent);
             call.resolve(result);
@@ -107,7 +109,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     @PluginMethod
     public void requestCloudConsent(PluginCall call) {
         SharedPreferences prefs = preferences();
-        if (prefs.getBoolean("consent_decided", false)) {
+        if (prefs.getBoolean("consent_decided", false) && prefs.getInt(CONSENT_VERSION_KEY, 0) >= CURRENT_CONSENT_VERSION) {
             boolean enabled = prefs.getBoolean(CONSENT, false);
             if (enabled && !prefs.getBoolean(REGISTERED, false)) {
                 try {
@@ -127,7 +129,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             .setTitle("Nexus3D Device Diagnostics")
             .setMessage("Allow Nexus3D Editor to register a random installation ID with Nexus3D Diagnostics and share technical details: device manufacturer/model, CPU and GPU identifiers, Android version, total RAM, data-partition storage capacity, Editor app version/build, foreground/background presence and last-active timestamps? No project files, scene content, contacts, GPS, IMEI or personal account data are collected. Registration is separate from your Diagnostics account login.")
             .setPositiveButton("Allow", (dialog, which) -> {
-                prefs.edit().putBoolean(CONSENT, true).putBoolean("consent_decided", true).commit();
+                prefs.edit().putBoolean(CONSENT, true).putBoolean("consent_decided", true).putInt(CONSENT_VERSION_KEY, CURRENT_CONSENT_VERSION).commit();
                 try {
                     Identity identity = loadOrCreate(getContext(), "");
                     registrationExecutor.execute(() -> registerWithBackend(identity));
@@ -140,7 +142,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
                 call.resolve(result);
             })
             .setNegativeButton("Not now", (dialog, which) -> {
-                prefs.edit().putBoolean(CONSENT, false).putBoolean("consent_decided", true).commit();
+                prefs.edit().putBoolean(CONSENT, false).putBoolean("consent_decided", true).putInt(CONSENT_VERSION_KEY, CURRENT_CONSENT_VERSION).commit();
                 JSObject result = new JSObject();
                 result.put("enabled", false);
                 result.put("alreadyDecided", false);
@@ -151,7 +153,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     }
 
     private void registerWithBackend(Identity identity) {
-        if (!preferences().getBoolean(CONSENT, false)) return;
+        if (!hasCurrentConsent(preferences())) return;
         HttpURLConnection connection = null;
         try {
             Context context = getContext().getApplicationContext();
@@ -208,6 +210,11 @@ public class NexusDeviceIdentityPlugin extends Plugin {
         } finally {
             if (connection != null) connection.disconnect();
         }
+    }
+
+    private static boolean hasCurrentConsent(SharedPreferences prefs) {
+        return prefs.getBoolean(CONSENT, false)
+                && prefs.getInt(CONSENT_VERSION_KEY, 0) >= CURRENT_CONSENT_VERSION;
     }
 
     private static JSONObject collectDeviceInfo(Context context) {
@@ -272,7 +279,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
         synchronized (PRESENCE_LOCK) {
             appForeground = foreground;
             SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-            if (!prefs.getBoolean(CONSENT, false) || !prefs.getBoolean(REGISTERED, false)) return;
+            if (!hasCurrentConsent(prefs) || !prefs.getBoolean(REGISTERED, false)) return;
             if (foreground) {
                 if (presenceTask != null && !presenceTask.isCancelled() && !presenceTask.isDone()) return;
                 presenceTask = PRESENCE_EXECUTOR.scheduleAtFixedRate(
@@ -364,7 +371,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             Set<String> known = new HashSet<>();
             for (int i = 0; i < queue.length(); i++) known.add(queue.getJSONObject(i).optString("eventId"));
 
-            boolean cloudConsent = prefs.getBoolean(CONSENT, false);
+            boolean cloudConsent = hasCurrentConsent(prefs);
             JSONArray cloudQueue = new JSONArray(prefs.getString(CLOUD_OUTBOX, "[]"));
             Set<String> knownCloud = new HashSet<>();
             for (int i = 0; i < cloudQueue.length(); i++) knownCloud.add(cloudQueue.getJSONObject(i).optString("eventId"));
@@ -549,7 +556,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             HttpURLConnection connection = null;
             try {
                 SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-                if (!prefs.getBoolean(CONSENT, false) || !prefs.getBoolean(REGISTERED, false)) return;
+                if (!hasCurrentConsent(prefs) || !prefs.getBoolean(REGISTERED, false)) return;
                 if (credential == null || credential.length() != 64) return;
 
                 JSONArray queue = new JSONArray(prefs.getString(CLOUD_OUTBOX, "[]"));
