@@ -397,6 +397,7 @@ export default function App() {
   const [rdsPanelOpen, setRdsPanelOpen] = useState(false);
   const [rdsActiveTool, setRdsActiveTool] = useState('Overview');
   const [ritCaptureEnabled, setRitCaptureEnabled] = useState(false);
+  const startupClockRef = useRef({ startedAt: performance.now(), first3DRender: false, editorReady: false });
   const ritCaptureEnabledRef = useRef(false);
   ritCaptureEnabledRef.current = ritCaptureEnabled;
   const [rdsPanelWidth, setRdsPanelWidth] = useState(() => Math.min(360, Math.max(280, window.innerWidth - 18)));
@@ -505,6 +506,11 @@ export default function App() {
     setStatus('Cleared RIT Trace events · LogCat preserved');
   };
   diagnosticSinkRef.current = pushDiagnostic;
+  useEffect(() => {
+    const elapsedMs = Number(Math.max(0, performance.now() - startupClockRef.current.startedAt).toFixed(2));
+    diagnosticSinkRef.current('INFO', 'Startup Performance', 'WEBVIEW_APP_MOUNTED', JSON.stringify({ elapsedSinceAppMountMs: elapsedMs, measurement: 'WEBVIEW_APP', status: 'MEASURED', nativeProcessStart: 'NOT_MEASURED', buildNumber: 'NOT_INJECTED', deviceId: 'NOT_AVAILABLE' }));
+    diagnosticSinkRef.current('WARN', 'Startup Performance', 'NATIVE_PROCESS_START', JSON.stringify({ status: 'NOT_MEASURED', reason: 'Native process launch timestamp is not yet exposed to the WebView bridge.' }));
+  }, []);
   const recordInteractionTrace = (action: string, details: Record<string, unknown> = {}) => {
     const correlatedInteractionId = details.interactionId || interactionTrackerRef.current?.consumeLastInteractionId?.();
     diagnosticSinkRef.current('INFO', 'Interaction Trace', action, JSON.stringify({
@@ -4465,6 +4471,13 @@ export default function App() {
         renderer.render(scene, inCam ? activeCamera : camera);
       }
       cameraInteractionTracker.markRendered(runtime.current?.riggingView ? 'IK Rigging Viewport' : inCam ? 'CameraViewport' : 'MainViewport');
+      if (!startupClockRef.current.first3DRender) {
+        startupClockRef.current.first3DRender = true;
+        const elapsedMs = Number(Math.max(0, performance.now() - startupClockRef.current.startedAt).toFixed(2));
+        diagnosticSinkRef.current('INFO', 'Startup Performance', 'FIRST_3D_RENDER', JSON.stringify({ elapsedSinceAppMountMs: elapsedMs, measurement: 'WEBGL_RENDER_LOOP', status: 'MEASURED' }));
+        startupClockRef.current.editorReady = true;
+        diagnosticSinkRef.current('INFO', 'Startup Performance', 'EDITOR_READY', JSON.stringify({ elapsedSinceAppMountMs: elapsedMs, measurement: 'EDITOR_FIRST_SUCCESSFUL_RENDER', status: 'MEASURED' }));
+      }
       raf = requestAnimationFrame(frameLoop);
     };
     let raf = requestAnimationFrame(frameLoop);
