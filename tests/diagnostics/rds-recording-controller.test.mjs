@@ -61,7 +61,7 @@ test('startup telemetry is independent from tool capture gates', () => {
   assert.equal(controller.getStartupRecords().length, 1);
 });
 
-test('endSession clears active records and blocks new records without affecting external exports', () => {
+test('endSession stops recording but preserves captured records for final export', () => {
   const controller = createRdsRecordingController({ tools: ['RIT Trace'] });
   controller.startAnalysis('RIT Trace');
   controller.record('RIT Trace', 'TOUCH');
@@ -70,9 +70,11 @@ test('endSession clears active records and blocks new records without affecting 
   controller.recordStartup('EDITOR_READY');
   controller.endSession();
   assert.equal(controller.isEnded(), true);
-  assert.equal(controller.getToolRecords('RIT Trace').records.length, 0);
-  assert.equal(controller.getToolRecords('RIT Trace').sceneSnapshots.length, 0);
-  assert.equal(controller.getStartupRecords().length, 0);
+  assert.equal(controller.getToolRecords('RIT Trace').analysisEnabled, false);
+  assert.equal(controller.getToolRecords('RIT Trace').sceneCaptureEnabled, false);
+  assert.equal(controller.getToolRecords('RIT Trace').records.length, 1);
+  assert.equal(controller.getToolRecords('RIT Trace').sceneSnapshots.length, 1);
+  assert.equal(controller.getStartupRecords().length, 1);
   assert.equal(controller.record('RIT Trace', 'AFTER_EXIT'), null);
   assert.equal(controller.startAnalysis('RIT Trace'), false);
 });
