@@ -16,6 +16,7 @@ export function createRdsRecordingController({
   const states = new Map();
   const startupRecords = [];
   let ended = false;
+  let canonicalDeviceId = String(deviceId || 'UNKNOWN_DEVICE');
 
   const ensure = tool => {
     const key = String(tool || '').trim();
@@ -36,7 +37,7 @@ export function createRdsRecordingController({
   const metadata = () => ({
     sessionId,
     buildNumber,
-    deviceId,
+    deviceId: canonicalDeviceId,
     timestampISO: iso(now()),
   });
 
@@ -149,6 +150,12 @@ export function createRdsRecordingController({
   }
 
   return {
+    setDeviceId(value) {
+      const next = String(value || '').trim();
+      if (!next) return false;
+      canonicalDeviceId = next;
+      return true;
+    },
     startAnalysis,
     stopAnalysis,
     setSceneCapture,
