@@ -17,6 +17,7 @@ on:
       - feature/rds-light-shadow-capacity-build878
       - feature/rds-fresh-session-startup-camera
       - nexus3d/editor-ipc-outbox
+      - repair/rds-unique-event-ids
   workflow_dispatch:
 
 concurrency:
