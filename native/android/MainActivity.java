@@ -1,6 +1,8 @@
 package com.nexus3d.studio.test;
 
 import android.os.Bundle;
+import android.os.SystemClock;
+import android.os.Process;
 import android.view.View;
 import com.getcapacitor.BridgeActivity;
 
@@ -9,11 +11,25 @@ import com.getcapacitor.BridgeActivity;
  * Swipe gestures from the screen edges can temporarily reveal system bars.
  */
 public class MainActivity extends BridgeActivity {
+    public static volatile long processStartElapsedRealtimeMs = -1L;
+    public static volatile long activityCreateElapsedRealtimeMs = -1L;
+    public static volatile long activityResumeElapsedRealtimeMs = -1L;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        activityCreateElapsedRealtimeMs = SystemClock.elapsedRealtime();
+        if (android.os.Build.VERSION.SDK_INT >= 24) {
+            processStartElapsedRealtimeMs = Process.getStartElapsedRealtime();
+        }
         registerPlugin(NexusProjectFilesPlugin.class);
         super.onCreate(savedInstanceState);
         applyImmersiveMode();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        activityResumeElapsedRealtimeMs = SystemClock.elapsedRealtime();
     }
 
     @Override
