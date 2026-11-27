@@ -107,6 +107,30 @@ export function formatInteractionHierarchy(entries = []) {
         ' | Camera update to rendered frame: ' +
         (Number.isFinite(firstFrame.cameraUpdateToFirstRenderedFrameMs) ? firstFrame.cameraUpdateToFirstRenderedFrameMs + ' ms' : 'NOT_MEASURED')
       );
+      if (cameraUpdate) {
+        lines.push(
+          '      Actual camera movement: position delta ' +
+          (Number.isFinite(cameraUpdate.cameraPositionDeltaUnits) ? cameraUpdate.cameraPositionDeltaUnits + ' units' : 'NOT_MEASURED') +
+          ' | rotation delta ' +
+          (Number.isFinite(cameraUpdate.cameraRotationDeltaDegrees) ? cameraUpdate.cameraRotationDeltaDegrees + ' degrees' : 'NOT_MEASURED') +
+          ' | target delta ' +
+          (Number.isFinite(cameraUpdate.cameraTargetDeltaUnits) ? cameraUpdate.cameraTargetDeltaUnits + ' units' : 'NOT_MEASURED')
+        );
+        lines.push('      Movement accuracy: ' + String(cameraUpdate.movementAccuracy || 'NOT_MEASURED'));
+      }
+      if (cameraGesture) {
+        lines.push(
+          '      Frame performance: samples ' + String(cameraGesture.frameTimeSamples ?? 0) +
+          ' | average ' + (Number.isFinite(cameraGesture.frameTimeAverageMs) ? cameraGesture.frameTimeAverageMs + ' ms' : 'NOT_MEASURED') +
+          ' | max ' + (Number.isFinite(cameraGesture.frameTimeMaxMs) ? cameraGesture.frameTimeMaxMs + ' ms' : 'NOT_MEASURED') +
+          ' | jitter std-dev ' + (Number.isFinite(cameraGesture.frameTimeJitterStdDevMs) ? cameraGesture.frameTimeJitterStdDevMs + ' ms' : 'NOT_MEASURED')
+        );
+        lines.push(
+          '      Dropped-frame estimate: ' +
+          (Number.isFinite(cameraGesture.droppedFrameEstimate60Hz) ? cameraGesture.droppedFrameEstimate60Hz + ' estimated frame(s)' : 'NOT_MEASURED') +
+          ' (' + String(cameraGesture.droppedFrameEstimateBasis || 'no estimate basis') + ')'
+        );
+      }
       if (cameraUpdate?.controller || firstFrame?.controller) {
         lines.push('      Active controller: ' + String(cameraUpdate?.controller || firstFrame?.controller));
       }
