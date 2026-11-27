@@ -62,6 +62,8 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     private static final String CLOUD_OUTBOX = "rds_cloud_outbox_v1";
     private static final String NEXT_SEQUENCE = "rds_ipc_next_sequence_v1";
     private static final int MAX_QUEUE = 2000;
+    private static final int MAX_OUTBOX_BYTES = 10 * 1024 * 1024;
+    private static final int MAX_CLOUD_OUTBOX_BYTES = 10 * 1024 * 1024;
     private static final int MAX_BATCH = 20;
     private static final int MAX_PAYLOAD_BYTES = 120 * 1024;
     private static final int MAX_CLOUD_PAYLOAD_BYTES = 240 * 1024;
@@ -373,13 +375,24 @@ public class NexusDeviceIdentityPlugin extends Plugin {
                 String eventId = event.getString("eventId");
                 if (known.add(eventId)) {
                     if (queue.length() >= MAX_QUEUE) throw new IllegalStateException("Diagnostics IPC outbox is full; unsent events were retained and new events were not accepted.");
+                    JSONArray trialQueue = new JSONArray(queue.toString());
+                    trialQueue.put(event);
+                    if (trialQueue.toString().getBytes(StandardCharsets.UTF_8).length > MAX_OUTBOX_BYTES) {
+                        throw new IllegalStateException("Diagnostics IPC outbox reached its byte limit; unsent events were retained.");
+                    }
                     queue.put(event);
                 }
                 if (cloudConsent && knownCloud.add(eventId)) {
                     if (cloudQueue.length() >= MAX_QUEUE) {
                         cloudQueueFull = true;
                     } else {
-                        cloudQueue.put(new JSONObject(event.toString()));
+                        JSONArray trialCloudQueue = new JSONArray(cloudQueue.toString());
+                        trialCloudQueue.put(new JSONObject(event.toString()));
+                        if (trialCloudQueue.toString().getBytes(StandardCharsets.UTF_8).length > MAX_CLOUD_OUTBOX_BYTES) {
+                            cloudQueueFull = true;
+                        } else {
+                            cloudQueue.put(new JSONObject(event.toString()));
+                        }
                     }
                 }
             }
