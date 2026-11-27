@@ -715,7 +715,7 @@ export default function App() {
           fullReport = formatDiagnosticReport(allLogs, { sessionId: RUNTIME_SESSION_ID });
       }
       const toolCapture = rdsRecordingControllerRef.current?.getToolRecords(tool);
-      const toolCaptureRecords = tool === 'RIT Trace' ? [] : (toolCapture?.records || []);
+      const toolCaptureRecords = ['Overview', 'Runtime', 'LogCat', 'RIT Trace', 'Reports'].includes(tool) ? [] : (toolCapture?.records || []);
       const toolSceneSnapshots = toolCapture?.sceneSnapshots || [];
       const captureReport = [
         '[RDS TOOL RECORDING]',
