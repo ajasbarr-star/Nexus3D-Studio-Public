@@ -236,5 +236,12 @@ export function createCameraInteractionTracker({
     };
   }
 
-  return { onPointerDown, onPointerMove, onPointerUp, onWheel, cameraChanged, markRendered, attach };
+  function reset() {
+    pointers.clear();
+    session = null;
+    lastTouchTap = null;
+    lastWheelAt = -Infinity;
+  }
+
+  return { onPointerDown, onPointerMove, onPointerUp, onWheel, cameraChanged, markRendered, attach, reset };
 }
