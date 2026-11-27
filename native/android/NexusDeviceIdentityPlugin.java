@@ -124,7 +124,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
         }
         getActivity().runOnUiThread(() -> new android.app.AlertDialog.Builder(getActivity())
             .setTitle("Nexus3D Device Diagnostics")
-            .setMessage("Allow Nexus3D Editor to register a random installation ID with Nexus3D Diagnostics and share limited technical details: device manufacturer/model, Android version, Editor app version/build, foreground/background presence and last-active timestamps? No project files, scene content, contacts, GPS, IMEI or personal account data are collected. Registration is separate from your Diagnostics account login.")
+            .setMessage("Allow Nexus3D Editor to register a random installation ID with Nexus3D Diagnostics and share technical details: device manufacturer/model, CPU and GPU identifiers, Android version, total RAM, data-partition storage capacity, Editor app version/build, foreground/background presence and last-active timestamps? No project files, scene content, contacts, GPS, IMEI or personal account data are collected. Registration is separate from your Diagnostics account login.")
             .setPositiveButton("Allow", (dialog, which) -> {
                 prefs.edit().putBoolean(CONSENT, true).putBoolean("consent_decided", true).commit();
                 try {
@@ -601,6 +601,10 @@ public class NexusDeviceIdentityPlugin extends Plugin {
                     if (removed == 0) return;
                     if (!prefs.edit().putString(CLOUD_OUTBOX, remaining.toString()).commit()) {
                         throw new IllegalStateException("Unable to persist cloud diagnostics acknowledgments.");
+                    }
+                    if (connection != null) {
+                        connection.disconnect();
+                        connection = null;
                     }
                     queue = remaining;
                 }
