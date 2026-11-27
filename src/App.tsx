@@ -440,6 +440,7 @@ export default function App() {
         }
       }
     } catch (error) {
+      setStatus('Local RDS recording continues; Diagnostics delivery is pending retry');
       console.warn('[Nexus3D IPC] Pending local RDS events remain queued for retry:', error);
     } finally {
       pendingRdsIpcFlushRef.current = false;
