@@ -11,7 +11,7 @@
     "cap:sync": "cap sync android",
     "cap:open": "cap open android",
     "android:build": "npm run build && cap sync android",
-    "test:rds": "node --test tests/rds/*.test.mjs",
+    "test:rds": "node --test tests/diagnostics/*.test.mjs",
     "rds:audit": "node scripts/rds-source-audit.mjs",
     "verify:rds": "npm run test:rds && npm run rds:audit",
     "dfi:audit": "node scripts/dfi-source-audit.mjs",
