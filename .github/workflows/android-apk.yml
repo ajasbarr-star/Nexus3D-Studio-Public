@@ -18,6 +18,10 @@ on:
       - feature/rds-fresh-session-startup-camera
   workflow_dispatch:
 
+concurrency:
+  group: nexus3d-test-android-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
