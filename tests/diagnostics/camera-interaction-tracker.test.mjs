@@ -134,3 +134,26 @@ test('camera interaction reuses the shared RIT pointer Interaction ID', () => {
   tracker.cameraChanged('MainOrbit', 'MainViewport');
   assert.equal(records[0].interactionId, 'rit-pointer-9');
 });
+
+test('camera tracker emits no records while the capture gate is off', () => {
+  let clock = 0;
+  let enabled = false;
+  const records = [];
+  const tracker = createCameraInteractionTracker({
+    emit: event => records.push(event),
+    now: () => clock,
+    createId: () => 'gated-camera',
+    enabled: () => enabled,
+  });
+  assert.equal(tracker.onPointerDown({ pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0 }, 'MainViewport'), null);
+  tracker.cameraChanged('MainOrbit', 'MainViewport');
+  tracker.markRendered('MainViewport');
+  assert.equal(tracker.onWheel({ deltaY: 10 }, 'MainViewport'), null);
+  assert.equal(records.length, 0);
+  enabled = true;
+  tracker.onPointerDown({ pointerId: 2, pointerType: 'touch', clientX: 0, clientY: 0 }, 'MainViewport');
+  clock = 12;
+  tracker.cameraChanged('MainOrbit', 'MainViewport');
+  tracker.markRendered('MainViewport');
+  assert.equal(records.length, 2);
+});
