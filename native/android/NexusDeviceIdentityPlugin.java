@@ -2,6 +2,13 @@ package com.nexus3d.studio.test;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.ContentResolver;
+import android.net.Uri;
+import android.os.Bundle;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import java.util.HashSet;
+import java.util.Set;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
@@ -30,6 +37,11 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     private static final String ID = "installation_id";
     private static final String SECRET_IV = "credential_iv";
     private static final String SECRET_CIPHER = "credential_cipher";
+    private static final String OUTBOX = "rds_ipc_outbox_v1";
+    private static final String NEXT_SEQUENCE = "rds_ipc_next_sequence_v1";
+    private static final int MAX_QUEUE = 2000;
+    private static final int MAX_BATCH = 20;
+    private static final int MAX_PAYLOAD_BYTES = 120 * 1024;
 
     @PluginMethod
     public void getOrCreateIdentity(PluginCall call) {
@@ -45,6 +57,134 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             android.util.Log.e("NexusDeviceIdentity", "Identity continuity check failed; refusing to generate a replacement.", error);
             call.reject("Existing Nexus3D installation identity is incomplete or unreadable. No replacement ID was created.", error);
         }
+    }
+
+
+    /** Accepts only newly captured RDS events. The durable queue is separate from RDS report stores. */
+    @PluginMethod
+    public synchronized void enqueueRdsEvents(PluginCall call) {
+        try {
+            String deviceId = call.getString("deviceId", "");
+            if (!isUuid(deviceId)) throw new IllegalArgumentException("Canonical installation UUID is required.");
+            String eventsJson = call.getString("eventsJson", "[]");
+            JSONArray incoming = new JSONArray(eventsJson);
+            SharedPreferences prefs = preferences();
+            JSONArray queue = new JSONArray(prefs.getString(OUTBOX, "[]"));
+            Set<String> known = new HashSet<>();
+            for (int i = 0; i < queue.length(); i++) known.add(queue.getJSONObject(i).optString("eventId"));
+            for (int i = 0; i < incoming.length(); i++) {
+                JSONObject source = incoming.getJSONObject(i);
+                JSONObject event = toBridgeEvent(source, deviceId, prefs);
+                if (!known.add(event.getString("eventId"))) continue;
+                if (queue.length() >= MAX_QUEUE) throw new IllegalStateException("Diagnostics IPC outbox is full; unsent events were retained and new events were not accepted.");
+                queue.put(event);
+            }
+            if (!prefs.edit().putString(OUTBOX, queue.toString()).commit()) {
+                throw new IllegalStateException("Unable to persist Diagnostics IPC outbox.");
+            }
+            int accepted = incoming.length();
+            int acknowledged = flushOutbox();
+            JSObject result = new JSObject();
+            result.put("accepted", accepted);
+            result.put("acknowledged", acknowledged);
+            result.put("pending", Math.max(0, queue.length() - acknowledged));
+            call.resolve(result);
+        } catch (Exception error) {
+            android.util.Log.w("NexusDeviceIdentity", "RDS IPC events remain pending or were rejected.", error);
+            call.reject("Unable to enqueue or deliver RDS diagnostics events.", error);
+        }
+    }
+
+    @PluginMethod
+    public synchronized void flushRdsOutbox(PluginCall call) {
+        try {
+            int acknowledged = flushOutbox();
+            JSObject result = new JSObject();
+            result.put("acknowledged", acknowledged);
+            result.put("pending", new JSONArray(preferences().getString(OUTBOX, "[]")).length());
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("Diagnostics IPC outbox flush failed; pending events were retained.", error);
+        }
+    }
+
+    private JSONObject toBridgeEvent(JSONObject source, String deviceId, SharedPreferences prefs) throws Exception {
+        long sequence = prefs.getLong(NEXT_SEQUENCE, 1L);
+        if (!prefs.edit().putLong(NEXT_SEQUENCE, sequence + 1L).commit()) throw new IllegalStateException("Unable to persist IPC sequence.");
+        String tool = source.optString("tool", "RDS");
+        String sourceName = tool.equalsIgnoreCase("LogCat") ? "RDS_LOGCAT"
+                : tool.equalsIgnoreCase("RIT Trace") ? "RIT_TRACE" : "RUNTIME";
+        String level = source.optString("level", "INFO").toUpperCase(java.util.Locale.ROOT);
+        if (!level.matches("VERBOSE|DEBUG|INFO|WARN|ERROR|FATAL")) level = "INFO";
+        String title = source.optString("event", source.optString("message", "RDS event"));
+        String details = source.optJSONObject("details") != null
+                ? source.optJSONObject("details").toString() : source.optString("details", "");
+        JSONObject event = new JSONObject();
+        event.put("eventId", UUID.randomUUID().toString());
+        event.put("deviceId", deviceId);
+        event.put("sequence", sequence);
+        event.put("schemaVersion", 1);
+        event.put("source", sourceName);
+        event.put("severity", level);
+        event.put("title", title.length() > 240 ? title.substring(0, 240) : title);
+        event.put("details", details.length() > 2400 ? details.substring(0, 2400) : details);
+        event.put("sessionId", source.optString("sessionId", "UNASSIGNED_SESSION"));
+        event.put("timestampEpochMs", source.optLong("timestampEpochMs", System.currentTimeMillis()));
+        return event;
+    }
+
+    private int flushOutbox() throws Exception {
+        SharedPreferences prefs = preferences();
+        JSONArray queue = new JSONArray(prefs.getString(OUTBOX, "[]"));
+        int totalAcknowledged = 0;
+        while (queue.length() > 0) {
+            JSONArray batch = new JSONArray();
+            int end = Math.min(queue.length(), MAX_BATCH);
+            for (int i = 0; i < end; i++) {
+                JSONObject candidate = queue.getJSONObject(i);
+                JSONArray trial = new JSONArray(batch.toString());
+                trial.put(candidate);
+                if (trial.toString().getBytes(StandardCharsets.UTF_8).length > MAX_PAYLOAD_BYTES) break;
+                batch.put(candidate);
+            }
+            if (batch.length() == 0) break;
+            Bundle extras = new Bundle();
+            extras.putString("eventsJson", batch.toString());
+            Bundle response = null;
+            String[] authorities = new String[] {
+                    "content://com.nexus3d.diagnostics.bridge",
+                    "content://com.nexus3d.diagnostics.debug.bridge"
+            };
+            for (String authority : authorities) {
+                try {
+                    response = getContext().getContentResolver().call(Uri.parse(authority), "ingestBatch", null, extras);
+                    if (response != null && response.getBoolean("ok", false)) break;
+                    response = null;
+                } catch (Exception unavailable) { response = null; }
+            }
+            if (response == null) break;
+            JSONArray ack = response.getParcelableArrayList("acknowledgedEventIds") == null
+                    ? new JSONArray() : new JSONArray(response.getString("acknowledgedEventIds", "[]"));
+            Set<String> acknowledgedIds = new HashSet<>();
+            for (int i = 0; i < ack.length(); i++) acknowledgedIds.add(ack.optString(i));
+            if (acknowledgedIds.isEmpty()) break;
+            JSONArray remaining = new JSONArray();
+            int removed = 0;
+            for (int i = 0; i < queue.length(); i++) {
+                JSONObject item = queue.getJSONObject(i);
+                if (acknowledgedIds.contains(item.optString("eventId"))) removed++;
+                else remaining.put(item);
+            }
+            if (removed == 0) break;
+            if (!prefs.edit().putString(OUTBOX, remaining.toString()).commit()) throw new IllegalStateException("Unable to persist IPC acknowledgments.");
+            totalAcknowledged += removed;
+            queue = remaining;
+        }
+        return totalAcknowledged;
+    }
+
+    private boolean isUuid(String value) {
+        return value != null && value.matches("(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
     }
 
     private Identity loadOrCreate(Context context, String legacyId) throws Exception {
