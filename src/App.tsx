@@ -500,8 +500,21 @@ export default function App() {
       buildNumber: runtimeBuildNumber,
       ...metadata
     };
-    rdsRecordingControllerRef.current?.record(rdsActiveToolRef.current, message, { source, details: details || null, level });
-    if (source === 'Interaction Trace' && rdsActiveToolRef.current !== 'RIT Trace') return;
+    const activeRdsTool = rdsActiveToolRef.current;
+    const recordingController = rdsRecordingControllerRef.current;
+    recordingController?.record(activeRdsTool, message, { source, details: details || null, level });
+    const sceneRelevantEvent = source === 'Interaction Trace' ||
+      /scene|object|shape|transform|light|material|import|rig|camera/i.test(source + ' ' + String(message));
+    if (recordingController?.isSceneCaptureEnabled(activeRdsTool) && sceneRelevantEvent) {
+      try {
+        recordingController.captureScene(activeRdsTool, getSceneVerificationSnapshot(), source + ':' + String(message));
+      } catch (captureError) {
+        recordingController.record(activeRdsTool, 'SCENE_CAPTURE_FAILED', {
+          source, message: captureError instanceof Error ? captureError.message : String(captureError)
+        }, 'WARN');
+      }
+    }
+    if (source === 'Interaction Trace' && activeRdsTool !== 'RIT Trace') return;
     if (source === 'Interaction Trace' && !ritCaptureEnabledRef.current) return;
     const queue = source === 'Interaction Trace' ? interactionTraceQueueRef.current : diagnosticQueueRef.current;
     queue.push(entry);
