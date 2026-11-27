@@ -56,6 +56,8 @@ export function createRdsRecordingController({
     const state = ensure(tool);
     state.analysisEnabled = false;
     state.analysisStartedAt = null;
+    state.sceneCaptureEnabled = false;
+    state.captureStartedAt = null;
     return true;
   }
 
