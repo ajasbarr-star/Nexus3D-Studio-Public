@@ -266,3 +266,28 @@ test('empty per-tool interaction reports explicitly state NO DATA CAPTURED', () 
   assert.match(files['Full_Report.txt'], /NO DATA CAPTURED/);
   assert.match(files['Full_Report.txt'], /no user interaction events were recorded/i);
 });
+
+test('RIT Full_Report includes measured camera movement and frame performance metrics', () => {
+  const interactionId = 'camera-frame-report';
+  const entries = [
+    { interactionId, level: 'INFO', message: 'CAMERA_UPDATE', details: JSON.stringify({
+      gesture: 'ORBIT', viewport: 'MainViewport', cameraPositionDeltaUnits: 2.5,
+      cameraRotationDeltaDegrees: 18, cameraTargetDeltaUnits: 0.5,
+      movementAccuracy: 'NOT_MEASURED — no expected camera path or target was supplied'
+    }) },
+    { interactionId, level: 'INFO', message: 'CAMERA_GESTURE_COMPLETE', details: JSON.stringify({
+      gesture: 'ORBIT', viewport: 'MainViewport', status: 'CAMERA_UPDATED',
+      frameMetricStatus: 'MEASURED', frameTimeSamples: 4,
+      frameTimeAverageMs: 16.7, frameTimeMaxMs: 20.1,
+      frameTimeJitterStdDevMs: 1.2, droppedFrameEstimate60Hz: 1,
+      droppedFrameEstimateBasis: '60Hz target interval 16.67ms; estimate only'
+    }) }
+  ];
+  const report = buildRdsExportFiles({ tool: 'RIT Trace', fullReport: 'Camera metrics', entries })['Full_Report.txt'];
+  assert.match(report, /Actual camera movement: position delta 2.5 units/);
+  assert.match(report, /rotation delta 18 degrees/);
+  assert.match(report, /Movement accuracy: NOT_MEASURED/);
+  assert.match(report, /Frame performance: samples 4/);
+  assert.match(report, /jitter std-dev 1.2 ms/);
+  assert.match(report, /Dropped-frame estimate: 1 estimated frame/);
+});
