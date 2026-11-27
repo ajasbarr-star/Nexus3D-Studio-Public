@@ -60,6 +60,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
     private static final String SECRET_CIPHER = "credential_cipher";
     private static final String OUTBOX = "rds_ipc_outbox_v1";
     private static final String CLOUD_OUTBOX = "rds_cloud_outbox_v1";
+    private static final String CLOUD_OVERFLOW_OUTBOX = "rds_cloud_overflow_outbox_v1";
     private static final String NEXT_SEQUENCE = "rds_ipc_next_sequence_v1";
     private static final int MAX_QUEUE = 2000;
     private static final int MAX_OUTBOX_BYTES = 10 * 1024 * 1024;
@@ -411,8 +412,10 @@ public class NexusDeviceIdentityPlugin extends Plugin {
 
             boolean cloudConsent = hasCurrentConsent(prefs);
             JSONArray cloudQueue = new JSONArray(prefs.getString(CLOUD_OUTBOX, "[]"));
+            JSONArray cloudOverflow = new JSONArray(prefs.getString(CLOUD_OVERFLOW_OUTBOX, "[]"));
             Set<String> knownCloud = new HashSet<>();
             for (int i = 0; i < cloudQueue.length(); i++) knownCloud.add(cloudQueue.getJSONObject(i).optString("eventId"));
+            for (int i = 0; i < cloudOverflow.length(); i++) knownCloud.add(cloudOverflow.getJSONObject(i).optString("eventId"));
             boolean cloudQueueFull = false;
 
             for (int i = 0; i < incoming.length(); i++) {
@@ -429,23 +432,27 @@ public class NexusDeviceIdentityPlugin extends Plugin {
                     queue.put(event);
                 }
                 if (cloudConsent && knownCloud.add(eventId)) {
-                    if (cloudQueue.length() >= MAX_QUEUE) {
-                        cloudQueueFull = true;
+                    JSONObject cloudCopy = new JSONObject(event.toString());
+                    if (canAppendCloudEvent(cloudQueue, cloudCopy)) {
+                        cloudQueue.put(cloudCopy);
+                    } else if (canAppendCloudEvent(cloudOverflow, cloudCopy)) {
+                        // Keep cloud overflow durable instead of dropping consented events
+                        // merely because the active upload queue reached its first limit.
+                        cloudOverflow.put(cloudCopy);
                     } else {
-                        JSONArray trialCloudQueue = new JSONArray(cloudQueue.toString());
-                        trialCloudQueue.put(new JSONObject(event.toString()));
-                        if (trialCloudQueue.toString().getBytes(StandardCharsets.UTF_8).length > MAX_CLOUD_OUTBOX_BYTES) {
-                            cloudQueueFull = true;
-                        } else {
-                            cloudQueue.put(new JSONObject(event.toString()));
-                        }
+                        cloudQueueFull = true;
                     }
                 }
             }
-            if (!prefs.edit().putString(OUTBOX, queue.toString()).commit()) {
-                throw new IllegalStateException("Unable to persist Diagnostics IPC outbox.");
+            SharedPreferences.Editor outboxUpdate = prefs.edit().putString(OUTBOX, queue.toString());
+            if (cloudConsent) {
+                outboxUpdate.putString(CLOUD_OUTBOX, cloudQueue.toString())
+                        .putString(CLOUD_OVERFLOW_OUTBOX, cloudOverflow.toString());
             }
-            boolean cloudQueuePersisted = !cloudConsent || prefs.edit().putString(CLOUD_OUTBOX, cloudQueue.toString()).commit();
+            if (!outboxUpdate.commit()) {
+                throw new IllegalStateException("Unable to persist local diagnostics outboxes.");
+            }
+            boolean cloudQueuePersisted = true;
             if (!cloudQueuePersisted) {
                 android.util.Log.w("NexusDeviceIdentity", "Cloud outbox persistence deferred; local Diagnostics IPC queue remains saved.");
             }
@@ -456,7 +463,8 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             int acknowledged = flushOutbox();
             int pending = new JSONArray(prefs.getString(OUTBOX, "[]")).length();
             if (cloudConsent) scheduleCloudOutboxFlush();
-            int cloudPending = new JSONArray(prefs.getString(CLOUD_OUTBOX, "[]")).length();
+            int cloudPending = new JSONArray(prefs.getString(CLOUD_OUTBOX, "[]")).length()
+                    + new JSONArray(prefs.getString(CLOUD_OVERFLOW_OUTBOX, "[]")).length();
             JSObject result = new JSObject();
             result.put("accepted", incoming.length());
             result.put("acknowledged", acknowledged);
@@ -480,7 +488,8 @@ public class NexusDeviceIdentityPlugin extends Plugin {
             JSObject result = new JSObject();
             result.put("acknowledged", acknowledged);
             result.put("pending", new JSONArray(preferences().getString(OUTBOX, "[]")).length());
-            result.put("cloudPending", new JSONArray(preferences().getString(CLOUD_OUTBOX, "[]")).length());
+            result.put("cloudPending", new JSONArray(preferences().getString(CLOUD_OUTBOX, "[]")).length()
+                    + new JSONArray(preferences().getString(CLOUD_OVERFLOW_OUTBOX, "[]")).length());
             result.put("cloudConsent", cloudConsent);
             call.resolve(result);
         } catch (Exception error) {
@@ -646,6 +655,30 @@ public class NexusDeviceIdentityPlugin extends Plugin {
         });
     }
 
+    private static boolean canAppendCloudEvent(JSONArray queue, JSONObject event) throws Exception {
+        if (queue.length() >= MAX_QUEUE) return false;
+        JSONArray trial = new JSONArray(queue.toString());
+        trial.put(event);
+        return trial.toString().getBytes(StandardCharsets.UTF_8).length <= MAX_CLOUD_OUTBOX_BYTES;
+    }
+
+    /** Move durable overflow events into the active cloud queue whenever upload ACKs free space. */
+    private static void promoteCloudOverflow(SharedPreferences prefs) throws Exception {
+        JSONArray active = new JSONArray(prefs.getString(CLOUD_OUTBOX, "[]"));
+        JSONArray overflow = new JSONArray(prefs.getString(CLOUD_OVERFLOW_OUTBOX, "[]"));
+        if (overflow.length() == 0) return;
+        JSONArray remaining = new JSONArray();
+        for (int i = 0; i < overflow.length(); i++) {
+            JSONObject event = overflow.getJSONObject(i);
+            if (canAppendCloudEvent(active, event)) active.put(event);
+            else remaining.put(event);
+        }
+        if (!prefs.edit().putString(CLOUD_OUTBOX, active.toString())
+                .putString(CLOUD_OVERFLOW_OUTBOX, remaining.toString()).commit()) {
+            throw new IllegalStateException("Unable to promote durable cloud overflow events.");
+        }
+    }
+
     /** Cloud delivery has its own durable queue and ACK lifecycle, separate from local IPC ACKs. */
     private static void flushCloudOutbox(Context context, String credential) {
         synchronized (CLOUD_FLUSH_LOCK) {
@@ -655,6 +688,7 @@ public class NexusDeviceIdentityPlugin extends Plugin {
                 if (!hasCurrentConsent(prefs) || !prefs.getBoolean(REGISTERED, false)) return;
                 if (credential == null || credential.length() != 64) return;
 
+                promoteCloudOverflow(prefs);
                 JSONArray queue = new JSONArray(prefs.getString(CLOUD_OUTBOX, "[]"));
                 while (queue.length() > 0) {
                     JSONArray batch = new JSONArray();
@@ -719,7 +753,8 @@ public class NexusDeviceIdentityPlugin extends Plugin {
                         connection.disconnect();
                         connection = null;
                     }
-                    queue = remaining;
+                    promoteCloudOverflow(prefs);
+                    queue = new JSONArray(prefs.getString(CLOUD_OUTBOX, "[]"));
                 }
             } catch (Exception error) {
                 android.util.Log.w("NexusDeviceIdentity", "Cloud diagnostics sync failed; unacknowledged events remain queued.", error);
