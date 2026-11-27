@@ -33,6 +33,7 @@ import { scanMeshCore, formatMeshForensicReport } from './dfi/mesh-forensics';
 import { CLEAN_FLAT_SURFACE_EDGE_ANGLE_DEGREES } from './geometry/clean-flat-surface-contract';
 import { scanGeometryRit, formatGeometryRitReport } from './geometry/geometry-rit';
 import { RUNTIME_SESSION_ID, RUNTIME_SESSION_STARTED_AT, createRuntimeEventMetadata, formatRuntimeTraceReport } from './diagnostics/runtime-session.mjs';
+import { getOrCreateDeviceId } from './diagnostics/device-identity.mjs';
 import { inferTracePoint, filterDiagnosticEntries, formatDiagnosticReport, summarizeFrameTimes } from './diagnostics/logcat-diagnostics.mjs';
 import { buildRdsExportFiles } from './diagnostics/rds-export.mjs';
 import { buildRdsZipFilename, createRdsZipArchive, getRequiredRdsZipFiles } from './diagnostics/rds-zip.mjs';
@@ -279,6 +280,8 @@ function smoothQuadGridGeometry(geometry: THREE.BufferGeometry): boolean {
 
 export default function App() {
   const interactionTrackerRef = useRef<any>(null);
+  const runtimeDeviceIdRef = useRef<string>(getOrCreateDeviceId(localStorage));
+  const runtimeBuildNumber = String(import.meta.env.VITE_BUILD_NUMBER || 'UNKNOWN_BUILD');
   useEffect(() => {
     const tracker = createInteractionTracker({
       now: () => performance.now(),
@@ -480,6 +483,8 @@ export default function App() {
       objectId,
       interactionId,
       timestampISO: timestamp.toISOString(),
+      deviceId: runtimeDeviceIdRef.current,
+      buildNumber: runtimeBuildNumber,
       ...metadata
     };
     if (source === 'Interaction Trace' && !ritCaptureEnabledRef.current) return;
@@ -508,7 +513,7 @@ export default function App() {
   diagnosticSinkRef.current = pushDiagnostic;
   useEffect(() => {
     const elapsedMs = Number(Math.max(0, performance.now() - startupClockRef.current.startedAt).toFixed(2));
-    diagnosticSinkRef.current('INFO', 'Startup Performance', 'WEBVIEW_APP_MOUNTED', JSON.stringify({ elapsedSinceAppMountMs: elapsedMs, measurement: 'WEBVIEW_APP', status: 'MEASURED', nativeProcessStart: 'NOT_MEASURED', buildNumber: 'NOT_INJECTED', deviceId: 'NOT_AVAILABLE' }));
+    diagnosticSinkRef.current('INFO', 'Startup Performance', 'WEBVIEW_APP_MOUNTED', JSON.stringify({ elapsedSinceAppMountMs: elapsedMs, measurement: 'WEBVIEW_APP', status: 'MEASURED', nativeProcessStart: 'NOT_MEASURED', buildNumber: runtimeBuildNumber, deviceId: runtimeDeviceIdRef.current }));
     diagnosticSinkRef.current('WARN', 'Startup Performance', 'NATIVE_PROCESS_START', JSON.stringify({ status: 'NOT_MEASURED', reason: 'Native process launch timestamp is not yet exposed to the WebView bridge.' }));
   }, []);
   const recordInteractionTrace = (action: string, details: Record<string, unknown> = {}) => {
@@ -672,6 +677,7 @@ export default function App() {
         tool, fullReport, entries,
         metadata: {
           generatedAt, app: 'Nexus3D', sessionId: RUNTIME_SESSION_ID,
+          buildNumber: runtimeBuildNumber, deviceId: runtimeDeviceIdRef.current,
           sessionStartedAt: RUNTIME_SESSION_STARTED_AT, platform: Capacitor.getPlatform(),
           nativeApp: Capacitor.isNativePlatform(), online: navigator.onLine,
           userAgent: navigator.userAgent, eventCount: entries.length,
