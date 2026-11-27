@@ -60,3 +60,17 @@ test('endSession clears active records and blocks new records without affecting 
   assert.equal(controller.record('RIT Trace', 'AFTER_EXIT'), null);
   assert.equal(controller.startAnalysis('RIT Trace'), false);
 });
+
+test('a restarted analysis run begins with empty records and scene captures', () => {
+  const controller = createRdsRecordingController({ tools: ['Runtime'] });
+  controller.startAnalysis('Runtime');
+  controller.record('Runtime', 'FIRST_RUN_EVENT');
+  controller.setSceneCapture('Runtime', true);
+  controller.captureScene('Runtime', { objects: 1 });
+  controller.stopAnalysis('Runtime');
+  controller.startAnalysis('Runtime');
+  const state = controller.getToolRecords('Runtime');
+  assert.equal(state.records.length, 0);
+  assert.equal(state.sceneSnapshots.length, 0);
+  assert.equal(state.sceneCaptureEnabled, false);
+});
