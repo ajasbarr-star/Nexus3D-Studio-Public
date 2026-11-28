@@ -12,7 +12,7 @@ test('RDS export preserves complete reports containing more than the former 400-
     message: 'EVENT_' + index,
     timestampISO: new Date(1700000000000 + index).toISOString()
   }));
-  const fullReport = entries.map(entry => '[' + entry.timestampISO + '] ' + entry.message).join('\\n');
+  const fullReport = entries.map(entry => '[' + entry.timestampISO + '] ' + entry.message).join('\n');
   const files = buildRdsExportFiles({ tool: 'Runtime', fullReport, entries });
   assert.match(files['Full_Report.txt'], /EVENT_0/);
   assert.match(files['Full_Report.txt'], /EVENT_4999/);
