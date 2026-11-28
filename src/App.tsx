@@ -834,8 +834,6 @@ export default function App() {
         details: record.details?.details == null ? undefined : String(record.details.details),
         sessionId: record.sessionId,
         timestampISO: record.timestampISO,
-        deviceId: record.deviceId,
-        buildNumber: record.buildNumber,
         tracePoint: inferTracePoint(String(record.details?.source || 'RDS Tool Capture'), String(record.event || 'RDS_EVENT'), tool)
       }));
       if (consolidatedTool && toolCaptureEntries.length) {
