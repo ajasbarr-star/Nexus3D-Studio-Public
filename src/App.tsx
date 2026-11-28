@@ -872,6 +872,8 @@ export default function App() {
         'Capture Scene: ' + (toolCapture?.sceneCaptureEnabled ? 'ON' : 'OFF'),
         'Captured interaction/runtime events: ' + allToolCaptureRecords.length,
         'Captured scene snapshots: ' + toolSceneSnapshots.length,
+        'Records omitted by retention limit: ' + Number(toolCapture?.droppedRecords || 0),
+        'Scene snapshots omitted by retention limit: ' + Number(toolCapture?.droppedSceneSnapshots || 0),
         ...(allToolCaptureRecords.length
           ? consolidatedTool
             ? ['Captured event details are included in the main tool report above; duplicate event lines are intentionally omitted.']
@@ -908,6 +910,8 @@ export default function App() {
           sessionStartedAt: RUNTIME_SESSION_STARTED_AT, platform: Capacitor.getPlatform(),
           nativeApp: Capacitor.isNativePlatform(), online: navigator.onLine,
           userAgent: navigator.userAgent, eventCount: entries.length,
+          rdsRecordsOmittedByRetentionLimit: Number(toolCapture?.droppedRecords || 0),
+          rdsSceneSnapshotsOmittedByRetentionLimit: Number(toolCapture?.droppedSceneSnapshots || 0),
           ...buildSceneVerificationMetadata(sceneVerification),
           historicalLogcatEntriesExcluded, historicalRitEntriesExcluded
         }
