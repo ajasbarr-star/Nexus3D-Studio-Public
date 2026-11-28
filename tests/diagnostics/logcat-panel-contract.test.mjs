@@ -19,6 +19,12 @@ test('consolidated RDS exports use the complete per-tool recording history', () 
   assert.match(app, /formatRuntimeTraceReport\(completeEntries/);
 });
 
+test('pending Diagnostics IPC retry queue remains bounded after identity is ready', () => {
+  assert.match(app, /pendingRdsIpcEventsRef\.current\.length < 2000/);
+  assert.match(app, /if \(nativeIdentityReadyRef\.current\) void flushPendingRdsIpcEvents\(\)/);
+  assert.match(app, /Local RDS recording continues; Diagnostics delivery buffer is full/);
+});
+
 test('LogCat and RIT Trace use separate in-memory queues and persistence APIs', () => {
   assert.match(app, /const diagnosticQueueRef = useRef<DiagnosticEntry\[]>\(\[\]\)/);
   assert.match(app, /const interactionTraceQueueRef = useRef<DiagnosticEntry\[]>\(\[\]\)/);
