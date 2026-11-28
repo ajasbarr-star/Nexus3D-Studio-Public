@@ -55,8 +55,8 @@ export function createRdsRecordingController({
   function startAnalysis(tool) {
     if (ended) return false;
     const state = ensure(tool);
-    state.records.length = 0;
-    state.sceneSnapshots.length = 0;
+    // Preserve earlier runs in this runtime session so a later export remains complete.
+    // The controller still applies maxRecords to bound memory use.
     state.sceneCaptureEnabled = false;
     state.captureStartedAt = null;
     state.analysisEnabled = true;
