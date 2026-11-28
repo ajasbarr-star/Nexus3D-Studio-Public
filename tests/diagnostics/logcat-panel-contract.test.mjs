@@ -17,6 +17,8 @@ test('consolidated RDS exports use the complete per-tool recording history', () 
   assert.match(app, /const completeEntries = tool === 'RIT Trace'/);
   assert.match(app, /formatDiagnosticReport\(completeEntries/);
   assert.match(app, /formatRuntimeTraceReport\(completeEntries/);
+  assert.match(app, /Records omitted by retention limit/);
+  assert.match(app, /rdsRecordsOmittedByRetentionLimit/);
 });
 
 test('pending Diagnostics IPC retry queue remains bounded after identity is ready', () => {
