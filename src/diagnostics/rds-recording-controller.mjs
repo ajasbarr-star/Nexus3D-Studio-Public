@@ -163,6 +163,13 @@ export function createRdsRecordingController({
       const next = String(value || '').trim();
       if (!next) return false;
       canonicalDeviceId = next;
+      // Events captured before Android Keystore initialization inherit the same
+      // installation identity once it becomes available; no record is discarded.
+      for (const state of states.values()) {
+        state.records.forEach(entry => { entry.deviceId = next; });
+        state.sceneSnapshots.forEach(entry => { entry.deviceId = next; });
+      }
+      startupRecords.forEach(entry => { entry.deviceId = next; });
       return true;
     },
     startAnalysis,

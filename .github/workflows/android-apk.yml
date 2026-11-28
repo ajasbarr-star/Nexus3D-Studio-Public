@@ -17,6 +17,7 @@ on:
       - feature/rds-light-shadow-capacity-build878
       - feature/rds-fresh-session-startup-camera
       - nexus3d/editor-ipc-outbox
+      - repair/rds-offline-capture-ipc
   workflow_dispatch:
 
 concurrency:
@@ -170,10 +171,28 @@ jobs:
           echo "NEXUS3D_APK_NAME=$APK_NAME" >> "$GITHUB_ENV"
           echo "Created $APK_NAME"
 
-      - name: Upload signed Nexus3D Test APK
+      - name: Create APK build information file
+        run: |
+          mkdir -p dist/nexus3d-test
+          cp "android/app/build/outputs/apk/release/${NEXUS3D_APK_NAME}" dist/nexus3d-test/
+          APK_SIZE_BYTES="$(stat -c '%s' "dist/nexus3d-test/${NEXUS3D_APK_NAME}")"
+          INFO_FILE="Nexus3D_v1.0.${NEXUS3D_VERSION_PATCH}.txt"
+          cat > "dist/nexus3d-test/${INFO_FILE}" <<EOF
+          Name: Nexus3D_Test_build${NEXUS3D_BUILD_NUMBER}_v1.0.${NEXUS3D_VERSION_PATCH}.zip
+          Repository: ${GITHUB_REPOSITORY}
+          Run: ${GITHUB_RUN_NUMBER}
+          Run ID: ${GITHUB_RUN_ID}
+          Commit: ${GITHUB_SHA}
+          Status: ${{ job.status }}
+          Artifact size: ${APK_SIZE_BYTES} bytes (APK payload; GitHub ZIP container size is shown in Actions artifact details)
+          EOF
+          echo "Created dist/nexus3d-test/${INFO_FILE}"
+          cat "dist/nexus3d-test/${INFO_FILE}"
+
+      - name: Upload signed Nexus3D Test APK and build information
         uses: actions/upload-artifact@v4
         with:
           name: Nexus3D_Test_build${{ env.NEXUS3D_BUILD_NUMBER }}_v1.0.${{ env.NEXUS3D_VERSION_PATCH }}
-          path: android/app/build/outputs/apk/release/${{ env.NEXUS3D_APK_NAME }}
+          path: dist/nexus3d-test/
           if-no-files-found: error
           retention-days: 14

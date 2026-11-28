@@ -176,8 +176,8 @@ function BufferedNumberInput({ value, step = 0.1, disabled = false, ariaLabel, o
 
 const NexusDeviceIdentity = registerPlugin<{
   getOrCreateIdentity(options: { legacyDeviceId: string }): Promise<{ deviceId: string; registered: boolean; cloudConsent: boolean }>;
-  enqueueRdsEvents(options: { deviceId: string; eventsJson: string }): Promise<{ accepted: number; acknowledged: number; pending: number }>;
-  flushRdsOutbox(): Promise<{ acknowledged: number; pending: number }>;
+  enqueueRdsEvents(options: { deviceId: string; eventsJson: string }): Promise<{ accepted: number; acknowledged: number; pending: number; cloudPending?: number; cloudConsent?: boolean; cloudQueueFull?: boolean; cloudQueuePersisted?: boolean }>;
+  flushRdsOutbox(): Promise<{ acknowledged: number; pending: number; cloudPending?: number; cloudConsent?: boolean }>;
   requestCloudConsent(): Promise<{ enabled: boolean; alreadyDecided: boolean }>;
 }>('NexusDeviceIdentity');
 
@@ -413,6 +413,39 @@ export default function App() {
   const rdsActiveToolRef = useRef(rdsActiveTool);
   rdsActiveToolRef.current = rdsActiveTool;
   const rdsRecordingControllerRef = useRef<any>(null);
+  const pendingRdsIpcEventsRef = useRef<any[]>([]);
+  const pendingRdsIpcFlushRef = useRef(false);
+  const flushPendingRdsIpcEvents = async () => {
+    if (!Capacitor.isNativePlatform() || !nativeIdentityReadyRef.current || pendingRdsIpcFlushRef.current) return;
+    const deviceId = String(runtimeDeviceIdRef.current || '');
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(deviceId)) return;
+    pendingRdsIpcFlushRef.current = true;
+    try {
+      while (pendingRdsIpcEventsRef.current.length) {
+        const batch = pendingRdsIpcEventsRef.current.slice(0, 20);
+        const result = await NexusDeviceIdentity.enqueueRdsEvents({
+          deviceId,
+          eventsJson: JSON.stringify(batch.map(event => ({
+            ...event,
+            timestampEpochMs: Date.parse(event.timestampISO),
+          }))),
+        });
+        const accepted = Number(result?.accepted || 0);
+        if (accepted < batch.length) break;
+        pendingRdsIpcEventsRef.current.splice(0, batch.length);
+        if (result?.cloudQueueFull || result?.cloudQueuePersisted === false) {
+          setStatus(result.cloudQueueFull
+            ? 'RDS delivered locally; cloud queue is full and needs retry'
+            : 'RDS delivered locally; cloud queue persistence needs retry');
+        }
+      }
+    } catch (error) {
+      setStatus('Local RDS recording continues; Diagnostics delivery is pending retry');
+      console.warn('[Nexus3D IPC] Pending local RDS events remain queued for retry:', error);
+    } finally {
+      pendingRdsIpcFlushRef.current = false;
+    }
+  };
   if (!rdsRecordingControllerRef.current) rdsRecordingControllerRef.current = createRdsRecordingController({
     tools: ['Overview', 'Runtime', 'LogCat', 'RIT Trace', 'WebGL / Shader', 'Shadow Maps', 'Materials & Textures', 'DFI Core', 'Mesh DFI', 'Root Cause', 'Source Audit', 'Reports'],
     sessionId: RUNTIME_SESSION_ID,
@@ -433,6 +466,7 @@ export default function App() {
         nativeIdentityReadyRef.current = true;
         try { localStorage.setItem('nexus3d_installation_device_id_v1', 'N3D-' + canonical); } catch { /* native identity remains authoritative */ }
         rdsRecordingControllerRef.current?.setDeviceId?.(canonical);
+        void flushPendingRdsIpcEvents();
         diagnosticSinkRef.current('INFO', 'Device Identity', 'NATIVE_INSTALLATION_ID_READY', JSON.stringify({
           deviceId: canonical, registered: Boolean(identity.registered), cloudConsent: Boolean(identity.cloudConsent),
           source: 'ANDROID_NATIVE_KEYSTORE'
@@ -458,7 +492,12 @@ export default function App() {
     if (!Capacitor.isNativePlatform()) return;
     const flushPending = () => {
       if (document.visibilityState === 'visible' && nativeIdentityReadyRef.current) {
-        void NexusDeviceIdentity.flushRdsOutbox().catch(() => { /* retain pending IPC events for the next retry */ });
+        void flushPendingRdsIpcEvents();
+        void NexusDeviceIdentity.flushRdsOutbox().then(result => {
+          if (result?.cloudConsent && Number(result.cloudPending || 0) > 0) {
+            setStatus('Cloud diagnostics sync pending: ' + Number(result.cloudPending) + ' event(s)');
+          }
+        }).catch(() => { /* retain pending IPC events for the next retry */ });
       }
     };
     document.addEventListener('visibilitychange', flushPending);
@@ -559,22 +598,17 @@ export default function App() {
     };
     const activeRdsTool = rdsActiveToolRef.current;
     const recordingController = rdsRecordingControllerRef.current;
-    const capturedRdsEvent = nativeIdentityReadyRef.current
-      ? recordingController?.record(activeRdsTool, message, { source, details: details || null, level })
-      : null;
+    // Local RDS capture must never depend on native identity, IPC availability, or cloud consent.
+    // The canonical Device ID is attached later when the Android identity provider is ready.
+    const capturedRdsEvent = recordingController?.record(activeRdsTool, message, { source, details: details || null, level }) || null;
     if (capturedRdsEvent && Capacitor.isNativePlatform()) {
-      const canonicalId = String(runtimeDeviceIdRef.current || '');
-      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(canonicalId)) {
-        void NexusDeviceIdentity.enqueueRdsEvents({
-          deviceId: canonicalId,
-          eventsJson: JSON.stringify([{
-            ...capturedRdsEvent,
-            timestampEpochMs: Date.parse(capturedRdsEvent.timestampISO),
-          }]),
-        }).catch(error => {
-          // Native outbox failures are retained/reported by the bridge; never alter RDS ZIP stores.
-          console.warn('[Nexus3D IPC] RDS event enqueue deferred:', error);
-        });
+      if (nativeIdentityReadyRef.current) {
+        pendingRdsIpcEventsRef.current.push(capturedRdsEvent);
+        void flushPendingRdsIpcEvents();
+      } else {
+        // Keep pre-identity events in a bounded in-memory retry queue; local report data remains intact.
+        if (pendingRdsIpcEventsRef.current.length < 2000) pendingRdsIpcEventsRef.current.push(capturedRdsEvent);
+        else setStatus('Local RDS recording continues; Diagnostics delivery buffer is full');
       }
     }
     const sceneRelevantEvent = source === 'Interaction Trace' ||
@@ -8462,7 +8496,8 @@ export default function App() {
             </button>)}
           </nav>
           <main className="rds-command-content">
-            <div className="rds-content-heading"><div><span className="rds-eyebrow">DIAGNOSTIC WORKSPACE</span><h2>{rdsActiveTool === 'Overview' ? 'System Overview' : rdsActiveTool}</h2></div><div className="rds-content-heading-actions"><span className="rds-session-chip">SESSION ACTIVE</span><button type="button" className={"rds-tool-button " + (rdsRecordingControllerRef.current.isAnalysisEnabled(rdsActiveTool) ? "active" : "")} onClick={() => { const controller = rdsRecordingControllerRef.current; if (controller.isAnalysisEnabled(rdsActiveTool)) { interactionTrackerRef.current?.reset?.(); cameraInteractionTrackerRef.current?.reset?.(); controller.stopAnalysis(rdsActiveTool); setRdsSceneCaptureByTool(current => ({ ...current, [rdsActiveTool]: false })); if (rdsActiveTool === 'RIT Trace') { ritCaptureEnabledRef.current = false; setRitCaptureEnabled(false); } setStatus(rdsActiveTool + ' analysis recording stopped'); } else { if (rdsActiveTool === 'RIT Trace') clearInteractionTraceLogs(); interactionTrackerRef.current?.reset?.(); cameraInteractionTrackerRef.current?.reset?.(); if (!nativeIdentityReadyRef.current && Capacitor.isNativePlatform()) { setStatus('Waiting for secure installation identity'); return; } controller.startAnalysis(rdsActiveTool); setRdsSceneCaptureByTool(current => ({ ...current, [rdsActiveTool]: false })); if (rdsActiveTool === 'RIT Trace') { ritCaptureEnabledRef.current = true; setRitCaptureEnabled(true); } setStatus(rdsActiveTool + ' analysis recording started'); } }} title="Start or stop recording for this RDS tool" aria-label="Run Analysis">{rdsRecordingControllerRef.current.isAnalysisEnabled(rdsActiveTool) ? <Pause size={15}/> : <Activity size={15}/>}</button><button type="button" className={"rds-tool-button " + (rdsSceneCaptureByTool[rdsActiveTool] ? "active" : "")} disabled={!rdsRecordingControllerRef.current.isAnalysisEnabled(rdsActiveTool)} onClick={() => { const controller = rdsRecordingControllerRef.current; const next = !controller.isSceneCaptureEnabled(rdsActiveTool); controller.setSceneCapture(rdsActiveTool, next); setRdsSceneCaptureByTool(current => ({ ...current, [rdsActiveTool]: next })); if (next) { const snapshot = getSceneVerificationSnapshot(); controller.captureScene(rdsActiveTool, snapshot); setStatus(rdsActiveTool + ' scene snapshot captured'); } else setStatus(rdsActiveTool + ' scene capture stopped'); }} title="Capture the current editor scene while this tool is recording" aria-label="Capture Scene"><ScanEye size={15}/></button><button type="button" className="rds-tool-button rds-export-zip-button" onClick={() => void exportRdsToolZip(rdsActiveTool)} disabled={rdsExportBusy} title={'Download ' + rdsActiveTool + ' report ZIP'} aria-label={'Download ' + rdsActiveTool + ' report ZIP'}><Download size={15}/></button></div></div>
+            <div className="rds-content-heading"><div><span className="rds-eyebrow">DIAGNOSTIC WORKSPACE</span><h2>{rdsActiveTool === 'Overview' ? 'System Overview' : rdsActiveTool}</h2></div><div className="rds-content-heading-actions"><span className="rds-session-chip">SESSION ACTIVE</span><button type="button" className={"rds-tool-button " + (rdsRecordingControllerRef.current.isAnalysisEnabled(rdsActiveTool) ? "active" : "")} onClick={() => { const controller = rdsRecordingControllerRef.current; if (controller.isAnalysisEnabled(rdsActiveTool)) { interactionTrackerRef.current?.reset?.(); cameraInteractionTrackerRef.current?.reset?.(); controller.stopAnalysis(rdsActiveTool); setRdsSceneCaptureByTool(current => ({ ...current, [rdsActiveTool]: false })); if (rdsActiveTool === 'RIT Trace') { ritCaptureEnabledRef.current = false; setRitCaptureEnabled(false); } setStatus(rdsActiveTool + ' analysis recording stopped'); } else { if (rdsActiveTool === 'RIT Trace') clearInteractionTraceLogs(); interactionTrackerRef.current?.reset?.(); cameraInteractionTrackerRef.current?.reset?.(); // Analysis is local-first: allow recording while native identity / Diagnostics APK is unavailable.
+                controller.startAnalysis(rdsActiveTool); setRdsSceneCaptureByTool(current => ({ ...current, [rdsActiveTool]: false })); if (rdsActiveTool === 'RIT Trace') { ritCaptureEnabledRef.current = true; setRitCaptureEnabled(true); } setStatus(rdsActiveTool + ' analysis recording started'); } }} title="Start or stop recording for this RDS tool" aria-label="Run Analysis">{rdsRecordingControllerRef.current.isAnalysisEnabled(rdsActiveTool) ? <Pause size={15}/> : <Activity size={15}/>}</button><button type="button" className={"rds-tool-button " + (rdsSceneCaptureByTool[rdsActiveTool] ? "active" : "")} disabled={!rdsRecordingControllerRef.current.isAnalysisEnabled(rdsActiveTool)} onClick={() => { const controller = rdsRecordingControllerRef.current; const next = !controller.isSceneCaptureEnabled(rdsActiveTool); controller.setSceneCapture(rdsActiveTool, next); setRdsSceneCaptureByTool(current => ({ ...current, [rdsActiveTool]: next })); if (next) { const snapshot = getSceneVerificationSnapshot(); controller.captureScene(rdsActiveTool, snapshot); setStatus(rdsActiveTool + ' scene snapshot captured'); } else setStatus(rdsActiveTool + ' scene capture stopped'); }} title="Capture the current editor scene while this tool is recording" aria-label="Capture Scene"><ScanEye size={15}/></button><button type="button" className="rds-tool-button rds-export-zip-button" onClick={() => void exportRdsToolZip(rdsActiveTool)} disabled={rdsExportBusy} title={'Download ' + rdsActiveTool + ' report ZIP'} aria-label={'Download ' + rdsActiveTool + ' report ZIP'}><Download size={15}/></button></div></div>
             <section className="rds-verification-panel" aria-label={rdsActiveTool + ' ZIP verification'} aria-live="polite">
               <div className="rds-verification-heading"><strong>ZIP VERIFICATION · {rdsActiveTool.toUpperCase()}</strong><span className={'rds-verification-phase phase-' + String(rdsVerificationByTool[rdsActiveTool]?.phase || 'NOT RUN').toLowerCase().replace(/[^a-z]+/g, '-')}>{rdsExportBusy && rdsExportTool === rdsActiveTool ? rdsExportPhase.toUpperCase() + ' ' + rdsExportProgress + '%' : rdsVerificationByTool[rdsActiveTool]?.phase || 'NOT RUN'}</span></div>
               <div className="rds-verification-grid">
