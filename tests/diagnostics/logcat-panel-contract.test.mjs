@@ -11,6 +11,14 @@ test('RDS exposes LogCat as its own tool beside Runtime and RIT Trace', () => {
   assert.match(app, /rdsActiveTool === 'RIT Trace'/);
 });
 
+test('consolidated RDS exports use the complete per-tool recording history', () => {
+  assert.match(app, /const allToolCaptureRecords = toolCapture\?\.records \|\| \[\]/);
+  assert.match(app, /const toolCaptureEntries: DiagnosticEntry\[\] = allToolCaptureRecords\.map/);
+  assert.match(app, /const completeEntries = tool === 'RIT Trace'/);
+  assert.match(app, /formatDiagnosticReport\(completeEntries/);
+  assert.match(app, /formatRuntimeTraceReport\(completeEntries/);
+});
+
 test('LogCat and RIT Trace use separate in-memory queues and persistence APIs', () => {
   assert.match(app, /const diagnosticQueueRef = useRef<DiagnosticEntry\[]>\(\[\]\)/);
   assert.match(app, /const interactionTraceQueueRef = useRef<DiagnosticEntry\[]>\(\[\]\)/);
