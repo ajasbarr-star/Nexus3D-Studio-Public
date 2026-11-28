@@ -99,10 +99,10 @@ test('RDS history remains bounded by the configured per-tool retention limit', (
   const controller = createRdsRecordingController({ tools: ['Runtime'], maxRecords: 3 });
   controller.startAnalysis('Runtime');
   for (let index = 1; index <= 5; index += 1) controller.record('Runtime', 'EVENT_' + index);
-  assert.deepEqual(
-    controller.getToolRecords('Runtime').records.map(record => record.event),
-    ['EVENT_3', 'EVENT_4', 'EVENT_5']
-  );
+  const state = controller.getToolRecords('Runtime');
+  assert.deepEqual(state.records.map(record => record.event), ['EVENT_3', 'EVENT_4', 'EVENT_5']);
+  assert.equal(state.droppedRecords, 2);
+  assert.equal(state.droppedSceneSnapshots, 0);
 });
 
 test('RDS records adopt the native canonical device ID after identity becomes ready', () => {
