@@ -4,6 +4,21 @@ import { buildRdsExportFiles } from '../../src/diagnostics/rds-export.mjs';
 import { createRdsZipArchive, buildRdsZipFilename } from '../../src/diagnostics/rds-zip.mjs';
 import JSZip from 'jszip';
 
+test('RDS export preserves complete reports containing more than the former 400-entry UI window', () => {
+  const entries = Array.from({ length: 5000 }, (_, index) => ({
+    id: 'event-' + index,
+    level: 'INFO',
+    source: 'Runtime',
+    message: 'EVENT_' + index,
+    timestampISO: new Date(1700000000000 + index).toISOString()
+  }));
+  const fullReport = entries.map(entry => '[' + entry.timestampISO + '] ' + entry.message).join('\\n');
+  const files = buildRdsExportFiles({ tool: 'Runtime', fullReport, entries });
+  assert.match(files['Full_Report.txt'], /EVENT_0/);
+  assert.match(files['Full_Report.txt'], /EVENT_4999/);
+  assert.match(files['Summary.txt'], /Captured entries: 5000/);
+});
+
 test('each RDS export contains the five requested plain-text files', () => {
   const files = buildRdsExportFiles({ tool: 'RIT Trace', fullReport: 'trace report', entries: [] });
   assert.deepEqual(Object.keys(files).sort(), ['Errors.txt', 'Full_Report.txt', 'Metadata.txt', 'Summary.txt', 'Warnings.txt']);
