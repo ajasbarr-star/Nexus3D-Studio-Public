@@ -825,6 +825,47 @@ export default function App() {
       const toolCapture = rdsRecordingControllerRef.current?.getToolRecords(tool);
       const allToolCaptureRecords = toolCapture?.records || [];
       const consolidatedTool = ['Overview', 'Runtime', 'LogCat', 'RIT Trace', 'Reports'].includes(tool);
+      const toolCaptureEntries: DiagnosticEntry[] = allToolCaptureRecords.map((record: any) => ({
+        id: String(record.id || uid()),
+        time: new Date(record.timestampISO || generatedAt).toLocaleTimeString(),
+        level: record.level,
+        source: String(record.details?.source || 'RDS Tool Capture'),
+        message: String(record.event || 'RDS_EVENT'),
+        details: record.details?.details == null ? undefined : String(record.details.details),
+        sessionId: record.sessionId,
+        timestampISO: record.timestampISO,
+        deviceId: record.deviceId,
+        buildNumber: record.buildNumber,
+        tracePoint: inferTracePoint(String(record.details?.source || 'RDS Tool Capture'), String(record.event || 'RDS_EVENT'), tool)
+      }));
+      if (consolidatedTool && toolCaptureEntries.length) {
+        const completeEntries = tool === 'RIT Trace'
+          ? toolCaptureEntries.filter(entry => entry.source === 'Interaction Trace')
+          : toolCaptureEntries;
+        entries = completeEntries;
+        const completeReport = tool === 'RIT Trace'
+          ? formatRuntimeTraceReport(completeEntries, { sessionId: RUNTIME_SESSION_ID, startedAt: RUNTIME_SESSION_STARTED_AT })
+          : formatDiagnosticReport(completeEntries, { sessionId: RUNTIME_SESSION_ID });
+        if (tool === 'LogCat') {
+          fullReport = [
+            formatSceneVerificationReport(sceneVerification),
+            'Historical LogCat entries excluded from this current-session export: ' + historicalLogcatEntriesExcluded,
+            '',
+            completeReport
+          ].join('\\n');
+        } else if (tool === 'RIT Trace') {
+          fullReport = [
+            formatSceneVerificationReport(sceneVerification),
+            'Historical RIT-Trace entries excluded from this current-session export: ' + historicalRitEntriesExcluded,
+            '',
+            completeReport
+          ].join('\\n');
+        } else if (tool === 'Runtime') {
+          fullReport = completeReport;
+        } else {
+          fullReport = [fullReport, '[COMPLETE RDS SESSION EVENTS]', completeReport].filter(Boolean).join('\\n\\n');
+        }
+      }
       const toolCaptureRecords = consolidatedTool ? [] : allToolCaptureRecords;
       const toolSceneSnapshots = toolCapture?.sceneSnapshots || [];
       const captureReport = [
