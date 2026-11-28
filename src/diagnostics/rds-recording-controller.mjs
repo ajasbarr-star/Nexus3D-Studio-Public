@@ -40,6 +40,8 @@ export function createRdsRecordingController({
       captureStartedAt: null,
       records: [],
       sceneSnapshots: [],
+      droppedRecords: 0,
+      droppedSceneSnapshots: 0,
     });
     return states.get(key);
   };
@@ -94,7 +96,11 @@ export function createRdsRecordingController({
       ...metadata(),
     };
     state.records.push(entry);
-    if (state.records.length > maxRecords) state.records.splice(0, state.records.length - maxRecords);
+    if (state.records.length > maxRecords) {
+      const excess = state.records.length - maxRecords;
+      state.records.splice(0, excess);
+      state.droppedRecords += excess;
+    }
     return entry;
   }
 
@@ -111,7 +117,11 @@ export function createRdsRecordingController({
       ...metadata(),
     };
     state.sceneSnapshots.push(entry);
-    if (state.sceneSnapshots.length > maxRecords) state.sceneSnapshots.splice(0, state.sceneSnapshots.length - maxRecords);
+    if (state.sceneSnapshots.length > maxRecords) {
+      const excess = state.sceneSnapshots.length - maxRecords;
+      state.sceneSnapshots.splice(0, excess);
+      state.droppedSceneSnapshots += excess;
+    }
     return entry;
   }
 
@@ -139,6 +149,8 @@ export function createRdsRecordingController({
       captureStartedAt: state.captureStartedAt,
       records: state.records.slice(),
       sceneSnapshots: state.sceneSnapshots.slice(),
+      droppedRecords: state.droppedRecords,
+      droppedSceneSnapshots: state.droppedSceneSnapshots,
     };
   }
 
