@@ -79,7 +79,7 @@ test('endSession stops recording but preserves captured records for final export
   assert.equal(controller.startAnalysis('RIT Trace'), false);
 });
 
-test('a restarted analysis run begins with empty records and scene captures', () => {
+test('restarting analysis preserves earlier records and scene captures in the runtime session', () => {
   const controller = createRdsRecordingController({ tools: ['Runtime'] });
   controller.startAnalysis('Runtime');
   controller.record('Runtime', 'FIRST_RUN_EVENT');
@@ -87,9 +87,11 @@ test('a restarted analysis run begins with empty records and scene captures', ()
   controller.captureScene('Runtime', { objects: 1 });
   controller.stopAnalysis('Runtime');
   controller.startAnalysis('Runtime');
+  controller.record('Runtime', 'SECOND_RUN_EVENT');
   const state = controller.getToolRecords('Runtime');
-  assert.equal(state.records.length, 0);
-  assert.equal(state.sceneSnapshots.length, 0);
+  assert.equal(state.records.length, 2);
+  assert.deepEqual(state.records.map(record => record.event), ['FIRST_RUN_EVENT', 'SECOND_RUN_EVENT']);
+  assert.equal(state.sceneSnapshots.length, 1);
   assert.equal(state.sceneCaptureEnabled, false);
 });
 
