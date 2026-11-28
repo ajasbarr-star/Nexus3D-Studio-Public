@@ -602,13 +602,13 @@ export default function App() {
     // The canonical Device ID is attached later when the Android identity provider is ready.
     const capturedRdsEvent = recordingController?.record(activeRdsTool, message, { source, details: details || null, level }) || null;
     if (capturedRdsEvent && Capacitor.isNativePlatform()) {
-      if (nativeIdentityReadyRef.current) {
+      // Bound the JavaScript retry queue in both identity-ready and pre-identity states.
+      // The per-tool RDS controller retains the local report independently of IPC delivery.
+      if (pendingRdsIpcEventsRef.current.length < 2000) {
         pendingRdsIpcEventsRef.current.push(capturedRdsEvent);
-        void flushPendingRdsIpcEvents();
+        if (nativeIdentityReadyRef.current) void flushPendingRdsIpcEvents();
       } else {
-        // Keep pre-identity events in a bounded in-memory retry queue; local report data remains intact.
-        if (pendingRdsIpcEventsRef.current.length < 2000) pendingRdsIpcEventsRef.current.push(capturedRdsEvent);
-        else setStatus('Local RDS recording continues; Diagnostics delivery buffer is full');
+        setStatus('Local RDS recording continues; Diagnostics delivery buffer is full');
       }
     }
     const sceneRelevantEvent = source === 'Interaction Trace' ||
